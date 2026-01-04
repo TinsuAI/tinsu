@@ -2,6 +2,9 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { db } from './db'
+import { settings } from './db/schema'
+import { eq } from 'drizzle-orm'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -42,10 +45,48 @@ function createWindow(): void {
   }
 }
 
+// Initialize database and verify connectivity
+function initializeDatabase(): boolean {
+  console.log('[DB] Initializing database...')
+
+  try {
+    // Verify database is accessible with a simple insert/select test
+    const testKey = 'app_initialized'
+    const testId = 'init-test-1'
+
+    // Check if test setting exists
+    const existing = db.select().from(settings).where(eq(settings.key, testKey)).get()
+
+    if (!existing) {
+      // Insert test setting
+      db.insert(settings)
+        .values({ id: testId, key: testKey, value: new Date().toISOString() })
+        .run()
+      console.log('[DB] Initial test setting created')
+    } else {
+      // Update the value to verify write capability
+      db.update(settings)
+        .set({ value: new Date().toISOString() })
+        .where(eq(settings.key, testKey))
+        .run()
+      console.log('[DB] Test setting updated')
+    }
+
+    console.log('[DB] Database initialized successfully')
+    return true
+  } catch (error) {
+    console.error('[DB] Failed to initialize database:', error)
+    return false
+  }
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Initialize database on app ready
+  initializeDatabase()
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 

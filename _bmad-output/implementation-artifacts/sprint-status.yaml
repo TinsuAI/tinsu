@@ -44,7 +44,7 @@ development_status:
   epic-1: in-progress
   1-1-initialize-electron-project-with-electron-vite: done
   1-2-configure-tailwind-css-4-and-shadcn-ui: done
-  1-3-set-up-sqlite-database-with-drizzle-orm: backlog
+  1-3-set-up-sqlite-database-with-drizzle-orm: done
   1-4-create-core-database-schema-for-tasks-and-agent-runs: backlog
   1-5-implement-trpc-ipc-layer: backlog
   1-6-build-app-shell-layout-with-dark-theme: backlog

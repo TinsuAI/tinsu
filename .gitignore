@@ -28,3 +28,9 @@ _bmad/
 .agentvibes/
 .claude/
 .gemini/
+
+# Database
+data/
+*.db
+*.db-wal
+*.db-shm
