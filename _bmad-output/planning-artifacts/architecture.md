@@ -188,7 +188,7 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 | **Server State** | TanStack Query | via tRPC | Automatic caching, refetching, optimistic updates |
 | **Local UI State** | Zustand | latest | Minimal boilerplate, React-friendly |
 | **Components** | shadcn/ui | latest | Tailwind-based, copy-paste ownership, accessible |
-| **Styling** | Tailwind CSS | 3.x | Utility-first, pairs with shadcn/ui |
+| **Styling** | Tailwind CSS | ^4.1.18 | Utility-first, CSS-first config (no tailwind.config.js) |
 | **Drag-and-Drop** | @dnd-kit | latest | Modern, accessible, excellent Kanban support |
 | **Diff Viewer** | Monaco Editor | 4.7.0 | VS Code-quality diffs, syntax highlighting, handles large files |
 | **Terminal** | xterm.js | latest | Industry standard, used by VS Code |
@@ -464,9 +464,7 @@ tinsu/
 ├── tsconfig.node.json
 ├── electron.vite.config.ts
 ├── electron-builder.yml
-├── tailwind.config.js
-├── postcss.config.js
-├── components.json                # shadcn/ui config
+├── components.json                # shadcn/ui config (Tailwind v4 uses CSS-first, no tailwind.config.js)
 ├── drizzle.config.ts              # Drizzle Kit config
 ├── .env.example
 ├── .gitignore
@@ -718,7 +716,7 @@ All technology choices form a cohesive stack:
 - electron-vite 5.0 + React 18 + TypeScript 5.x — proven combination
 - tRPC 11 + Zod — type-safe IPC with runtime validation
 - Drizzle 1.0-beta.2 + better-sqlite3 — synchronous ORM ideal for Electron main process
-- shadcn/ui + Tailwind 3.x — modern, accessible UI foundation
+- shadcn/ui + Tailwind 4.x — modern, accessible UI foundation (CSS-first configuration)
 - @dnd-kit + xterm.js + Monaco — specialized components with no conflicts
 
 **Pattern Consistency:**

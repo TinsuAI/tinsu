@@ -24,7 +24,7 @@ _Critical rules and patterns for implementing TinSu. Focus on unobvious details 
 | Adapter | trpc-electron | latest | Fork for tRPC v11 |
 | Validation | Zod | latest | Runtime validation |
 | Components | shadcn/ui | latest | Copy-paste, Tailwind-based |
-| Styling | Tailwind CSS | 3.x | Utility-first |
+| Styling | Tailwind CSS | ^4.1.18 | Utility-first, CSS-first config |
 | DnD | @dnd-kit | latest | Kanban drag-drop |
 | Terminal | xterm.js | latest | Embedded terminal |
 | PTY | node-pty | latest | Main process only |
