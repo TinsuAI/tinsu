@@ -1,0 +1,143 @@
+# generated: 2026-01-04
+# project: TinSu
+# project_key: tinsu
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-04
+project: TinSu
+project_key: tinsu
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Project Foundation & Development Environment
+  epic-1: in-progress
+  1-1-initialize-electron-project-with-electron-vite: done
+  1-2-configure-tailwind-css-4-and-shadcn-ui: backlog
+  1-3-set-up-sqlite-database-with-drizzle-orm: backlog
+  1-4-create-core-database-schema-for-tasks-and-agent-runs: backlog
+  1-5-implement-trpc-ipc-layer: backlog
+  1-6-build-app-shell-layout-with-dark-theme: backlog
+  1-7-add-project-configuration-system: backlog
+  1-8-initialize-tinsu-in-existing-git-repository: backlog
+  1-9-pty-service-for-process-management: backlog
+  1-10-terminal-dock-component: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Kanban Board & Task Management
+  epic-2: backlog
+  2-1-render-kanban-board-with-4-columns: backlog
+  2-2-display-task-cards-in-columns: backlog
+  2-3-implement-drag-and-drop-between-columns: backlog
+  2-4-create-new-task-dialog: backlog
+  2-5-add-sprint-epic-story-hierarchy: backlog
+  2-6-implement-task-filtering: backlog
+  2-7-add-velocity-metrics-widget: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: BMAD Planning Workflow
+  epic-3: backlog
+  3-1-planning-task-type-and-database-schema: backlog
+  3-2-initialize-planning-tasks-on-new-project: backlog
+  3-3-planning-task-card-ui: backlog
+  3-4-bmad-agent-launcher: backlog
+  3-5-artifact-detection-on-phase-completion: backlog
+  3-6-next-phase-suggestion-with-skip-warning: backlog
+  3-7-story-import-after-epics-phase: backlog
+  3-8-bmad-artifact-scanner-and-parser: backlog
+  3-9-bidirectional-sync-between-kanban-and-epics-md: backlog
+  3-10-link-artifacts-to-tasks: backlog
+  3-11-context-builder-service: backlog
+  3-12-re-run-planning-phase-brownfield-refinement: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: TaskMaster Integration - DEFERRED
+  # epic-4: deferred
+  # epic-4-retrospective: optional
+
+  # Epic 5: Story Implementation Workflow
+  epic-5: backlog
+  5-1-execution-mode-configuration: backlog
+  5-2-sprint-planning-agent-step: backlog
+  5-3-trigger-story-execution-on-drag: backlog
+  5-4-sm-agent-draft-story-file: backlog
+  5-5-dev-agent-implement-story: backlog
+  5-6-dev-agent-automated-code-review: backlog
+  5-7-code-review-retry-loop: backlog
+  5-8-real-time-output-streaming: backlog
+  5-9-multi-agent-progress-indicator: backlog
+  5-10-auto-transition-to-human-review: backlog
+  5-11-context-notes-for-stories: backlog
+  5-12-agent-run-history: backlog
+  5-13-sm-agent-epic-retrospective: backlog
+  5-14-basic-claude-code-mode-fallback: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Agent Monitoring & Control
+  epic-6: backlog
+  6-1-stall-detector-service: backlog
+  6-2-visual-stall-indicator: backlog
+  6-3-pause-running-agent: backlog
+  6-4-resume-paused-agent: backlog
+  6-5-pause-resume-during-multi-agent-workflow: backlog
+  6-6-reasoning-log-capture: backlog
+  6-7-reasoning-log-viewer: backlog
+  6-8-agent-health-dashboard: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Review & Approval Workflow
+  epic-7: backlog
+  7-1-review-panel-slide-over: backlog
+  7-2-monaco-diff-viewer-integration: backlog
+  7-3-approve-changes-action: backlog
+  7-4-reject-changes-with-feedback: backlog
+  7-5-request-changes-with-inline-comments: backlog
+  7-6-agent-re-execution-with-feedback-context: backlog
+  7-7-review-history-and-comparison: backlog
+  7-8-keyboard-first-review-navigation: backlog
+  7-9-review-notifications: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Git Integration & Version Control
+  epic-8: backlog
+  8-1-git-service-foundation: backlog
+  8-2-create-worktree-on-task-start: backlog
+  8-3-branch-naming-convention: backlog
+  8-4-agent-executes-in-worktree: backlog
+  8-5-merge-worktree-on-approval: backlog
+  8-6-delete-worktree-after-merge: backlog
+  8-7-merge-conflict-detection: backlog
+  8-8-conflict-resolution-ui: backlog
+  8-9-branch-status-indicators: backlog
+  8-10-git-operations-error-recovery: backlog
+  epic-8-retrospective: optional

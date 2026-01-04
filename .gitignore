@@ -11,8 +11,10 @@ Thumbs.db
 # Build artifacts and dependencies
 node_modules/
 dist/
+out/
 build/
 target/
+.eslintcache
 bin/
 obj/
 __pycache__/
