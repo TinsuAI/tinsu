@@ -1,0 +1,28 @@
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts and dependencies
+node_modules/
+dist/
+build/
+target/
+bin/
+obj/
+__pycache__/
+*.pyc
+.env
+*.log
+
+_bmad/
+# _bmad-output/
+.agent/
+.agentvibes/
+.claude/
+.gemini/

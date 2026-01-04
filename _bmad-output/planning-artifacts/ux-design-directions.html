@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinSu - Design Direction Mockups</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --background: #0a0a0b;
+      --card: #18181b;
+      --card-hover: #27272a;
+      --border: #27272a;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --status-running: #22c55e;
+      --status-stalled: #f59e0b;
+      --status-review: #8b5cf6;
+      --status-done: #6b7280;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --destructive: #ef4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--background);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* Navigation */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 10, 11, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .nav h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .nav-tab:hover {
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .nav-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* Sections */
+    .section {
+      display: none;
+      padding: 100px 32px 32px;
+      min-height: 100vh;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .section-header {
+      margin-bottom: 32px;
+    }
+
+    .section-header h2 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .section-header p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Direction Cards */
+    .direction-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 24px;
+    }
+
+    .direction-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .direction-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .direction-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .direction-tag {
+      font-size: 12px;
+      padding: 4px 8px;
+      background: var(--primary);
+      border-radius: 4px;
+    }
+
+    .direction-preview {
+      height: 400px;
+      background: var(--background);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .direction-description {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .direction-description p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Mockup Components */
+    .mockup-board {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      height: 100%;
+    }
+
+    .mockup-column {
+      flex: 1;
+      background: var(--card);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mockup-column-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mockup-card {
+      background: var(--card-hover);
+      border-radius: 6px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+
+    .mockup-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .mockup-card.running {
+      border-left-color: var(--status-running);
+    }
+
+    .mockup-card.review {
+      border-left-color: var(--status-review);
+    }
+
+    .mockup-card.stalled {
+      border-left-color: var(--status-stalled);
+    }
+
+    .mockup-card-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .mockup-card-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .mockup-terminal {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: #0d0d0e;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 12px 16px;
+      color: var(--text-muted);
+      overflow: hidden;
+    }
+
+    .mockup-terminal-line {
+      margin-bottom: 4px;
+    }
+
+    .mockup-terminal-line.success {
+      color: var(--success);
+    }
+
+    .mockup-terminal-line.command {
+      color: var(--primary);
+    }
+
+    /* Direction 1: Classic Kanban */
+    .dir1 .mockup-board {
+      flex-direction: row;
+    }
+
+    /* Direction 2: Wide Cards */
+    .dir2 .mockup-column {
+      min-width: 200px;
+    }
+
+    .dir2 .mockup-card {
+      padding: 16px;
+    }
+
+    .dir2 .mockup-card-title {
+      font-size: 14px;
+    }
+
+    /* Direction 3: Compact Density */
+    .dir3 .mockup-card {
+      padding: 8px 10px;
+    }
+
+    .dir3 .mockup-card-title {
+      font-size: 12px;
+    }
+
+    .dir3 .mockup-column {
+      gap: 4px;
+    }
+
+    /* Direction 4: Terminal Focus */
+    .dir4 .mockup-terminal {
+      height: 180px;
+    }
+
+    .dir4 .mockup-board {
+      padding-bottom: 180px;
+    }
+
+    /* Direction 5: Split View */
+    .dir5 .mockup-board {
+      width: 60%;
+    }
+
+    .dir5 .mockup-detail-panel {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 40%;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      padding: 16px;
+    }
+
+    /* Direction 6: Minimal Chrome */
+    .dir6 .mockup-column {
+      background: transparent;
+      padding: 8px 0;
+    }
+
+    .dir6 .mockup-column-header {
+      border-bottom: none;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    /* Review Panel */
+    .mockup-detail-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .mockup-detail-header {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .mockup-diff {
+      background: #0d0d0e;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .mockup-diff-line {
+      margin-bottom: 2px;
+    }
+
+    .mockup-diff-line.add {
+      color: var(--success);
+    }
+
+    .mockup-diff-line.remove {
+      color: var(--destructive);
+    }
+
+    .mockup-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mockup-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mockup-btn.approve {
+      background: var(--success);
+      color: white;
+    }
+
+    .mockup-btn.approve:hover {
+      filter: brightness(1.1);
+    }
+
+    .mockup-btn.reject {
+      background: var(--card-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .mockup-btn.reject:hover {
+      background: var(--destructive);
+      border-color: var(--destructive);
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .status-badge.running {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--status-running);
+    }
+
+    .status-badge.review {
+      background: rgba(139, 92, 246, 0.2);
+      color: var(--status-review);
+    }
+
+    .status-badge.stalled {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--status-stalled);
+    }
+
+    /* Comparison View */
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 24px;
+    }
+
+    .comparison-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .comparison-item h4 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: var(--text-muted);
+    }
+
+    .comparison-item ul {
+      list-style: none;
+      font-size: 13px;
+    }
+
+    .comparison-item li {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comparison-item li:last-child {
+      border-bottom: none;
+    }
+
+    .check {
+      color: var(--success);
+    }
+
+    /* Keyboard hints */
+    .kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      background: var(--card-hover);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Full Mockup */
+    .full-mockup {
+      width: 100%;
+      height: 600px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .full-mockup-header {
+      height: 48px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+    }
+
+    .full-mockup-logo {
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--primary);
+    }
+
+    .full-mockup-breadcrumb {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .full-mockup-content {
+      display: flex;
+      height: calc(100% - 48px);
+    }
+
+    .full-mockup-board-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .full-mockup-board {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+
+    .full-mockup-terminal {
+      height: 150px;
+      background: #0d0d0e;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 12px 16px;
+      color: var(--text-muted);
+    }
+
+    .full-mockup-panel {
+      width: 400px;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .full-mockup-panel-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .full-mockup-panel-content {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .full-mockup-panel-actions {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .direction-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .comparison {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <h1>TinSu Design Directions</h1>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('overview')">Overview</button>
+    <button class="nav-tab" onclick="showSection('directions')">6 Directions</button>
+    <button class="nav-tab" onclick="showSection('full')">Full Mockup</button>
+    <button class="nav-tab" onclick="showSection('compare')">Compare</button>
+  </div>
+</nav>
+
+<!-- Overview Section -->
+<section id="overview" class="section active">
+  <div class="section-header">
+    <h2>Design Direction Exploration</h2>
+    <p>Exploring different visual approaches for TinSu based on the "Calm Command" theme</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px;">
+    <div class="comparison-item">
+      <h4>Core Emotion</h4>
+      <p style="font-size: 20px; font-weight: 600; color: var(--primary);">"Leverage Without Anxiety"</p>
+      <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">Confident manager feeling — power with control</p>
+    </div>
+    <div class="comparison-item">
+      <h4>Defining Experience</h4>
+      <p style="font-size: 20px; font-weight: 600; color: var(--success);">"Drag to start, approve to ship"</p>
+      <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">Two actions, complete workflow</p>
+    </div>
+    <div class="comparison-item">
+      <h4>Primary Inspiration</h4>
+      <p style="font-size: 20px; font-weight: 600; color: var(--text);">Trello + Linear + Vercel</p>
+      <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">Instant Kanban + Developer polish + Real-time logs</p>
+    </div>
+  </div>
+
+  <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+    <h3 style="margin-bottom: 16px;">Design Principles Applied</h3>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+      <div>
+        <p style="font-weight: 500; margin-bottom: 8px;">Keyboard-First</p>
+        <p style="font-size: 13px; color: var(--text-muted);"><span class="kbd">A</span> Approve <span class="kbd">R</span> Reject <span class="kbd">←→</span> Navigate</p>
+      </div>
+      <div>
+        <p style="font-weight: 500; margin-bottom: 8px;">Responsiveness Target</p>
+        <p style="font-size: 13px; color: var(--text-muted);">Card drag &lt;16ms | Actions &lt;100ms | Terminal real-time</p>
+      </div>
+      <div>
+        <p style="font-weight: 500; margin-bottom: 8px;">Progressive Disclosure</p>
+        <p style="font-size: 13px; color: var(--text-muted);">Status at a glance, details on click</p>
+      </div>
+      <div>
+        <p style="font-weight: 500; margin-bottom: 8px;">Docked Layout</p>
+        <p style="font-size: 13px; color: var(--text-muted);">Board + Terminal + Review in single view</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Directions Section -->
+<section id="directions" class="section">
+  <div class="section-header">
+    <h2>Design Direction Variations</h2>
+    <p>6 different approaches to TinSu's visual design — each optimized for different priorities</p>
+  </div>
+
+  <div class="direction-grid">
+    <!-- Direction 1: Classic Kanban -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 1: Classic Kanban</h3>
+        <span class="direction-tag">Recommended</span>
+      </div>
+      <div class="direction-preview dir1">
+        <div class="mockup-board">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog <span style="opacity:0.5">4</span></div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add user authentication</div>
+              <div class="mockup-card-meta">Epic: Auth System</div>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Create settings page</div>
+              <div class="mockup-card-meta">Epic: User Settings</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress <span style="opacity:0.5">1</span></div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Build dashboard API</div>
+              <div class="mockup-card-meta"><span class="status-badge running">Running</span></div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review <span style="opacity:0.5">2</span></div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Add login form</div>
+              <div class="mockup-card-meta"><span class="status-badge review">Ready</span></div>
+            </div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Setup database schema</div>
+              <div class="mockup-card-meta"><span class="status-badge review">Ready</span></div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Done <span style="opacity:0.5">5</span></div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Initialize project</div>
+              <div class="mockup-card-meta">Completed 2h ago</div>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-terminal">
+          <div class="mockup-terminal-line command">$ claude --story "Build dashboard API"</div>
+          <div class="mockup-terminal-line">Reading story context...</div>
+          <div class="mockup-terminal-line success">Creating API endpoints...</div>
+          <div class="mockup-terminal-line pulse">Working on src/api/dashboard.ts...</div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Familiar mental model, instant recognition. Trello users feel at home immediately. Terminal docked at bottom, review slides in from right.</p>
+      </div>
+    </div>
+
+    <!-- Direction 2: Wide Cards -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 2: Wide Cards</h3>
+        <span class="direction-tag">More Detail</span>
+      </div>
+      <div class="direction-preview dir2">
+        <div class="mockup-board">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog</div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add user authentication</div>
+              <div class="mockup-card-meta" style="margin-top: 8px;">JWT tokens, OAuth support, session management</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress</div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Build dashboard API</div>
+              <div class="mockup-card-meta" style="margin-top: 8px;">
+                <span class="status-badge running">Agent Running</span>
+                <span style="margin-left: 8px; opacity: 0.6;">2m 34s</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review</div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Add login form</div>
+              <div class="mockup-card-meta" style="margin-top: 8px;">
+                <span class="status-badge review">Ready for Review</span>
+                <span style="margin-left: 8px; opacity: 0.6;">+142 -23</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-terminal">
+          <div class="mockup-terminal-line command">$ claude --story "Build dashboard API"</div>
+          <div class="mockup-terminal-line pulse">Creating API endpoints...</div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Users who want more context on cards. Shows agent status, line changes, and time elapsed directly on the card.</p>
+      </div>
+    </div>
+
+    <!-- Direction 3: Compact Density -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 3: Compact Density</h3>
+        <span class="direction-tag">More Tasks Visible</span>
+      </div>
+      <div class="direction-preview dir3">
+        <div class="mockup-board">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog (8)</div>
+            <div class="mockup-card"><div class="mockup-card-title">Add authentication</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Create settings</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Build profile page</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Add notifications</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Setup email service</div></div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress (2)</div>
+            <div class="mockup-card running"><div class="mockup-card-title">Build dashboard API</div></div>
+            <div class="mockup-card running"><div class="mockup-card-title">Create data models</div></div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review (3)</div>
+            <div class="mockup-card review"><div class="mockup-card-title">Add login form</div></div>
+            <div class="mockup-card review"><div class="mockup-card-title">Setup database</div></div>
+            <div class="mockup-card review"><div class="mockup-card-title">Add validation</div></div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Done (12)</div>
+            <div class="mockup-card"><div class="mockup-card-title">Initialize project</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Setup CI/CD</div></div>
+            <div class="mockup-card"><div class="mockup-card-title">Add linting</div></div>
+          </div>
+        </div>
+        <div class="mockup-terminal">
+          <div class="mockup-terminal-line pulse">Working...</div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Power users managing many tasks. See more cards at once, less visual detail per card. Good for sprint overviews.</p>
+      </div>
+    </div>
+
+    <!-- Direction 4: Terminal Focus -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 4: Terminal Focus</h3>
+        <span class="direction-tag">Watch the Work</span>
+      </div>
+      <div class="direction-preview dir4">
+        <div class="mockup-board" style="padding-bottom: 180px;">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog</div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add authentication</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress</div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Build dashboard API</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review</div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Add login form</div>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-terminal" style="height: 180px;">
+          <div class="mockup-terminal-line command">$ claude --story "Build dashboard API"</div>
+          <div class="mockup-terminal-line">Reading story context from story-123.md...</div>
+          <div class="mockup-terminal-line">Loading architecture decisions...</div>
+          <div class="mockup-terminal-line success">Created src/api/dashboard.ts</div>
+          <div class="mockup-terminal-line success">Created src/api/routes/metrics.ts</div>
+          <div class="mockup-terminal-line">Writing tests for dashboard endpoints...</div>
+          <div class="mockup-terminal-line pulse">Working on src/api/__tests__/dashboard.test.ts...</div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Users who want to "watch the teammate work." Larger terminal gives more visibility into agent activity. Feel connected to the process.</p>
+      </div>
+    </div>
+
+    <!-- Direction 5: Split View -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 5: Split View</h3>
+        <span class="direction-tag">Always-On Review</span>
+      </div>
+      <div class="direction-preview dir5">
+        <div class="mockup-board" style="width: 60%;">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog</div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add auth</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress</div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Dashboard</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review</div>
+            <div class="mockup-card review" style="background: var(--primary); opacity: 0.8;">
+              <div class="mockup-card-title">Login form</div>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-detail-panel">
+          <div class="mockup-detail-header">Add login form</div>
+          <div class="mockup-diff">
+            <div class="mockup-diff-line">src/components/LoginForm.tsx</div>
+            <div class="mockup-diff-line add">+ import { useState } from 'react'</div>
+            <div class="mockup-diff-line add">+ export function LoginForm() {</div>
+            <div class="mockup-diff-line add">+   const [email, setEmail] = useState('')</div>
+            <div class="mockup-diff-line add">+   // ... 42 more lines</div>
+          </div>
+          <div class="mockup-actions">
+            <button class="mockup-btn approve">Approve (A)</button>
+            <button class="mockup-btn reject">Reject (R)</button>
+          </div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Heavy reviewers. Review panel is always visible, no slide-over animation. Board and review side-by-side for rapid approval loops.</p>
+      </div>
+    </div>
+
+    <!-- Direction 6: Minimal Chrome -->
+    <div class="direction-card">
+      <div class="direction-header">
+        <h3>Direction 6: Minimal Chrome</h3>
+        <span class="direction-tag">Content-Forward</span>
+      </div>
+      <div class="direction-preview dir6">
+        <div class="mockup-board">
+          <div class="mockup-column">
+            <div class="mockup-column-header">Backlog</div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add user authentication</div>
+              <div class="mockup-card-meta">Epic: Auth System</div>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Create settings page</div>
+              <div class="mockup-card-meta">Epic: User Settings</div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">In Progress</div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Build dashboard API</div>
+              <div class="mockup-card-meta"><span class="status-badge running">Running</span></div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Review</div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Add login form</div>
+              <div class="mockup-card-meta"><span class="status-badge review">Ready</span></div>
+            </div>
+          </div>
+          <div class="mockup-column">
+            <div class="mockup-column-header">Done</div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Initialize project</div>
+            </div>
+          </div>
+        </div>
+        <div class="mockup-terminal" style="background: transparent; border-top: none; height: 80px;">
+          <div class="mockup-terminal-line" style="color: var(--text-muted); opacity: 0.6;">Agent working on Build dashboard API...</div>
+        </div>
+      </div>
+      <div class="direction-description">
+        <p><strong>Best for:</strong> Maximum focus on cards. Columns have no background, terminal is subtle ambient indicator. For users who trust the system and don't need to watch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Full Mockup Section -->
+<section id="full" class="section">
+  <div class="section-header">
+    <h2>Full Interface Mockup</h2>
+    <p>Complete TinSu interface showing the recommended "Classic Kanban" direction</p>
+  </div>
+
+  <div class="full-mockup">
+    <div class="full-mockup-header">
+      <div class="full-mockup-logo">TinSu</div>
+      <div class="full-mockup-breadcrumb">Sprint 3 / Epic: Authentication / 8 stories</div>
+      <div style="flex: 1;"></div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span class="kbd">?</span>
+        <span style="font-size: 12px; color: var(--text-muted);">Shortcuts</span>
+      </div>
+    </div>
+    <div class="full-mockup-content">
+      <div class="full-mockup-board-area">
+        <div class="full-mockup-board">
+          <div class="mockup-column" style="min-width: 280px;">
+            <div class="mockup-column-header">
+              Backlog
+              <span style="background: var(--card-hover); padding: 2px 8px; border-radius: 10px; font-size: 11px;">4</span>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Implement password reset flow</div>
+              <div class="mockup-card-meta">Story 3.4 &bull; Auth System</div>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add email verification</div>
+              <div class="mockup-card-meta">Story 3.5 &bull; Auth System</div>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Create user settings page</div>
+              <div class="mockup-card-meta">Story 3.6 &bull; Settings</div>
+            </div>
+            <div class="mockup-card">
+              <div class="mockup-card-title">Add profile picture upload</div>
+              <div class="mockup-card-meta">Story 3.7 &bull; Settings</div>
+            </div>
+          </div>
+          <div class="mockup-column" style="min-width: 280px;">
+            <div class="mockup-column-header">
+              In Progress
+              <span style="background: rgba(34, 197, 94, 0.2); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--status-running);">1</span>
+            </div>
+            <div class="mockup-card running">
+              <div class="mockup-card-title">Build JWT authentication middleware</div>
+              <div class="mockup-card-meta" style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="status-badge running"><span class="pulse">●</span> Running</span>
+                <span style="opacity: 0.6;">4m 23s</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-column" style="min-width: 280px;">
+            <div class="mockup-column-header">
+              Review
+              <span style="background: rgba(139, 92, 246, 0.2); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--status-review);">2</span>
+            </div>
+            <div class="mockup-card review" style="background: var(--primary); border-left-color: var(--primary);">
+              <div class="mockup-card-title" style="color: white;">Create login form component</div>
+              <div class="mockup-card-meta" style="display: flex; justify-content: space-between; margin-top: 8px; color: rgba(255,255,255,0.8);">
+                <span>Story 3.2</span>
+                <span>+142 -23</span>
+              </div>
+            </div>
+            <div class="mockup-card review">
+              <div class="mockup-card-title">Setup user database schema</div>
+              <div class="mockup-card-meta" style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="status-badge review">Ready</span>
+                <span style="opacity: 0.6;">+89 -12</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-column" style="min-width: 280px;">
+            <div class="mockup-column-header">
+              Done
+              <span style="background: var(--card-hover); padding: 2px 8px; border-radius: 10px; font-size: 11px;">3</span>
+            </div>
+            <div class="mockup-card" style="opacity: 0.6;">
+              <div class="mockup-card-title">Initialize Next.js project</div>
+              <div class="mockup-card-meta">Story 3.1 &bull; 2h ago</div>
+            </div>
+            <div class="mockup-card" style="opacity: 0.6;">
+              <div class="mockup-card-title">Setup Prisma ORM</div>
+              <div class="mockup-card-meta">Story 3.0 &bull; 3h ago</div>
+            </div>
+          </div>
+        </div>
+        <div class="full-mockup-terminal">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+            <span style="color: var(--text);">Agent: Story 3.3 - JWT Authentication</span>
+            <span style="display: flex; gap: 16px;">
+              <span style="color: var(--status-running);">● Running</span>
+              <span>Tokens: 12,453</span>
+              <button style="background: var(--warning); color: black; border: none; padding: 2px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">Pause</button>
+            </span>
+          </div>
+          <div class="mockup-terminal-line command">$ Reading story context from stories/3.3-jwt-auth.md</div>
+          <div class="mockup-terminal-line">Loading architecture decisions from architecture.md...</div>
+          <div class="mockup-terminal-line success">✓ Created src/middleware/auth.ts</div>
+          <div class="mockup-terminal-line success">✓ Created src/lib/jwt.ts</div>
+          <div class="mockup-terminal-line pulse">Working on src/middleware/__tests__/auth.test.ts...</div>
+        </div>
+      </div>
+      <div class="full-mockup-panel">
+        <div class="full-mockup-panel-header">
+          <div>
+            <div style="font-weight: 600;">Create login form component</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Story 3.2 &bull; Auth System</div>
+          </div>
+          <button style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 4px 8px; border-radius: 4px; cursor: pointer;">×</button>
+        </div>
+        <div class="full-mockup-panel-content">
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Files Changed (3)</div>
+            <div style="background: var(--card-hover); border-radius: 6px; padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>src/components/LoginForm.tsx</span>
+              <span style="color: var(--success);">+98</span>
+            </div>
+            <div style="background: var(--card-hover); border-radius: 6px; padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>src/components/LoginForm.test.tsx</span>
+              <span style="color: var(--success);">+44</span>
+            </div>
+            <div style="background: var(--card-hover); border-radius: 6px; padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between;">
+              <span>src/pages/login.tsx</span>
+              <span><span style="color: var(--success);">+12</span> <span style="color: var(--destructive);">-3</span></span>
+            </div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Diff Preview</div>
+            <div class="mockup-diff" style="max-height: 200px; overflow-y: auto;">
+              <div class="mockup-diff-line" style="color: var(--text-muted);">// src/components/LoginForm.tsx</div>
+              <div class="mockup-diff-line add">+ import { useState } from 'react';</div>
+              <div class="mockup-diff-line add">+ import { Button } from '@/components/ui/button';</div>
+              <div class="mockup-diff-line add">+ import { Input } from '@/components/ui/input';</div>
+              <div class="mockup-diff-line add">+</div>
+              <div class="mockup-diff-line add">+ export function LoginForm() {</div>
+              <div class="mockup-diff-line add">+   const [email, setEmail] = useState('');</div>
+              <div class="mockup-diff-line add">+   const [password, setPassword] = useState('');</div>
+              <div class="mockup-diff-line add">+</div>
+              <div class="mockup-diff-line add">+   const handleSubmit = async (e) => {</div>
+              <div class="mockup-diff-line add">+     e.preventDefault();</div>
+              <div class="mockup-diff-line add">+     // ... authentication logic</div>
+              <div class="mockup-diff-line add">+   };</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Agent Reasoning</div>
+            <div style="background: var(--card-hover); border-radius: 6px; padding: 12px; font-size: 12px; color: var(--text-muted);">
+              Created a controlled form component with email and password fields. Used shadcn/ui Input and Button components for consistency. Added client-side validation and error handling. Tests cover form submission and validation states.
+            </div>
+          </div>
+        </div>
+        <div class="full-mockup-panel-actions">
+          <button class="mockup-btn approve" style="flex: 2;">
+            <span class="kbd" style="background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3);">A</span> Approve & Merge
+          </button>
+          <button class="mockup-btn reject">
+            <span class="kbd">R</span> Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Compare Section -->
+<section id="compare" class="section">
+  <div class="section-header">
+    <h2>Compare Directions</h2>
+    <p>Trade-offs between different design approaches</p>
+  </div>
+
+  <div class="comparison">
+    <div class="comparison-item">
+      <h4>Information Density</h4>
+      <ul>
+        <li><span class="check">●</span> <strong>Compact (Dir 3)</strong> - See 3x more tasks</li>
+        <li><span style="color: var(--warning);">●</span> <strong>Classic (Dir 1)</strong> - Balanced visibility</li>
+        <li><span style="color: var(--text-muted);">●</span> <strong>Wide (Dir 2)</strong> - More detail per card</li>
+      </ul>
+    </div>
+    <div class="comparison-item">
+      <h4>Terminal Visibility</h4>
+      <ul>
+        <li><span class="check">●</span> <strong>Terminal Focus (Dir 4)</strong> - Maximum agent visibility</li>
+        <li><span style="color: var(--warning);">●</span> <strong>Classic (Dir 1)</strong> - Balanced dock</li>
+        <li><span style="color: var(--text-muted);">●</span> <strong>Minimal (Dir 6)</strong> - Ambient indicator only</li>
+      </ul>
+    </div>
+    <div class="comparison-item">
+      <h4>Review Workflow</h4>
+      <ul>
+        <li><span class="check">●</span> <strong>Split View (Dir 5)</strong> - Always-on review panel</li>
+        <li><span style="color: var(--warning);">●</span> <strong>Classic (Dir 1)</strong> - Slide-over on demand</li>
+        <li><span style="color: var(--text-muted);">●</span> <strong>Others</strong> - Modal or slide-over</li>
+      </ul>
+    </div>
+    <div class="comparison-item">
+      <h4>Visual Weight</h4>
+      <ul>
+        <li><span class="check">●</span> <strong>Minimal (Dir 6)</strong> - Lightest, content-forward</li>
+        <li><span style="color: var(--warning);">●</span> <strong>Classic (Dir 1)</strong> - Balanced structure</li>
+        <li><span style="color: var(--text-muted);">●</span> <strong>Wide (Dir 2)</strong> - More visual presence</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+    <h3 style="margin-bottom: 16px;">Recommendation</h3>
+    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+      Based on TinSu's goals of <strong>"Drag to start, approve to ship"</strong> and the <strong>60-second velocity loop</strong>, I recommend:
+    </p>
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+      <div style="background: var(--primary); border-radius: 8px; padding: 16px; text-align: center;">
+        <div style="font-size: 48px; font-weight: 700;">1</div>
+        <div style="font-size: 14px; opacity: 0.9;">Classic Kanban</div>
+      </div>
+      <div>
+        <ul style="list-style: none; font-size: 14px;">
+          <li style="padding: 8px 0; border-bottom: 1px solid var(--border);">✓ Familiar Trello mental model — instant recognition</li>
+          <li style="padding: 8px 0; border-bottom: 1px solid var(--border);">✓ Balanced terminal visibility — watch without dominating</li>
+          <li style="padding: 8px 0; border-bottom: 1px solid var(--border);">✓ Slide-over review — maintains board context</li>
+          <li style="padding: 8px 0;">✓ Keyboard shortcuts prominent — power user friendly</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+      <strong>Consider combining:</strong> Classic layout + Terminal Focus terminal size for users who want to "watch the teammate work."
+    </p>
+  </div>
+</section>
+
+<script>
+function showSection(sectionId) {
+  // Hide all sections
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  // Show selected section
+  document.getElementById(sectionId).classList.add('active');
+  // Update nav tabs
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>
