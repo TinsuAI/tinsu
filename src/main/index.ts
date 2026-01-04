@@ -5,6 +5,8 @@ import icon from '../../resources/icon.png?asset'
 import { db } from './db'
 import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
+import { createIPCHandler } from 'trpc-electron/main'
+import { appRouter, createContext } from './trpc'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -23,7 +25,9 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       // sandbox: false required for preload scripts to access Node.js APIs (needed for tRPC/node-pty in later stories)
-      sandbox: false
+      sandbox: false,
+      // contextIsolation must be true for contextBridge.exposeInMainWorld to work
+      contextIsolation: true
     }
   })
 
@@ -86,6 +90,9 @@ function initializeDatabase(): boolean {
 app.whenReady().then(() => {
   // Initialize database on app ready
   initializeDatabase()
+
+  // Initialize tRPC IPC handler before window creation
+  createIPCHandler({ router: appRouter, createContext })
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
