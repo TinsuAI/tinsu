@@ -1,11 +1,13 @@
 import { router } from './trpc'
 import { taskRouter } from './routers/task.router'
 import { configRouter } from './routers/config.router'
+import { projectRouter } from './routers/project.router'
 import { createContext } from './context'
 
 export const appRouter = router({
   tasks: taskRouter,
-  config: configRouter
+  config: configRouter,
+  project: projectRouter
 })
 
 // Export type for client consumption

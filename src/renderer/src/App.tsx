@@ -1,6 +1,65 @@
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
+import { Welcome } from './components/Welcome'
+import { useProjectStore } from './stores/project.store'
+import { trpc } from './lib/trpc'
 
 function App(): React.JSX.Element {
+  const { projectPath, projectName, setProject, clearProject } = useProjectStore()
+  const hasAttemptedReopen = useRef(false)
+  // Track whether we're attempting to reopen a persisted project
+  const [isReopening, setIsReopening] = useState(() => {
+    // If there's a persisted path but no projectName yet, we need to reopen
+    return !!projectPath && !projectName
+  })
+
+  // Try to re-open last project on mount
+  const openPathMutation = trpc.project.openPath.useMutation({
+    onSuccess: (result) => {
+      setProject(result.path, result.config.projectName)
+      setIsReopening(false)
+    },
+    onError: () => {
+      // Failed to open last project, clear stored path
+      clearProject()
+      setIsReopening(false)
+    }
+  })
+
+  useEffect(() => {
+    // On mount, if we have a stored project path, try to re-open it
+    if (projectPath && !hasAttemptedReopen.current) {
+      hasAttemptedReopen.current = true
+      setIsReopening(true)
+      openPathMutation.mutate({ path: projectPath })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount - intentionally omit dependencies
+
+  const handleProjectOpened = useCallback(
+    (info: { path: string; projectName: string }): void => {
+      setProject(info.path, info.projectName)
+    },
+    [setProject]
+  )
+
+  // Show loading state while attempting to reopen persisted project
+  if (isReopening) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-foreground">TinSu</h1>
+          <p className="mt-2 text-muted-foreground">Opening project...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show Welcome screen if no project is loaded
+  if (!projectPath || !projectName) {
+    return <Welcome onProjectOpened={handleProjectOpened} />
+  }
+
   return <AppShell />
 }
 
