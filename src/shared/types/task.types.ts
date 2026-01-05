@@ -11,7 +11,7 @@ export interface Task {
   id: string
   title: string
   description: string | null
-  status: string
+  status: TaskStatus
   epic_id: string | null
   sprint_id: string | null
   created_at: Date

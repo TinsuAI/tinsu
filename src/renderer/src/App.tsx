@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { Welcome } from './components/Welcome'
+import { KanbanBoardContainer } from './components/board'
 import { useProjectStore } from './stores/project.store'
 import { trpc } from './lib/trpc'
 
@@ -60,7 +61,11 @@ function App(): React.JSX.Element {
     return <Welcome onProjectOpened={handleProjectOpened} />
   }
 
-  return <AppShell />
+  return (
+    <AppShell>
+      <KanbanBoardContainer />
+    </AppShell>
+  )
 }
 
 export default App

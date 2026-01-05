@@ -4,7 +4,8 @@ import path from 'node:path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@renderer': path.resolve(__dirname, 'src/renderer/src')
+      '@renderer': path.resolve(__dirname, 'src/renderer/src'),
+      '@shared': path.resolve(__dirname, 'src/shared')
     }
   },
   test: {
@@ -23,7 +24,8 @@ export default defineConfig({
         // Renderer process tests (Browser environment)
         resolve: {
           alias: {
-            '@renderer': path.resolve(__dirname, 'src/renderer/src')
+            '@renderer': path.resolve(__dirname, 'src/renderer/src'),
+            '@shared': path.resolve(__dirname, 'src/shared')
           }
         },
         test: {

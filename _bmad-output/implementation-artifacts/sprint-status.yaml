@@ -55,8 +55,8 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Kanban Board & Task Management
-  epic-2: backlog
-  2-1-render-kanban-board-with-4-columns: backlog
+  epic-2: in-progress
+  2-1-render-kanban-board-with-4-columns: done
   2-2-display-task-cards-in-columns: backlog
   2-3-implement-drag-and-drop-between-columns: backlog
   2-4-create-new-task-dialog: backlog
