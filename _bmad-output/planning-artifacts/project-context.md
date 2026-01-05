@@ -164,6 +164,77 @@ Each task gets an isolated worktree:
 
 ---
 
+## Testing with Native Modules (CRITICAL)
+
+The project uses `better-sqlite3` which requires compilation for different Node.js versions:
+
+| Context | Node.js Version | Compile Command |
+|---------|-----------------|-----------------|
+| Electron app | Electron's embedded Node | `npm run rebuild:electron` |
+| Vitest tests | System Node.js | `npm run rebuild:node` |
+
+**Test scripts handle this automatically:**
+```json
+"pretest": "npm run rebuild:node",     // Before tests: compile for Node.js
+"test": "vitest run",                   // Run tests
+"posttest": "npm run rebuild:electron"  // After tests: recompile for Electron
+```
+
+**If app crashes with NODE_MODULE_VERSION error:**
+```bash
+npm run rebuild:electron
+```
+
+**If tests fail with NODE_MODULE_VERSION error:**
+```bash
+npm run rebuild:node
+```
+
+---
+
+## Vitest Configuration (Electron)
+
+```typescript
+// vitest.config.ts - Multi-environment testing
+export default defineConfig({
+  test: {
+    globals: true,
+    projects: [
+      {
+        test: {
+          name: 'main',
+          environment: 'node',           // Main process = Node.js
+          include: ['src/main/**/*.test.ts'],
+        },
+      },
+      {
+        resolve: {
+          alias: { '@renderer': path.resolve(__dirname, 'src/renderer/src') },
+        },
+        test: {
+          name: 'renderer',
+          environment: 'happy-dom',      // Renderer = browser-like
+          include: ['src/renderer/**/*.test.{ts,tsx}'],
+          setupFiles: ['src/renderer/src/test-setup.ts'],
+        },
+      },
+    ],
+  },
+})
+```
+
+**Test setup (renderer):**
+```typescript
+// src/renderer/src/test-setup.ts
+import '@testing-library/jest-dom/vitest'
+import { cleanup } from '@testing-library/react'
+import { afterEach } from 'vitest'
+
+afterEach(() => { cleanup() })  // Prevent DOM pollution between tests
+```
+
+---
+
 ## Reference Documents
 
 - **Full Architecture:** `_bmad-output/planning-artifacts/architecture.md`

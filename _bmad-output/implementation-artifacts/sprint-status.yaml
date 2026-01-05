@@ -47,7 +47,7 @@ development_status:
   1-3-set-up-sqlite-database-with-drizzle-orm: done
   1-4-create-core-database-schema-for-tasks-and-agent-runs: done
   1-5-implement-trpc-ipc-layer: done
-  1-6-build-app-shell-layout-with-dark-theme: backlog
+  1-6-build-app-shell-layout-with-dark-theme: done
   1-7-add-project-configuration-system: backlog
   1-8-initialize-tinsu-in-existing-git-repository: backlog
   1-9-pty-service-for-process-management: backlog
