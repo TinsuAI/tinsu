@@ -7,6 +7,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
+import { ptyService } from './services'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -120,6 +121,22 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// Clean up PTY processes before the app quits
+// This prevents zombie processes from lingering after the app closes
+app.on('before-quit', () => {
+  const processCount = ptyService.getProcessCount()
+  if (processCount > 0) {
+    console.log(`[PTY] Cleaning up ${processCount} active PTY process(es)...`)
+    ptyService.killAll()
+    console.log('[PTY] All PTY processes terminated')
+  }
+})
+
+// Log unexpected PTY process errors for debugging
+ptyService.on('error', ({ processId, error }) => {
+  console.error(`[PTY] Process ${processId} error:`, error)
 })
 
 // In this file you can include the rest of your app's specific main process

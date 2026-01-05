@@ -50,7 +50,7 @@ development_status:
   1-6-build-app-shell-layout-with-dark-theme: done
   1-7-add-project-configuration-system: done
   1-8-initialize-tinsu-in-existing-git-repository: done
-  1-9-pty-service-for-process-management: backlog
+  1-9-pty-service-for-process-management: review
   1-10-terminal-dock-component: backlog
   epic-1-retrospective: optional
 
