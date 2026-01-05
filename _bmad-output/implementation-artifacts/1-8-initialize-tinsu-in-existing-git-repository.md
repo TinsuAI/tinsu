@@ -210,7 +210,7 @@ export const projectRouter = router({
   }),
   getCurrent: publicProcedure.query(async () => {
     // Implementation
-  }),
+  })
 })
 ```
 
@@ -318,12 +318,12 @@ This story should properly fix the projectRoot resolution by storing the opened 
 
 ### Error Handling
 
-| Scenario | Error Message | Action |
-|----------|---------------|--------|
-| No .git folder | "TinSu requires a git repository. Please select a directory with git initialized." | Show in Welcome screen, allow retry |
-| .tinsu already exists | (No error - load existing) | Silently proceed |
-| Permission denied | "Cannot access directory. Check file permissions." | Show error, suggest fix |
-| Dialog cancelled | (No error) | Stay on Welcome screen |
+| Scenario              | Error Message                                                                      | Action                              |
+| --------------------- | ---------------------------------------------------------------------------------- | ----------------------------------- |
+| No .git folder        | "TinSu requires a git repository. Please select a directory with git initialized." | Show in Welcome screen, allow retry |
+| .tinsu already exists | (No error - load existing)                                                         | Silently proceed                    |
+| Permission denied     | "Cannot access directory. Check file permissions."                                 | Show error, suggest fix             |
+| Dialog cancelled      | (No error)                                                                         | Stay on Welcome screen              |
 
 ## Dev Agent Record
 
@@ -389,7 +389,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - src/renderer/src/components/layout/Header.tsx (modified - show project name)
 - src/renderer/src/components/layout/Header.test.tsx (modified - added project name tests)
 - src/renderer/src/App.tsx (modified - conditional Welcome/AppShell rendering, loading state)
-- _bmad-output/implementation-artifacts/sprint-status.yaml (modified - story status tracking)
+- \_bmad-output/implementation-artifacts/sprint-status.yaml (modified - story status tracking)
 
 ### Senior Developer Review (AI)
 
@@ -398,6 +398,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 **Outcome:** APPROVED after fixes
 
 **Issues Found & Fixed:**
+
 1. **H1 (Fixed):** Race condition during persisted project reopen - App.tsx now shows loading state while attempting to reopen
 2. **M1 (Fixed):** Empty/placeholder tests in Welcome.test.tsx - Implemented proper loading state and error handling tests
 3. **M2 (Fixed):** `mutateAsync` called without await - Changed to `mutate()` for semantic correctness
@@ -405,6 +406,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 5. **M4 (Fixed):** File List missing sprint-status.yaml - Added to documentation
 
 **All ACs verified implemented:**
+
 - AC#1: ✅ File picker opens, validates .git folders
 - AC#2: ✅ .tinsu/ and config.yaml created, .gitignore updated
 - AC#3: ✅ Error message for non-git directories
@@ -412,4 +414,3 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - AC#5: ✅ Project name in header, proper loading state before AppShell
 
 **Test Coverage:** 117 tests pass (all)
-

@@ -1,4 +1,5 @@
 import './globals.css'
+import '@xterm/xterm/css/xterm.css'
 
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'

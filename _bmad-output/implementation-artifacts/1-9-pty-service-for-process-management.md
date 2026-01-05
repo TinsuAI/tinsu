@@ -278,12 +278,12 @@ export class PtyError extends Error {
 ```typescript
 // Control characters for terminal input
 const CONTROL_CHARS = {
-  CTRL_C: '\x03',    // Interrupt (SIGINT)
-  CTRL_D: '\x04',    // EOF
-  CTRL_Z: '\x1a',    // Suspend (SIGTSTP)
-  CTRL_L: '\x0c',    // Clear screen
-  ENTER: '\r',       // Carriage return
-  BACKSPACE: '\x7f', // Delete char
+  CTRL_C: '\x03', // Interrupt (SIGINT)
+  CTRL_D: '\x04', // EOF
+  CTRL_Z: '\x1a', // Suspend (SIGTSTP)
+  CTRL_L: '\x0c', // Clear screen
+  ENTER: '\r', // Carriage return
+  BACKSPACE: '\x7f' // Delete char
 }
 ```
 
@@ -341,12 +341,12 @@ describe('PtyService', () => {
     service.spawn('echo', ['hello'])
 
     // Wait for output
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 100))
     expect(outputs.join('')).toContain('hello')
   })
 
   it('emits exit event with code', async () => {
-    const exitPromise = new Promise<{ exitCode: number }>(resolve => {
+    const exitPromise = new Promise<{ exitCode: number }>((resolve) => {
       service.on('exit', resolve)
     })
 
@@ -361,7 +361,7 @@ describe('PtyService', () => {
     service.kill(id)
 
     // Wait for cleanup
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 100))
     expect(service.getProcess(id)).toBeUndefined()
   })
 })
@@ -369,13 +369,13 @@ describe('PtyService', () => {
 
 ### Error Handling
 
-| Scenario | Error Code | Action |
-|----------|------------|--------|
-| Process ID not found | `NOT_FOUND` | Throw PtyError |
-| Write to paused process | `INVALID_STATE` | Throw PtyError |
-| Spawn fails (command not found) | `SPAWN_ERROR` | Emit error event, throw |
-| Kill already killed process | - | No-op (silent) |
-| Process crashes | - | Emit exit event with signal |
+| Scenario                        | Error Code      | Action                      |
+| ------------------------------- | --------------- | --------------------------- |
+| Process ID not found            | `NOT_FOUND`     | Throw PtyError              |
+| Write to paused process         | `INVALID_STATE` | Throw PtyError              |
+| Spawn fails (command not found) | `SPAWN_ERROR`   | Emit error event, throw     |
+| Kill already killed process     | -               | No-op (silent)              |
+| Process crashes                 | -               | Emit exit event with signal |
 
 ### App Lifecycle Integration
 
@@ -464,10 +464,12 @@ None - clean implementation
 ### File List
 
 **New Files:**
+
 - src/main/services/pty.service.ts (PtyService implementation)
 - src/main/services/pty.service.test.ts (46 unit tests)
 - src/main/services/index.ts (services barrel export)
 
 **Modified Files:**
+
 - package.json (added node-pty dependency, updated rebuild scripts)
 - src/main/index.ts (added ptyService import, before-quit handler, error logging)

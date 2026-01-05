@@ -1,11 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AppShell } from './AppShell'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useTerminalStore } from '@renderer/stores/terminal.store'
+
+// Mock the TerminalDock to avoid xterm.js and tRPC dependencies
+vi.mock('@renderer/components/terminal', () => ({
+  TerminalDock: () => <div data-testid="terminal-dock">Mock TerminalDock</div>
+}))
 
 describe('AppShell', () => {
   beforeEach(() => {
     useUIStore.setState({ sidebarCollapsed: false })
+    useTerminalStore.setState({
+      isExpanded: true,
+      height: 300,
+      activeProcessId: null
+    })
   })
 
   it('should render header with TinSu title', () => {
@@ -62,5 +73,26 @@ describe('AppShell', () => {
     expect(header).toBeInTheDocument()
     expect(sidebar).toBeInTheDocument()
     expect(main).toBeInTheDocument()
+  })
+
+  it('should render terminal dock', () => {
+    render(<AppShell />)
+    expect(screen.getByTestId('terminal-dock')).toBeInTheDocument()
+  })
+
+  it('should apply bottom padding based on terminal height', () => {
+    useTerminalStore.setState({ isExpanded: true, height: 350 })
+    render(<AppShell />)
+    // The flex container should have padding-bottom equal to terminal height
+    const flexContainer = screen.getByRole('complementary').parentElement
+    expect(flexContainer).toHaveStyle({ paddingBottom: '350px' })
+  })
+
+  it('should apply minimum padding when terminal is collapsed', () => {
+    useTerminalStore.setState({ isExpanded: false, height: 350 })
+    render(<AppShell />)
+    // When collapsed, minimum height is 80px
+    const flexContainer = screen.getByRole('complementary').parentElement
+    expect(flexContainer).toHaveStyle({ paddingBottom: '80px' })
   })
 })

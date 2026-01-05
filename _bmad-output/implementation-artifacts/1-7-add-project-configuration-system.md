@@ -287,12 +287,12 @@ None
 
 ### Issues Found & Fixed
 
-| Severity | Issue | File | Fix Applied |
-|----------|-------|------|-------------|
-| HIGH | `createdAt` mutable via service layer - `ProjectConfigUpdateSchema` allowed updating immutable field | `config.types.ts:18` | Changed `.partial()` to `.pick({...}).partial()` excluding `createdAt` |
-| MEDIUM | ConfigService instantiated on every request - performance waste | `config.router.ts:8` | Added `configServiceCache` Map for singleton pattern per projectRoot |
-| MEDIUM | `process.cwd()` fallback may fail in packaged Electron app | `context.ts:12` | Added TODO comment documenting issue for future fix |
-| MEDIUM | Permission error test was empty placeholder | `config.service.test.ts:206` | Implemented 2 real tests for read/write permission errors |
+| Severity | Issue                                                                                                | File                         | Fix Applied                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| HIGH     | `createdAt` mutable via service layer - `ProjectConfigUpdateSchema` allowed updating immutable field | `config.types.ts:18`         | Changed `.partial()` to `.pick({...}).partial()` excluding `createdAt` |
+| MEDIUM   | ConfigService instantiated on every request - performance waste                                      | `config.router.ts:8`         | Added `configServiceCache` Map for singleton pattern per projectRoot   |
+| MEDIUM   | `process.cwd()` fallback may fail in packaged Electron app                                           | `context.ts:12`              | Added TODO comment documenting issue for future fix                    |
+| MEDIUM   | Permission error test was empty placeholder                                                          | `config.service.test.ts:206` | Implemented 2 real tests for read/write permission errors              |
 
 ### Low Issues (Documented, Not Fixed)
 
