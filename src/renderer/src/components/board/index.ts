@@ -1,4 +1,5 @@
 export { KanbanBoard } from './KanbanBoard'
 export { KanbanBoardContainer } from './KanbanBoardContainer'
 export { KanbanColumn, COLUMN_CONFIG } from './KanbanColumn'
-export { TaskCard } from './TaskCard'
+export { TaskCard, type TaskCardProps } from './TaskCard'
+export { SortableTaskCard } from './SortableTaskCard'

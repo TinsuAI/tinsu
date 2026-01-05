@@ -24,6 +24,7 @@ export const tasks = sqliteTable(
     title: text('title').notNull(),
     description: text('description'),
     status: text('status').notNull().default('backlog'),
+    sort_order: integer('sort_order').notNull().default(0),
     epic_id: text('epic_id'),
     sprint_id: text('sprint_id'),
     created_at: integer('created_at', { mode: 'timestamp' })
@@ -36,7 +37,8 @@ export const tasks = sqliteTable(
   (table) => [
     index('idx_tasks_status').on(table.status),
     index('idx_tasks_epic_id').on(table.epic_id),
-    index('idx_tasks_sprint_id').on(table.sprint_id)
+    index('idx_tasks_sprint_id').on(table.sprint_id),
+    index('idx_tasks_sort_order').on(table.sort_order)
   ]
 )
 

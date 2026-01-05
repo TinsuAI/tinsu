@@ -3,7 +3,7 @@ import { cn } from '@renderer/lib/utils'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import type { Task } from '@shared/types/task.types'
 
-interface TaskCardProps {
+export interface TaskCardProps {
   task: Task
   /** Epic name to display as a subtle badge */
   epicName?: string

@@ -18,6 +18,7 @@ function createTestDb(): TestDb {
       title TEXT NOT NULL,
       description TEXT,
       status TEXT NOT NULL DEFAULT 'backlog',
+      sort_order INTEGER NOT NULL DEFAULT 0,
       epic_id TEXT,
       sprint_id TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -26,6 +27,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_epic_id ON tasks(epic_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
   `)
 
   return drizzle({ client: sqlite, schema })
@@ -215,6 +217,51 @@ describe('taskRouter', () => {
       } catch (error) {
         expect((error as TRPCError).code).toBe('NOT_FOUND')
       }
+    })
+  })
+
+  describe('reorder', () => {
+    it('should update sort_order for tasks in column', async () => {
+      // Create 3 tasks in backlog column
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'backlog', sort_order: 1, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-3', title: 'Task 3', status: 'backlog', sort_order: 2, created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      // Reorder: move task-3 to the top
+      const result = await caller.reorder({ taskIds: ['task-3', 'task-1', 'task-2'], status: 'backlog' })
+      expect(result).toBe(3)
+
+      // Verify new order
+      const tasks = await caller.getAll()
+      const task1 = tasks.find(t => t.id === 'task-1')
+      const task2 = tasks.find(t => t.id === 'task-2')
+      const task3 = tasks.find(t => t.id === 'task-3')
+
+      expect(task3?.sort_order).toBe(0) // moved to first
+      expect(task1?.sort_order).toBe(1) // moved to second
+      expect(task2?.sort_order).toBe(2) // moved to third
+    })
+
+    it('should only update tasks in the specified status column', async () => {
+      // Create tasks in different columns
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'in_progress', sort_order: 0, created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      // Reorder backlog column
+      await caller.reorder({ taskIds: ['task-1'], status: 'backlog' })
+
+      // Verify in_progress task was not affected
+      const tasks = await caller.getAll()
+      const task2 = tasks.find(t => t.id === 'task-2')
+      expect(task2?.sort_order).toBe(0) // unchanged
     })
   })
 })

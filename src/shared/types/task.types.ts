@@ -12,6 +12,7 @@ export interface Task {
   title: string
   description: string | null
   status: TaskStatus
+  sort_order: number
   epic_id: string | null
   sprint_id: string | null
   created_at: Date
@@ -24,6 +25,7 @@ export interface NewTask {
   title: string
   description?: string | null
   status?: string
+  sort_order?: number
   epic_id?: string | null
   sprint_id?: string | null
   created_at?: Date

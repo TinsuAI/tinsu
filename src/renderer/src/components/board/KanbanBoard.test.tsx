@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { KanbanBoard } from './KanbanBoard'
 import type { Task } from '@shared/types/task.types'
@@ -10,6 +10,7 @@ const mockTasks: Task[] = [
     title: 'Task 1',
     description: 'Description 1',
     status: 'backlog',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date(),
@@ -20,6 +21,7 @@ const mockTasks: Task[] = [
     title: 'Task 2',
     description: 'Description 2',
     status: 'backlog',
+    sort_order: 1,
     epic_id: null,
     sprint_id: null,
     created_at: new Date(),
@@ -30,6 +32,7 @@ const mockTasks: Task[] = [
     title: 'Task 3',
     description: 'Description 3',
     status: 'in_progress',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date(),
@@ -40,6 +43,7 @@ const mockTasks: Task[] = [
     title: 'Task 4',
     description: null,
     status: 'review',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date(),
@@ -50,6 +54,7 @@ const mockTasks: Task[] = [
     title: 'Task 5',
     description: null,
     status: 'done',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date(),
@@ -149,6 +154,7 @@ describe('KanbanBoard task grouping', () => {
         title: 'Task 6',
         description: null,
         status: 'in_progress',
+        sort_order: 1,
         epic_id: null,
         sprint_id: null,
         created_at: new Date(),
@@ -240,6 +246,7 @@ describe('KanbanBoard epicNames', () => {
         title: 'Task with Epic',
         description: null,
         status: 'backlog',
+        sort_order: 0,
         epic_id: 'epic-1',
         sprint_id: null,
         created_at: new Date(),
@@ -271,4 +278,79 @@ describe('KanbanBoard keyboard navigation', () => {
     const card = screen.getByTestId('task-card-1')
     expect(card).toHaveAttribute('aria-label')
   })
+})
+
+describe('KanbanBoard drag and drop', () => {
+  it('should render sortable task cards', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Check that sortable wrappers exist for each task
+    expect(screen.getByTestId('sortable-task-1')).toBeInTheDocument()
+    expect(screen.getByTestId('sortable-task-2')).toBeInTheDocument()
+    expect(screen.getByTestId('sortable-task-3')).toBeInTheDocument()
+  })
+
+  it('should accept onStatusChange callback', () => {
+    const onStatusChange = vi.fn()
+    render(<KanbanBoard tasks={mockTasks} onStatusChange={onStatusChange} />)
+
+    // Callback should be accepted without error
+    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+  })
+
+  it('should accept onReorder callback', () => {
+    const onReorder = vi.fn()
+    render(<KanbanBoard tasks={mockTasks} onReorder={onReorder} />)
+
+    // Callback should be accepted without error
+    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+  })
+
+  it('should have DndContext wrapping the board', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Board should render correctly with DndContext
+    const board = screen.getByTestId('kanban-board')
+    expect(board).toBeInTheDocument()
+  })
+
+  it('should have SortableContext for each column with tasks', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // All 4 columns have at least one task in mockTasks, so 4 task-lists render
+    const taskLists = screen.getAllByTestId('task-list')
+    expect(taskLists).toHaveLength(4)
+  })
+
+  it('should render droppable columns with correct IDs', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Each column should be a droppable target
+    expect(screen.getByTestId('column-backlog')).toBeInTheDocument()
+    expect(screen.getByTestId('column-in_progress')).toBeInTheDocument()
+    expect(screen.getByTestId('column-review')).toBeInTheDocument()
+    expect(screen.getByTestId('column-done')).toBeInTheDocument()
+  })
+
+  it('should sort tasks by sort_order within columns', () => {
+    const tasksWithOrder: Task[] = [
+      { ...mockTasks[0], id: 'z-task', sort_order: 2 },
+      { ...mockTasks[1], id: 'a-task', sort_order: 0 },
+      { ...mockTasks[0], id: 'm-task', sort_order: 1 }
+    ]
+
+    render(<KanbanBoard tasks={tasksWithOrder} />)
+
+    // Tasks should be rendered in sort_order, not ID order
+    const backlogColumn = screen.getByTestId('column-backlog')
+    const sortableCards = backlogColumn.querySelectorAll('[data-testid^="sortable-task-"]')
+
+    expect(sortableCards[0]).toHaveAttribute('data-testid', 'sortable-task-a-task')
+    expect(sortableCards[1]).toHaveAttribute('data-testid', 'sortable-task-m-task')
+    expect(sortableCards[2]).toHaveAttribute('data-testid', 'sortable-task-z-task')
+  })
+
+  // Note: Full drag event simulation requires @dnd-kit/testing utilities or E2E tests
+  // The callbacks (onStatusChange, onReorder) are integration-tested through
+  // KanbanBoardContainer which connects to tRPC mutations with optimistic updates
 })

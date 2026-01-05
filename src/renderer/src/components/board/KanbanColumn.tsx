@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@renderer/lib/utils'
 import type { TaskStatus } from '@shared/types/task.types'
 
@@ -14,18 +15,40 @@ interface KanbanColumnProps {
   taskCount: number
   className?: string
   children?: React.ReactNode
+  /** Whether a dragged item is currently over this column */
+  isOver?: boolean
 }
 
-export function KanbanColumn({ status, taskCount, className, children }: KanbanColumnProps) {
+export function KanbanColumn({
+  status,
+  taskCount,
+  className,
+  children,
+  isOver: isOverProp
+}: KanbanColumnProps) {
   const config = COLUMN_CONFIG[status]
+
+  // Set up droppable for the column
+  const { setNodeRef, isOver: isOverDroppable } = useDroppable({
+    id: `column-${status}`,
+    data: { status }
+  })
+
+  // Use prop if provided, otherwise use hook state
+  const isOver = isOverProp ?? isOverDroppable
 
   return (
     <div
+      ref={setNodeRef}
       role="listbox"
       aria-label={`${config.title} column with ${taskCount} tasks`}
       className={cn(
         'flex flex-col rounded-lg bg-card',
         'border border-border',
+        // Highlight when item is dragged over
+        isOver && 'border-primary/50 bg-primary/5',
+        // Smooth transition
+        'transition-colors duration-150',
         className
       )}
       data-testid={`column-${status}`}
@@ -39,9 +62,7 @@ export function KanbanColumn({ status, taskCount, className, children }: KanbanC
       </div>
 
       {/* Column content with vertical scroll */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {children}
-      </div>
+      <div className="flex-1 overflow-y-auto p-4">{children}</div>
     </div>
   )
 }

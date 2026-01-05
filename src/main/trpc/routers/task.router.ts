@@ -1,16 +1,16 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { tasks, TASK_STATUS } from '../../db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, asc, and } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 
 // Zod schema for task status validation
 const taskStatusSchema = z.enum(TASK_STATUS)
 
 export const taskRouter = router({
-  // List all tasks
+  // List all tasks (ordered by sort_order within each status)
   getAll: publicProcedure.query(({ ctx }) => {
-    return ctx.db.select().from(tasks).all()
+    return ctx.db.select().from(tasks).orderBy(asc(tasks.sort_order)).all()
   }),
 
   // Get single task by ID
@@ -82,5 +82,27 @@ export const taskRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
     }
     return result
-  })
+  }),
+
+  // Reorder tasks within a column (batch update sort_order)
+  reorder: publicProcedure
+    .input(
+      z.object({
+        taskIds: z.array(z.string()),
+        status: taskStatusSchema
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      // Update sort_order for each task based on array position
+      const now = new Date()
+      for (let i = 0; i < input.taskIds.length; i++) {
+        ctx.db
+          .update(tasks)
+          .set({ sort_order: i, updated_at: now })
+          .where(and(eq(tasks.id, input.taskIds[i]), eq(tasks.status, input.status)))
+          .run()
+      }
+      // Return count directly per tRPC pattern (no wrapper object)
+      return input.taskIds.length
+    })
 })

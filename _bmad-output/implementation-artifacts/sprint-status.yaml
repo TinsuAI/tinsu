@@ -58,7 +58,7 @@ development_status:
   epic-2: in-progress
   2-1-render-kanban-board-with-4-columns: done
   2-2-display-task-cards-in-columns: done
-  2-3-implement-drag-and-drop-between-columns: ready-for-dev
+  2-3-implement-drag-and-drop-between-columns: done
   2-4-create-new-task-dialog: backlog
   2-5-add-sprint-epic-story-hierarchy: backlog
   2-6-implement-task-filtering: backlog

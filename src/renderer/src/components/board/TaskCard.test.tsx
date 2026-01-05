@@ -18,6 +18,7 @@ const mockTask: Task = {
   title: 'Implement feature X',
   description: 'A detailed description that explains what needs to be done for this task',
   status: 'backlog',
+  sort_order: 0,
   epic_id: null,
   sprint_id: null,
   created_at: new Date('2026-01-01'),

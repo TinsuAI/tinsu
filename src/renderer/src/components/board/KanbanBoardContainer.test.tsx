@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KanbanBoardContainer } from './KanbanBoardContainer'
+
+// Create a QueryClient wrapper for tests
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false
+      }
+    }
+  })
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+}
 
 // Mock task data
 const mockTasks = [
@@ -9,6 +24,7 @@ const mockTasks = [
     title: 'Task 1',
     description: 'Description 1',
     status: 'backlog',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date('2024-01-01'),
@@ -19,6 +35,7 @@ const mockTasks = [
     title: 'Task 2',
     description: null,
     status: 'in_progress',
+    sort_order: 0,
     epic_id: null,
     sprint_id: null,
     created_at: new Date('2024-01-02'),
@@ -42,6 +59,18 @@ vi.mock('@renderer/lib/trpc', () => ({
           isError: mockIsError,
           error: mockError
         })
+      },
+      updateStatus: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn()
+        })
+      },
+      reorder: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn()
+        })
       }
     }
   }
@@ -58,7 +87,7 @@ describe('KanbanBoardContainer', () => {
   it('should render loading state when isLoading is true', () => {
     mockIsLoading = true
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Loading tasks...')).toBeInTheDocument()
   })
@@ -67,7 +96,7 @@ describe('KanbanBoardContainer', () => {
     mockIsError = true
     mockError = { message: 'Database connection failed' }
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Failed to load tasks')).toBeInTheDocument()
     expect(screen.getByText('Database connection failed')).toBeInTheDocument()
@@ -77,7 +106,7 @@ describe('KanbanBoardContainer', () => {
     mockIsError = true
     mockError = null
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Failed to load tasks')).toBeInTheDocument()
     expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
@@ -86,7 +115,7 @@ describe('KanbanBoardContainer', () => {
   it('should render KanbanBoard with tasks when data is loaded', () => {
     mockData = mockTasks
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     // Should render the board with 4 columns
     expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
@@ -99,7 +128,7 @@ describe('KanbanBoardContainer', () => {
   it('should display correct task counts when data is loaded', () => {
     mockData = mockTasks
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     // backlog: 1 task, in_progress: 1 task, review: 0, done: 0
     expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
@@ -111,7 +140,7 @@ describe('KanbanBoardContainer', () => {
   it('should render empty board when there are no tasks', () => {
     mockData = []
 
-    render(<KanbanBoardContainer />)
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
     expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
     // All columns should show 0 count
