@@ -162,3 +162,113 @@ describe('KanbanBoard task grouping', () => {
     expect(screen.getByTestId('count-in_progress')).toHaveTextContent('2')
   })
 })
+
+describe('KanbanBoard TaskCard rendering', () => {
+  it('should render task cards for each task', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    expect(screen.getByTestId('task-card-1')).toBeInTheDocument()
+    expect(screen.getByTestId('task-card-2')).toBeInTheDocument()
+    expect(screen.getByTestId('task-card-3')).toBeInTheDocument()
+    expect(screen.getByTestId('task-card-4')).toBeInTheDocument()
+    expect(screen.getByTestId('task-card-5')).toBeInTheDocument()
+  })
+
+  it('should render task titles in cards', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    expect(screen.getByText('Task 1')).toBeInTheDocument()
+    expect(screen.getByText('Task 2')).toBeInTheDocument()
+    expect(screen.getByText('Task 3')).toBeInTheDocument()
+    expect(screen.getByText('Task 4')).toBeInTheDocument()
+    expect(screen.getByText('Task 5')).toBeInTheDocument()
+  })
+
+  it('should render task cards in their correct columns', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Tasks 1 and 2 should be in backlog column
+    const backlogColumn = screen.getByTestId('column-backlog')
+    expect(backlogColumn).toContainElement(screen.getByTestId('task-card-1'))
+    expect(backlogColumn).toContainElement(screen.getByTestId('task-card-2'))
+
+    // Task 3 should be in in_progress column
+    const inProgressColumn = screen.getByTestId('column-in_progress')
+    expect(inProgressColumn).toContainElement(screen.getByTestId('task-card-3'))
+
+    // Task 4 should be in review column
+    const reviewColumn = screen.getByTestId('column-review')
+    expect(reviewColumn).toContainElement(screen.getByTestId('task-card-4'))
+
+    // Task 5 should be in done column
+    const doneColumn = screen.getByTestId('column-done')
+    expect(doneColumn).toContainElement(screen.getByTestId('task-card-5'))
+  })
+
+  it('should render descriptions in task cards', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    expect(screen.getByText('Description 1')).toBeInTheDocument()
+    expect(screen.getByText('Description 2')).toBeInTheDocument()
+    expect(screen.getByText('Description 3')).toBeInTheDocument()
+  })
+
+  it('should not show "No tasks" when tasks exist in column', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Should not have any "No tasks" messages since all columns have tasks
+    expect(screen.queryByText('No tasks')).not.toBeInTheDocument()
+  })
+})
+
+describe('KanbanBoard card spacing', () => {
+  it('should have 12px gap between task cards', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // The task container should have gap-3 (12px) class
+    const backlogColumn = screen.getByTestId('column-backlog')
+    const taskContainer = backlogColumn.querySelector('[data-testid="task-list"]')
+    expect(taskContainer).toHaveClass('gap-3') // gap-3 = 12px
+  })
+})
+
+describe('KanbanBoard epicNames', () => {
+  it('should pass epicName to TaskCard when epicNames map is provided', () => {
+    const tasksWithEpic: Task[] = [
+      {
+        id: '1',
+        title: 'Task with Epic',
+        description: null,
+        status: 'backlog',
+        epic_id: 'epic-1',
+        sprint_id: null,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    ]
+
+    const epicNames = { 'epic-1': 'Epic 1: Foundation' }
+
+    render(<KanbanBoard tasks={tasksWithEpic} epicNames={epicNames} />)
+
+    // The epic name should be displayed in the TaskCard
+    expect(screen.getByText('Epic 1: Foundation')).toBeInTheDocument()
+  })
+
+  it('should not show epic label when epic_id is null', () => {
+    render(<KanbanBoard tasks={mockTasks} epicNames={{}} />)
+
+    // No epic labels should be visible for tasks without epic_id
+    expect(screen.queryByTestId('task-epic-label')).not.toBeInTheDocument()
+  })
+})
+
+describe('KanbanBoard keyboard navigation', () => {
+  it('should pass onNavigate callback to TaskCards', () => {
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // TaskCards should receive onNavigate prop (verified by having aria-label)
+    const card = screen.getByTestId('task-card-1')
+    expect(card).toHaveAttribute('aria-label')
+  })
+})

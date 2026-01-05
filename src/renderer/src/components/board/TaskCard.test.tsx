@@ -1,0 +1,276 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { TaskCard } from './TaskCard'
+import type { Task } from '@shared/types/task.types'
+
+// Helper to render with userEvent for keyboard testing
+function renderWithUser(ui: React.ReactElement) {
+  return {
+    user: userEvent.setup(),
+    ...render(ui)
+  }
+}
+
+// Mock task data for testing
+const mockTask: Task = {
+  id: 'task-1',
+  title: 'Implement feature X',
+  description: 'A detailed description that explains what needs to be done for this task',
+  status: 'backlog',
+  epic_id: null,
+  sprint_id: null,
+  created_at: new Date('2026-01-01'),
+  updated_at: new Date('2026-01-01')
+}
+
+describe('TaskCard', () => {
+  it('should render task title prominently', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const title = screen.getByText('Implement feature X')
+    expect(title).toBeInTheDocument()
+    expect(title).toHaveClass('font-medium')
+  })
+
+  it('should render truncated description (max 2 lines)', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const description = screen.getByText(/A detailed description/)
+    expect(description).toBeInTheDocument()
+    expect(description).toHaveClass('line-clamp-2')
+  })
+
+  it('should handle null description gracefully', () => {
+    const taskWithoutDescription: Task = {
+      ...mockTask,
+      description: null
+    }
+
+    render(<TaskCard task={taskWithoutDescription} />)
+
+    expect(screen.getByText('Implement feature X')).toBeInTheDocument()
+    // No description should be rendered
+    expect(screen.queryByTestId('task-description')).not.toBeInTheDocument()
+  })
+
+  it('should render with dark theme styling', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('bg-card')
+  })
+
+  it('should have hover states', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('hover:border-primary/50')
+  })
+
+  it('should have data-testid for testing', () => {
+    render(<TaskCard task={mockTask} />)
+
+    expect(screen.getByTestId('task-card-task-1')).toBeInTheDocument()
+  })
+
+  it('should render with proper text styling', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const title = screen.getByText('Implement feature X')
+    expect(title).toHaveClass('text-sm')
+
+    const description = screen.getByText(/A detailed description/)
+    expect(description).toHaveClass('text-muted-foreground')
+  })
+
+  it('should have 12px internal padding', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('p-3') // p-3 = 12px
+  })
+
+  it('should have rounded corners', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('rounded-lg')
+  })
+
+  it('should have border styling', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('border', 'border-border')
+  })
+})
+
+describe('TaskCard accessibility', () => {
+  it('should have role="option" for listbox pattern', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveAttribute('role', 'option')
+  })
+
+  it('should be focusable with tabIndex', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveAttribute('tabIndex', '0')
+  })
+})
+
+describe('TaskCard with epic', () => {
+  it('should display epic name when epicName is provided', () => {
+    render(<TaskCard task={mockTask} epicName="Epic 1: Foundation" />)
+
+    expect(screen.getByText('Epic 1: Foundation')).toBeInTheDocument()
+  })
+
+  it('should render epic label as a subtle badge', () => {
+    render(<TaskCard task={mockTask} epicName="Epic 1: Foundation" />)
+
+    const epicBadge = screen.getByTestId('task-epic-label')
+    expect(epicBadge).toHaveClass('text-xs')
+    expect(epicBadge).toHaveClass('text-muted-foreground')
+  })
+
+  it('should not render epic label when epicName is not provided', () => {
+    render(<TaskCard task={mockTask} />)
+
+    expect(screen.queryByTestId('task-epic-label')).not.toBeInTheDocument()
+  })
+
+  it('should handle null epic_id gracefully', () => {
+    const taskWithoutEpic: Task = {
+      ...mockTask,
+      epic_id: null
+    }
+
+    render(<TaskCard task={taskWithoutEpic} />)
+
+    expect(screen.queryByTestId('task-epic-label')).not.toBeInTheDocument()
+  })
+})
+
+describe('TaskCard with AgentStatusBadge', () => {
+  it('should display AgentStatusBadge', () => {
+    render(<TaskCard task={mockTask} />)
+
+    // Default agent status is idle
+    expect(screen.getByTestId('agent-status-idle')).toBeInTheDocument()
+  })
+
+  it('should display custom agent status', () => {
+    render(<TaskCard task={mockTask} agentStatus="running" />)
+
+    expect(screen.getByTestId('agent-status-running')).toBeInTheDocument()
+  })
+
+  it('should display all agent status variants', () => {
+    const statuses = ['idle', 'running', 'stalled', 'review', 'done', 'error'] as const
+
+    statuses.forEach((status) => {
+      const { unmount } = render(<TaskCard task={mockTask} agentStatus={status} />)
+      expect(screen.getByTestId(`agent-status-${status}`)).toBeInTheDocument()
+      unmount()
+    })
+  })
+})
+
+describe('TaskCard keyboard navigation', () => {
+  it('should have visible 2px focus ring styles', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('focus-visible:ring-2')
+    expect(card).toHaveClass('focus-visible:ring-primary')
+  })
+
+  it('should have focus-visible:outline-none to use ring instead', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('focus-visible:outline-none')
+  })
+
+  it('should have ring-offset for better visibility', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveClass('focus-visible:ring-offset-2')
+    expect(card).toHaveClass('focus-visible:ring-offset-background')
+  })
+
+  it('should call onNavigate with "up" when ArrowUp is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(<TaskCard task={mockTask} onNavigate={onNavigate} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    card.focus()
+    await user.keyboard('{ArrowUp}')
+
+    expect(onNavigate).toHaveBeenCalledWith('up')
+  })
+
+  it('should call onNavigate with "down" when ArrowDown is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(<TaskCard task={mockTask} onNavigate={onNavigate} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    card.focus()
+    await user.keyboard('{ArrowDown}')
+
+    expect(onNavigate).toHaveBeenCalledWith('down')
+  })
+
+  it('should call onNavigate with "left" when ArrowLeft is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(<TaskCard task={mockTask} onNavigate={onNavigate} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    card.focus()
+    await user.keyboard('{ArrowLeft}')
+
+    expect(onNavigate).toHaveBeenCalledWith('left')
+  })
+
+  it('should call onNavigate with "right" when ArrowRight is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(<TaskCard task={mockTask} onNavigate={onNavigate} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    card.focus()
+    await user.keyboard('{ArrowRight}')
+
+    expect(onNavigate).toHaveBeenCalledWith('right')
+  })
+
+  it('should not throw when onNavigate is not provided', async () => {
+    const { user } = renderWithUser(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    card.focus()
+
+    // Should not throw
+    await expect(user.keyboard('{ArrowUp}')).resolves.not.toThrow()
+  })
+})
+
+describe('TaskCard aria-label', () => {
+  it('should have aria-label with task title', () => {
+    render(<TaskCard task={mockTask} />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveAttribute('aria-label', 'Task: Implement feature X')
+  })
+
+  it('should include epic name in aria-label when provided', () => {
+    render(<TaskCard task={mockTask} epicName="Epic 1: Foundation" />)
+
+    const card = screen.getByTestId('task-card-task-1')
+    expect(card).toHaveAttribute('aria-label', 'Task: Implement feature X, Epic: Epic 1: Foundation')
+  })
+})

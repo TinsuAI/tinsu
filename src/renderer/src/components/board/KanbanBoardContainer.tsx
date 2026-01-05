@@ -1,6 +1,6 @@
 import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
-import type { Task } from '@shared/types/task.types'
+import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
   const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
@@ -21,6 +21,7 @@ export function KanbanBoardContainer() {
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
   const transformedTasks: Task[] = (tasks ?? []).map((task) => ({
     ...task,
+    status: task.status as TaskStatus,
     created_at: new Date(task.created_at),
     updated_at: new Date(task.updated_at)
   }))

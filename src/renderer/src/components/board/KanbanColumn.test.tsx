@@ -72,3 +72,26 @@ describe('COLUMN_CONFIG', () => {
     expect(COLUMN_CONFIG.done.title).toBe('Done')
   })
 })
+
+describe('KanbanColumn accessibility', () => {
+  it('should have role="listbox" for accessibility', () => {
+    render(<KanbanColumn status="backlog" taskCount={3} />)
+    const column = screen.getByTestId('column-backlog')
+    expect(column).toHaveAttribute('role', 'listbox')
+  })
+
+  it('should have aria-label describing column and task count', () => {
+    render(<KanbanColumn status="backlog" taskCount={5} />)
+    const column = screen.getByTestId('column-backlog')
+    expect(column).toHaveAttribute('aria-label', 'Backlog column with 5 tasks')
+  })
+
+  it('should update aria-label when task count changes', () => {
+    const { rerender } = render(<KanbanColumn status="in_progress" taskCount={2} />)
+    const column = screen.getByTestId('column-in_progress')
+    expect(column).toHaveAttribute('aria-label', 'In Progress column with 2 tasks')
+
+    rerender(<KanbanColumn status="in_progress" taskCount={10} />)
+    expect(column).toHaveAttribute('aria-label', 'In Progress column with 10 tasks')
+  })
+})

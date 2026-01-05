@@ -21,6 +21,8 @@ export function KanbanColumn({ status, taskCount, className, children }: KanbanC
 
   return (
     <div
+      role="listbox"
+      aria-label={`${config.title} column with ${taskCount} tasks`}
       className={cn(
         'flex flex-col rounded-lg bg-card',
         'border border-border',
