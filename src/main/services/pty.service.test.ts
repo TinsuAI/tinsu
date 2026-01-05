@@ -145,8 +145,8 @@ describe('PtyService', () => {
 
       expect(firstEventTime).not.toBeNull()
       const latency = firstEventTime! - startTime
-      // Allow some buffer for process startup, but should be well under 100ms for output relay
-      expect(latency).toBeLessThan(150)
+      // AC4 requires output events fire within 100ms of process output
+      expect(latency).toBeLessThan(100)
     })
   })
 
@@ -223,8 +223,9 @@ describe('PtyService', () => {
     })
 
     it('should handle control characters (Ctrl+C)', async () => {
-      const exitEvents: PtyExitEvent[] = []
-      service.on('exit', (event: PtyExitEvent) => exitEvents.push(event))
+      const exitPromise = new Promise<PtyExitEvent>((resolve) => {
+        service.on('exit', (event: PtyExitEvent) => resolve(event))
+      })
 
       // sleep will run indefinitely, Ctrl+C should interrupt it
       const id = service.spawn('sleep', ['60'])
@@ -234,15 +235,17 @@ describe('PtyService', () => {
       // Send Ctrl+C (SIGINT)
       service.write(id, '\x03')
 
-      // Wait for exit
-      await new Promise((r) => setTimeout(r, 300))
+      // Wait for exit with timeout
+      const exit = await Promise.race([
+        exitPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500))
+      ])
 
-      // Process should have exited (or we killed it)
-      const proc = service.getProcess(id)
-      if (proc) {
-        // If still running, kill it - the Ctrl+C might not have worked
-        service.kill(id)
-      }
+      // Process should have exited due to SIGINT
+      expect(exit).not.toBeNull()
+      expect(exit?.processId).toBe(id)
+      // Process should be cleaned up from map
+      expect(service.getProcess(id)).toBeUndefined()
     })
 
     it('should throw PtyError when process not found', () => {
@@ -489,6 +492,22 @@ describe('PtyService', () => {
 
     it('should throw PtyError for non-existent process', () => {
       expect(() => service.resize('non-existent-id', 80, 24)).toThrow(PtyError)
+    })
+
+    it('should throw PtyError for invalid dimensions', () => {
+      const id = service.spawn('sleep', ['60'])
+
+      // Zero dimensions
+      expect(() => service.resize(id, 0, 24)).toThrow(PtyError)
+      expect(() => service.resize(id, 80, 0)).toThrow(PtyError)
+
+      // Negative dimensions
+      expect(() => service.resize(id, -1, 24)).toThrow(PtyError)
+      expect(() => service.resize(id, 80, -1)).toThrow(PtyError)
+
+      // Non-integer dimensions
+      expect(() => service.resize(id, 80.5, 24)).toThrow(PtyError)
+      expect(() => service.resize(id, 80, 24.5)).toThrow(PtyError)
     })
   })
 

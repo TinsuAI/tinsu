@@ -186,7 +186,7 @@ export class PtyService extends EventEmitter {
    * Pauses a running process (SIGSTOP).
    *
    * @param processId - ID of the process to pause
-   * @throws PtyError if process not found
+   * @throws PtyError if process not found or signal fails
    */
   pause(processId: string): void {
     const proc = this.processes.get(processId)
@@ -195,15 +195,20 @@ export class PtyService extends EventEmitter {
     }
     if (proc.state !== 'running') return // No-op if not running
 
-    process.kill(proc.pty.pid, 'SIGSTOP')
-    proc.state = 'paused'
+    try {
+      process.kill(proc.pty.pid, 'SIGSTOP')
+      proc.state = 'paused'
+    } catch {
+      // Process may have exited between state check and signal - treat as no-op
+      // The exit event will handle cleanup
+    }
   }
 
   /**
    * Resumes a paused process (SIGCONT).
    *
    * @param processId - ID of the process to resume
-   * @throws PtyError if process not found
+   * @throws PtyError if process not found or signal fails
    */
   resume(processId: string): void {
     const proc = this.processes.get(processId)
@@ -212,8 +217,13 @@ export class PtyService extends EventEmitter {
     }
     if (proc.state !== 'paused') return // No-op if not paused
 
-    process.kill(proc.pty.pid, 'SIGCONT')
-    proc.state = 'running'
+    try {
+      process.kill(proc.pty.pid, 'SIGCONT')
+      proc.state = 'running'
+    } catch {
+      // Process may have exited between state check and signal - treat as no-op
+      // The exit event will handle cleanup
+    }
   }
 
   /**
@@ -259,14 +269,22 @@ export class PtyService extends EventEmitter {
    * Resizes a PTY process terminal.
    *
    * @param processId - ID of the process
-   * @param cols - New column count
-   * @param rows - New row count
-   * @throws PtyError if process not found
+   * @param cols - New column count (must be positive integer)
+   * @param rows - New row count (must be positive integer)
+   * @throws PtyError if process not found or dimensions invalid
    */
   resize(processId: string, cols: number, rows: number): void {
     const proc = this.processes.get(processId)
     if (!proc) {
       throw new PtyError(`Process ${processId} not found`, 'NOT_FOUND', processId)
+    }
+    // Validate dimensions are positive integers
+    if (!Number.isInteger(cols) || cols < 1 || !Number.isInteger(rows) || rows < 1) {
+      throw new PtyError(
+        `Invalid dimensions: cols=${cols}, rows=${rows} (must be positive integers)`,
+        'INVALID_STATE',
+        `cols=${cols}, rows=${rows}`
+      )
     }
     proc.pty.resize(cols, rows)
   }

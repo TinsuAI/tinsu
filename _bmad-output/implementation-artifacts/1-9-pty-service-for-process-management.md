@@ -1,6 +1,6 @@
 # Story 1.9: PTY Service for Process Management
 
-Status: review
+Status: done
 
 ## Story
 
@@ -447,16 +447,25 @@ None - clean implementation
 - Implemented PtyService with full API: spawn, write, kill, pause, resume, killAll, resize
 - Added PtyError class with typed error codes (NOT_FOUND, INVALID_STATE, SPAWN_ERROR, KILLED)
 - Implemented EventEmitter events: 'output', 'exit', 'error' with typed event interfaces
-- Created comprehensive test suite with 45 tests covering all acceptance criteria
+- Created comprehensive test suite with 46 tests covering all acceptance criteria
 - Added before-quit handler for PTY process cleanup
 - Added error logging for unexpected process failures
 - Created services index barrel export
+
+### Code Review Fixes Applied
+
+- **[HIGH]** Fixed incorrect import path in services/index.ts (`../../../src/shared/` → `../../shared/`)
+- **[MEDIUM]** Added try-catch for pause/resume SIGSTOP/SIGCONT signals to handle race conditions
+- **[MEDIUM]** Added validation for resize() dimensions (must be positive integers)
+- **[MEDIUM]** Improved Ctrl+C test with proper assertions verifying process termination
+- **[MEDIUM]** Updated latency test threshold from 150ms to 100ms to match AC4 requirement
+- Added 1 new test for resize() invalid dimensions validation
 
 ### File List
 
 **New Files:**
 - src/main/services/pty.service.ts (PtyService implementation)
-- src/main/services/pty.service.test.ts (45 unit tests)
+- src/main/services/pty.service.test.ts (46 unit tests)
 - src/main/services/index.ts (services barrel export)
 
 **Modified Files:**

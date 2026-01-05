@@ -6,7 +6,7 @@
 
 // Configuration service
 export { ConfigService } from './config.service'
-export type { ProjectConfig } from '../../../src/shared/types/config.types'
+export type { ProjectConfig } from '../../shared/types/config.types'
 
 // Project management service
 export { ProjectService, ProjectError } from './project.service'
