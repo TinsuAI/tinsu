@@ -31,7 +31,11 @@ describe('AppShell', () => {
   })
 
   it('should render children in main content', () => {
-    render(<AppShell><div data-testid="child">Custom content</div></AppShell>)
+    render(
+      <AppShell>
+        <div data-testid="child">Custom content</div>
+      </AppShell>
+    )
     expect(screen.getByTestId('child')).toBeInTheDocument()
     expect(screen.queryByText('Ready for development')).not.toBeInTheDocument()
   })

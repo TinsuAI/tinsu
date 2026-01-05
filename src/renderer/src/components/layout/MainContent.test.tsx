@@ -15,7 +15,11 @@ describe('MainContent', () => {
   })
 
   it('should render children when provided', () => {
-    render(<MainContent><div data-testid="child">Custom content</div></MainContent>)
+    render(
+      <MainContent>
+        <div data-testid="child">Custom content</div>
+      </MainContent>
+    )
     expect(screen.getByTestId('child')).toBeInTheDocument()
     expect(screen.getByText('Custom content')).toBeInTheDocument()
     expect(screen.queryByText('Ready for development')).not.toBeInTheDocument()

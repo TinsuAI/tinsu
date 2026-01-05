@@ -15,6 +15,7 @@ So that I have a working Electron development environment with hot reload and pr
 ## Acceptance Criteria
 
 ### AC1: Project Scaffolding
+
 **Given** an empty project directory
 **When** I run `npm create @quick-start/electron@latest tinsu -- --template react-ts`
 **Then** the project scaffolds with src/main, src/preload, src/renderer directories
@@ -22,6 +23,7 @@ So that I have a working Electron development environment with hot reload and pr
 **And** the package.json includes electron ^39.2.7, electron-vite ^5.0.0, react ^19.2.3, typescript ^5.9.3
 
 ### AC2: Build Verification
+
 **Given** the project is initialized
 **When** I run `npm run build`
 **Then** the application builds successfully for the current platform
@@ -63,11 +65,13 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Starter-Template-E
 **Selected Starter:** electron-vite (React + TypeScript)
 
 **Initialization Command:**
+
 ```bash
 npm create @quick-start/electron@latest tinsu -- --template react-ts
 ```
 
 **This command provides:**
+
 - TypeScript 5.x with strict mode
 - Node.js for main process
 - Chromium for renderer process
@@ -79,14 +83,14 @@ npm create @quick-start/electron@latest tinsu -- --template react-ts
 
 From [Source: _bmad-output/planning-artifacts/epics.md#Additional-Requirements]:
 
-| Category | Package | Version | Notes |
-|----------|---------|---------|-------|
-| **Core Framework** | electron | ^39.2.7 | Chromium M142, Node.js 22 |
-| | electron-vite | ^5.0.0 | Latest stable |
-| | react | ^19.2.3 | Activity API, useEffectEvent |
-| | react-dom | ^19.2.3 | |
-| | typescript | ^5.9.3 | v6/v7 coming 2026 |
-| | vite | ^7.3.0 | ESM-only, Node 20.19+ required |
+| Category           | Package       | Version | Notes                          |
+| ------------------ | ------------- | ------- | ------------------------------ |
+| **Core Framework** | electron      | ^39.2.7 | Chromium M142, Node.js 22      |
+|                    | electron-vite | ^5.0.0  | Latest stable                  |
+|                    | react         | ^19.2.3 | Activity API, useEffectEvent   |
+|                    | react-dom     | ^19.2.3 |                                |
+|                    | typescript    | ^5.9.3  | v6/v7 coming 2026              |
+|                    | vite          | ^7.3.0  | ESM-only, Node 20.19+ required |
 
 **IMPORTANT:** The electron-vite template may install different versions. After initialization, verify versions in package.json match the above requirements. Update if necessary.
 
@@ -95,6 +99,7 @@ From [Source: _bmad-output/planning-artifacts/epics.md#Additional-Requirements]:
 From [Source: _bmad-output/planning-artifacts/architecture.md#Project-Structure]:
 
 The electron-vite template creates this structure:
+
 ```
 tinsu/
 ├── src/
@@ -115,6 +120,7 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Core-Architectural
 - The template should include proper tsconfig.json for all three processes (main, preload, renderer)
 
 Verify tsconfig.json includes:
+
 ```json
 {
   "compilerOptions": {
@@ -128,6 +134,7 @@ Verify tsconfig.json includes:
 From [Source: _bmad-output/planning-artifacts/architecture.md#Starter-Template-Evaluation]:
 
 The template provides:
+
 - Hot Module Replacement (HMR) for React components
 - Source maps for debugging
 - TypeScript type checking
@@ -156,10 +163,12 @@ This story is purely about **initialization and verification**.
 ## Technical Requirements
 
 ### Node.js Version
+
 - Requires Node.js 20.19+ (per Vite 7.3.0 requirement)
 - Verify with `node --version` before starting
 
 ### Git Repository
+
 - The project should be initialized in a git repository
 - The .gitignore should exclude:
   - node_modules/
@@ -167,6 +176,7 @@ This story is purely about **initialization and verification**.
   - out/
 
 ### File System
+
 - Project root should be clean before initialization
 - All source files go in src/ directory
 
@@ -220,6 +230,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 **Date:** 2026-01-04
 
 **Implementation Summary:**
+
 1. Created electron-vite project using `npm create @quick-start/electron@latest` template (react-ts)
 2. Merged scaffolded files into existing git repository (preserving BMAD planning artifacts)
 3. Updated package.json with project-specific metadata and required dependency versions:
@@ -232,6 +243,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 5. Merged .gitignore to include `out/` and `.eslintcache`
 
 **Verification Results:**
+
 - `npm install`: 714 packages installed, 0 vulnerabilities
 - `npm run typecheck`: Passes for both node and web configs
 - `npm run dev`: Main/preload/renderer build successfully, dev server starts at localhost:5173
@@ -244,6 +256,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### File List
 
 **Created:**
+
 - `package.json` - Project manifest with dependencies
 - `package-lock.json` - Dependency lock file (353KB)
 - `electron.vite.config.ts` - Vite configuration for Electron
@@ -270,6 +283,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - `.vscode/` - VS Code workspace settings [gitignored]
 
 **Modified:**
+
 - `.gitignore` - Added out/, .eslintcache
 - `src/main/index.ts` - Added Linux sandbox workaround
 
@@ -288,15 +302,15 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Issues Found & Resolved
 
-| # | Severity | Issue | Resolution |
-|---|----------|-------|------------|
-| 1 | HIGH | Sandbox disabled unconditionally on Linux | Fixed: Now dev-only via `!app.isPackaged` check |
-| 2 | HIGH | sandbox:false undocumented | Fixed: Added comment explaining requirement for Node.js APIs |
-| 3 | MEDIUM | @ts-ignore in preload | Acceptable: Standard template code for context isolation fallback |
-| 4 | MEDIUM | Test IPC handler left in code | Fixed: Removed ping handler and renderer usage |
-| 5 | MEDIUM | package-lock.json undocumented | Fixed: Added to File List |
-| 6 | MEDIUM | Manual test checkboxes unclear | Fixed: Added GUI requirement notes |
-| 7 | LOW | Accessibility issue (anchor without href) | Fixed: Removed dead IPC button entirely |
+| #   | Severity | Issue                                     | Resolution                                                        |
+| --- | -------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| 1   | HIGH     | Sandbox disabled unconditionally on Linux | Fixed: Now dev-only via `!app.isPackaged` check                   |
+| 2   | HIGH     | sandbox:false undocumented                | Fixed: Added comment explaining requirement for Node.js APIs      |
+| 3   | MEDIUM   | @ts-ignore in preload                     | Acceptable: Standard template code for context isolation fallback |
+| 4   | MEDIUM   | Test IPC handler left in code             | Fixed: Removed ping handler and renderer usage                    |
+| 5   | MEDIUM   | package-lock.json undocumented            | Fixed: Added to File List                                         |
+| 6   | MEDIUM   | Manual test checkboxes unclear            | Fixed: Added GUI requirement notes                                |
+| 7   | LOW      | Accessibility issue (anchor without href) | Fixed: Removed dead IPC button entirely                           |
 
 ### Verification
 

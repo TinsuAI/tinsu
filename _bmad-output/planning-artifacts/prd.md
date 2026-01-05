@@ -42,6 +42,7 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 **Project Context:** Greenfield - new project
 
 **MVP Architecture:**
+
 - Single-tenant (local install on founder's device)
 - Single role: Founder (full access)
 - Core integrations: Claude Code, GitHub, Git
@@ -51,13 +52,16 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 ### User Success
 
 **Core Experience:**
+
 - Review in 10 minutes what would have taken 3 hours to build manually
 - Review is mandatory — nothing ships without human approval
 
 **Aha Moment:**
+
 - First time a founder approves agent output without touching code
 
 **Measurable Outcomes:**
+
 - Peace of Mind Index: >80% of tasks delegated to agents vs. done manually
 - Quality Approval Rate: >80% of agent outputs approved on first review
 - Daily Engagement: Founder checks board daily
@@ -66,25 +70,31 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 ### Business Success
 
 **Product-Market Fit Signal:**
+
 - Dog-food validation: "I can't stop using it myself"
 - Core loop works reliably (Create → Execute → Review → Done)
 
 **Scale Target:**
+
 - 1 million tasks executed
 
 **Revenue:**
+
 - Not a factor for MVP — pure validation phase
 
 ### Technical Success
 
 **Reliability:**
+
 - Agents must never hang mid-task without visibility or recovery
 - Graceful handling of interruptions and failures
 
 **Performance:**
+
 - Instant UI responsiveness (snappy Kanban, no perceptible lag)
 
 **Integration Stability:**
+
 - Claude Code CLI integration works reliably for MVP
 - Claude API integration planned for future sprints
 
@@ -93,6 +103,7 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 ### MVP - Minimum Viable Product
 
 **Core Features:**
+
 - Kanban board interface (Backlog → In Progress → Review → Done)
 - Sprint/Epic/Story hierarchy (BMAD Method structure)
 - AI agent execution via Claude Code CLI
@@ -101,6 +112,7 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 - GitHub + Git integration
 
 **Architecture:**
+
 - Single-tenant (local install on founder's device)
 - Single role: Founder (full access)
 
@@ -150,13 +162,14 @@ In Review, the diff looks good — but Tinxu spots a security issue: the API key
 
 The card moves back to In Progress. The agent fixes it in 2 minutes. Review again. Clean. Approved. Done.
 
-Later that evening, Tinxu reflects: in the old flow, that Stripe bug would've cost him an hour of debugging and a minor security incident. TinSu caught it in 5 minutes because *nothing moved to Done without his eyes on it*.
+Later that evening, Tinxu reflects: in the old flow, that Stripe bug would've cost him an hour of debugging and a minor security incident. TinSu caught it in 5 minutes because _nothing moved to Done without his eyes on it_.
 
 ### Journey Requirements Summary
 
 These journeys reveal the following capability areas:
 
 **From Journey 1 (Happy Path):**
+
 - Kanban board with visual task status (Backlog → In Progress → Review → Done)
 - Drag-and-drop task state changes
 - Claude Code CLI integration with automatic context loading
@@ -169,6 +182,7 @@ These journeys reveal the following capability areas:
 - Task velocity tracking
 
 **From Journey 2 (Recovery Path):**
+
 - Agent stall detection ("no progress" indicator)
 - Pause/Resume agent controls
 - Reasoning log for debugging agent behavior
@@ -183,7 +197,7 @@ These journeys reveal the following capability areas:
 
 **1. Task Redefinition: Runtime Environments, Not Records**
 
-Traditional project management treats tasks as static database entries — text descriptions moved between columns by humans. TinSu redefines the task as a *runtime environment* where AI agents plan, execute, and deliver work. The card is not a status indicator; it's a production unit.
+Traditional project management treats tasks as static database entries — text descriptions moved between columns by humans. TinSu redefines the task as a _runtime environment_ where AI agents plan, execute, and deliver work. The card is not a status indicator; it's a production unit.
 
 **2. Manager-in-the-Loop: The Trust Pattern for AI Delegation**
 
@@ -191,11 +205,12 @@ Current AI tools force a binary choice: micromanage every interaction (defeating
 
 **3. Methodology Agnosticism: Platform Adapts to Workflow**
 
-Unlike tools that impose a single workflow, TinSu offers methodology choice — BMAD Method for persona-driven planning, TaskMaster for deterministic execution, or custom approaches. The platform is a vessel for *how you work*, not a prescription for how you should work.
+Unlike tools that impose a single workflow, TinSu offers methodology choice — BMAD Method for persona-driven planning, TaskMaster for deterministic execution, or custom approaches. The platform is a vessel for _how you work_, not a prescription for how you should work.
 
 ### Market Context & Competitive Landscape
 
 **Gap Identified:**
+
 - Incumbent PM tools (Asana, Trello, Jira) track human work but don't execute it
 - Developer AI tools (Cursor, Claude Code) execute but require terminal expertise
 - Agent frameworks (CrewAI, LangChain) are powerful but lack management-tier UI
@@ -205,22 +220,24 @@ TinSu occupies the whitespace: a **visual control plane for AI agents** accessib
 ### Validation Approach
 
 **Dog-food Validation (Primary):**
+
 - Founder uses TinSu to build TinSu itself
 - Success signal: "I can't stop using it myself"
 - Measures: Task velocity, approval rates, daily engagement
 
 **Pattern Validation:**
+
 - Manager-in-the-Loop: Does the review step catch real issues? (Journey 2 scenario)
 - Runtime Tasks: Do agents complete work autonomously with context loaded?
 - Methodology Choice: Can users switch between BMAD/TaskMaster seamlessly?
 
 ### Risk Mitigation
 
-| Innovation | Risk | Mitigation |
-|------------|------|------------|
-| Tasks as Runtimes | Agent execution is unreliable or slow | Stall detection, Pause/Resume controls, clear status indicators |
-| Manager-in-the-Loop | Review becomes bottleneck, slows velocity | Streamlined diff view, quick approve/reject actions, batching potential |
-| Methodology Choice | Complexity of supporting multiple workflows | MVP focuses on 2 methodologies (BMAD, TaskMaster), defer custom workflows |
+| Innovation          | Risk                                        | Mitigation                                                                |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------------------------- |
+| Tasks as Runtimes   | Agent execution is unreliable or slow       | Stall detection, Pause/Resume controls, clear status indicators           |
+| Manager-in-the-Loop | Review becomes bottleneck, slows velocity   | Streamlined diff view, quick approve/reject actions, batching potential   |
+| Methodology Choice  | Complexity of supporting multiple workflows | MVP focuses on 2 methodologies (BMAD, TaskMaster), defer custom workflows |
 
 ## SaaS B2B Specific Requirements
 
@@ -233,6 +250,7 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 #### Tenant Model (MVP)
 
 **Single-Tenant Local Installation:**
+
 - Application runs entirely on founder's device
 - No cloud dependency for core functionality
 - Data remains local — builds trust through ownership
@@ -241,6 +259,7 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 #### Permission Model (MVP)
 
 **Single Role: Founder**
+
 - Full access to all features
 - No permission matrix required for MVP
 - Future: Role-based access when team collaboration is added
@@ -251,15 +270,16 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 
 **Approach: Subprocess + PTY (Pseudo-Terminal)**
 
-| Component | Implementation |
-|-----------|----------------|
-| **Process Management** | Spawn Claude Code via PTY (e.g., `node-pty` or Python `pty`) |
-| **I/O Handling** | Capture real-time stdout/stderr for terminal view in UI |
-| **Context Injection** | Pipe story context, acceptance criteria, and architecture docs as initial prompt |
-| **Control Signals** | Send SIGSTOP/SIGCONT for Pause/Resume functionality |
-| **State Detection** | Monitor output patterns for completion, stall detection, errors |
+| Component              | Implementation                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| **Process Management** | Spawn Claude Code via PTY (e.g., `node-pty` or Python `pty`)                     |
+| **I/O Handling**       | Capture real-time stdout/stderr for terminal view in UI                          |
+| **Context Injection**  | Pipe story context, acceptance criteria, and architecture docs as initial prompt |
+| **Control Signals**    | Send SIGSTOP/SIGCONT for Pause/Resume functionality                              |
+| **State Detection**    | Monitor output patterns for completion, stall detection, errors                  |
 
 **Why PTY:**
+
 - Real-time terminal output for embedded UI view
 - Full control for pause/resume (Journey 2 requirement)
 - Context injection before agent starts
@@ -269,15 +289,16 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 
 **Approach: Git Worktrees for Parallel Task Isolation**
 
-| Capability | Implementation |
-|------------|----------------|
-| **Task Isolation** | Each active task gets dedicated worktree (e.g., `/.worktrees/story-123/`) |
-| **Parallel Execution** | Multiple agents can work simultaneously without conflicts |
-| **Merge on Approve** | When task approved, merge worktree branch to main |
-| **Cleanup** | Delete worktree after successful merge |
-| **Conflict Handling** | Detect merge conflicts, surface to founder for resolution |
+| Capability             | Implementation                                                            |
+| ---------------------- | ------------------------------------------------------------------------- |
+| **Task Isolation**     | Each active task gets dedicated worktree (e.g., `/.worktrees/story-123/`) |
+| **Parallel Execution** | Multiple agents can work simultaneously without conflicts                 |
+| **Merge on Approve**   | When task approved, merge worktree branch to main                         |
+| **Cleanup**            | Delete worktree after successful merge                                    |
+| **Conflict Handling**  | Detect merge conflicts, surface to founder for resolution                 |
 
 **Worktree Lifecycle:**
+
 1. Task moves to In Progress → Create worktree + branch
 2. Agent works in isolated worktree
 3. Task approved → Merge branch to main
@@ -293,20 +314,22 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 
 **Hybrid Approach: SQLite + JSON/YAML**
 
-| Data Type | Storage | Rationale |
-|-----------|---------|-----------|
-| **Task State** | SQLite | Queryable, handles concurrent reads, timestamps, agent logs |
-| **Sprint/Epic Structure** | SQLite | Relational data, status tracking |
-| **Project Config** | YAML | Human-readable, version-controlled |
-| **Story Definitions** | Markdown/YAML | Compatible with BMAD/TaskMaster patterns |
-| **Agent Logs** | SQLite + Files | Indexed for search, full logs in filesystem |
+| Data Type                 | Storage        | Rationale                                                   |
+| ------------------------- | -------------- | ----------------------------------------------------------- |
+| **Task State**            | SQLite         | Queryable, handles concurrent reads, timestamps, agent logs |
+| **Sprint/Epic Structure** | SQLite         | Relational data, status tracking                            |
+| **Project Config**        | YAML           | Human-readable, version-controlled                          |
+| **Story Definitions**     | Markdown/YAML  | Compatible with BMAD/TaskMaster patterns                    |
+| **Agent Logs**            | SQLite + Files | Indexed for search, full logs in filesystem                 |
 
 **SQLite Schema Considerations:**
+
 - Tasks table: id, title, status, sprint_id, epic_id, created_at, updated_at
 - Agent runs table: task_id, started_at, ended_at, token_usage, exit_status
 - Logs table: run_id, timestamp, log_level, message
 
 **File Structure:**
+
 ```
 project/
 ├── .tinsu/
@@ -320,12 +343,14 @@ project/
 ### Implementation Considerations
 
 **MVP Technical Constraints:**
+
 - Must work offline (no cloud dependency)
 - Single-user, single-device
 - Claude Code CLI must be installed separately (prerequisite)
 - Git must be initialized in project directory
 
 **Performance Requirements:**
+
 - UI must remain responsive during agent execution
 - PTY output streaming should not block main thread
 - SQLite queries should be indexed for task list views
@@ -335,11 +360,13 @@ project/
 ### MVP Strategy & Philosophy
 
 **MVP Approach:** Problem-Solving MVP
+
 - Solve the core pain (terminal chaos → visual control) with minimal but complete features
 - Focus on dog-food validation before external users
 - Quality over speed — the integrations must work reliably
 
 **Resource Requirements:**
+
 - Solo founder (dog-fooding)
 - Prerequisites: Claude Code CLI installed, Git initialized
 - No external dependencies for core functionality
@@ -347,25 +374,27 @@ project/
 ### MVP Feature Set (Phase 1)
 
 **Core User Journeys Supported:**
+
 1. Happy Path — Create → Execute → Review → Done
 2. Recovery Path — Stall detection, Pause/Resume, Reject with feedback
 
 **Must-Have Capabilities:**
 
-| Capability | Rationale |
-|------------|-----------|
-| Kanban Board (4 columns) | Core visual interface — the "control plane" |
-| Sprint/Epic/Story Hierarchy | Structure for BMAD/TaskMaster compatibility |
-| Claude Code CLI via PTY | Agent execution with real-time output |
-| Git Worktrees | Parallel task isolation without conflicts |
-| Review Panel + Diff View | Manager-in-the-Loop pattern |
-| Approve/Reject/Request Changes | Human oversight actions |
-| Stall Detection | Catch agent loops before they burn tokens |
-| Pause/Resume | Intervention without losing context |
-| Auto-commit on Approve | Merge worktree, clean up |
-| SQLite + YAML Hybrid | State persistence + human-readable config |
+| Capability                     | Rationale                                   |
+| ------------------------------ | ------------------------------------------- |
+| Kanban Board (4 columns)       | Core visual interface — the "control plane" |
+| Sprint/Epic/Story Hierarchy    | Structure for BMAD/TaskMaster compatibility |
+| Claude Code CLI via PTY        | Agent execution with real-time output       |
+| Git Worktrees                  | Parallel task isolation without conflicts   |
+| Review Panel + Diff View       | Manager-in-the-Loop pattern                 |
+| Approve/Reject/Request Changes | Human oversight actions                     |
+| Stall Detection                | Catch agent loops before they burn tokens   |
+| Pause/Resume                   | Intervention without losing context         |
+| Auto-commit on Approve         | Merge worktree, clean up                    |
+| SQLite + YAML Hybrid           | State persistence + human-readable config   |
 
 **Explicitly Deferred from MVP:**
+
 - Non-technical founder UX
 - Horizontal workflows (content, sales, growth)
 - Claude API integration (direct API calls)
@@ -376,12 +405,14 @@ project/
 ### Post-MVP Features
 
 **Phase 2 (Growth):**
+
 - Non-technical founder UX (simplified interface, guided onboarding)
 - Horizontal workflows (content creation, sales outreach, growth experiments)
 - Claude API integration (move beyond CLI)
 - Basic analytics dashboard (task velocity trends)
 
 **Phase 3 (Expansion):**
+
 - Multi-tenant cloud option (SaaS model)
 - Team collaboration + role-based access
 - Multiple AI providers (OpenAI, Gemini, etc.)
@@ -392,25 +423,25 @@ project/
 
 **Technical Risks:**
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                            | Mitigation                                                  |
+| ------------------------------- | ----------------------------------------------------------- |
 | PTY complexity across platforms | Use battle-tested library (node-pty), test on macOS + Linux |
-| Worktree merge conflicts | Surface conflicts in UI, manual resolution workflow |
-| Stall detection false positives | Tunable thresholds, manual override always available |
+| Worktree merge conflicts        | Surface conflicts in UI, manual resolution workflow         |
+| Stall detection false positives | Tunable thresholds, manual override always available        |
 
 **Market Risks:**
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                       | Mitigation                                              |
+| ------------------------------------------ | ------------------------------------------------------- |
 | Only useful for founder, not generalizable | Dog-food validation first, then expand to similar users |
-| Claude Code CLI changes break integration | Abstract CLI layer, monitor for API changes |
+| Claude Code CLI changes break integration  | Abstract CLI layer, monitor for API changes             |
 
 **Resource Risks:**
 
-| Risk | Mitigation |
-|------|------------|
-| Solo founder bandwidth | Lean MVP scope, use TinSu to build TinSu |
-| Scope creep | Explicit "deferred" list, strict MVP boundaries |
+| Risk                   | Mitigation                                      |
+| ---------------------- | ----------------------------------------------- |
+| Solo founder bandwidth | Lean MVP scope, use TinSu to build TinSu        |
+| Scope creep            | Explicit "deferred" list, strict MVP boundaries |
 
 ## Functional Requirements
 
@@ -475,48 +506,56 @@ project/
 ### Performance
 
 **UI Responsiveness:**
+
 - NFR1: Kanban board interactions (drag, click, navigation) complete in <100ms
 - NFR2: Board loads with full task list in <1 second
 - NFR3: UI remains responsive (non-blocking) during agent execution
 
 **Terminal Output:**
+
 - NFR4: Agent terminal output streams to UI with <500ms latency
 - NFR5: Terminal view handles high-frequency output without dropping frames
 
 **Data Operations:**
+
 - NFR6: SQLite queries for task list views complete in <200ms
 - NFR7: Task state changes persist immediately (no visible delay)
 
 ### Reliability
 
 **Agent Execution:**
+
 - NFR8: Agent stall detection triggers within configured threshold (default: 5 minutes of no output)
 - NFR9: Pause/Resume commands execute within 1 second
 - NFR10: System recovers gracefully from Claude Code CLI crashes without data loss
 - NFR11: No task data is lost if application is force-quit during agent execution
 
 **Git Operations:**
+
 - NFR12: Worktree creation/deletion succeeds or fails cleanly (no partial states)
 - NFR13: Merge conflicts are detected before corrupting main branch
 - NFR14: Git operations provide clear error messages on failure
 
 **Data Integrity:**
+
 - NFR15: SQLite database maintains ACID properties
 - NFR16: Application can recover from unexpected shutdown without database corruption
 
 ### Integration
 
 **Claude Code CLI:**
+
 - NFR17: System detects if Claude Code CLI is not installed and provides clear error
 - NFR18: Context injection works with story files up to 50KB
 - NFR19: PTY integration works on macOS and Linux
 
 **Git:**
+
 - NFR20: System detects if git is not initialized and provides clear error
 - NFR21: Worktree operations work with repositories up to 10GB
 - NFR22: Branch operations complete within 5 seconds for typical repositories
 
 **File System:**
+
 - NFR23: System handles story files with special characters in filenames
 - NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
-

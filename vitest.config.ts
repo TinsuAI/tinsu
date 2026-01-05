@@ -4,8 +4,8 @@ import path from 'node:path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@renderer': path.resolve(__dirname, 'src/renderer/src'),
-    },
+      '@renderer': path.resolve(__dirname, 'src/renderer/src')
+    }
   },
   test: {
     globals: true,
@@ -16,24 +16,24 @@ export default defineConfig({
           name: 'main',
           environment: 'node',
           include: ['src/main/**/*.test.ts'],
-          exclude: ['node_modules', 'out', 'dist'],
-        },
+          exclude: ['node_modules', 'out', 'dist']
+        }
       },
       {
         // Renderer process tests (Browser environment)
         resolve: {
           alias: {
-            '@renderer': path.resolve(__dirname, 'src/renderer/src'),
-          },
+            '@renderer': path.resolve(__dirname, 'src/renderer/src')
+          }
         },
         test: {
           name: 'renderer',
           environment: 'happy-dom',
           include: ['src/renderer/**/*.test.{ts,tsx}'],
           exclude: ['node_modules', 'out', 'dist'],
-          setupFiles: ['src/renderer/src/test-setup.ts'],
-        },
-      },
-    ],
-  },
+          setupFiles: ['src/renderer/src/test-setup.ts']
+        }
+      }
+    ]
+  }
 })

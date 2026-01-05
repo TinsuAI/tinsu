@@ -72,6 +72,11 @@ describe('Sidebar', () => {
   it('should have transition animation classes with reduced motion support', () => {
     render(<Sidebar />)
     const sidebar = screen.getByRole('complementary')
-    expect(sidebar).toHaveClass('transition-[width]', 'duration-150', 'ease-in-out', 'motion-reduce:transition-none')
+    expect(sidebar).toHaveClass(
+      'transition-[width]',
+      'duration-150',
+      'ease-in-out',
+      'motion-reduce:transition-none'
+    )
   })
 })

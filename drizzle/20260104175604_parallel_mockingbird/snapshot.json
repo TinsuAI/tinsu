@@ -2,9 +2,7 @@
   "version": "7",
   "dialect": "sqlite",
   "id": "11faad68-172c-4c57-99d8-c753c98286e0",
-  "prevIds": [
-    "2a2574fb-cadd-42d0-818f-ce15d76d5bf7"
-  ],
+  "prevIds": ["2a2574fb-cadd-42d0-818f-ce15d76d5bf7"],
   "ddl": [
     {
       "name": "agent_runs",
@@ -219,13 +217,9 @@
       "table": "tasks"
     },
     {
-      "columns": [
-        "task_id"
-      ],
+      "columns": ["task_id"],
       "tableTo": "tasks",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "nameExplicit": false,
@@ -234,27 +228,21 @@
       "table": "agent_runs"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "agent_runs_pk",
       "table": "agent_runs",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "settings_pk",
       "table": "settings",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "tasks_pk",
       "table": "tasks",
@@ -317,9 +305,7 @@
       "table": "tasks"
     },
     {
-      "columns": [
-        "key"
-      ],
+      "columns": ["key"],
       "nameExplicit": false,
       "name": "settings_key_unique",
       "entityType": "uniques",

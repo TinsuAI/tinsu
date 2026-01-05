@@ -15,24 +15,28 @@ So that task and agent data can be persisted locally with type-safe queries.
 ## Acceptance Criteria
 
 ### AC1: Package Installation
+
 **Given** the project from Story 1.2
 **When** I install drizzle-orm@beta, better-sqlite3 ^12.5.0, and drizzle-kit
 **Then** the packages install without errors
 **And** better-sqlite3 native bindings compile for Electron
 
 ### AC2: Database Connection
+
 **Given** Drizzle is installed
 **When** I create a database connection in src/main/db/index.ts
 **Then** the database file is created at data/tinsu.db on first run
 **And** the data/ directory is gitignored
 
 ### AC3: Migration Generation
+
 **Given** the database connection exists
 **When** I run `npx drizzle-kit generate`
 **Then** migration SQL files are generated in drizzle/ directory
 **And** `npx drizzle-kit migrate` applies migrations successfully
 
 ### AC4: ACID Compliance
+
 **Given** the database is configured
 **When** the app starts after a crash or force-quit
 **Then** the SQLite database maintains ACID properties (NFR15)
@@ -105,15 +109,16 @@ So that task and agent data can be persisted locally with type-safe queries.
 
 From [Source: _bmad-output/planning-artifacts/architecture.md#Data-Architecture]:
 
-| Decision | Choice | Version | Rationale |
-|----------|--------|---------|-----------|
-| **Database** | SQLite via better-sqlite3 | latest | Synchronous API ideal for Electron main process, local-first |
-| **ORM** | Drizzle ORM | 1.0.0-beta.2 | Type-safe, lightweight, excellent DX with better-sqlite3 driver |
-| **Migrations** | Drizzle Kit | 1.0.0-beta.2 | Schema introspection <1s, automatic migration generation |
+| Decision       | Choice                    | Version      | Rationale                                                       |
+| -------------- | ------------------------- | ------------ | --------------------------------------------------------------- |
+| **Database**   | SQLite via better-sqlite3 | latest       | Synchronous API ideal for Electron main process, local-first    |
+| **ORM**        | Drizzle ORM               | 1.0.0-beta.2 | Type-safe, lightweight, excellent DX with better-sqlite3 driver |
+| **Migrations** | Drizzle Kit               | 1.0.0-beta.2 | Schema introspection <1s, automatic migration generation        |
 
 From [Source: _bmad-output/planning-artifacts/project-context.md#Critical-Implementation-Rules]:
 
 **NEVER do these in renderer:**
+
 - Import `better-sqlite3`, `child_process`, or `fs`
 - Access Node.js APIs directly
 
@@ -136,6 +141,7 @@ For development workflow with drizzle-kit (which uses system Node.js, not Electr
 3. `npx electron-rebuild -f -w better-sqlite3` - Rebuild for Electron
 
 **Alternatively, use two separate database files:**
+
 - Development: `data/dev.db` (used by drizzle-kit with system Node.js)
 - Production: `data/tinsu.db` (used by Electron app)
 
@@ -144,28 +150,28 @@ For development workflow with drizzle-kit (which uses system Node.js, not Electr
 **Database connection (src/main/db/index.ts):**
 
 ```typescript
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import * as schema from './schema';
-import { app } from 'electron';
-import path from 'path';
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import Database from 'better-sqlite3'
+import * as schema from './schema'
+import { app } from 'electron'
+import path from 'path'
 
 function getDbPath(): string {
   // In development, use project root data/
   // In production, use app.getPath('userData')
-  const isDev = !app.isPackaged;
+  const isDev = !app.isPackaged
   if (isDev) {
-    return path.join(process.cwd(), 'data', 'tinsu.db');
+    return path.join(process.cwd(), 'data', 'tinsu.db')
   }
-  return path.join(app.getPath('userData'), 'tinsu.db');
+  return path.join(app.getPath('userData'), 'tinsu.db')
 }
 
-const sqlite = new Database(getDbPath());
+const sqlite = new Database(getDbPath())
 
 // Enable WAL mode for better crash resilience (NFR15, NFR16)
-sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('journal_mode = WAL')
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(sqlite, { schema })
 ```
 
 ### Schema Pattern
@@ -173,15 +179,17 @@ export const db = drizzle(sqlite, { schema });
 **Schema definition (src/main/db/schema.ts):**
 
 ```typescript
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 // Initial minimal table for testing - full schema in Story 1.4
 export const settings = sqliteTable('settings', {
   id: text('id').primaryKey(),
   key: text('key').notNull().unique(),
   value: text('value'),
-  created_at: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+  created_at: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`)
+})
 ```
 
 ### Drizzle Configuration
@@ -189,28 +197,28 @@ export const settings = sqliteTable('settings', {
 **drizzle.config.ts:**
 
 ```typescript
-import { defineConfig } from 'drizzle-kit';
+import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
   dialect: 'sqlite',
   schema: './src/main/db/schema.ts',
   out: './drizzle',
   dbCredentials: {
-    url: './data/tinsu.db',
-  },
-});
+    url: './data/tinsu.db'
+  }
+})
 ```
 
 ### Naming Conventions
 
 From [Source: _bmad-output/planning-artifacts/architecture.md#Naming-Patterns]:
 
-| Element | Convention | Example |
-|---------|------------|---------|
-| Tables | snake_case, plural | `tasks`, `agent_runs`, `settings` |
-| Columns | snake_case | `created_at`, `task_id`, `exit_status` |
-| Foreign Keys | `{referenced_table}_id` | `sprint_id`, `epic_id` |
-| Indexes | `idx_{table}_{columns}` | `idx_tasks_status` |
+| Element      | Convention              | Example                                |
+| ------------ | ----------------------- | -------------------------------------- |
+| Tables       | snake_case, plural      | `tasks`, `agent_runs`, `settings`      |
+| Columns      | snake_case              | `created_at`, `task_id`, `exit_status` |
+| Foreign Keys | `{referenced_table}_id` | `sprint_id`, `epic_id`                 |
+| Indexes      | `idx_{table}_{columns}` | `idx_tasks_status`                     |
 
 ### File Organization
 
@@ -247,6 +255,7 @@ From [Source: _bmad-output/implementation-artifacts/1-2-configure-tailwind-css-4
 ### WAL Mode Benefits
 
 SQLite's WAL (Write-Ahead Logging) mode provides:
+
 - **Crash resilience**: Survives unexpected shutdown without corruption
 - **Concurrent reads**: Multiple reads while writing
 - **Faster writes**: Appends to log instead of rewriting database file
@@ -261,21 +270,21 @@ Enable with: `sqlite.pragma('journal_mode = WAL');`
 
 From [Source: _bmad-output/planning-artifacts/epics.md#Technology-Stack]:
 
-| Package | Version | Notes |
-|---------|---------|-------|
-| drizzle-orm | 1.0.0-beta.2 | Use beta tag |
-| better-sqlite3 | ^12.5.0 | Sync API for Electron |
-| drizzle-kit | 1.0.0-beta.2 | Dev dependency |
+| Package        | Version      | Notes                 |
+| -------------- | ------------ | --------------------- |
+| drizzle-orm    | 1.0.0-beta.2 | Use beta tag          |
+| better-sqlite3 | ^12.5.0      | Sync API for Electron |
+| drizzle-kit    | 1.0.0-beta.2 | Dev dependency        |
 
 ### Performance Requirements
 
 From [Source: _bmad-output/planning-artifacts/epics.md#Non-Functional-Requirements]:
 
-| NFR | Requirement |
-|-----|-------------|
-| NFR6 | SQLite queries for task list views complete in <200ms |
-| NFR7 | Task state changes persist immediately (no visible delay) |
-| NFR15 | SQLite database maintains ACID properties |
+| NFR   | Requirement                                                                  |
+| ----- | ---------------------------------------------------------------------------- |
+| NFR6  | SQLite queries for task list views complete in <200ms                        |
+| NFR7  | Task state changes persist immediately (no visible delay)                    |
+| NFR15 | SQLite database maintains ACID properties                                    |
 | NFR16 | Application can recover from unexpected shutdown without database corruption |
 
 ---
@@ -310,12 +319,14 @@ From [Source: _bmad-output/planning-artifacts/epics.md#Non-Functional-Requiremen
 ## References
 
 ### Architecture & Planning
+
 - [Source: _bmad-output/planning-artifacts/architecture.md#Data-Architecture]
 - [Source: _bmad-output/planning-artifacts/architecture.md#Naming-Patterns]
 - [Source: _bmad-output/planning-artifacts/project-context.md#Critical-Implementation-Rules]
 - [Source: _bmad-output/planning-artifacts/epics.md#Story-1.3]
 
 ### External Documentation
+
 - [Drizzle ORM SQLite Docs](https://orm.drizzle.team/docs/get-started-sqlite)
 - [Drizzle Kit v1.0.0-beta.2 Release](https://orm.drizzle.team/docs/latest-releases/drizzle-orm-v1beta2)
 - [Drizzle Kit Migrations](https://orm.drizzle.team/docs/kit-overview)
@@ -324,6 +335,7 @@ From [Source: _bmad-output/planning-artifacts/epics.md#Non-Functional-Requiremen
 - [drizzle-kit + Electron Issue](https://github.com/WiseLibs/better-sqlite3/issues/1171)
 
 ### Previous Story
+
 - [Source: _bmad-output/implementation-artifacts/1-2-configure-tailwind-css-4-and-shadcn-ui.md]
 
 ---
@@ -362,6 +374,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### File List
 
 **New Files:**
+
 - `drizzle.config.ts` - Drizzle Kit configuration
 - `src/main/db/index.ts` - Database connection module with WAL mode
 - `src/main/db/schema.ts` - Drizzle schema with settings table
@@ -370,13 +383,13 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - `data/` - Runtime database directory (gitignored)
 
 **Modified Files:**
-- `package.json` - Added drizzle-orm, better-sqlite3, drizzle-kit dependencies and db:* scripts
+
+- `package.json` - Added drizzle-orm, better-sqlite3, drizzle-kit dependencies and db:\* scripts
 - `package-lock.json` - Updated with new dependencies
-- `.gitignore` - Added data/, *.db, *.db-wal, *.db-shm
+- `.gitignore` - Added data/, _.db, _.db-wal, \*.db-shm
 - `src/main/index.ts` - Added database imports and initializeDatabase() function
 
 ### Change Log
 
 - 2026-01-04: Story 1.3 implemented - SQLite database with Drizzle ORM setup complete. All acceptance criteria satisfied.
 - 2026-01-04: Code Review (AI) - Fixed 2 HIGH issues: (1) Added error handling with try/catch to initializeDatabase(), (2) Added ensureDbDirectory() to create data/ folder if missing. Updated File List to include package-lock.json.
-

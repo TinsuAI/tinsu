@@ -2,9 +2,7 @@
   "version": "7",
   "dialect": "sqlite",
   "id": "2a2574fb-cadd-42d0-818f-ce15d76d5bf7",
-  "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
-  ],
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
       "name": "settings",
@@ -51,18 +49,14 @@
       "table": "settings"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "settings_pk",
       "table": "settings",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "key"
-      ],
+      "columns": ["key"],
       "nameExplicit": false,
       "name": "settings_key_unique",
       "entityType": "uniques",

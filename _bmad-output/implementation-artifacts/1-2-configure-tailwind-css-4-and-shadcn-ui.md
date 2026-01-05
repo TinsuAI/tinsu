@@ -15,18 +15,21 @@ So that I can build consistent, accessible UI components using the design system
 ## Acceptance Criteria
 
 ### AC1: Tailwind CSS 4 Installation
+
 **Given** the electron-vite project from Story 1.1
 **When** I install tailwindcss ^4.1.18 and @tailwindcss/vite ^4.1.18
 **Then** Tailwind processes CSS in the renderer process
 **And** utility classes like `bg-zinc-900` render correctly
 
 ### AC2: shadcn/ui Initialization
+
 **Given** Tailwind is configured
 **When** I run `npx shadcn@latest init`
 **Then** shadcn/ui initializes with the "zinc" base color and dark mode
 **And** I can add components via `npx shadcn@latest add button`
 
 ### AC3: Dark Theme Configuration
+
 **Given** the dark theme is configured
 **When** the app loads
 **Then** the background color is #0a0a0b (--background from Calm Command palette)
@@ -89,10 +92,10 @@ So that I can build consistent, accessible UI components using the design system
 
 From [Source: _bmad-output/planning-artifacts/architecture.md#Core-Architectural-Decisions]:
 
-| Decision | Choice | Version | Rationale |
-|----------|--------|---------|-----------|
-| **Components** | shadcn/ui | latest | Tailwind-based, copy-paste ownership, accessible |
-| **Styling** | Tailwind CSS | ^4.1.18 | Utility-first, pairs with shadcn/ui |
+| Decision       | Choice       | Version | Rationale                                        |
+| -------------- | ------------ | ------- | ------------------------------------------------ |
+| **Components** | shadcn/ui    | latest  | Tailwind-based, copy-paste ownership, accessible |
+| **Styling**    | Tailwind CSS | ^4.1.18 | Utility-first, pairs with shadcn/ui              |
 
 From [Source: _bmad-output/planning-artifacts/project-context.md#Styling-Rules]:
 
@@ -123,11 +126,11 @@ export default defineConfig({
   // ...existing config
   renderer: {
     plugins: [
-      tailwindcss(),  // Add this
-      react(),
-    ],
+      tailwindcss(), // Add this
+      react()
+    ]
     // ...
-  },
+  }
 })
 ```
 
@@ -138,7 +141,7 @@ export default defineConfig({
 **globals.css structure:**
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Dark mode variant for shadcn/ui */
 @custom-variant dark (&:is(.dark *));
@@ -161,8 +164,8 @@ export default defineConfig({
 
 /* Dark mode - Calm Command palette */
 .dark {
-  --background: oklch(0.07 0.01 285);  /* #0a0a0b */
-  --card: oklch(0.12 0.01 285);        /* #18181b */
+  --background: oklch(0.07 0.01 285); /* #0a0a0b */
+  --card: oklch(0.12 0.01 285); /* #18181b */
   /* ... other dark theme colors */
 }
 ```
@@ -171,13 +174,13 @@ export default defineConfig({
 
 From [Source: _bmad-output/planning-artifacts/epics.md#UX-Design-Layout-Specifications]:
 
-| Variable | Hex | Usage |
-|----------|-----|-------|
-| `--background` | #0a0a0b | App background |
-| `--card` | #18181b | Card/panel backgrounds |
-| `--status-running` | #22c55e | Running agent status |
-| `--status-stalled` | #f59e0b | Stalled agent status |
-| `--status-review` | #8b5cf6 | Review status |
+| Variable           | Hex     | Usage                  |
+| ------------------ | ------- | ---------------------- |
+| `--background`     | #0a0a0b | App background         |
+| `--card`           | #18181b | Card/panel backgrounds |
+| `--status-running` | #22c55e | Running agent status   |
+| `--status-stalled` | #f59e0b | Stalled agent status   |
+| `--status-review`  | #8b5cf6 | Review status          |
 
 ### File Organization
 
@@ -216,6 +219,7 @@ From [Source: _bmad-output/implementation-artifacts/1-1-initialize-electron-proj
 ### shadcn/ui CLI Answers
 
 When running `npx shadcn@latest init`, select:
+
 - **Style**: Default
 - **Base color**: Zinc
 - **CSS variables**: Yes
@@ -232,17 +236,18 @@ When running `npx shadcn@latest init`, select:
 
 From [Source: _bmad-output/planning-artifacts/epics.md#Technology-Stack]:
 
-| Package | Version | Notes |
-|---------|---------|-------|
-| tailwindcss | ^4.1.18 | New Vite plugin setup |
-| @tailwindcss/vite | ^4.1.18 | Required for Vite 7 |
-| shadcn/ui | CLI-based | Copy-paste, no version lock |
+| Package           | Version   | Notes                       |
+| ----------------- | --------- | --------------------------- |
+| tailwindcss       | ^4.1.18   | New Vite plugin setup       |
+| @tailwindcss/vite | ^4.1.18   | Required for Vite 7         |
+| shadcn/ui         | CLI-based | Copy-paste, no version lock |
 
 ### Electron Process Boundaries
 
 From [Source: _bmad-output/planning-artifacts/project-context.md#Electron-Process-Boundaries]:
 
 **NEVER do these in renderer:**
+
 - Import `node-pty`, `better-sqlite3`, `child_process`, or `fs`
 - Access Node.js APIs directly
 
@@ -290,12 +295,14 @@ From [Source: _bmad-output/planning-artifacts/epics.md#UX-Design-Accessibility]:
 ## References
 
 ### Architecture & Planning
+
 - [Source: _bmad-output/planning-artifacts/architecture.md#Core-Architectural-Decisions]
 - [Source: _bmad-output/planning-artifacts/architecture.md#Frontend-Architecture]
 - [Source: _bmad-output/planning-artifacts/project-context.md#Styling-Rules]
 - [Source: _bmad-output/planning-artifacts/epics.md#Story-1.2]
 
 ### External Documentation
+
 - [Tailwind CSS v4 Vite Installation](https://tailwindcss.com/docs/installation/using-vite)
 - [shadcn/ui Tailwind v4 Support](https://ui.shadcn.com/docs/tailwind-v4)
 - [shadcn/ui Dark Mode](https://ui.shadcn.com/docs/dark-mode)
@@ -303,6 +310,7 @@ From [Source: _bmad-output/planning-artifacts/epics.md#UX-Design-Accessibility]:
 - [@tailwindcss/vite npm](https://www.npmjs.com/package/@tailwindcss/vite)
 
 ### Previous Story
+
 - [Source: _bmad-output/implementation-artifacts/1-1-initialize-electron-project-with-electron-vite.md]
 
 ---
@@ -331,12 +339,14 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### File List
 
 **New Files:**
+
 - `components.json` - shadcn/ui configuration
 - `src/renderer/src/globals.css` - Tailwind v4 + shadcn/ui theme
 - `src/renderer/src/lib/utils.ts` - cn() helper utility
 - `src/renderer/src/components/ui/button.tsx` - shadcn/ui Button component
 
 **Modified Files:**
+
 - `electron.vite.config.ts` - Added @tailwindcss/vite plugin
 - `src/renderer/src/main.tsx` - Changed CSS import to globals.css
 - `src/renderer/src/App.tsx` - Updated to use Tailwind classes and Button component
@@ -348,7 +358,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - `_bmad-output/planning-artifacts/project-context.md` - [CODE REVIEW] Updated Tailwind version 3.x→4.x
 
 **Deleted Files:**
+
 - `src/renderer/src/assets/base.css`
 - `src/renderer/src/assets/main.css`
 - `src/renderer/src/assets/wavy-lines.svg`
-

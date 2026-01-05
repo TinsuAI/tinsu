@@ -15,6 +15,7 @@ So that I know the application is running and ready for feature development.
 ## Acceptance Criteria
 
 ### AC1: AppShell Component Structure
+
 **Given** tRPC is working from Story 1.5
 **When** I create the AppShell component in src/renderer/src/components/layout/
 **Then** it renders a header bar at the top (48px height)
@@ -22,6 +23,7 @@ So that I know the application is running and ready for feature development.
 **And** a main content area filling the remaining space
 
 ### AC2: Dark Theme Application
+
 **Given** the AppShell exists
 **When** the app loads
 **Then** the dark theme from Story 1.2 is applied
@@ -29,12 +31,14 @@ So that I know the application is running and ready for feature development.
 **And** the main area displays "Ready for development" placeholder text
 
 ### AC3: Responsive Layout
+
 **Given** the layout is rendered
 **When** I resize the window
 **Then** the layout responds appropriately (min-width: 1024px for desktop)
 **And** the main content area adjusts to fill available space
 
 ### AC4: Accessibility & Focus Management
+
 **Given** the app is running
 **When** I use keyboard navigation
 **Then** focus rings are visible (2px) on interactive elements
@@ -140,6 +144,7 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Component-Architec
 From [Source: _bmad-output/planning-artifacts/epics.md#UX-Design]:
 
 The "Calm Command" palette MUST be used:
+
 - **Background:** #0a0a0b (Tailwind: bg-zinc-950 or CSS var --background)
 - **Card/Surface:** #18181b (Tailwind: bg-zinc-900 or CSS var --card)
 - **Border:** zinc-800
@@ -182,23 +187,24 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Communication-Patt
 // Pattern for all stores - FOLLOW EXACTLY
 interface UIStore {
   // State
-  sidebarCollapsed: boolean;
+  sidebarCollapsed: boolean
 
   // Actions (always set prefix for mutations)
-  setSidebarCollapsed: (collapsed: boolean) => void;
-  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void
+  toggleSidebar: () => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
   sidebarCollapsed: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-}));
+  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }))
+}))
 ```
 
 ### Tailwind CSS 4 Notes (CRITICAL)
 
 From Story 1.2 learnings:
+
 - Tailwind v4 uses CSS-first configuration
 - CSS variables are defined in `globals.css` (already set up)
 - Use `cn()` utility from `lib/utils.ts` for conditional classes
@@ -207,6 +213,7 @@ From Story 1.2 learnings:
 ### shadcn/ui Components Available
 
 These components are already installed (from Story 1.2):
+
 - Button (`@/components/ui/button`)
 - Add more as needed via `npx shadcn@latest add [component]`
 
@@ -251,22 +258,22 @@ From [Source: _bmad-output/implementation-artifacts/1-2-configure-tailwind-css-4
 
 ### Component Specifications
 
-| Component | Height/Width | Tailwind Class | Notes |
-|-----------|--------------|----------------|-------|
-| Header | 48px | h-12 | Fixed at top, sticky |
-| Sidebar | 240px / 64px | w-60 / w-16 | Collapsible |
-| MainContent | flex-1 | flex-1 | Fills remaining space |
+| Component   | Height/Width | Tailwind Class | Notes                 |
+| ----------- | ------------ | -------------- | --------------------- |
+| Header      | 48px         | h-12           | Fixed at top, sticky  |
+| Sidebar     | 240px / 64px | w-60 / w-16    | Collapsible           |
+| MainContent | flex-1       | flex-1         | Fills remaining space |
 
 ### Color Mapping
 
-| Element | Color | Tailwind Class |
-|---------|-------|----------------|
-| App background | #0a0a0b | bg-zinc-950 |
-| Card/Surface | #18181b | bg-zinc-900 |
-| Border | zinc-800 | border-zinc-800 |
-| Text primary | zinc-50 | text-zinc-50 |
-| Text secondary | zinc-400 | text-zinc-400 |
-| Focus ring | blue-500 | ring-blue-500 |
+| Element        | Color    | Tailwind Class  |
+| -------------- | -------- | --------------- |
+| App background | #0a0a0b  | bg-zinc-950     |
+| Card/Surface   | #18181b  | bg-zinc-900     |
+| Border         | zinc-800 | border-zinc-800 |
+| Text primary   | zinc-50  | text-zinc-50    |
+| Text secondary | zinc-400 | text-zinc-400   |
+| Focus ring     | blue-500 | ring-blue-500   |
 
 ### Accessibility Requirements
 
@@ -287,18 +294,17 @@ export function AppShell() {
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
-          {/* Main content area */}
-        </main>
+        <main className="flex-1 overflow-auto">{/* Main content area */}</main>
       </div>
     </div>
-  );
+  )
 }
 ```
 
 ### Icon Library
 
 For the sidebar collapse chevron, use one of:
+
 - Lucide React icons (recommended): `npx npm install lucide-react`
 - Or create simple SVG chevron inline
 
@@ -341,6 +347,7 @@ For the sidebar collapse chevron, use one of:
 ## References
 
 ### Architecture & Planning
+
 - [Source: _bmad-output/planning-artifacts/architecture.md#Frontend-Architecture]
 - [Source: _bmad-output/planning-artifacts/architecture.md#Component-Architecture]
 - [Source: _bmad-output/planning-artifacts/architecture.md#Project-Structure]
@@ -349,10 +356,12 @@ For the sidebar collapse chevron, use one of:
 - [Source: _bmad-output/planning-artifacts/epics.md#UX-Design]
 
 ### Previous Stories
+
 - [Source: _bmad-output/implementation-artifacts/1-2-configure-tailwind-css-4-and-shadcn-ui.md]
 - [Source: _bmad-output/implementation-artifacts/1-5-implement-trpc-ipc-layer.md]
 
 ### External Documentation
+
 - [shadcn/ui Documentation](https://ui.shadcn.com)
 - [Tailwind CSS 4 Documentation](https://tailwindcss.com/docs)
 - [Zustand Documentation](https://docs.pmnd.rs/zustand/getting-started/introduction)
@@ -365,6 +374,7 @@ For the sidebar collapse chevron, use one of:
 From [Source: _bmad-output/planning-artifacts/project-context.md]:
 
 ### Critical Rules
+
 - Use Tailwind classes inline
 - NEVER create separate CSS files
 - Use `cn()` utility from `lib/utils.ts` for conditional classes
@@ -373,11 +383,11 @@ From [Source: _bmad-output/planning-artifacts/project-context.md]:
 
 ### Naming Conventions
 
-| Element | Convention | Example |
-|---------|------------|---------|
-| Components | PascalCase | `AppShell.tsx`, `Header.tsx` |
-| Stores | use + Store | `useUIStore` |
-| Types | PascalCase, no I prefix | `UIStore` |
+| Element    | Convention              | Example                      |
+| ---------- | ----------------------- | ---------------------------- |
+| Components | PascalCase              | `AppShell.tsx`, `Header.tsx` |
+| Stores     | use + Store             | `useUIStore`                 |
+| Types      | PascalCase, no I prefix | `UIStore`                    |
 
 ### State Management
 
@@ -418,6 +428,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### File List
 
 **New Files Created:**
+
 - `src/renderer/src/components/layout/AppShell.tsx` - Main layout container
 - `src/renderer/src/components/layout/AppShell.test.tsx` - AppShell tests (8 tests)
 - `src/renderer/src/components/layout/Header.tsx` - Header component (48px, sticky)
@@ -434,6 +445,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - `vitest.config.ts` - Vitest 4 configuration with projects
 
 **Modified Files:**
+
 - `src/renderer/src/App.tsx` - Updated to use AppShell
 - `package.json` - Added dependencies and test rebuild scripts
 - `package-lock.json` - Updated lockfile
@@ -463,22 +475,24 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Issues Found & Fixed
 
-| Severity | Issue | Resolution |
-|----------|-------|------------|
-| HIGH | Main process tests failing (better-sqlite3 version mismatch) | Added `pretest`/`posttest` scripts for rebuild |
-| MEDIUM | Redundant keyboard handler | Removed `onKeyDown` - buttons handle natively |
-| MEDIUM | Missing prefers-reduced-motion | Added `motion-reduce:transition-none` |
-| MEDIUM | package-lock.json not documented | Added to File List |
-| LOW | No barrel export for layout | Added `index.ts` |
-| LOW | No barrel export for stores | Added `index.ts` |
+| Severity | Issue                                                        | Resolution                                     |
+| -------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| HIGH     | Main process tests failing (better-sqlite3 version mismatch) | Added `pretest`/`posttest` scripts for rebuild |
+| MEDIUM   | Redundant keyboard handler                                   | Removed `onKeyDown` - buttons handle natively  |
+| MEDIUM   | Missing prefers-reduced-motion                               | Added `motion-reduce:transition-none`          |
+| MEDIUM   | package-lock.json not documented                             | Added to File List                             |
+| LOW      | No barrel export for layout                                  | Added `index.ts`                               |
+| LOW      | No barrel export for stores                                  | Added `index.ts`                               |
 
 ### Test Configuration Pattern (IMPORTANT)
 
 The project uses native modules (better-sqlite3) that require different compilation for:
+
 - **Electron** (app runtime): Compiled via `electron-rebuild`
 - **Node.js** (Vitest tests): Compiled via `npm rebuild`
 
 **Scripts added to package.json:**
+
 ```json
 "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
 "rebuild:node": "npm rebuild better-sqlite3",

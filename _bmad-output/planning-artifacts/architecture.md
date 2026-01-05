@@ -24,6 +24,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 **Functional Requirements:**
 The PRD defines 35 functional requirements across 6 capability areas:
+
 - **Board & Task Management (FR1-FR6):** Kanban interface with drag-and-drop, Sprint/Epic/Story hierarchy, task velocity metrics
 - **Agent Execution (FR7-FR11):** Claude Code CLI integration, automatic context loading, real-time terminal view, auto-transition to Review
 - **Agent Monitoring & Control (FR12-FR16):** Stall detection, Pause/Resume, reasoning log visibility
@@ -33,11 +34,13 @@ The PRD defines 35 functional requirements across 6 capability areas:
 - **Data Persistence (FR32-FR35):** SQLite for state, agent run history, searchable logs, version-controlled config
 
 **Non-Functional Requirements:**
+
 - **Performance:** <100ms UI interactions, <1s board load, <500ms terminal streaming, non-blocking execution
 - **Reliability:** 5-minute stall detection, 1-second pause/resume, crash recovery without data loss, ACID SQLite
 - **Integration:** PTY on macOS/Linux, 50KB context injection, 10GB repo support, clean error messages
 
 **Scale & Complexity:**
+
 - Primary domain: Full-stack desktop application (Web UI + local backend)
 - Complexity level: Medium
 - Estimated architectural components: 8-10 major subsystems
@@ -63,6 +66,7 @@ The PRD defines 35 functional requirements across 6 capability areas:
 ### Primary Technology Domain
 
 Desktop Application (Electron) based on project requirements:
+
 - Local-first architecture with no cloud dependency
 - PTY integration for Claude Code CLI orchestration
 - Real-time terminal streaming to embedded UI
@@ -71,15 +75,16 @@ Desktop Application (Electron) based on project requirements:
 
 ### Starter Options Considered
 
-| Starter | Build Tool | Pros | Cons |
-|---------|-----------|------|------|
-| electron-vite | Vite 5 | Fastest HMR, latest v5.0, active maintenance | Need to add app-specific deps |
-| Electron React Boilerplate | Webpack 5 | Battle-tested, 23k stars | Slower dev experience |
-| Electron Forge + Vite | Vite | Official tooling | Vite support experimental |
+| Starter                    | Build Tool | Pros                                         | Cons                          |
+| -------------------------- | ---------- | -------------------------------------------- | ----------------------------- |
+| electron-vite              | Vite 5     | Fastest HMR, latest v5.0, active maintenance | Need to add app-specific deps |
+| Electron React Boilerplate | Webpack 5  | Battle-tested, 23k stars                     | Slower dev experience         |
+| Electron Forge + Vite      | Vite       | Official tooling                             | Vite support experimental     |
 
 ### Selected Starter: electron-vite (React + TypeScript)
 
 **Rationale for Selection:**
+
 - Latest version (5.0) released December 2025 with isolated build improvements
 - Vite provides sub-second HMR for rapid iteration
 - Official React + TypeScript template with proper IPC structure
@@ -95,16 +100,19 @@ npm create @quick-start/electron@latest tinsu -- --template react-ts
 **Architectural Decisions Provided by Starter:**
 
 **Language & Runtime:**
+
 - TypeScript 5.x with strict mode
 - Node.js for main process
 - Chromium for renderer process
 
 **Build Tooling:**
+
 - Vite 5.x for both main and renderer
 - electron-builder for packaging
 - ESBuild for fast transpilation
 
 **Project Structure:**
+
 ```
 tinsu/
 ├── src/
@@ -116,6 +124,7 @@ tinsu/
 ```
 
 **Development Experience:**
+
 - Hot Module Replacement (HMR) for React components
 - Source maps for debugging
 - TypeScript type checking
@@ -128,50 +137,55 @@ tinsu/
 ### Decision Priority Analysis
 
 **Critical Decisions (Block Implementation):**
+
 - Data persistence layer (Drizzle + SQLite)
 - IPC communication pattern (tRPC)
 - UI component foundation (shadcn/ui + Tailwind)
 
 **Important Decisions (Shape Architecture):**
+
 - State management strategy (TanStack Query + Zustand)
 - Drag-and-drop implementation (@dnd-kit)
 - Code diff visualization (Monaco Editor)
 
 **Deferred Decisions (Post-MVP):**
+
 - Auto-update strategy (electron-updater)
 - Crash reporting (Sentry integration)
 - Analytics/telemetry
 
 ### Data Architecture
 
-| Decision | Choice | Version | Rationale |
-|----------|--------|---------|-----------|
-| **Database** | SQLite via better-sqlite3 | latest | Synchronous API ideal for Electron main process, local-first |
-| **ORM** | Drizzle ORM | 1.0.0-beta.2 | Type-safe, lightweight, excellent DX with better-sqlite3 driver |
-| **Migrations** | Drizzle Kit | 1.0.0-beta.2 | Schema introspection <1s, automatic migration generation |
+| Decision       | Choice                    | Version      | Rationale                                                       |
+| -------------- | ------------------------- | ------------ | --------------------------------------------------------------- |
+| **Database**   | SQLite via better-sqlite3 | latest       | Synchronous API ideal for Electron main process, local-first    |
+| **ORM**        | Drizzle ORM               | 1.0.0-beta.2 | Type-safe, lightweight, excellent DX with better-sqlite3 driver |
+| **Migrations** | Drizzle Kit               | 1.0.0-beta.2 | Schema introspection <1s, automatic migration generation        |
 
 **Schema Strategy:**
+
 - Tasks table: id, title, description, status, sprint_id, epic_id, timestamps
 - Agent runs table: task_id, started_at, ended_at, token_usage, exit_status
 - Logs table: run_id, timestamp, level, message (indexed for search)
 
 ### Authentication & Security
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Authentication** | None (MVP) | Single-user local app, no auth required |
-| **IPC Security** | contextBridge isolation | Renderer has no direct Node.js access |
-| **Process Isolation** | Sandbox enabled | Default Electron security model |
+| Decision              | Choice                  | Rationale                               |
+| --------------------- | ----------------------- | --------------------------------------- |
+| **Authentication**    | None (MVP)              | Single-user local app, no auth required |
+| **IPC Security**      | contextBridge isolation | Renderer has no direct Node.js access   |
+| **Process Isolation** | Sandbox enabled         | Default Electron security model         |
 
 ### API & Communication Patterns
 
-| Decision | Choice | Version | Rationale |
-|----------|--------|---------|-----------|
-| **IPC Pattern** | tRPC | 11.6.0 | End-to-end type safety, procedure-based API |
-| **Electron Adapter** | trpc-electron | latest | Fork maintained for tRPC v11 compatibility |
-| **Validation** | Zod | latest | Runtime validation for procedure inputs |
+| Decision             | Choice        | Version | Rationale                                   |
+| -------------------- | ------------- | ------- | ------------------------------------------- |
+| **IPC Pattern**      | tRPC          | 11.6.0  | End-to-end type safety, procedure-based API |
+| **Electron Adapter** | trpc-electron | latest  | Fork maintained for tRPC v11 compatibility  |
+| **Validation**       | Zod           | latest  | Runtime validation for procedure inputs     |
 
 **IPC Architecture:**
+
 ```
 Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRPC Router)
                                                       │
@@ -183,17 +197,18 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 
 ### Frontend Architecture
 
-| Decision | Choice | Version | Rationale |
-|----------|--------|---------|-----------|
-| **Server State** | TanStack Query | via tRPC | Automatic caching, refetching, optimistic updates |
-| **Local UI State** | Zustand | latest | Minimal boilerplate, React-friendly |
-| **Components** | shadcn/ui | latest | Tailwind-based, copy-paste ownership, accessible |
-| **Styling** | Tailwind CSS | ^4.1.18 | Utility-first, CSS-first config (no tailwind.config.js) |
-| **Drag-and-Drop** | @dnd-kit | latest | Modern, accessible, excellent Kanban support |
-| **Diff Viewer** | Monaco Editor | 4.7.0 | VS Code-quality diffs, syntax highlighting, handles large files |
-| **Terminal** | xterm.js | latest | Industry standard, used by VS Code |
+| Decision           | Choice         | Version  | Rationale                                                       |
+| ------------------ | -------------- | -------- | --------------------------------------------------------------- |
+| **Server State**   | TanStack Query | via tRPC | Automatic caching, refetching, optimistic updates               |
+| **Local UI State** | Zustand        | latest   | Minimal boilerplate, React-friendly                             |
+| **Components**     | shadcn/ui      | latest   | Tailwind-based, copy-paste ownership, accessible                |
+| **Styling**        | Tailwind CSS   | ^4.1.18  | Utility-first, CSS-first config (no tailwind.config.js)         |
+| **Drag-and-Drop**  | @dnd-kit       | latest   | Modern, accessible, excellent Kanban support                    |
+| **Diff Viewer**    | Monaco Editor  | 4.7.0    | VS Code-quality diffs, syntax highlighting, handles large files |
+| **Terminal**       | xterm.js       | latest   | Industry standard, used by VS Code                              |
 
 **Component Architecture:**
+
 - Layout: App shell with sidebar, main content, terminal panel
 - Board: KanbanBoard → KanbanColumn → TaskCard (draggable)
 - Task Detail: TaskPanel with tabs (Details, Terminal, Diff, Logs)
@@ -201,16 +216,17 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 
 ### Infrastructure & Deployment
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Packaging** | electron-builder | Included with electron-vite, cross-platform |
-| **Platforms** | macOS (.dmg), Linux (.AppImage, .deb) | Per PRD, Windows deferred |
-| **Auto-Update** | Deferred | Not required for MVP dog-fooding |
-| **Logging** | electron-log | Simple file + console logging |
+| Decision        | Choice                                | Rationale                                   |
+| --------------- | ------------------------------------- | ------------------------------------------- |
+| **Packaging**   | electron-builder                      | Included with electron-vite, cross-platform |
+| **Platforms**   | macOS (.dmg), Linux (.AppImage, .deb) | Per PRD, Windows deferred                   |
+| **Auto-Update** | Deferred                              | Not required for MVP dog-fooding            |
+| **Logging**     | electron-log                          | Simple file + console logging               |
 
 ### Decision Impact Analysis
 
 **Implementation Sequence:**
+
 1. Initialize electron-vite project
 2. Add Drizzle + better-sqlite3, create schema
 3. Set up tRPC routers (main process)
@@ -221,6 +237,7 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 8. Add Monaco diff viewer for review panel
 
 **Cross-Component Dependencies:**
+
 - tRPC routers depend on Drizzle schema
 - Terminal component depends on PTY IPC handlers
 - Diff viewer depends on git worktree state
@@ -237,10 +254,10 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 **Database Naming Conventions:**
 | Element | Convention | Example |
 |---------|------------|---------|
-| Tables | snake_case, plural | `tasks`, `agent_runs`, `sprint_stories` |
+| Tables | snake*case, plural | `tasks`, `agent_runs`, `sprint_stories` |
 | Columns | snake_case | `created_at`, `task_id`, `exit_status` |
 | Foreign Keys | `{referenced_table}_id` | `sprint_id`, `epic_id` |
-| Indexes | `idx_{table}_{columns}` | `idx_tasks_status`, `idx_logs_run_id` |
+| Indexes | `idx*{table}\_{columns}`|`idx_tasks_status`, `idx_logs_run_id` |
 
 **tRPC Procedure Naming:**
 | Type | Convention | Example |
@@ -263,6 +280,7 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 ### Structure Patterns
 
 **Project Organization:**
+
 ```
 src/
 ├── main/                         # Electron main process (Node.js)
@@ -325,44 +343,52 @@ src/
 ```
 
 **File Co-location Rules:**
+
 - Components: Related files together (TaskCard.tsx, TaskCard.test.tsx)
-- Tests: Co-located with source files (*.test.ts pattern)
+- Tests: Co-located with source files (\*.test.ts pattern)
 - Styles: Tailwind classes inline, no separate CSS files
 
 ### Format Patterns
 
 **tRPC Response Format:**
+
 ```typescript
 // Direct returns - tRPC handles wrapping
 // DO NOT wrap in { data: ... } or { success: true }
 
 // Query - return data directly
 getTask: t.procedure.input(z.object({ id: z.string() })).query(({ input }) => {
-  return db.query.tasks.findFirst({ where: eq(tasks.id, input.id) });
-});
+  return db.query.tasks.findFirst({ where: eq(tasks.id, input.id) })
+})
 
 // Mutation - return affected entity
-updateStatus: t.procedure.input(z.object({
-  id: z.string(),
-  status: z.enum(['backlog', 'in_progress', 'review', 'done'])
-})).mutation(({ input }) => {
-  return db.update(tasks).set({ status: input.status }).where(eq(tasks.id, input.id)).returning();
-});
+updateStatus: t.procedure
+  .input(
+    z.object({
+      id: z.string(),
+      status: z.enum(['backlog', 'in_progress', 'review', 'done'])
+    })
+  )
+  .mutation(({ input }) => {
+    return db.update(tasks).set({ status: input.status }).where(eq(tasks.id, input.id)).returning()
+  })
 ```
 
 **Error Format:**
+
 ```typescript
 // Use TRPCError with standard codes
 throw new TRPCError({
-  code: 'NOT_FOUND',        // or BAD_REQUEST, INTERNAL_SERVER_ERROR, etc.
+  code: 'NOT_FOUND', // or BAD_REQUEST, INTERNAL_SERVER_ERROR, etc.
   message: 'Task not found',
-  cause: originalError,      // Optional: chain original error
-});
+  cause: originalError // Optional: chain original error
+})
 
 // Frontend receives: { message, code, data? }
 ```
 
 **Date/Time Format:**
+
 - Database: INTEGER (Unix timestamp in seconds)
 - tRPC responses: ISO 8601 string (`2026-01-03T10:30:00Z`)
 - Display: Formatted via `date-fns` in renderer
@@ -378,22 +404,23 @@ throw new TRPCError({
 | Task updates | `task:{action}` | `task:status-changed`, `task:logs-updated` |
 
 **Zustand Store Pattern:**
+
 ```typescript
 // Pattern for all stores
 interface TaskStore {
   // State
-  selectedTaskId: string | null;
+  selectedTaskId: string | null
 
   // Actions (always set prefix for mutations)
-  setSelectedTask: (id: string | null) => void;
-  clearSelection: () => void;
+  setSelectedTask: (id: string | null) => void
+  clearSelection: () => void
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
   selectedTaskId: null,
   setSelectedTask: (id) => set({ selectedTaskId: id }),
-  clearSelection: () => set({ selectedTaskId: null }),
-}));
+  clearSelection: () => set({ selectedTaskId: null })
+}))
 ```
 
 ### Process Patterns
@@ -408,6 +435,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
 | **React UI** | ErrorBoundary at AppShell level for unexpected errors |
 
 **Loading State Pattern:**
+
 ```typescript
 // Use TanStack Query states directly
 const { data, isLoading, error } = trpc.task.getTask.useQuery({ id });
@@ -419,6 +447,7 @@ return <TaskDetails task={data} />;
 ```
 
 **Agent Execution State Machine:**
+
 ```
 idle → starting → running → (stalled?) → completing → review
                      ↓            ↓
@@ -428,6 +457,7 @@ idle → starting → running → (stalled?) → completing → review
 ### Enforcement Guidelines
 
 **All AI Agents MUST:**
+
 1. Follow naming conventions exactly as documented
 2. Place files in the correct directories per structure patterns
 3. Use tRPC procedures for all main↔renderer communication
@@ -436,19 +466,20 @@ idle → starting → running → (stalled?) → completing → review
 6. Co-locate tests with source files
 
 **Pattern Verification:**
+
 - ESLint rules enforce naming conventions
 - TypeScript strict mode catches type mismatches
 - PR review checklist includes pattern compliance
 
 ### Anti-Patterns to Avoid
 
-| Anti-Pattern | Correct Pattern |
-|--------------|-----------------|
-| `ITask`, `IUser` (I prefix) | `Task`, `User` |
-| `user_data.tsx` (snake_case file) | `UserData.tsx` |
-| `{ success: true, data: ... }` | Direct return from tRPC |
-| `ipcRenderer.send()` direct calls | Use tRPC procedures |
-| `useState` for server data | Use tRPC + TanStack Query |
+| Anti-Pattern                         | Correct Pattern              |
+| ------------------------------------ | ---------------------------- |
+| `ITask`, `IUser` (I prefix)          | `Task`, `User`               |
+| `user_data.tsx` (snake_case file)    | `UserData.tsx`               |
+| `{ success: true, data: ... }`       | Direct return from tRPC      |
+| `ipcRenderer.send()` direct calls    | Use tRPC procedures          |
+| `useState` for server data           | Use tRPC + TanStack Query    |
 | Tests in separate `__tests__` folder | Co-located `*.test.ts` files |
 
 ## Project Structure & Boundaries
@@ -592,6 +623,7 @@ tinsu/
 ### Architectural Boundaries
 
 **Process Boundaries:**
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     ELECTRON MAIN PROCESS                       │
@@ -647,15 +679,15 @@ tinsu/
 
 **FR Categories → Directories:**
 
-| FR Category | Primary Location | Supporting Locations |
-|-------------|------------------|---------------------|
-| **FR1-FR6: Board & Task** | `renderer/components/board/` | `main/trpc/routers/task.router.ts`, `main/db/schema.ts` |
-| **FR7-FR11: Agent Execution** | `main/services/pty.service.ts` | `renderer/components/terminal/`, `main/trpc/routers/agent.router.ts` |
-| **FR12-FR16: Monitoring** | `main/services/stall-detector.service.ts` | `renderer/components/terminal/TerminalControls.tsx` |
-| **FR17-FR21: Review** | `renderer/components/review/` | `main/trpc/routers/review.router.ts` |
-| **FR22-FR27: Git** | `main/services/git.service.ts` | `renderer/components/git/`, `main/trpc/routers/git.router.ts` |
-| **FR28-FR31: Config** | `main/trpc/routers/config.router.ts` | Project root YAML files |
-| **FR32-FR35: Persistence** | `main/db/` | All routers via Drizzle context |
+| FR Category                   | Primary Location                          | Supporting Locations                                                 |
+| ----------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| **FR1-FR6: Board & Task**     | `renderer/components/board/`              | `main/trpc/routers/task.router.ts`, `main/db/schema.ts`              |
+| **FR7-FR11: Agent Execution** | `main/services/pty.service.ts`            | `renderer/components/terminal/`, `main/trpc/routers/agent.router.ts` |
+| **FR12-FR16: Monitoring**     | `main/services/stall-detector.service.ts` | `renderer/components/terminal/TerminalControls.tsx`                  |
+| **FR17-FR21: Review**         | `renderer/components/review/`             | `main/trpc/routers/review.router.ts`                                 |
+| **FR22-FR27: Git**            | `main/services/git.service.ts`            | `renderer/components/git/`, `main/trpc/routers/git.router.ts`        |
+| **FR28-FR31: Config**         | `main/trpc/routers/config.router.ts`      | Project root YAML files                                              |
+| **FR32-FR35: Persistence**    | `main/db/`                                | All routers via Drizzle context                                      |
 
 ### Integration Points
 
@@ -675,6 +707,7 @@ tinsu/
 | File System | Config router, Context builder | Node.js fs module |
 
 **Data Flow (Task Execution):**
+
 ```
 User clicks "Start Agent" on TaskCard
   → TaskActions.tsx calls trpc.agent.startAgent.mutate({ taskId })
@@ -691,17 +724,20 @@ User clicks "Start Agent" on TaskCard
 ### Development Workflow
 
 **Dev Server:**
+
 ```bash
 npm run dev          # Starts electron-vite dev server (HMR for all processes)
 ```
 
 **Database Migrations:**
+
 ```bash
 npm run db:generate  # Generate migrations from schema changes
 npm run db:push      # Apply migrations to dev database
 ```
 
 **Build & Package:**
+
 ```bash
 npm run build        # TypeScript compile + Vite bundle
 npm run package      # electron-builder → .dmg / .AppImage
@@ -713,6 +749,7 @@ npm run package      # electron-builder → .dmg / .AppImage
 
 **Decision Compatibility:**
 All technology choices form a cohesive stack:
+
 - electron-vite 5.0 + React 18 + TypeScript 5.x — proven combination
 - tRPC 11 + Zod — type-safe IPC with runtime validation
 - Drizzle 1.0-beta.2 + better-sqlite3 — synchronous ORM ideal for Electron main process
@@ -720,11 +757,13 @@ All technology choices form a cohesive stack:
 - @dnd-kit + xterm.js + Monaco — specialized components with no conflicts
 
 **Pattern Consistency:**
+
 - Naming conventions (snake_case DB, camelCase tRPC, PascalCase components) are industry-standard for this stack
 - Structure patterns match electron-vite conventions
 - Communication patterns (tRPC procedures, Zustand stores) align with chosen libraries
 
 **Structure Alignment:**
+
 - Project structure extends electron-vite template properly
 - Boundaries (main/preload/renderer) follow Electron security model
 - Integration points are well-defined with clear data flow
@@ -733,37 +772,40 @@ All technology choices form a cohesive stack:
 
 **Functional Requirements Coverage:**
 
-| FR Category | Status | Architectural Support |
-|-------------|--------|----------------------|
-| FR1-FR6: Board & Task | ✅ | `board/` components, `task.router`, Drizzle schema |
-| FR7-FR11: Agent Execution | ✅ | `pty.service`, `agent.router`, terminal components |
-| FR12-FR16: Monitoring | ✅ | `stall-detector.service`, `TerminalControls` |
-| FR17-FR21: Review | ✅ | Monaco diff viewer, `review.router`, `ReviewActions` |
-| FR22-FR27: Git | ✅ | `git.service`, `git.router`, worktree patterns |
-| FR28-FR31: Config | ✅ | `config.router`, YAML file handling |
-| FR32-FR35: Persistence | ✅ | Drizzle schema, SQLite, migrations |
+| FR Category               | Status | Architectural Support                                |
+| ------------------------- | ------ | ---------------------------------------------------- |
+| FR1-FR6: Board & Task     | ✅     | `board/` components, `task.router`, Drizzle schema   |
+| FR7-FR11: Agent Execution | ✅     | `pty.service`, `agent.router`, terminal components   |
+| FR12-FR16: Monitoring     | ✅     | `stall-detector.service`, `TerminalControls`         |
+| FR17-FR21: Review         | ✅     | Monaco diff viewer, `review.router`, `ReviewActions` |
+| FR22-FR27: Git            | ✅     | `git.service`, `git.router`, worktree patterns       |
+| FR28-FR31: Config         | ✅     | `config.router`, YAML file handling                  |
+| FR32-FR35: Persistence    | ✅     | Drizzle schema, SQLite, migrations                   |
 
 **Non-Functional Requirements Coverage:**
 
-| NFR Category | Status | How Addressed |
-|--------------|--------|---------------|
-| Performance (<100ms UI) | ✅ | Vite HMR, React 18 concurrent, SQLite sync API |
-| Reliability (crash recovery) | ✅ | ACID SQLite, error handling layers, TRPCError patterns |
-| Integration (PTY, Git) | ✅ | node-pty service, Git CLI service, contextBridge isolation |
+| NFR Category                 | Status | How Addressed                                              |
+| ---------------------------- | ------ | ---------------------------------------------------------- |
+| Performance (<100ms UI)      | ✅     | Vite HMR, React 18 concurrent, SQLite sync API             |
+| Reliability (crash recovery) | ✅     | ACID SQLite, error handling layers, TRPCError patterns     |
+| Integration (PTY, Git)       | ✅     | node-pty service, Git CLI service, contextBridge isolation |
 
 ### Implementation Readiness Validation ✅
 
 **Decision Completeness:**
+
 - All critical decisions documented with verified versions
 - Technology rationale provided for each choice
 - Deferred decisions explicitly noted (auto-update, crash reporting)
 
 **Structure Completeness:**
+
 - 50+ files/directories defined with FR mapping
 - Component boundaries clear (board/, task/, terminal/, review/)
 - Service boundaries explicit (PTY, Git, StallDetector)
 
 **Pattern Completeness:**
+
 - 6 naming convention categories with examples
 - tRPC response/error patterns with code samples
 - Zustand store pattern template
@@ -775,11 +817,13 @@ All technology choices form a cohesive stack:
 **Critical Gaps:** None identified
 
 **Important Gaps (addressable during implementation):**
+
 1. Detailed Drizzle schema not yet written (will be first implementation task)
 2. tRPC subscription pattern for real-time PTY streaming not fully specified
 3. Stall detection algorithm specifics deferred to implementation
 
 **Nice-to-Have (post-MVP):**
+
 - Testing strategy details (unit, integration, e2e)
 - CI/CD pipeline specifics
 - Performance profiling approach
@@ -787,24 +831,28 @@ All technology choices form a cohesive stack:
 ### Architecture Completeness Checklist
 
 **✅ Requirements Analysis**
+
 - [x] Project context thoroughly analyzed (35 FRs, 24 NFRs)
 - [x] Scale and complexity assessed (Medium complexity)
 - [x] Technical constraints identified (5 constraints)
 - [x] Cross-cutting concerns mapped (5 concerns)
 
 **✅ Architectural Decisions**
+
 - [x] Critical decisions documented with versions
 - [x] Technology stack fully specified (14 libraries)
 - [x] Integration patterns defined (tRPC, IPC events)
 - [x] Performance considerations addressed (sync SQLite, Vite HMR)
 
 **✅ Implementation Patterns**
+
 - [x] Naming conventions established (DB, tRPC, React, TS)
 - [x] Structure patterns defined (50+ files mapped)
 - [x] Communication patterns specified (tRPC, Zustand, IPC events)
 - [x] Process patterns documented (error handling, loading states)
 
 **✅ Project Structure**
+
 - [x] Complete directory structure defined
 - [x] Component boundaries established (main/preload/renderer)
 - [x] Integration points mapped (services → routers → client)
@@ -817,6 +865,7 @@ All technology choices form a cohesive stack:
 **Confidence Level:** HIGH — All validation checks pass, no critical gaps
 
 **Key Strengths:**
+
 - Type-safe end-to-end with tRPC + Zod + TypeScript
 - Modern, fast tooling (Vite, Drizzle)
 - Clear separation of concerns (Electron process model)
@@ -824,6 +873,7 @@ All technology choices form a cohesive stack:
 - Industry-proven library choices (VS Code uses same terminal stack)
 
 **Areas for Future Enhancement:**
+
 - Testing strategy (can evolve during implementation)
 - Auto-update mechanism (post-MVP)
 - Windows platform support (deferred per PRD)
@@ -831,6 +881,7 @@ All technology choices form a cohesive stack:
 ### Implementation Handoff
 
 **AI Agent Guidelines:**
+
 1. Follow all architectural decisions exactly as documented
 2. Use implementation patterns consistently across all components
 3. Respect project structure and boundaries
@@ -838,6 +889,7 @@ All technology choices form a cohesive stack:
 5. When in doubt, check the Anti-Patterns section
 
 **First Implementation Priority:**
+
 ```bash
 npm create @quick-start/electron@latest tinsu -- --template react-ts
 ```
@@ -856,6 +908,7 @@ Then proceed through the Implementation Sequence (8 steps) defined in Core Archi
 ### Final Architecture Deliverables
 
 **Complete Architecture Document**
+
 - All architectural decisions documented with specific versions
 - Implementation patterns ensuring AI agent consistency
 - Complete project structure with all files and directories
@@ -863,12 +916,14 @@ Then proceed through the Implementation Sequence (8 steps) defined in Core Archi
 - Validation confirming coherence and completeness
 
 **Implementation Ready Foundation**
+
 - 14 major architectural decisions made
 - 6 implementation pattern categories defined
 - 8 architectural components specified
 - 35 functional requirements + 24 non-functional requirements fully supported
 
 **AI Agent Implementation Guide**
+
 - Technology stack with verified versions
 - Consistency rules that prevent implementation conflicts
 - Project structure with clear boundaries
@@ -880,11 +935,13 @@ Then proceed through the Implementation Sequence (8 steps) defined in Core Archi
 This architecture document is your complete guide for implementing TinSu. Follow all decisions, patterns, and structures exactly as documented.
 
 **First Implementation Priority:**
+
 ```bash
 npm create @quick-start/electron@latest tinsu -- --template react-ts
 ```
 
 **Development Sequence:**
+
 1. Initialize project using documented starter template
 2. Set up development environment per architecture
 3. Implement core architectural foundations (Drizzle schema, tRPC routers)
@@ -894,18 +951,21 @@ npm create @quick-start/electron@latest tinsu -- --template react-ts
 ### Quality Assurance Checklist
 
 **✅ Architecture Coherence**
+
 - [x] All decisions work together without conflicts
 - [x] Technology choices are compatible
 - [x] Patterns support the architectural decisions
 - [x] Structure aligns with all choices
 
 **✅ Requirements Coverage**
+
 - [x] All functional requirements are supported
 - [x] All non-functional requirements are addressed
 - [x] Cross-cutting concerns are handled
 - [x] Integration points are defined
 
 **✅ Implementation Readiness**
+
 - [x] Decisions are specific and actionable
 - [x] Patterns prevent agent conflicts
 - [x] Structure is complete and unambiguous
@@ -932,4 +992,3 @@ The chosen starter template and architectural patterns provide a production-read
 **Next Phase:** Begin implementation using the architectural decisions and patterns documented herein.
 
 **Document Maintenance:** Update this architecture when major technical decisions are made during implementation.
-

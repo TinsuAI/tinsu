@@ -86,40 +86,42 @@ NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
 ### Additional Requirements
 
 **From Architecture (Starter Template - CRITICAL for Epic 1 Story 1):**
+
 - Initialize project using electron-vite with React + TypeScript template
 - Command: `npm create @quick-start/electron@latest tinsu -- --template react-ts`
 - This provides: TypeScript, Vite, React, electron-builder
 
 **From Architecture (Technology Stack - EXPLICIT VERSIONS as of January 2026):**
 
-| Category | Package | Version | Notes |
-|----------|---------|---------|-------|
-| **Core Framework** | electron | ^39.2.7 | Chromium M142, Node.js 22 |
-| | electron-vite | ^5.0.0 | Latest stable |
-| | react | ^19.2.3 | Activity API, useEffectEvent |
-| | react-dom | ^19.2.3 | |
-| | typescript | ^5.9.3 | v6/v7 coming 2026 |
-| | vite | ^7.3.0 | ESM-only, Node 20.19+ required |
-| **Data Layer** | drizzle-orm | 1.0.0-beta.2 | Use beta tag |
-| | better-sqlite3 | ^12.5.0 | Sync API for Electron |
-| | @trpc/server | ^11.8.1 | |
-| | @trpc/client | ^11.8.1 | |
-| | trpc-electron | latest | mat-sz fork for tRPC v11 |
-| | zod | ^4.3.5 | v4 with Codecs API |
-| **UI Layer** | tailwindcss | ^4.1.18 | New Vite plugin setup |
-| | @tailwindcss/vite | ^4.1.18 | Required for Vite 7 |
-| | shadcn/ui | CLI-based | Copy-paste, no version lock |
-| | @dnd-kit/core | ^6.3.1 | Stable |
-| | @dnd-kit/sortable | ^9.0.0 | For Kanban columns |
-| | zustand | ^5.0.9 | v5 major |
-| | @tanstack/react-query | ^5.90.16 | Via tRPC integration |
-| **Terminal & Diff** | @xterm/xterm | ^6.0.0 | New scoped package name |
-| | node-pty | ^1.1.0 | Microsoft maintained |
-| | monaco-editor | ^0.55.1 | ESM preferred |
-| | @monaco-editor/react | ^4.7.0 | React wrapper |
-| **Build** | electron-builder | ^26.4.0 | Dec 2025 release |
+| Category            | Package               | Version      | Notes                          |
+| ------------------- | --------------------- | ------------ | ------------------------------ |
+| **Core Framework**  | electron              | ^39.2.7      | Chromium M142, Node.js 22      |
+|                     | electron-vite         | ^5.0.0       | Latest stable                  |
+|                     | react                 | ^19.2.3      | Activity API, useEffectEvent   |
+|                     | react-dom             | ^19.2.3      |                                |
+|                     | typescript            | ^5.9.3       | v6/v7 coming 2026              |
+|                     | vite                  | ^7.3.0       | ESM-only, Node 20.19+ required |
+| **Data Layer**      | drizzle-orm           | 1.0.0-beta.2 | Use beta tag                   |
+|                     | better-sqlite3        | ^12.5.0      | Sync API for Electron          |
+|                     | @trpc/server          | ^11.8.1      |                                |
+|                     | @trpc/client          | ^11.8.1      |                                |
+|                     | trpc-electron         | latest       | mat-sz fork for tRPC v11       |
+|                     | zod                   | ^4.3.5       | v4 with Codecs API             |
+| **UI Layer**        | tailwindcss           | ^4.1.18      | New Vite plugin setup          |
+|                     | @tailwindcss/vite     | ^4.1.18      | Required for Vite 7            |
+|                     | shadcn/ui             | CLI-based    | Copy-paste, no version lock    |
+|                     | @dnd-kit/core         | ^6.3.1       | Stable                         |
+|                     | @dnd-kit/sortable     | ^9.0.0       | For Kanban columns             |
+|                     | zustand               | ^5.0.9       | v5 major                       |
+|                     | @tanstack/react-query | ^5.90.16     | Via tRPC integration           |
+| **Terminal & Diff** | @xterm/xterm          | ^6.0.0       | New scoped package name        |
+|                     | node-pty              | ^1.1.0       | Microsoft maintained           |
+|                     | monaco-editor         | ^0.55.1      | ESM preferred                  |
+|                     | @monaco-editor/react  | ^4.7.0       | React wrapper                  |
+| **Build**           | electron-builder      | ^26.4.0      | Dec 2025 release               |
 
 **From Architecture (Project Structure):**
+
 - src/main/ - Electron main process (tRPC routers, services, db)
 - src/preload/ - contextBridge IPC (type-safe window.api)
 - src/renderer/ - React application (components, hooks, stores)
@@ -127,34 +129,40 @@ NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
 - data/tinsu.db - SQLite database file (gitignored)
 
 **From Architecture (Naming Conventions):**
+
 - Database: snake_case tables (tasks, agent_runs), snake_case columns (created_at)
 - tRPC: camelCase procedures (getTask, createTask, updateStatus)
 - React: PascalCase components (TaskCard, KanbanBoard), use prefix hooks (useTask)
 - TypeScript: PascalCase types (Task, AgentRun), no I prefix
 
 **From Architecture (Service Boundaries):**
+
 - PtyService: node-pty wrapper for spawn/kill/pause/resume
 - GitService: Git CLI wrapper for worktree/branch/merge operations
 - StallDetectorService: Output monitoring with timeout detection
 - ContextBuilderService: Story/arch context assembly for agent prompts
 
 **From UX Design (Interaction Patterns):**
+
 - Keyboard-first navigation: A to approve, R to reject, arrow keys to navigate board
 - 60-Second Velocity Loop: Review → Approve → Commit → Next → Go
 - Drag to start agent execution (no confirmation modal)
 - Approve triggers git merge automatically (no extra confirmation)
 
 **From UX Design (Layout Specifications):**
+
 - Dark theme with "Calm Command" palette (background #0a0a0b, card #18181b)
 - Terminal dock at bottom 30-40% height, collapsible to 80px
 - Review panel 400px slide-over from right edge
 - 4 equal-width Kanban columns with 12px card gap, 16px column padding
 
 **From UX Design (Status System):**
+
 - AgentStatusBadge variants: Idle (gray), Running (green), Stalled (yellow), Review (purple), Done (green check), Error (red)
 - Status colors: --status-running #22c55e, --status-stalled #f59e0b, --status-review #8b5cf6
 
 **From UX Design (Accessibility):**
+
 - WCAG 2.1 Level AA compliance required
 - Visible 2px focus rings on interactive elements
 - Color + icon for status (not color alone)
@@ -163,43 +171,43 @@ NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
 
 ### FR Coverage Map
 
-| FR | Epic | Description |
-|----|------|-------------|
-| FR1 | Epic 2 | Kanban board with 4 columns |
-| FR2 | Epic 2 | Drag tasks between columns |
-| FR3 | Epic 2 | Create new tasks |
-| FR4 | Epic 2 | Sprint/Epic/Story hierarchy |
-| FR5 | Epic 2 | Task velocity metrics |
-| FR6 | Epic 2 | Filter by sprint/epic/status |
-| FR7 | Epic 5 | Start agent on drag to In Progress |
-| FR8 | Epic 5 | Spawn Claude Code CLI with context |
-| FR9 | Epic 5 | Real-time terminal output |
-| FR10 | Epic 5 | Auto-move to Review on completion |
-| FR11 | Epic 5 | Add context notes for agent |
-| FR12 | Epic 6 | Stall detection |
-| FR13 | Epic 6 | Visual stall indicator |
-| FR14 | Epic 6 | Pause agent |
-| FR15 | Epic 6 | Resume agent |
-| FR16 | Epic 6 | View reasoning logs |
-| FR17 | Epic 7 | Diff view of changes |
-| FR18 | Epic 7 | Approve → merge + Done |
-| FR19 | Epic 7 | Reject with feedback |
-| FR20 | Epic 7 | Request changes with comments |
-| FR21 | Epic 7 | Agent re-executes with feedback |
-| FR22 | Epic 8 | Create worktree per task |
-| FR23 | Epic 8 | Branch naming convention |
-| FR24 | Epic 8 | Agent works in isolated worktree |
-| FR25 | Epic 8 | Merge on approve |
-| FR26 | Epic 8 | Delete worktree after merge |
-| FR27 | Epic 8 | Detect merge conflicts |
+| FR   | Epic   | Description                          |
+| ---- | ------ | ------------------------------------ |
+| FR1  | Epic 2 | Kanban board with 4 columns          |
+| FR2  | Epic 2 | Drag tasks between columns           |
+| FR3  | Epic 2 | Create new tasks                     |
+| FR4  | Epic 2 | Sprint/Epic/Story hierarchy          |
+| FR5  | Epic 2 | Task velocity metrics                |
+| FR6  | Epic 2 | Filter by sprint/epic/status         |
+| FR7  | Epic 5 | Start agent on drag to In Progress   |
+| FR8  | Epic 5 | Spawn Claude Code CLI with context   |
+| FR9  | Epic 5 | Real-time terminal output            |
+| FR10 | Epic 5 | Auto-move to Review on completion    |
+| FR11 | Epic 5 | Add context notes for agent          |
+| FR12 | Epic 6 | Stall detection                      |
+| FR13 | Epic 6 | Visual stall indicator               |
+| FR14 | Epic 6 | Pause agent                          |
+| FR15 | Epic 6 | Resume agent                         |
+| FR16 | Epic 6 | View reasoning logs                  |
+| FR17 | Epic 7 | Diff view of changes                 |
+| FR18 | Epic 7 | Approve → merge + Done               |
+| FR19 | Epic 7 | Reject with feedback                 |
+| FR20 | Epic 7 | Request changes with comments        |
+| FR21 | Epic 7 | Agent re-executes with feedback      |
+| FR22 | Epic 8 | Create worktree per task             |
+| FR23 | Epic 8 | Branch naming convention             |
+| FR24 | Epic 8 | Agent works in isolated worktree     |
+| FR25 | Epic 8 | Merge on approve                     |
+| FR26 | Epic 8 | Delete worktree after merge          |
+| FR27 | Epic 8 | Detect merge conflicts               |
 | FR28 | Epic 3 | Select methodology (BMAD/TaskMaster) |
-| FR29 | Epic 3 | Configure via YAML |
-| FR30 | Epic 3 | Read story definitions from files |
-| FR31 | Epic 1 | Initialize in existing git repo |
-| FR32 | Epic 1 | Persist task state in SQLite |
-| FR33 | Epic 1 | Store agent run history |
-| FR34 | Epic 1 | Searchable agent logs |
-| FR35 | Epic 1 | Version-controlled YAML config |
+| FR29 | Epic 3 | Configure via YAML                   |
+| FR30 | Epic 3 | Read story definitions from files    |
+| FR31 | Epic 1 | Initialize in existing git repo      |
+| FR32 | Epic 1 | Persist task state in SQLite         |
+| FR33 | Epic 1 | Store agent run history              |
+| FR34 | Epic 1 | Searchable agent logs                |
+| FR35 | Epic 1 | Version-controlled YAML config       |
 
 **Coverage:** 35/35 FRs mapped
 
@@ -208,35 +216,43 @@ NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
 ## Epic List
 
 ### Epic 1: Project Foundation & Development Environment
+
 Initialize the Electron application with the full technology stack, database schema, and core infrastructure.
 **FRs covered:** FR31, FR32, FR33, FR34, FR35
 
 ### Epic 2: Kanban Board & Task Management
+
 Deliver the visual Kanban interface with drag-and-drop, task hierarchy, filtering, and velocity metrics.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6
 
 ### Epic 3: BMAD Planning Workflow
+
 Run complete BMAD planning inside TinSu. Planning phases as Kanban cards with guided sequencing. Spawn BMAD agents, detect artifacts, import stories, bidirectional sync.
 **FRs covered:** FR28, FR29, FR30
 
 ### Epic 4: TaskMaster Integration ⏸️ DEFERRED
+
 Enable TaskMaster tasks.json sync and deterministic execution state management.
 **FRs covered:** TaskMaster-specific requirements
 **Status:** Deferred to future sprint — MVP focuses on BMAD Method only
 
 ### Epic 5: Story Implementation Workflow
+
 Full BMAD implementation workflow: Sprint Planning → SM Draft → DEV Implement → DEV Review (different model) → Human Review → Retrospective. Multi-agent orchestration, 5x retry loop, or basic Claude Code fallback.
 **FRs covered:** FR7, FR8, FR9, FR10, FR11
 
 ### Epic 6: Agent Monitoring & Control
+
 Detect agent stalls, provide visual indicators, and enable Pause/Resume intervention with reasoning log visibility.
 **FRs covered:** FR12, FR13, FR14, FR15, FR16
 
 ### Epic 7: Review & Approval Workflow
+
 Deliver the Manager-in-the-Loop experience with diff view, approve/reject actions, and feedback loop re-execution.
 **FRs covered:** FR17, FR18, FR19, FR20, FR21
 
 ### Epic 8: Git Integration & Version Control
+
 Manage git worktrees for task isolation, branch naming, merge on approve, and conflict detection.
 **FRs covered:** FR22, FR23, FR24, FR25, FR26, FR27
 
@@ -804,6 +820,7 @@ So that I can track my team's throughput over time (FR5).
 **Given** I want more detail
 **When** I click the velocity widget
 **Then** a detailed view expands showing:
+
 - Tasks completed by day (bar chart)
 - Average velocity (tasks/week)
 - Comparison to previous period
@@ -974,22 +991,22 @@ So that I don't have to manually link files.
 
 **Given** the Product Brief agent exits successfully
 **When** TinSu scans for new files
-**Then** it detects product-brief*.md in _bmad-output/planning-artifacts/
+**Then** it detects product-brief\*.md in \_bmad-output/planning-artifacts/
 **And** links the file to the planning task
 
 **Given** the PRD agent exits successfully
 **When** TinSu scans for new files
-**Then** it detects prd.md in _bmad-output/planning-artifacts/
+**Then** it detects prd.md in \_bmad-output/planning-artifacts/
 **And** links the file to the planning task
 
 **Given** the Architecture agent exits successfully
 **When** TinSu scans for new files
-**Then** it detects architecture.md in _bmad-output/planning-artifacts/
+**Then** it detects architecture.md in \_bmad-output/planning-artifacts/
 **And** links the file to the planning task
 
 **Given** the UX Design agent exits successfully
 **When** TinSu scans for new files
-**Then** it detects ux-design*.md in _bmad-output/planning-artifacts/
+**Then** it detects ux-design\*.md in \_bmad-output/planning-artifacts/
 **And** links the file to the planning task
 
 **Given** an artifact is detected
@@ -1081,7 +1098,7 @@ So that I can open a project mid-planning and continue where I left off.
 
 **Acceptance Criteria:**
 
-**Given** a project with _bmad-output/planning-artifacts/ folder
+**Given** a project with \_bmad-output/planning-artifacts/ folder
 **When** TinSu opens the project
 **Then** it scans for: product-brief*.md, prd.md, architecture.md, ux-design*.md, epics.md
 **And** detected artifacts are indexed in the database
@@ -1261,6 +1278,7 @@ So that I can update my PRD or Architecture as I learn more.
 **Dependencies:** Epic 1 (database), Epic 2 (Kanban), Epic 3 (methodology selection)
 
 **Key Components:**
+
 - Project initialization in existing git repo
 - TaskMaster tasks.json detection and import
 - Bi-directional sync: tasks.json ↔ Kanban board
@@ -1692,7 +1710,7 @@ So that learnings are captured for future sprints.
 
 **Given** retrospective completes
 **When** the document is generated
-**Then** it's saved to _bmad-output/retrospectives/epic-{id}-retro.md
+**Then** it's saved to \_bmad-output/retrospectives/epic-{id}-retro.md
 **And** the epic is marked as "Retrospective Complete"
 
 **Given** I skip retrospective

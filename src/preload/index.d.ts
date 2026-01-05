@@ -4,7 +4,9 @@ import type { TRPCResponseMessage } from '@trpc/server/rpc'
 
 // Type from trpc-electron for the exposed IPC bridge
 interface RendererGlobalElectronTRPC {
-  sendMessage: (args: { method: 'request'; operation: Operation } | { method: 'subscription.stop'; id: number }) => void
+  sendMessage: (
+    args: { method: 'request'; operation: Operation } | { method: 'subscription.stop'; id: number }
+  ) => void
   onMessage: (callback: (args: TRPCResponseMessage) => void) => void
 }
 

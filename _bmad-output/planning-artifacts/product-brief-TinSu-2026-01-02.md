@@ -27,6 +27,7 @@ Vibe coding—the intuitive, AI-assisted approach to building software—has unl
 ### Problem Impact
 
 Founders attempting to build products with AI face a trust gap. They cannot "fire and forget" with AI agents because the risk of errors, hallucinations, and off-brand outputs is too high. Without a reliable review mechanism, founders either:
+
 - Micromanage every AI interaction (defeating the productivity gain)
 - Accept unacceptable quality risks
 - Abandon AI-assisted workflows entirely
@@ -35,12 +36,12 @@ The tools that solve this problem (BMAD Method, TaskMaster) exist but are locked
 
 ### Why Existing Solutions Fall Short
 
-| Solution | Limitation |
-|----------|------------|
-| **Asana / Trello / Jira** | Track tasks but don't execute them—still require human labor |
-| **Cursor / Claude Code** | Execute code but require technical expertise—excludes non-technical founders |
-| **CrewAI / LangChain** | Powerful agent frameworks but no user-friendly management interface |
-| **ChatGPT / Claude Chat** | One-off interactions with no continuity, context decay, no project memory |
+| Solution                  | Limitation                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| **Asana / Trello / Jira** | Track tasks but don't execute them—still require human labor                 |
+| **Cursor / Claude Code**  | Execute code but require technical expertise—excludes non-technical founders |
+| **CrewAI / LangChain**    | Powerful agent frameworks but no user-friendly management interface          |
+| **ChatGPT / Claude Chat** | One-off interactions with no continuity, context decay, no project memory    |
 
 No existing solution provides a **visual, accessible control plane** where founders can orchestrate AI agents with the trust and transparency they need.
 
@@ -72,6 +73,7 @@ TinSu reimagines the Kanban board as a **computing interface**. Each card is not
 **Profile:** Ex-engineer or self-taught developer building their startup with AI assistance.
 
 **Current Reality:**
+
 - Uses powerful tools like Claude Code, BMAD Method, and GitHub
 - Frustrated that "all the good tools live in terminal"
 - Struggles to maintain visibility when away from their computer
@@ -86,6 +88,7 @@ TinSu reimagines the Kanban board as a **computing interface**. Each card is not
 **Profile:** Business, marketing, or domain expert building a startup without coding skills.
 
 **Current Reality:**
+
 - Relies on ChatGPT conversations with no continuity
 - Uses tools like n8n for basic automation
 - Knows AI could do more but can't access the good tools
@@ -98,24 +101,26 @@ TinSu reimagines the Kanban board as a **computing interface**. Each card is not
 ### Secondary Users
 
 #### CEOs & Executives
+
 - **Role:** Strategic oversight and final approval authority
 - **Need:** "God view" dashboard showing agent activity, costs, and risk status
 - **Key Action:** Approve high-stakes outputs before deployment (investor emails, public content)
 
 #### Product Managers
+
 - **Role:** Planning, prioritization, and quality review
 - **Need:** Sprint planning interface and story management
 - **Key Action:** Define sprints, review agent outputs, ensure alignment with product goals
 
 ### User Journey
 
-| Stage | Experience |
-|-------|------------|
-| **Discovery** | Finds TinSu through BMAD community, Product Hunt, or word of mouth from other founders |
-| **First Win** | Creates first sprint using BMAD Method → watches agent execute a story → reviews the completed work |
-| **Aha Moment** | "This is structured, I can trust it, and I didn't have to use the terminal" |
-| **Daily Habit** | Checks the board every morning to see overnight progress and plan the day |
-| **Long-term Value** | TinSu becomes the operating system for their entire startup—code, content, growth, sales |
+| Stage               | Experience                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| **Discovery**       | Finds TinSu through BMAD community, Product Hunt, or word of mouth from other founders              |
+| **First Win**       | Creates first sprint using BMAD Method → watches agent execute a story → reviews the completed work |
+| **Aha Moment**      | "This is structured, I can trust it, and I didn't have to use the terminal"                         |
+| **Daily Habit**     | Checks the board every morning to see overnight progress and plan the day                           |
+| **Long-term Value** | TinSu becomes the operating system for their entire startup—code, content, growth, sales            |
 
 ---
 
@@ -123,33 +128,33 @@ TinSu reimagines the Kanban board as a **computing interface**. Each card is not
 
 ### User Success Metrics
 
-| Metric | Definition | Target |
-|--------|------------|--------|
-| **Peace of Mind Index** | % of tasks delegated to agents vs. done manually | >80% delegated |
-| **Quality Approval Rate** | % of agent outputs approved on first review | >80% |
-| **Daily Engagement** | Users checking their board daily (DAU) | Measured |
-| **Task Velocity** | Stories/tasks completed per user per week | 20+ tasks/week |
+| Metric                    | Definition                                       | Target         |
+| ------------------------- | ------------------------------------------------ | -------------- |
+| **Peace of Mind Index**   | % of tasks delegated to agents vs. done manually | >80% delegated |
+| **Quality Approval Rate** | % of agent outputs approved on first review      | >80%           |
+| **Daily Engagement**      | Users checking their board daily (DAU)           | Measured       |
+| **Task Velocity**         | Stories/tasks completed per user per week        | 20+ tasks/week |
 
 **North Star Metric:** Tasks completed per user per week—this captures both engagement and value delivery.
 
 ### Business Objectives
 
-| Timeframe | Objective | Target |
-|-----------|-----------|--------|
-| **3 Months** | Validate product-market fit | Active users completing tasks consistently |
-| **6 Months** | Growth acceleration | Strong word-of-mouth, organic acquisition |
-| **12 Months** | Scale to mass adoption | 1 million users |
+| Timeframe     | Objective                   | Target                                     |
+| ------------- | --------------------------- | ------------------------------------------ |
+| **3 Months**  | Validate product-market fit | Active users completing tasks consistently |
+| **6 Months**  | Growth acceleration         | Strong word-of-mouth, organic acquisition  |
+| **12 Months** | Scale to mass adoption      | 1 million users                            |
 
 ### Key Performance Indicators
 
-| Category | KPI | Target |
-|----------|-----|--------|
-| **Acquisition** | New user signups | Growth trajectory toward 1M |
-| **Activation** | Users who complete first sprint | >60% of signups |
-| **Retention** | Monthly active user retention | >50% |
-| **Engagement** | Weekly task completion rate | 20+ tasks/user/week |
-| **Quality** | First-review approval rate | >80% |
-| **Revenue** | MRR growth (if applicable) | TBD based on pricing model |
+| Category        | KPI                             | Target                      |
+| --------------- | ------------------------------- | --------------------------- |
+| **Acquisition** | New user signups                | Growth trajectory toward 1M |
+| **Activation**  | Users who complete first sprint | >60% of signups             |
+| **Retention**   | Monthly active user retention   | >50%                        |
+| **Engagement**  | Weekly task completion rate     | 20+ tasks/user/week         |
+| **Quality**     | First-review approval rate      | >80%                        |
+| **Revenue**     | MRR growth (if applicable)      | TBD based on pricing model  |
 
 ### Leading Indicators
 
@@ -164,72 +169,80 @@ TinSu reimagines the Kanban board as a **computing interface**. Each card is not
 ### Core Features
 
 #### 1. Kanban Board Interface
+
 - **Columns:** Backlog → In Progress → Review → Done
 - **Visual task management** with drag-and-drop
 - **Sprint/Epic/Story hierarchy** following BMAD Method structure
 - **Real-time status updates** as agents work
 
 #### 2. AI Agent Execution Engine
+
 - **Claude Code integration** for code generation and execution
 - **Story-to-execution pipeline** - stories become agent instructions
 - **Context management** - agents maintain project context across tasks
 - **Execution logs** - visibility into what agents are doing
 
 #### 3. Review Workflow
+
 - **Approve/Reject mechanism** for all agent outputs
 - **Feedback loop** - rejected work gets refined instructions
 - **Quality gates** - nothing moves to Done without human approval
 - **Diff view** - see exactly what the agent created/changed
 
 #### 4. BMAD Method Integration
+
 - **Sprint creation** using BMAD planning structure
 - **Epic and story breakdown** built into the workflow
 - **Structured prompts** that leverage BMAD persona patterns
 
 ### Out of Scope for MVP
 
-| Feature | Reason for Deferral |
-|---------|---------------------|
-| **Non-technical founder UX** | Focus on dog-fooding with technical founders first |
+| Feature                            | Reason for Deferral                                 |
+| ---------------------------------- | --------------------------------------------------- |
+| **Non-technical founder UX**       | Focus on dog-fooding with technical founders first  |
 | **Growth/Sales/Content workflows** | Prove coding workflow before expanding horizontally |
-| **Team collaboration** | Single-user focus for MVP validation |
-| **Mobile app** | Web-first, mobile later |
-| **CEO dashboard / God view** | Enterprise features for post-PMF |
-| **Multiple AI agent providers** | Claude Code first, expand later |
-| **Billing/subscription system** | Free beta during validation phase |
+| **Team collaboration**             | Single-user focus for MVP validation                |
+| **Mobile app**                     | Web-first, mobile later                             |
+| **CEO dashboard / God view**       | Enterprise features for post-PMF                    |
+| **Multiple AI agent providers**    | Claude Code first, expand later                     |
+| **Billing/subscription system**    | Free beta during validation phase                   |
 
 ### MVP Success Criteria
 
-| Criteria | Target | Validation Method |
-|----------|--------|-------------------|
-| **Core loop works** | Create → Execute → Review cycle completes successfully | Founder dog-fooding |
-| **Quality output** | >80% of agent outputs approved on first review | Tracking approval rates |
-| **Daily habit forms** | Founder checks board daily for 2+ weeks | Usage analytics |
-| **Task velocity** | 20+ stories completed per week | Sprint tracking |
-| **Pain point solved** | "I trust this more than raw vibe coding" | Founder sentiment |
+| Criteria              | Target                                                 | Validation Method       |
+| --------------------- | ------------------------------------------------------ | ----------------------- |
+| **Core loop works**   | Create → Execute → Review cycle completes successfully | Founder dog-fooding     |
+| **Quality output**    | >80% of agent outputs approved on first review         | Tracking approval rates |
+| **Daily habit forms** | Founder checks board daily for 2+ weeks                | Usage analytics         |
+| **Task velocity**     | 20+ stories completed per week                         | Sprint tracking         |
+| **Pain point solved** | "I trust this more than raw vibe coding"               | Founder sentiment       |
 
 **Go/No-Go Decision:** If MVP achieves these criteria with the founder (Tinxu), proceed to invite 10-20 beta testers from BMAD community.
 
 ### Future Vision
 
 #### Phase 2: Non-Technical Founders
+
 - Simplified UI for non-coders
 - Pre-built workflow templates
 - Natural language sprint creation
 
 #### Phase 3: Horizontal Expansion
+
 - Growth hacking workflow agents
 - Sales outreach automation
 - Content creation pipeline
 - CRM integration
 
 #### Phase 4: Team & Enterprise
+
 - Multi-user collaboration
 - Role-based permissions
 - CEO governance dashboard
 - Audit trails and compliance
 
 #### Phase 5: Platform & Scale
+
 - Multiple AI provider support
 - Marketplace for workflow templates
 - API for custom integrations

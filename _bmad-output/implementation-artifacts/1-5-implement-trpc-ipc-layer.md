@@ -15,23 +15,27 @@ So that the UI can call main process functions with full TypeScript inference.
 ## Acceptance Criteria
 
 ### AC1: Package Installation
+
 **Given** the database is set up from Story 1.4
 **When** I install @trpc/server ^11.8.1, @trpc/client ^11.8.1, trpc-electron, and zod ^4.3.5
 **Then** the packages install without errors
 
 ### AC2: tRPC Router Definition
+
 **Given** tRPC packages are installed
 **When** I create a tRPC router in src/main/trpc/router.ts
 **Then** I can define procedures like `tasks.getAll`, `tasks.create`, `tasks.updateStatus`
 **And** procedures use Zod schemas for input validation
 
 ### AC3: tRPC-Electron Integration
+
 **Given** the router is defined
 **When** I expose it via trpc-electron in the main process
 **Then** the renderer can import the router type
 **And** calling `trpc.tasks.getAll.query()` returns typed task data
 
 ### AC4: Full Type Safety
+
 **Given** the tRPC layer is complete
 **When** I make IPC calls from the renderer
 **Then** TypeScript provides full autocomplete for procedure names and parameters
@@ -134,13 +138,13 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 
 ```typescript
 // src/main/trpc/trpc.ts - CORRECT v11 pattern
-import { initTRPC } from '@trpc/server';
-import type { Context } from './context';
+import { initTRPC } from '@trpc/server'
+import type { Context } from './context'
 
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create()
 
-export const router = t.router;
-export const publicProcedure = t.procedure;
+export const router = t.router
+export const publicProcedure = t.procedure
 ```
 
 ### tRPC Response Format (MANDATORY)
@@ -148,24 +152,27 @@ export const publicProcedure = t.procedure;
 From [Source: _bmad-output/planning-artifacts/project-context.md#tRPC-Patterns]:
 
 **DO:**
+
 ```typescript
 // Return data directly
 getTask: t.procedure.input(z.object({ id: z.string() })).query(({ input }) => {
-  return db.query.tasks.findFirst({ where: eq(tasks.id, input.id) });
-});
+  return db.query.tasks.findFirst({ where: eq(tasks.id, input.id) })
+})
 ```
 
 **DON'T:**
+
 ```typescript
 // NEVER wrap responses
-return { success: true, data: task };  // WRONG
-return { data: task, error: null };    // WRONG
+return { success: true, data: task } // WRONG
+return { data: task, error: null } // WRONG
 ```
 
 **Error handling:**
+
 ```typescript
 // ALWAYS use TRPCError, not generic Error
-throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
+throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
 ```
 
 ### trpc-electron Setup Pattern
@@ -173,36 +180,40 @@ throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
 The `trpc-electron` package provides IPC integration. Key files:
 
 **Main Process (`src/main/index.ts`):**
+
 ```typescript
-import { createIPCHandler } from 'trpc-electron/main';
-import { appRouter, createContext } from './trpc';
+import { createIPCHandler } from 'trpc-electron/main'
+import { appRouter, createContext } from './trpc'
 
 // In app.whenReady():
-createIPCHandler({ router: appRouter, createContext });
+createIPCHandler({ router: appRouter, createContext })
 ```
 
 **Preload (`src/preload/index.ts`):**
+
 ```typescript
-import { exposeElectronTRPC } from 'trpc-electron/preload';
-exposeElectronTRPC();
+import { exposeElectronTRPC } from 'trpc-electron/preload'
+exposeElectronTRPC()
 ```
 
 **Renderer (`src/renderer/lib/trpc.ts`):**
-```typescript
-import { createTRPCReact } from '@trpc/react-query';
-import { ipcLink } from 'trpc-electron/renderer';
-import type { AppRouter } from '../../main/trpc';
 
-export const trpc = createTRPCReact<AppRouter>();
+```typescript
+import { createTRPCReact } from '@trpc/react-query'
+import { ipcLink } from 'trpc-electron/renderer'
+import type { AppRouter } from '../../main/trpc'
+
+export const trpc = createTRPCReact<AppRouter>()
 
 export const trpcClient = trpc.createClient({
-  links: [ipcLink()],
-});
+  links: [ipcLink()]
+})
 ```
 
 ### Zod Version Note
 
 Architecture specifies Zod ^4.3.5, but as of January 2026, Zod v4 may still be in development. If v4 is not available:
+
 - Install latest Zod v3.x (`npm install zod@latest`)
 - Document the actual version installed
 - The API is compatible for basic validation needs
@@ -213,84 +224,88 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#tRPC-Router-Bounda
 
 ```typescript
 // src/main/trpc/context.ts
-import { db } from '../db';
+import { db } from '../db'
 
 export interface Context {
-  db: typeof db;
+  db: typeof db
 }
 
 export const createContext = (): Context => ({
-  db,
-});
+  db
+})
 ```
 
 ### Task Router Implementation Pattern
 
 ```typescript
 // src/main/trpc/routers/task.router.ts
-import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
-import { tasks } from '../../db/schema';
-import { eq } from 'drizzle-orm';
-import { TRPCError } from '@trpc/server';
-import { nanoid } from 'nanoid';
+import { z } from 'zod'
+import { router, publicProcedure } from '../trpc'
+import { tasks } from '../../db/schema'
+import { eq } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
+import { nanoid } from 'nanoid'
 
 export const taskRouter = router({
   getAll: publicProcedure.query(({ ctx }) => {
-    return ctx.db.select().from(tasks);
+    return ctx.db.select().from(tasks)
   }),
 
-  getById: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => {
-      const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.id)).get();
-      if (!task) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
-      }
-      return task;
-    }),
+  getById: publicProcedure.input(z.object({ id: z.string() })).query(({ ctx, input }) => {
+    const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.id)).get()
+    if (!task) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+    }
+    return task
+  }),
 
   create: publicProcedure
-    .input(z.object({
-      title: z.string().min(1),
-      description: z.string().optional(),
-      status: z.enum(['backlog', 'in_progress', 'review', 'done']).default('backlog'),
-      epic_id: z.string().optional(),
-      sprint_id: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        status: z.enum(['backlog', 'in_progress', 'review', 'done']).default('backlog'),
+        epic_id: z.string().optional(),
+        sprint_id: z.string().optional()
+      })
+    )
     .mutation(({ ctx, input }) => {
-      const id = nanoid();
-      return ctx.db.insert(tasks).values({ id, ...input }).returning().get();
+      const id = nanoid()
+      return ctx.db
+        .insert(tasks)
+        .values({ id, ...input })
+        .returning()
+        .get()
     }),
 
   updateStatus: publicProcedure
-    .input(z.object({
-      id: z.string(),
-      status: z.enum(['backlog', 'in_progress', 'review', 'done']),
-    }))
+    .input(
+      z.object({
+        id: z.string(),
+        status: z.enum(['backlog', 'in_progress', 'review', 'done'])
+      })
+    )
     .mutation(({ ctx, input }) => {
       const result = ctx.db
         .update(tasks)
         .set({ status: input.status, updated_at: new Date() })
         .where(eq(tasks.id, input.id))
         .returning()
-        .get();
+        .get()
       if (!result) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
       }
-      return result;
+      return result
     }),
 
-  delete: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
-      const result = ctx.db.delete(tasks).where(eq(tasks.id, input.id)).returning().get();
-      if (!result) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' });
-      }
-      return { success: true };
-    }),
-});
+  delete: publicProcedure.input(z.object({ id: z.string() })).mutation(({ ctx, input }) => {
+    const result = ctx.db.delete(tasks).where(eq(tasks.id, input.id)).returning().get()
+    if (!result) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+    }
+    return { success: true }
+  })
+})
 ```
 
 ### Previous Story Learnings
@@ -305,6 +320,7 @@ From [Source: _bmad-output/implementation-artifacts/1-4-create-core-database-sch
 ### Git Recent Commits
 
 Recent work shows:
+
 - 1.4: Core database schema (tasks, agent_runs tables)
 - 1.3: SQLite + Drizzle ORM setup
 - 1.2: Tailwind CSS 4 + shadcn/ui
@@ -328,13 +344,13 @@ Recent work shows:
 
 From [Source: _bmad-output/planning-artifacts/architecture.md#Technology-Stack]:
 
-| Package | Target Version | Notes |
-|---------|----------------|-------|
-| @trpc/server | ^11.8.1 | Latest stable |
-| @trpc/client | ^11.8.1 | Must match server |
-| trpc-electron | latest | mat-sz fork for v11 |
-| zod | ^4.3.5 (or latest v3) | Runtime validation |
-| @tanstack/react-query | ^5.90.16 | Required for tRPC React |
+| Package               | Target Version        | Notes                   |
+| --------------------- | --------------------- | ----------------------- |
+| @trpc/server          | ^11.8.1               | Latest stable           |
+| @trpc/client          | ^11.8.1               | Must match server       |
+| trpc-electron         | latest                | mat-sz fork for v11     |
+| zod                   | ^4.3.5 (or latest v3) | Runtime validation      |
+| @tanstack/react-query | ^5.90.16              | Required for tRPC React |
 
 ### File Structure
 
@@ -363,11 +379,11 @@ src/
 
 From [Source: _bmad-output/planning-artifacts/architecture.md#tRPC-Procedure-Naming]:
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Queries | camelCase, get/list prefix | `getTask`, `listSprintTasks` |
-| Mutations | camelCase, verb prefix | `createTask`, `updateStatus`, `deleteRun` |
-| Subscriptions | camelCase, on prefix | `onAgentOutput`, `onTaskUpdate` |
+| Type          | Convention                 | Example                                   |
+| ------------- | -------------------------- | ----------------------------------------- |
+| Queries       | camelCase, get/list prefix | `getTask`, `listSprintTasks`              |
+| Mutations     | camelCase, verb prefix     | `createTask`, `updateStatus`, `deleteRun` |
+| Subscriptions | camelCase, on prefix       | `onAgentOutput`, `onTaskUpdate`           |
 
 ### IPC Security Requirements
 
@@ -422,6 +438,7 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Authentication-Sec
 ## References
 
 ### Architecture & Planning
+
 - [Source: _bmad-output/planning-artifacts/architecture.md#API-Communication-Patterns]
 - [Source: _bmad-output/planning-artifacts/architecture.md#IPC-Architecture]
 - [Source: _bmad-output/planning-artifacts/architecture.md#tRPC-Router-Boundaries]
@@ -429,9 +446,11 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Authentication-Sec
 - [Source: _bmad-output/planning-artifacts/epics.md#Story-1.5]
 
 ### Previous Stories
+
 - [Source: _bmad-output/implementation-artifacts/1-4-create-core-database-schema-for-tasks-and-agent-runs.md]
 
 ### External Documentation
+
 - [tRPC v11 Documentation](https://trpc.io/docs)
 - [trpc-electron GitHub](https://github.com/mat-sz/trpc-electron)
 - [Zod Documentation](https://zod.dev)
@@ -445,6 +464,7 @@ From [Source: _bmad-output/planning-artifacts/architecture.md#Authentication-Sec
 From [Source: _bmad-output/planning-artifacts/project-context.md]:
 
 ### Critical Rules
+
 - Database operations happen in **main process ONLY**
 - Use tRPC procedures for ALL main↔renderer communication
 - Return data directly from tRPC, don't wrap in `{ success: true, data }`
@@ -453,12 +473,12 @@ From [Source: _bmad-output/planning-artifacts/project-context.md]:
 
 ### Error Handling Layers
 
-| Layer | Pattern |
-|-------|---------|
-| Services | Catch errors, throw `TRPCError` with context |
-| tRPC Routers | Let `TRPCError` propagate |
-| React Query | Use `onError` callback, show toast |
-| React UI | `ErrorBoundary` at AppShell level |
+| Layer        | Pattern                                      |
+| ------------ | -------------------------------------------- |
+| Services     | Catch errors, throw `TRPCError` with context |
+| tRPC Routers | Let `TRPCError` propagate                    |
+| React Query  | Use `onError` callback, show toast           |
+| React UI     | `ErrorBoundary` at AppShell level            |
 
 ---
 
@@ -495,6 +515,7 @@ None
 ### File List
 
 **New Files:**
+
 - src/main/trpc/context.ts
 - src/main/trpc/trpc.ts
 - src/main/trpc/routers/task.router.ts
@@ -504,10 +525,10 @@ None
 - vitest.config.ts (code review addition)
 
 **Modified Files:**
+
 - package.json (added dependencies, added vitest + test scripts)
 - package-lock.json (updated)
 - src/main/index.ts (added tRPC IPC handler)
 - src/preload/index.ts (added exposeElectronTRPC)
 - src/preload/index.d.ts (improved electronTRPC type from code review)
 - src/renderer/src/main.tsx (added QueryClientProvider and tRPC.Provider)
-
