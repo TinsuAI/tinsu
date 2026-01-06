@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+
+// Mock PlanningInitService before importing modules that use it (Story 3.2)
+vi.mock('../../services/planning-init.service', () => ({
+  PlanningInitService: {
+    initializePlanningTasks: vi.fn().mockResolvedValue([])
+  }
+}))
+
 import { projectRouter, setDialogHandler } from './project.router'
 import { ProjectService } from '../../services/project.service'
 import { router } from '../trpc'

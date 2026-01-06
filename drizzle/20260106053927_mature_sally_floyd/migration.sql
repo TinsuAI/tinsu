@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `is_start_here` integer;

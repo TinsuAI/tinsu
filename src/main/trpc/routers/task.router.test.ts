@@ -11,7 +11,7 @@ type TestDb = BetterSQLite3Database<typeof schema>
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields)
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -26,6 +26,7 @@ function createTestDb(): TestDb {
       phase_name TEXT,
       bmad_agent TEXT,
       bmad_workflow TEXT,
+      is_start_here INTEGER,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -268,6 +269,65 @@ describe('taskRouter', () => {
       const tasks = await caller.getAll()
       const task2 = tasks.find(t => t.id === 'task-2')
       expect(task2?.sort_order).toBe(0) // unchanged
+    })
+  })
+
+  // Story 3.2: getPlanningTasks tests
+  describe('getPlanningTasks', () => {
+    it('should return empty array when no planning tasks exist', async () => {
+      const result = await caller.getPlanningTasks()
+      expect(result).toEqual([])
+    })
+
+    it('should return only planning tasks (not story tasks)', async () => {
+      db.insert(schema.tasks)
+        .values([
+          { id: 'story-1', title: 'Story Task', task_type: 'story', status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.getPlanningTasks()
+
+      expect(result).toHaveLength(2)
+      expect(result.every(t => t.task_type === 'planning')).toBe(true)
+    })
+
+    it('should return planning tasks ordered by phase_number', async () => {
+      // Insert out of order
+      db.insert(schema.tasks)
+        .values([
+          { id: 'planning-3', title: 'Architecture', task_type: 'planning', phase_number: 3, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-5', title: 'Epics', task_type: 'planning', phase_number: 5, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-4', title: 'UX Design', task_type: 'planning', phase_number: 4, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.getPlanningTasks()
+
+      expect(result).toHaveLength(5)
+      expect(result[0].phase_number).toBe(1)
+      expect(result[1].phase_number).toBe(2)
+      expect(result[2].phase_number).toBe(3)
+      expect(result[3].phase_number).toBe(4)
+      expect(result[4].phase_number).toBe(5)
+    })
+
+    it('should include is_start_here field in response', async () => {
+      db.insert(schema.tasks)
+        .values([
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, is_start_here: true, status: 'backlog', created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, is_start_here: null, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.getPlanningTasks()
+
+      expect(result[0].is_start_here).toBe(true)
+      expect(result[1].is_start_here).toBeNull()
     })
   })
 })

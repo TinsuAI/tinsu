@@ -9,7 +9,8 @@ export const ProjectConfigSchema = z.object({
   projectName: z.string().min(1, 'Project name is required'),
   methodology: MethodologySchema,
   createdAt: z.string().datetime(), // ISO 8601
-  version: z.string().default('1.0.0')
+  version: z.string().default('1.0.0'),
+  planningTasksInitialized: z.boolean().default(false)
 })
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>
@@ -18,6 +19,7 @@ export type ProjectConfig = z.infer<typeof ProjectConfigSchema>
 export const ProjectConfigUpdateSchema = ProjectConfigSchema.pick({
   projectName: true,
   methodology: true,
-  version: true
+  version: true,
+  planningTasksInitialized: true
 }).partial()
 export type ProjectConfigUpdate = z.infer<typeof ProjectConfigUpdateSchema>

@@ -11,7 +11,7 @@ type TestDb = BetterSQLite3Database<typeof schema>
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields)
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -26,6 +26,7 @@ function createTestDb(): TestDb {
       phase_name TEXT,
       bmad_agent TEXT,
       bmad_workflow TEXT,
+      is_start_here INTEGER,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );

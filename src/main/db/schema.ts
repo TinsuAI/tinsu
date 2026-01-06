@@ -58,7 +58,7 @@ export const sprints = sqliteTable('sprints', {
     .default(sql`(unixepoch())`)
 })
 
-// Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields)
+// Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields, Story 3.2 - is_start_here)
 export const tasks = sqliteTable(
   'tasks',
   {
@@ -75,6 +75,8 @@ export const tasks = sqliteTable(
     phase_name: text('phase_name'), // Human-readable phase name
     bmad_agent: text('bmad_agent'), // BMAD agent identifier
     bmad_workflow: text('bmad_workflow'), // Path to workflow.yaml
+    // Story 3.2: Start Here indicator for first planning task
+    is_start_here: integer('is_start_here', { mode: 'boolean' }), // true only for phase 1, null for others
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

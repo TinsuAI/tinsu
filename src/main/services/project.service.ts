@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { ConfigService } from './config.service'
+import { PlanningInitService } from './planning-init.service'
 import type { ProjectConfig } from '../../shared/types/config.types'
 
 /**
@@ -117,6 +118,13 @@ export class ProjectService {
       // Load existing project
       const configService = new ConfigService(projectPath)
       config = configService.loadConfig()
+    }
+
+    // Initialize planning tasks if not already done (Story 3.2)
+    if (!config.planningTasksInitialized) {
+      await PlanningInitService.initializePlanningTasks(projectPath)
+      const configService = new ConfigService(projectPath)
+      config = configService.updateConfig({ planningTasksInitialized: true })
     }
 
     // Store current project

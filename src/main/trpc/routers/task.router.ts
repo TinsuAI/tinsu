@@ -13,6 +13,17 @@ export const taskRouter = router({
     return ctx.db.select().from(tasks).orderBy(asc(tasks.sort_order)).all()
   }),
 
+  // Story 3.2: Get planning tasks ordered by phase_number
+  // Returns tasks where task_type = 'planning', including the is_start_here field
+  getPlanningTasks: publicProcedure.query(({ ctx }) => {
+    return ctx.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.task_type, 'planning'))
+      .orderBy(asc(tasks.phase_number))
+      .all()
+  }),
+
   // Get single task by ID
   getById: publicProcedure.input(z.object({ id: z.string() })).query(({ ctx, input }) => {
     const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.id)).get()

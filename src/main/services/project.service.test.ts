@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import { ProjectService, ProjectError } from './project.service'
+import { PlanningInitService } from './planning-init.service'
+
+// Mock PlanningInitService to avoid database/electron dependencies
+vi.mock('./planning-init.service', () => ({
+  PlanningInitService: {
+    initializePlanningTasks: vi.fn().mockResolvedValue([])
+  }
+}))
 
 // Test fixture paths
 const TEST_BASE = '/tmp/tinsu-project-test-' + Date.now()
@@ -35,6 +43,8 @@ version: "1.0.0"
     fs.rmSync(TEST_BASE, { recursive: true, force: true })
     // Reset singleton state
     ProjectService.reset()
+    // Clear mocks
+    vi.clearAllMocks()
   })
 
   describe('isGitRepository()', () => {
@@ -218,6 +228,63 @@ version: "1.0.0"
       expect(info).not.toBeNull()
       expect(info!.path).toBe(TEST_GIT_REPO)
       expect(info!.config).toBeDefined()
+    })
+  })
+
+  // Story 3.2: Planning task initialization tests
+  describe('planning task initialization (Story 3.2)', () => {
+    it('should call PlanningInitService.initializePlanningTasks on new project', async () => {
+      await ProjectService.openProject(TEST_GIT_REPO)
+
+      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(TEST_GIT_REPO)
+    })
+
+    it('should set planningTasksInitialized to true after initialization', async () => {
+      const result = await ProjectService.openProject(TEST_GIT_REPO)
+
+      expect(result.config.planningTasksInitialized).toBe(true)
+    })
+
+    it('should call PlanningInitService on existing project without planning initialized', async () => {
+      // Existing project WITHOUT planningTasksInitialized set
+      await ProjectService.openProject(TEST_EXISTING_TINSU)
+
+      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(TEST_EXISTING_TINSU)
+    })
+
+    it('should not call PlanningInitService if planningTasksInitialized is true', async () => {
+      // Create project with planningTasksInitialized: true
+      const alreadyInitialized = path.join(TEST_BASE, 'already-initialized')
+      fs.mkdirSync(alreadyInitialized, { recursive: true })
+      fs.mkdirSync(path.join(alreadyInitialized, '.git'), { recursive: true })
+      fs.mkdirSync(path.join(alreadyInitialized, '.tinsu'), { recursive: true })
+      fs.writeFileSync(
+        path.join(alreadyInitialized, '.tinsu', 'config.yaml'),
+        `projectName: "AlreadyInitialized"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+planningTasksInitialized: true
+`
+      )
+
+      await ProjectService.openProject(alreadyInitialized)
+
+      expect(PlanningInitService.initializePlanningTasks).not.toHaveBeenCalled()
+    })
+
+    it('should be idempotent - second open does not re-initialize', async () => {
+      // First open - initializes
+      await ProjectService.openProject(TEST_GIT_REPO)
+      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledTimes(1)
+
+      // Reset project state but keep filesystem
+      ProjectService.reset()
+      vi.clearAllMocks()
+
+      // Second open - should not re-initialize because config now has planningTasksInitialized: true
+      await ProjectService.openProject(TEST_GIT_REPO)
+      expect(PlanningInitService.initializePlanningTasks).not.toHaveBeenCalled()
     })
   })
 })
