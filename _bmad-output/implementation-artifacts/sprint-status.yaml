@@ -62,7 +62,7 @@ development_status:
   2-4-create-new-task-dialog: done
   2-5-add-sprint-epic-story-hierarchy: done
   2-6-implement-task-filtering: done
-  2-7-add-velocity-metrics-widget: backlog
+  2-7-add-velocity-metrics-widget: done
   epic-2-retrospective: optional
 
   # Epic 3: BMAD Planning Workflow

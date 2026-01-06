@@ -4,11 +4,43 @@ import { Header } from './Header'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
 
-// Mock tRPC for FilterPanel
+// Mock ResponsiveContainer to avoid dimension warnings in tests
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual('recharts')
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div style={{ width: 64, height: 24 }}>{children}</div>
+    )
+  }
+})
+
+// Mock tRPC for FilterPanel and VelocityWidget
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     epics: { getAll: { useQuery: vi.fn(() => ({ data: [] })) } },
-    sprints: { getAll: { useQuery: vi.fn(() => ({ data: [] })) } }
+    sprints: { getAll: { useQuery: vi.fn(() => ({ data: [] })) } },
+    velocity: {
+      getWeeklyVelocity: {
+        useQuery: vi.fn(() => ({
+          data: {
+            weeks: [
+              { week: '2026-02', count: 5, startDate: new Date(), endDate: new Date() },
+              { week: '2026-01', count: 3, startDate: new Date(), endDate: new Date() }
+            ],
+            totalCompleted: 8,
+            avgVelocity: 4
+          },
+          isLoading: false
+        }))
+      },
+      getDailyVelocity: {
+        useQuery: vi.fn(() => ({
+          data: { days: [], totalCompleted: 0 },
+          isLoading: false
+        }))
+      }
+    }
   }
 }))
 
@@ -160,6 +192,30 @@ describe('Header', () => {
 
       // Filter panel should be open
       expect(screen.getByTestId('filter-panel')).toBeInTheDocument()
+    })
+  })
+
+  // Story 2.7: Velocity widget tests
+  describe('velocity widget (Story 2.7)', () => {
+    it('should render velocity widget in header', () => {
+      render(<Header />)
+
+      const velocityWidget = screen.getByTestId('velocity-widget')
+      expect(velocityWidget).toBeInTheDocument()
+    })
+
+    it('should show current week count', () => {
+      render(<Header />)
+
+      // The mock data has count: 5 for the current week
+      expect(screen.getByTestId('velocity-count')).toHaveTextContent('5')
+      expect(screen.getByText('this week')).toBeInTheDocument()
+    })
+
+    it('should show velocity chart', () => {
+      render(<Header />)
+
+      expect(screen.getByTestId('velocity-chart')).toBeInTheDocument()
     })
   })
 })

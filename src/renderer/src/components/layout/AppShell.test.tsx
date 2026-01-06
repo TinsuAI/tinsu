@@ -5,12 +5,23 @@ import { AppShell } from './AppShell'
 import { useUIStore } from '@renderer/stores/ui.store'
 import { useTerminalStore } from '@renderer/stores/terminal.store'
 
+// Mock ResponsiveContainer to avoid dimension warnings in tests
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual('recharts')
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div style={{ width: 64, height: 24 }}>{children}</div>
+    )
+  }
+})
+
 // Mock the TerminalDock to avoid xterm.js and tRPC dependencies
 vi.mock('@renderer/components/terminal', () => ({
   TerminalDock: () => <div data-testid="terminal-dock">Mock TerminalDock</div>
 }))
 
-// Mock tRPC for SprintList in Sidebar and FilterPanel in Header (Story 2.6)
+// Mock tRPC for SprintList in Sidebar, FilterPanel in Header (Story 2.6), and VelocityWidget (Story 2.7)
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     sprints: {
@@ -25,6 +36,27 @@ vi.mock('@renderer/lib/trpc', () => ({
       getAll: {
         useQuery: () => ({
           data: [],
+          isLoading: false
+        })
+      }
+    },
+    velocity: {
+      getWeeklyVelocity: {
+        useQuery: () => ({
+          data: {
+            weeks: [
+              { week: '2026-02', count: 5, startDate: new Date(), endDate: new Date() },
+              { week: '2026-01', count: 3, startDate: new Date(), endDate: new Date() }
+            ],
+            totalCompleted: 8,
+            avgVelocity: 4
+          },
+          isLoading: false
+        })
+      },
+      getDailyVelocity: {
+        useQuery: () => ({
+          data: { days: [], totalCompleted: 0 },
           isLoading: false
         })
       }

@@ -5,6 +5,7 @@ import { projectRouter } from './routers/project.router'
 import { ptyRouter } from './routers/pty.router'
 import { epicRouter } from './routers/epic.router'
 import { sprintRouter } from './routers/sprint.router'
+import { velocityRouter } from './routers/velocity.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -13,7 +14,8 @@ export const appRouter = router({
   project: projectRouter,
   pty: ptyRouter,
   epics: epicRouter,
-  sprints: sprintRouter
+  sprints: sprintRouter,
+  velocity: velocityRouter
 })
 
 // Export type for client consumption

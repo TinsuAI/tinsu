@@ -4,6 +4,7 @@ import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
 import { FilterButton, FilterPanel, FilterSummary } from '@renderer/components/filter'
+import { VelocityWidget } from '@renderer/components/velocity'
 import { Button } from '@renderer/components/ui/button'
 
 interface HeaderProps {
@@ -26,6 +27,9 @@ export function Header({ className, onOpenProject }: HeaderProps) {
         </h1>
         {/* File menu with Open Project option and filter controls */}
         <div className="ml-auto flex items-center gap-2">
+          {/* Velocity widget - shows task completion metrics (Story 2.7) */}
+          <VelocityWidget />
+
           {/* Clear all filters button - only visible when filters active */}
           {showClearAll && (
             <Button
