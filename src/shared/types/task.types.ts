@@ -2,6 +2,10 @@
 export const TASK_STATUS = ['backlog', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
+// Task type enum values (Story 3.1 - AC1)
+export const TASK_TYPE = ['planning', 'story'] as const
+export type TaskType = (typeof TASK_TYPE)[number]
+
 // Exit status enum values for agent runs
 export const EXIT_STATUS = ['success', 'error', 'cancelled', 'timeout'] as const
 export type ExitStatus = (typeof EXIT_STATUS)[number]
@@ -30,6 +34,12 @@ export interface Task {
   sort_order: number
   epic_id: string | null
   sprint_id: string | null
+  // Story 3.1: Task type and planning-specific fields
+  task_type: TaskType
+  phase_number: number | null // 1-5 for planning tasks, null for story
+  phase_name: string | null // Human-readable phase name
+  bmad_agent: string | null // BMAD agent identifier
+  bmad_workflow: string | null // Path to workflow.yaml
   created_at: Date
   updated_at: Date
 }
@@ -43,6 +53,12 @@ export interface NewTask {
   sort_order?: number
   epic_id?: string | null
   sprint_id?: string | null
+  // Story 3.1: Task type and planning-specific fields (optional, defaults to 'story')
+  task_type?: TaskType
+  phase_number?: number | null
+  phase_name?: string | null
+  bmad_agent?: string | null
+  bmad_workflow?: string | null
   created_at?: Date
   updated_at?: Date
 }
@@ -109,4 +125,52 @@ export interface NewSprint {
 export interface TaskWithRelations extends Task {
   epic: Epic | null
   sprint: Sprint | null
+}
+
+// Story 3.1: Planning task type narrowing interfaces
+export interface PlanningTaskFields {
+  task_type: 'planning'
+  phase_number: 1 | 2 | 3 | 4 | 5
+  phase_name: string
+  bmad_agent: string
+  bmad_workflow: string
+}
+
+export interface StoryTaskFields {
+  task_type: 'story'
+  phase_number: null
+  phase_name: null
+  bmad_agent: null
+  bmad_workflow: null
+}
+
+// Type for a planning task (narrowed)
+export type PlanningTask = Omit<
+  Task,
+  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow'
+> &
+  PlanningTaskFields
+
+// Type for a story task (narrowed)
+export type StoryTask = Omit<
+  Task,
+  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow'
+> &
+  StoryTaskFields
+
+// Type guard for narrowing task to planning task
+// Validates both task_type AND that planning fields are non-null for data integrity
+export function isPlanningTask(task: Task): task is PlanningTask {
+  return (
+    task.task_type === 'planning' &&
+    task.phase_number !== null &&
+    task.phase_name !== null &&
+    task.bmad_agent !== null &&
+    task.bmad_workflow !== null
+  )
+}
+
+// Type guard for narrowing task to story task
+export function isStoryTask(task: Task): task is StoryTask {
+  return task.task_type === 'story'
 }

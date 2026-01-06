@@ -16,6 +16,10 @@ export const settings = sqliteTable('settings', {
 export const TASK_STATUS = ['backlog', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
+// Task type enum values (Story 3.1 - AC1)
+export const TASK_TYPE = ['planning', 'story'] as const
+export type TaskType = (typeof TASK_TYPE)[number]
+
 // Epic colors for consistent badge coloring (Story 2.5)
 export const EPIC_COLORS = [
   'blue',
@@ -54,7 +58,7 @@ export const sprints = sqliteTable('sprints', {
     .default(sql`(unixepoch())`)
 })
 
-// Tasks table (Story 1.4 - AC1)
+// Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields)
 export const tasks = sqliteTable(
   'tasks',
   {
@@ -65,6 +69,12 @@ export const tasks = sqliteTable(
     sort_order: integer('sort_order').notNull().default(0),
     epic_id: text('epic_id'),
     sprint_id: text('sprint_id'),
+    // Story 3.1: Task type and planning-specific fields
+    task_type: text('task_type').notNull().default('story'), // 'planning' | 'story'
+    phase_number: integer('phase_number'), // 1-5 for planning tasks, null for story
+    phase_name: text('phase_name'), // Human-readable phase name
+    bmad_agent: text('bmad_agent'), // BMAD agent identifier
+    bmad_workflow: text('bmad_workflow'), // Path to workflow.yaml
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -76,7 +86,8 @@ export const tasks = sqliteTable(
     index('idx_tasks_status').on(table.status),
     index('idx_tasks_epic_id').on(table.epic_id),
     index('idx_tasks_sprint_id').on(table.sprint_id),
-    index('idx_tasks_sort_order').on(table.sort_order)
+    index('idx_tasks_sort_order').on(table.sort_order),
+    index('idx_tasks_task_type').on(table.task_type) // Story 3.1: Index for filtered queries
   ]
 )
 

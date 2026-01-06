@@ -13,10 +13,11 @@ export default defineConfig({
     projects: [
       {
         // Main process tests (Node.js environment)
+        // Also includes shared types tests (pure TypeScript, no DOM needed)
         test: {
           name: 'main',
           environment: 'node',
-          include: ['src/main/**/*.test.ts'],
+          include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
           exclude: ['node_modules', 'out', 'dist']
         }
       },

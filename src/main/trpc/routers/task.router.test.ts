@@ -11,7 +11,7 @@ type TestDb = BetterSQLite3Database<typeof schema>
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -21,6 +21,11 @@ function createTestDb(): TestDb {
       sort_order INTEGER NOT NULL DEFAULT 0,
       epic_id TEXT,
       sprint_id TEXT,
+      task_type TEXT NOT NULL DEFAULT 'story',
+      phase_number INTEGER,
+      phase_name TEXT,
+      bmad_agent TEXT,
+      bmad_workflow TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -28,6 +33,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_epic_id ON tasks(epic_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
+    CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks(task_type);
   `)
 
   return drizzle({ client: sqlite, schema })
