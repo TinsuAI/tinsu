@@ -1,12 +1,15 @@
 import { useCallback, type KeyboardEvent } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
+import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import type { Task } from '@shared/types/task.types'
 
 export interface TaskCardProps {
   task: Task
-  /** Epic name to display as a subtle badge */
+  /** Epic name to display as a badge */
   epicName?: string
+  /** Epic color for the badge styling */
+  epicColor?: string
   /** Agent status for the status badge (defaults to 'idle') */
   agentStatus?: AgentStatus
   /** Callback for keyboard navigation - called with direction */
@@ -17,6 +20,7 @@ export interface TaskCardProps {
 export function TaskCard({
   task,
   epicName,
+  epicColor = 'blue',
   agentStatus = 'idle',
   onNavigate,
   className
@@ -87,14 +91,11 @@ export function TaskCard({
         </p>
       )}
 
-      {/* Epic label - subtle badge */}
+      {/* Epic badge - colored indicator */}
       {epicName && (
-        <span
-          className="mt-2 inline-block text-xs text-muted-foreground"
-          data-testid="task-epic-label"
-        >
-          {epicName}
-        </span>
+        <div className="mt-2" data-testid="task-epic-label">
+          <EpicBadge title={epicName} color={epicColor} />
+        </div>
       )}
     </div>
   )

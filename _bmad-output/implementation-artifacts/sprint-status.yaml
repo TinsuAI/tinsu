@@ -60,7 +60,7 @@ development_status:
   2-2-display-task-cards-in-columns: done
   2-3-implement-drag-and-drop-between-columns: done
   2-4-create-new-task-dialog: done
-  2-5-add-sprint-epic-story-hierarchy: backlog
+  2-5-add-sprint-epic-story-hierarchy: done
   2-6-implement-task-filtering: backlog
   2-7-add-velocity-metrics-widget: backlog
   epic-2-retrospective: optional

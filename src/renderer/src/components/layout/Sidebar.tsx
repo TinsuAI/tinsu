@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { SprintList } from '@renderer/components/sidebar/SprintList'
 
 interface SidebarProps {
   className?: string
@@ -37,16 +38,15 @@ export function Sidebar({ className }: SidebarProps) {
         )}
       </button>
 
-      {/* Placeholder navigation items for future Sprint/Epic list */}
+      {/* Sprint list navigation */}
       <nav className="flex-1 overflow-y-auto p-2">
-        <div
-          className={cn(
-            'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground',
-            sidebarCollapsed && 'justify-center px-0'
-          )}
-        >
-          {!sidebarCollapsed && <span>Sprint / Epic list</span>}
-        </div>
+        {sidebarCollapsed ? (
+          <div className="flex items-center justify-center py-1.5">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </div>
+        ) : (
+          <SprintList />
+        )}
       </nav>
     </aside>
   )

@@ -14,6 +14,8 @@ import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { Label } from '@renderer/components/ui/label'
 import { trpc } from '@renderer/lib/trpc'
+import { EpicSelect } from './EpicSelect'
+import { SprintSelect } from './SprintSelect'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 interface CreateTaskDialogProps {
@@ -27,6 +29,8 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
   const [description, setDescription] = useState('')
   const [acceptanceCriteria, setAcceptanceCriteria] = useState('')
   const [titleError, setTitleError] = useState('')
+  const [selectedEpicId, setSelectedEpicId] = useState<string | undefined>()
+  const [selectedSprintId, setSelectedSprintId] = useState<string | undefined>()
 
   const queryClient = useQueryClient()
   const utils = trpc.useUtils()
@@ -48,8 +52,8 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
           description: newTask.description ?? null,
           status: newTask.status,
           sort_order: 0, // New tasks go to top
-          epic_id: null,
-          sprint_id: null,
+          epic_id: newTask.epic_id ?? null,
+          sprint_id: newTask.sprint_id ?? null,
           created_at: new Date(),
           updated_at: new Date()
         }
@@ -86,6 +90,8 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
     setDescription('')
     setAcceptanceCriteria('')
     setTitleError('')
+    setSelectedEpicId(undefined)
+    setSelectedSprintId(undefined)
   }
 
   useEffect(() => {
@@ -108,7 +114,9 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
     createTask.mutate({
       title: title.trim(),
       description: fullDescription || undefined,
-      status: initialStatus
+      status: initialStatus,
+      epic_id: selectedEpicId,
+      sprint_id: selectedSprintId
     })
   }
 
@@ -171,6 +179,16 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
               className="font-mono text-sm"
               data-testid="task-acceptance-criteria-input"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="epic">Epic</Label>
+              <EpicSelect value={selectedEpicId} onValueChange={setSelectedEpicId} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sprint">Sprint</Label>
+              <SprintSelect value={selectedSprintId} onValueChange={setSelectedSprintId} />
+            </div>
           </div>
         </div>
         <DialogFooter>

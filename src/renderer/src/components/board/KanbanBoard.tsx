@@ -23,6 +23,8 @@ interface KanbanBoardProps {
   tasks: Task[]
   /** Map of epic_id to epic name for display on cards */
   epicNames?: Record<string, string>
+  /** Map of epic_id to epic color for badge styling */
+  epicColors?: Record<string, string>
   isLoading?: boolean
   className?: string
   /** Callback when task status changes via drag-drop */
@@ -36,6 +38,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({
   tasks,
   epicNames = {},
+  epicColors = {},
   isLoading = false,
   className,
   onStatusChange,
@@ -319,6 +322,7 @@ export function KanbanBoard({
                         <SortableTaskCard
                           task={task}
                           epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
+                          epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
                           onNavigate={(direction) => handleNavigate(task.id, direction)}
                           isDragging={activeId === task.id}
                         />
@@ -339,6 +343,7 @@ export function KanbanBoard({
             <TaskCard
               task={activeTask}
               epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
+              epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
             />
           </div>
         )}

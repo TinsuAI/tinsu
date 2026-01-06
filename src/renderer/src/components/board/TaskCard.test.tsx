@@ -130,12 +130,15 @@ describe('TaskCard with epic', () => {
     expect(screen.getByText('Epic 1: Foundation')).toBeInTheDocument()
   })
 
-  it('should render epic label as a subtle badge', () => {
-    render(<TaskCard task={mockTask} epicName="Epic 1: Foundation" />)
+  it('should render epic badge with proper styling', () => {
+    render(<TaskCard task={mockTask} epicName="Epic 1: Foundation" epicColor="blue" />)
 
-    const epicBadge = screen.getByTestId('task-epic-label')
+    const epicBadgeContainer = screen.getByTestId('task-epic-label')
+    expect(epicBadgeContainer).toBeInTheDocument()
+    // EpicBadge component is now used instead of plain text
+    const epicBadge = screen.getByTestId('epic-badge')
+    expect(epicBadge).toBeInTheDocument()
     expect(epicBadge).toHaveClass('text-xs')
-    expect(epicBadge).toHaveClass('text-muted-foreground')
   })
 
   it('should not render epic label when epicName is not provided', () => {

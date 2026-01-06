@@ -1,14 +1,17 @@
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
+import { useUIStore } from '@renderer/stores/ui.store'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
   const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
+  const { data: epics } = trpc.epics.getAll.useQuery()
+  const selectedSprintId = useUIStore((state) => state.selectedSprintId)
 
   // Dialog state for creating new tasks
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -139,17 +142,51 @@ export function KanbanBoardContainer() {
   }
 
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
-  const transformedTasks: Task[] = (tasks ?? []).map((task) => ({
-    ...task,
-    status: task.status as TaskStatus,
-    created_at: new Date(task.created_at),
-    updated_at: new Date(task.updated_at)
-  }))
+  const transformedTasks: Task[] = useMemo(() => {
+    const allTasks = (tasks ?? []).map((task) => ({
+      ...task,
+      status: task.status as TaskStatus,
+      created_at: new Date(task.created_at),
+      updated_at: new Date(task.updated_at)
+    }))
+
+    // Filter by selected sprint if one is selected (Story 2.5)
+    if (selectedSprintId) {
+      return allTasks.filter((task) => task.sprint_id === selectedSprintId)
+    }
+
+    return allTasks
+  }, [tasks, selectedSprintId])
+
+  // Create epic name and color maps for display on task cards
+  const epicNames = useMemo(() => {
+    if (!epics) return {}
+    return epics.reduce(
+      (acc, epic) => {
+        acc[epic.id] = epic.title
+        return acc
+      },
+      {} as Record<string, string>
+    )
+  }, [epics])
+
+  const epicColors = useMemo(() => {
+    if (!epics) return {}
+    return epics.reduce(
+      (acc, epic) => {
+        acc[epic.id] = epic.color
+        return acc
+      },
+      {} as Record<string, string>
+    )
+  }, [epics])
 
   return (
     <>
       <KanbanBoard
         tasks={transformedTasks}
+        epicNames={epicNames}
+        epicColors={epicColors}
         isLoading={isLoading}
         onStatusChange={handleStatusChange}
         onReorder={handleReorder}

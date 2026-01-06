@@ -16,6 +16,44 @@ export const settings = sqliteTable('settings', {
 export const TASK_STATUS = ['backlog', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
+// Epic colors for consistent badge coloring (Story 2.5)
+export const EPIC_COLORS = [
+  'blue',
+  'green',
+  'yellow',
+  'red',
+  'purple',
+  'orange',
+  'pink',
+  'cyan',
+  'indigo',
+  'teal'
+] as const
+export type EpicColor = (typeof EPIC_COLORS)[number]
+
+// Epics table (Story 2.5 - AC1)
+export const epics = sqliteTable('epics', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  color: text('color').notNull().default('blue'),
+  created_at: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`)
+})
+
+// Sprints table (Story 2.5 - AC1)
+export const sprints = sqliteTable('sprints', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  start_date: integer('start_date', { mode: 'timestamp' }),
+  end_date: integer('end_date', { mode: 'timestamp' }),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(false),
+  created_at: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`)
+})
+
 // Tasks table (Story 1.4 - AC1)
 export const tasks = sqliteTable(
   'tasks',
@@ -70,3 +108,9 @@ export type Task = InferSelectModel<typeof tasks>
 export type NewTask = InferInsertModel<typeof tasks>
 export type AgentRun = InferSelectModel<typeof agent_runs>
 export type NewAgentRun = InferInsertModel<typeof agent_runs>
+
+// Epic and Sprint type exports (Story 2.5)
+export type Epic = InferSelectModel<typeof epics>
+export type NewEpic = InferInsertModel<typeof epics>
+export type Sprint = InferSelectModel<typeof sprints>
+export type NewSprint = InferInsertModel<typeof sprints>

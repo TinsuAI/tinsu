@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { tasks, TASK_STATUS } from '../../db/schema'
+import { tasks, epics, sprints, TASK_STATUS } from '../../db/schema'
 import { eq, asc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 
@@ -20,6 +20,40 @@ export const taskRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
     }
     return task
+  }),
+
+  // Get task with epic and sprint relations (Story 2.5)
+  getWithRelations: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(({ ctx, input }) => {
+      const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.id)).get()
+      if (!task) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Fetch related epic and sprint if assigned
+      const epic = task.epic_id
+        ? ctx.db.select().from(epics).where(eq(epics.id, task.epic_id)).get()
+        : null
+      const sprint = task.sprint_id
+        ? ctx.db.select().from(sprints).where(eq(sprints.id, task.sprint_id)).get()
+        : null
+
+      return { ...task, epic, sprint }
+    }),
+
+  // Get all tasks with their related epics (Story 2.5)
+  getAllWithEpics: publicProcedure.query(({ ctx }) => {
+    const allTasks = ctx.db.select().from(tasks).orderBy(asc(tasks.sort_order)).all()
+    const allEpics = ctx.db.select().from(epics).all()
+
+    // Create a map for quick epic lookup
+    const epicMap = new Map(allEpics.map((e) => [e.id, e]))
+
+    return allTasks.map((task) => ({
+      ...task,
+      epic: task.epic_id ? epicMap.get(task.epic_id) ?? null : null
+    }))
   }),
 
   // Create new task (inserts at top of column with sort_order = 0)
@@ -75,6 +109,34 @@ export const taskRouter = router({
         .update(tasks)
         .set({ status: input.status, updated_at: new Date() })
         .where(eq(tasks.id, input.id))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+      return result
+    }),
+
+  // Update task (including epic/sprint assignment) - Story 2.5
+  update: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        title: z.string().min(1, 'Title is required').optional(),
+        description: z.string().nullable().optional(),
+        status: taskStatusSchema.optional(),
+        epic_id: z.string().nullable().optional(),
+        sprint_id: z.string().nullable().optional()
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      const { id, ...updateData } = input
+
+      const result = ctx.db
+        .update(tasks)
+        .set({ ...updateData, updated_at: new Date() })
+        .where(eq(tasks.id, id))
         .returning()
         .get()
 

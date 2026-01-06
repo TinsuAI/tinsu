@@ -65,6 +65,22 @@ vi.mock('@renderer/lib/trpc', () => ({
         })
       }
     },
+    epics: {
+      getAll: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false
+        })
+      }
+    },
+    sprints: {
+      getAll: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false
+        })
+      }
+    },
     useUtils: () => ({
       tasks: {
         getAll: {

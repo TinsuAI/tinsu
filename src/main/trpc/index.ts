@@ -3,13 +3,17 @@ import { taskRouter } from './routers/task.router'
 import { configRouter } from './routers/config.router'
 import { projectRouter } from './routers/project.router'
 import { ptyRouter } from './routers/pty.router'
+import { epicRouter } from './routers/epic.router'
+import { sprintRouter } from './routers/sprint.router'
 import { createContext } from './context'
 
 export const appRouter = router({
   tasks: taskRouter,
   config: configRouter,
   project: projectRouter,
-  pty: ptyRouter
+  pty: ptyRouter,
+  epics: epicRouter,
+  sprints: sprintRouter
 })
 
 // Export type for client consumption

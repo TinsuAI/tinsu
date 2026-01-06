@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KanbanBoardContainer } from './KanbanBoardContainer'
+import { useUIStore } from '@renderer/stores/ui.store'
 
 // Create a QueryClient wrapper for tests
 function createWrapper() {
@@ -87,6 +88,22 @@ vi.mock('@renderer/lib/trpc', () => ({
         })
       }
     },
+    epics: {
+      getAll: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false
+        })
+      }
+    },
+    sprints: {
+      getAll: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false
+        })
+      }
+    },
     useUtils: () => ({
       tasks: {
         getAll: {
@@ -104,6 +121,8 @@ describe('KanbanBoardContainer', () => {
     mockIsLoading = false
     mockIsError = false
     mockError = null
+    // Reset store state before each test
+    useUIStore.setState({ sidebarCollapsed: false, selectedSprintId: null })
   })
 
   it('should render loading state when isLoading is true', () => {
@@ -180,6 +199,8 @@ describe('KanbanBoardContainer dialog integration', () => {
     mockIsLoading = false
     mockIsError = false
     mockError = null
+    // Reset store state before each test
+    useUIStore.setState({ sidebarCollapsed: false, selectedSprintId: null })
   })
 
   it('should render add task buttons in all columns', () => {
