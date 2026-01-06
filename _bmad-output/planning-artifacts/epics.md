@@ -6,7 +6,7 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-design-specification.md
 completedDate: 2026-01-04
 totalEpics: 7
-totalStories: 73
+totalStories: 76
 deferredEpics: [4]
 ---
 
@@ -756,6 +756,123 @@ So that I can group related work and plan releases (FR4).
 **Then** I see a list of sprints with their date ranges
 **And** the active sprint is highlighted
 **And** I can click a sprint to filter the board
+
+---
+
+<!-- ### Story 2.5.1: Create and Edit Sprint
+
+As a founder,
+I want to create and edit sprints with name and date range,
+So that I can organize my work into time-boxed iterations.
+
+**Acceptance Criteria:**
+
+**Given** I am viewing the sidebar
+**When** I click the "+" button in the Sprints section
+**Then** a modal dialog opens for creating a new sprint
+**And** the dialog shows fields for: Name (required), Start Date, End Date
+**And** dates default to a 2-week range starting from today (or after the last sprint)
+
+**Given** the create sprint dialog is open
+**When** I fill in the name and dates and click "Create"
+**Then** the sprint is created in the database
+**And** the new sprint appears in the sidebar sprint list
+**And** the dialog closes
+
+**Given** I want to edit an existing sprint
+**When** I right-click a sprint in the sidebar or click its edit icon
+**Then** an edit dialog opens with current values pre-filled
+**And** I can modify name, start date, and end date
+
+**Given** I edit sprint dates
+**When** I set end date before start date
+**Then** validation prevents saving
+**And** an error message explains the issue
+
+**Given** I save sprint changes
+**When** the update completes
+**Then** the sidebar reflects the updated sprint info immediately
+**And** any filtered views update to match
+
+---
+
+### Story 2.5.2: Sprint List and Selection UI
+
+As a founder,
+I want to see all sprints in the sidebar and filter the board by sprint,
+So that I can focus on work for a specific iteration.
+
+**Acceptance Criteria:**
+
+**Given** sprints exist in the database
+**When** I view the sidebar
+**Then** I see a "Sprints" section with all sprints listed
+**And** sprints are grouped: Active (if any), Upcoming, Completed
+**And** each sprint shows its name and task count
+
+**Given** the sprint list is displayed
+**When** I view an active sprint
+**Then** it has a distinct visual indicator (e.g., green dot or "Active" badge)
+**And** it appears at the top of the list
+
+**Given** I click on a sprint in the sidebar
+**When** the selection applies
+**Then** the Kanban board filters to show only tasks in that sprint
+**And** the selected sprint is highlighted in the sidebar
+**And** the board header shows "Sprint: [name]" filter indicator
+
+**Given** I want to see all tasks
+**When** I click "All Tasks" or clear the sprint filter
+**Then** the board shows tasks from all sprints (and unassigned)
+**And** no sprint is highlighted in the sidebar
+
+**Given** a sprint has no tasks assigned
+**When** I view it in the sidebar
+**Then** it shows "(0 tasks)" count
+**And** selecting it shows empty columns with "No tasks in this sprint" placeholder
+
+---
+
+### Story 2.5.3: Sprint Lifecycle and Deletion
+
+As a founder,
+I want to start, close, and delete sprints,
+So that I can manage the sprint lifecycle and clean up completed iterations.
+
+**Acceptance Criteria:**
+
+**Given** a sprint exists that is not active
+**When** I click "Start Sprint" from its context menu
+**Then** the sprint is marked as active
+**And** any previously active sprint is automatically deactivated
+**And** the sidebar updates to show the new active sprint
+
+**Given** a sprint is active
+**When** I click "Close Sprint" from its context menu
+**Then** a dialog appears asking how to handle incomplete tasks
+**And** options are: "Move to Backlog", "Move to [next sprint]", or "Keep in closed sprint"
+
+**Given** I choose to move incomplete tasks when closing
+**When** the close action completes
+**Then** tasks with status != "done" are moved to the selected destination
+**And** the sprint is marked as closed/completed
+**And** it moves to the "Completed" section in sidebar
+
+**Given** I want to delete a sprint
+**When** I click "Delete" from its context menu
+**Then** a confirmation dialog shows: "Delete [Sprint Name]? X tasks will be unassigned."
+**And** I can confirm or cancel
+
+**Given** I confirm sprint deletion
+**When** the delete completes
+**Then** the sprint is removed from the database
+**And** all tasks previously in that sprint have their sprint_id set to null
+**And** the sidebar updates immediately
+
+**Given** the active sprint is deleted
+**When** deletion completes
+**Then** no sprint is marked as active
+**And** the board shows all tasks (no sprint filter) -->
 
 ---
 

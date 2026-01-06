@@ -27,6 +27,8 @@ interface KanbanBoardProps {
   epicColors?: Record<string, string>
   isLoading?: boolean
   className?: string
+  /** Story 2.6: Whether any filters are currently active */
+  hasActiveFilters?: boolean
   /** Callback when task status changes via drag-drop */
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
   /** Callback when task order changes within a column (receives new order of task IDs) */
@@ -41,6 +43,7 @@ export function KanbanBoard({
   epicColors = {},
   isLoading = false,
   className,
+  hasActiveFilters = false,
   onStatusChange,
   onReorder,
   onAddTask
@@ -314,7 +317,9 @@ export function KanbanBoard({
             >
               <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                 {columnTasks.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground">No tasks</p>
+                  <p className="text-center text-sm text-muted-foreground">
+                    {hasActiveFilters ? 'No matching tasks' : 'No tasks'}
+                  </p>
                 ) : (
                   <div className="flex flex-col gap-3" data-testid="task-list">
                     {columnTasks.map((task) => (

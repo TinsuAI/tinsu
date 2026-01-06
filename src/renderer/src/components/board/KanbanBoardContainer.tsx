@@ -11,7 +11,12 @@ export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
   const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
   const { data: epics } = trpc.epics.getAll.useQuery()
+
+  // Story 2.6: Get all filter state
   const selectedSprintId = useUIStore((state) => state.selectedSprintId)
+  const selectedEpicIds = useUIStore((state) => state.selectedEpicIds)
+  const selectedStatuses = useUIStore((state) => state.selectedStatuses)
+  const hasActiveFilters = useUIStore((state) => state.hasActiveFilters())
 
   // Dialog state for creating new tasks
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -142,21 +147,33 @@ export function KanbanBoardContainer() {
   }
 
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
+  // Story 2.6: Apply comprehensive filtering with AND logic between filter types
   const transformedTasks: Task[] = useMemo(() => {
-    const allTasks = (tasks ?? []).map((task) => ({
+    let filtered = (tasks ?? []).map((task) => ({
       ...task,
       status: task.status as TaskStatus,
       created_at: new Date(task.created_at),
       updated_at: new Date(task.updated_at)
     }))
 
-    // Filter by selected sprint if one is selected (Story 2.5)
+    // Sprint filter (single select, existing from Story 2.5)
     if (selectedSprintId) {
-      return allTasks.filter((task) => task.sprint_id === selectedSprintId)
+      filtered = filtered.filter((task) => task.sprint_id === selectedSprintId)
     }
 
-    return allTasks
-  }, [tasks, selectedSprintId])
+    // Epic filter (multi-select, OR logic within - Story 2.6)
+    if (selectedEpicIds.length > 0) {
+      filtered = filtered.filter((task) => task.epic_id && selectedEpicIds.includes(task.epic_id))
+    }
+
+    // Status filter (multi-select, OR logic within - Story 2.6)
+    // Only apply if some statuses are selected but not all 4 (selecting all = no filter)
+    if (selectedStatuses.length > 0 && selectedStatuses.length < 4) {
+      filtered = filtered.filter((task) => selectedStatuses.includes(task.status))
+    }
+
+    return filtered
+  }, [tasks, selectedSprintId, selectedEpicIds, selectedStatuses])
 
   // Create epic name and color maps for display on task cards
   const epicNames = useMemo(() => {
@@ -188,6 +205,7 @@ export function KanbanBoardContainer() {
         epicNames={epicNames}
         epicColors={epicColors}
         isLoading={isLoading}
+        hasActiveFilters={hasActiveFilters}
         onStatusChange={handleStatusChange}
         onReorder={handleReorder}
         onAddTask={handleAddTask}

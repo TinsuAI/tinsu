@@ -19,8 +19,20 @@ function createWrapper() {
   }
 }
 
-// Mock task data
-const mockTasks = [
+// Mock task data type for proper TypeScript inference
+interface MockTask {
+  id: string
+  title: string
+  description: string | null
+  status: string
+  sort_order: number
+  epic_id: string | null
+  sprint_id: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+const mockTasks: MockTask[] = [
   {
     id: '1',
     title: 'Task 1',
@@ -121,8 +133,14 @@ describe('KanbanBoardContainer', () => {
     mockIsLoading = false
     mockIsError = false
     mockError = null
-    // Reset store state before each test
-    useUIStore.setState({ sidebarCollapsed: false, selectedSprintId: null })
+    // Reset store state before each test (Story 2.6: added epic and status filters)
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: [],
+      lastProjectPath: null
+    })
   })
 
   it('should render loading state when isLoading is true', () => {
@@ -199,8 +217,14 @@ describe('KanbanBoardContainer dialog integration', () => {
     mockIsLoading = false
     mockIsError = false
     mockError = null
-    // Reset store state before each test
-    useUIStore.setState({ sidebarCollapsed: false, selectedSprintId: null })
+    // Reset store state before each test (Story 2.6: added epic and status filters)
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: [],
+      lastProjectPath: null
+    })
   })
 
   it('should render add task buttons in all columns', () => {
@@ -330,5 +354,213 @@ describe('KanbanBoardContainer dialog integration', () => {
         status: 'backlog'
       })
     )
+  })
+})
+
+// Story 2.6: Filtering tests
+describe('KanbanBoardContainer filtering (Story 2.6)', () => {
+  const mockTasksWithFilters: typeof mockTasks = [
+    {
+      id: '1',
+      title: 'Task 1',
+      description: 'Description 1',
+      status: 'backlog',
+      sort_order: 0,
+      epic_id: 'epic-1',
+      sprint_id: 'sprint-1',
+      created_at: new Date('2024-01-01'),
+      updated_at: new Date('2024-01-01')
+    },
+    {
+      id: '2',
+      title: 'Task 2',
+      description: null,
+      status: 'in_progress',
+      sort_order: 0,
+      epic_id: 'epic-2',
+      sprint_id: 'sprint-1',
+      created_at: new Date('2024-01-02'),
+      updated_at: new Date('2024-01-02')
+    },
+    {
+      id: '3',
+      title: 'Task 3',
+      description: null,
+      status: 'review',
+      sort_order: 0,
+      epic_id: 'epic-1',
+      sprint_id: 'sprint-2',
+      created_at: new Date('2024-01-03'),
+      updated_at: new Date('2024-01-03')
+    },
+    {
+      id: '4',
+      title: 'Task 4',
+      description: null,
+      status: 'done',
+      sort_order: 0,
+      epic_id: null,
+      sprint_id: null,
+      created_at: new Date('2024-01-04'),
+      updated_at: new Date('2024-01-04')
+    }
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockData = mockTasksWithFilters
+    mockIsLoading = false
+    mockIsError = false
+    mockError = null
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: []
+    })
+  })
+
+  it('should show all tasks when no filters are active', () => {
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('1')
+  })
+
+  it('should filter by sprint', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: 'sprint-1',
+      selectedEpicIds: [],
+      selectedStatuses: []
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // sprint-1 has tasks 1 (backlog) and 2 (in_progress)
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0')
+  })
+
+  it('should filter by single epic', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: ['epic-1'],
+      selectedStatuses: []
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // epic-1 has tasks 1 (backlog) and 3 (review)
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0')
+  })
+
+  it('should filter by multiple epics (OR logic)', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: ['epic-1', 'epic-2'],
+      selectedStatuses: []
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // epic-1 has tasks 1, 3; epic-2 has task 2
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0') // Task 4 has no epic
+  })
+
+  it('should filter by single status', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: ['backlog']
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0')
+  })
+
+  it('should filter by multiple statuses (OR logic)', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: ['backlog', 'done']
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('1')
+  })
+
+  it('should not filter when all 4 statuses are selected', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: ['backlog', 'in_progress', 'review', 'done']
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // All 4 statuses selected = no filter applied
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('1')
+  })
+
+  it('should combine sprint and epic filters with AND logic', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: 'sprint-1',
+      selectedEpicIds: ['epic-1'],
+      selectedStatuses: []
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // sprint-1 AND epic-1 = only task 1 (backlog)
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0')
+  })
+
+  it('should combine all filter types with AND logic', () => {
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: 'sprint-1',
+      selectedEpicIds: ['epic-1', 'epic-2'],
+      selectedStatuses: ['backlog', 'in_progress']
+    })
+
+    render(<KanbanBoardContainer />, { wrapper: createWrapper() })
+
+    // sprint-1 AND (epic-1 OR epic-2) AND (backlog OR in_progress)
+    // = task 1 (backlog, epic-1, sprint-1) + task 2 (in_progress, epic-2, sprint-1)
+    expect(screen.getByTestId('count-backlog')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-in_progress')).toHaveTextContent('1')
+    expect(screen.getByTestId('count-review')).toHaveTextContent('0')
+    expect(screen.getByTestId('count-done')).toHaveTextContent('0')
   })
 })

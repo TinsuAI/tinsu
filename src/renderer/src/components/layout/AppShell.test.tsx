@@ -10,10 +10,18 @@ vi.mock('@renderer/components/terminal', () => ({
   TerminalDock: () => <div data-testid="terminal-dock">Mock TerminalDock</div>
 }))
 
-// Mock tRPC for SprintList in Sidebar
+// Mock tRPC for SprintList in Sidebar and FilterPanel in Header (Story 2.6)
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     sprints: {
+      getAll: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false
+        })
+      }
+    },
+    epics: {
       getAll: {
         useQuery: () => ({
           data: [],
@@ -35,7 +43,14 @@ function createWrapper() {
 
 describe('AppShell', () => {
   beforeEach(() => {
-    useUIStore.setState({ sidebarCollapsed: false, selectedSprintId: null })
+    // Story 2.6: Reset all UI store state including filters
+    useUIStore.setState({
+      sidebarCollapsed: false,
+      selectedSprintId: null,
+      selectedEpicIds: [],
+      selectedStatuses: [],
+      lastProjectPath: null
+    })
     useTerminalStore.setState({
       isExpanded: true,
       height: 300,
@@ -78,13 +93,15 @@ describe('AppShell', () => {
 
   it('should have min-width of 1024px', () => {
     render(<AppShell />, { wrapper: createWrapper() })
-    const container = screen.getByRole('banner').parentElement
+    // The container is 2 levels up from the header (header > wrapper div > container)
+    const container = screen.getByRole('banner').parentElement?.parentElement
     expect(container).toHaveClass('min-w-[1024px]')
   })
 
   it('should have min-h-screen for full viewport height', () => {
     render(<AppShell />, { wrapper: createWrapper() })
-    const container = screen.getByRole('banner').parentElement
+    // The container is 2 levels up from the header (header > wrapper div > container)
+    const container = screen.getByRole('banner').parentElement?.parentElement
     expect(container).toHaveClass('min-h-screen')
   })
 
