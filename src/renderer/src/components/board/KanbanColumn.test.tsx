@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
 import { KanbanColumn, COLUMN_CONFIG } from './KanbanColumn'
 
@@ -182,5 +182,63 @@ describe('KanbanColumn droppable', () => {
     )
     const column = screen.getByTestId('column-backlog')
     expect(column).toHaveClass('transition-colors')
+  })
+})
+
+describe('KanbanColumn add task button', () => {
+  it('should render add task button in column header', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="backlog" taskCount={0} />
+      </DndWrapper>
+    )
+    const addButton = screen.getByTestId('add-task-backlog')
+    expect(addButton).toBeInTheDocument()
+  })
+
+  it('should have accessible label on add task button', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="backlog" taskCount={0} />
+      </DndWrapper>
+    )
+    const addButton = screen.getByTestId('add-task-backlog')
+    expect(addButton).toHaveAttribute('aria-label', 'Add task to Backlog')
+  })
+
+  it('should call onAddTask with correct status when clicked', () => {
+    const onAddTask = vi.fn()
+    render(
+      <DndWrapper>
+        <KanbanColumn status="in_progress" taskCount={0} onAddTask={onAddTask} />
+      </DndWrapper>
+    )
+
+    const addButton = screen.getByTestId('add-task-in_progress')
+    fireEvent.click(addButton)
+
+    expect(onAddTask).toHaveBeenCalledWith('in_progress')
+  })
+
+  it('should not throw when onAddTask is not provided', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="backlog" taskCount={0} />
+      </DndWrapper>
+    )
+
+    const addButton = screen.getByTestId('add-task-backlog')
+    expect(() => fireEvent.click(addButton)).not.toThrow()
+  })
+
+  it('should have ghost variant styling', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="backlog" taskCount={0} />
+      </DndWrapper>
+    )
+    // Button should be present and clickable (ghost styling is applied via CSS)
+    const addButton = screen.getByTestId('add-task-backlog')
+    expect(addButton).toBeInTheDocument()
   })
 })

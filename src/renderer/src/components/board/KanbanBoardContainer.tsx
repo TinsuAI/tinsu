@@ -1,12 +1,46 @@
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
+import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
   const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
+
+  // Dialog state for creating new tasks
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogInitialStatus, setDialogInitialStatus] = useState<TaskStatus>('backlog')
+
+  // Handle add task from column "+" button
+  const handleAddTask = useCallback((status: TaskStatus) => {
+    setDialogInitialStatus(status)
+    setDialogOpen(true)
+  }, [])
+
+  // Global "N" keyboard shortcut to open dialog
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if no input/textarea is focused
+      if (
+        e.key.toLowerCase() === 'n' &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault()
+        setDialogOpen(true)
+        setDialogInitialStatus('backlog')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Mutation for updating task status
   const updateStatusMutation = trpc.tasks.updateStatus.useMutation({
@@ -33,8 +67,9 @@ export function KanbanBoardContainer() {
       if (context?.previousTasks) {
         queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
       }
-      // TODO: Replace with toast notification when toast component is added
-      console.error('Failed to update task status:', err.message)
+      toast.error('Failed to update task status', {
+        description: err.message
+      })
     },
     // Refetch after success or error
     onSettled: () => {
@@ -73,8 +108,9 @@ export function KanbanBoardContainer() {
       if (context?.previousTasks) {
         queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
       }
-      // TODO: Replace with toast notification when toast component is added
-      console.error('Failed to reorder tasks:', err.message)
+      toast.error('Failed to reorder tasks', {
+        description: err.message
+      })
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [['tasks', 'getAll']] })
@@ -111,11 +147,19 @@ export function KanbanBoardContainer() {
   }))
 
   return (
-    <KanbanBoard
-      tasks={transformedTasks}
-      isLoading={isLoading}
-      onStatusChange={handleStatusChange}
-      onReorder={handleReorder}
-    />
+    <>
+      <KanbanBoard
+        tasks={transformedTasks}
+        isLoading={isLoading}
+        onStatusChange={handleStatusChange}
+        onReorder={handleReorder}
+        onAddTask={handleAddTask}
+      />
+      <CreateTaskDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialStatus={dialogInitialStatus}
+      />
+    </>
   )
 }

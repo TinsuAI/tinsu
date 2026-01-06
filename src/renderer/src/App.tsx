@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { Welcome } from './components/Welcome'
 import { KanbanBoardContainer } from './components/board'
+import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
 import { trpc } from './lib/trpc'
 
@@ -47,24 +48,35 @@ function App(): React.JSX.Element {
   // Show loading state while attempting to reopen persisted project
   if (isReopening) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold text-foreground">TinSu</h1>
-          <p className="mt-2 text-muted-foreground">Opening project...</p>
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold text-foreground">TinSu</h1>
+            <p className="mt-2 text-muted-foreground">Opening project...</p>
+          </div>
         </div>
-      </div>
+        <Toaster />
+      </>
     )
   }
 
   // Show Welcome screen if no project is loaded
   if (!projectPath || !projectName) {
-    return <Welcome onProjectOpened={handleProjectOpened} />
+    return (
+      <>
+        <Welcome onProjectOpened={handleProjectOpened} />
+        <Toaster />
+      </>
+    )
   }
 
   return (
-    <AppShell>
-      <KanbanBoardContainer />
-    </AppShell>
+    <>
+      <AppShell>
+        <KanbanBoardContainer />
+      </AppShell>
+      <Toaster />
+    </>
   )
 }
 

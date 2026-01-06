@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { tasks, TASK_STATUS } from '../../db/schema'
-import { eq, asc, and } from 'drizzle-orm'
+import { eq, asc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 
 // Zod schema for task status validation
@@ -22,7 +22,7 @@ export const taskRouter = router({
     return task
   }),
 
-  // Create new task
+  // Create new task (inserts at top of column with sort_order = 0)
   create: publicProcedure
     .input(
       z.object({
@@ -36,6 +36,15 @@ export const taskRouter = router({
     .mutation(({ ctx, input }) => {
       const id = randomUUID()
       const now = new Date()
+
+      // Shift existing tasks in this column down (increment sort_order)
+      // This ensures new task appears at top with sort_order = 0
+      ctx.db
+        .update(tasks)
+        .set({ sort_order: sql`${tasks.sort_order} + 1` })
+        .where(eq(tasks.status, input.status))
+        .run()
+
       return ctx.db
         .insert(tasks)
         .values({
@@ -43,6 +52,7 @@ export const taskRouter = router({
           title: input.title,
           description: input.description,
           status: input.status,
+          sort_order: 0, // New task at top of column
           epic_id: input.epic_id,
           sprint_id: input.sprint_id,
           created_at: now,

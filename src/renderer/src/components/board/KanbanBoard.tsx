@@ -29,6 +29,8 @@ interface KanbanBoardProps {
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
   /** Callback when task order changes within a column (receives new order of task IDs) */
   onReorder?: (taskIds: string[], status: TaskStatus) => void
+  /** Callback when the add task button is clicked in a column */
+  onAddTask?: (status: TaskStatus) => void
 }
 
 export function KanbanBoard({
@@ -37,7 +39,8 @@ export function KanbanBoard({
   isLoading = false,
   className,
   onStatusChange,
-  onReorder
+  onReorder,
+  onAddTask
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -304,6 +307,7 @@ export function KanbanBoard({
               status={status}
               taskCount={columnTasks.length}
               isOver={overId === `column-${status}`}
+              onAddTask={onAddTask}
             >
               <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                 {columnTasks.length === 0 ? (

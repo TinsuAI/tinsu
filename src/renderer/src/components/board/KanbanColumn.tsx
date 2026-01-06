@@ -1,5 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
+import { Plus } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
+import { Button } from '@renderer/components/ui/button'
 import type { TaskStatus } from '@shared/types/task.types'
 
 // Column configuration mapping status to display names
@@ -17,6 +19,8 @@ interface KanbanColumnProps {
   children?: React.ReactNode
   /** Whether a dragged item is currently over this column */
   isOver?: boolean
+  /** Callback when the add task button is clicked */
+  onAddTask?: (status: TaskStatus) => void
 }
 
 export function KanbanColumn({
@@ -24,7 +28,8 @@ export function KanbanColumn({
   taskCount,
   className,
   children,
-  isOver: isOverProp
+  isOver: isOverProp,
+  onAddTask
 }: KanbanColumnProps) {
   const config = COLUMN_CONFIG[status]
 
@@ -55,10 +60,22 @@ export function KanbanColumn({
     >
       {/* Column header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">{config.title}</h2>
-        <span className="text-xs text-muted-foreground" data-testid={`count-${status}`}>
-          {taskCount}
-        </span>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{config.title}</h2>
+          <span className="text-xs text-muted-foreground" data-testid={`count-${status}`}>
+            {taskCount}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => onAddTask?.(status)}
+          aria-label={`Add task to ${config.title}`}
+          data-testid={`add-task-${status}`}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Column content with vertical scroll */}
