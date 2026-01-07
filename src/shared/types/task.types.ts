@@ -59,6 +59,8 @@ export interface Task {
   bmad_workflow: string | null // Path to workflow.yaml
   // Story 3.2: Start Here indicator
   is_start_here: boolean | null // true only for phase 1 planning task
+  // Story 3.3: Artifact path for completed planning tasks
+  artifact_path: string | null
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
@@ -82,6 +84,8 @@ export interface NewTask {
   bmad_workflow?: string | null
   // Story 3.2: Start Here indicator
   is_start_here?: boolean | null
+  // Story 3.3: Artifact path for completed planning tasks
+  artifact_path?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
   created_at?: Date
@@ -168,6 +172,7 @@ export interface PlanningTaskFields {
   bmad_agent: string
   bmad_workflow: string
   is_start_here: boolean | null // Story 3.2: true only for phase 1
+  artifact_path: string | null // Story 3.3: path to completed artifact
 }
 
 export interface StoryTaskFields {
@@ -177,19 +182,20 @@ export interface StoryTaskFields {
   bmad_agent: null
   bmad_workflow: null
   is_start_here: null // Story 3.2: always null for story tasks
+  artifact_path: null // Story 3.3: always null for story tasks
 }
 
 // Type for a planning task (narrowed)
 export type PlanningTask = Omit<
   Task,
-  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here'
+  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here' | 'artifact_path'
 > &
   PlanningTaskFields
 
 // Type for a story task (narrowed)
 export type StoryTask = Omit<
   Task,
-  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here'
+  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here' | 'artifact_path'
 > &
   StoryTaskFields
 

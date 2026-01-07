@@ -107,6 +107,8 @@ export const tasks = sqliteTable(
     bmad_workflow: text('bmad_workflow'), // Path to workflow.yaml
     // Story 3.2: Start Here indicator for first planning task
     is_start_here: integer('is_start_here', { mode: 'boolean' }), // true only for phase 1, null for others
+    // Story 3.3: Artifact path for completed planning tasks
+    artifact_path: text('artifact_path'), // Path to generated artifact file
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })

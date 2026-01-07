@@ -41,6 +41,7 @@ function createTestDb(): TestDb {
       bmad_agent TEXT,
       bmad_workflow TEXT,
       is_start_here INTEGER,
+      artifact_path TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -68,6 +69,9 @@ function initializePlanningTasks(
     const hasArtifact = existingArtifacts.has(phaseNum)
     const now = new Date()
 
+    // Story 3.3: Get artifact path if it exists
+    const artifactPath = existingArtifacts.get(phaseNum) ?? null
+
     const task = testDb
       .insert(schema.tasks)
       .values({
@@ -82,6 +86,7 @@ function initializePlanningTasks(
         status: hasArtifact ? 'done' : 'backlog',
         sort_order: phaseNum - 1,
         is_start_here: phaseNum === 1 ? true : null, // Story 3.2: Only phase 1 is "Start Here"
+        artifact_path: artifactPath, // Story 3.3: Store artifact path when detected
         created_at: now,
         updated_at: now
       })
@@ -211,6 +216,46 @@ describe('PlanningInitService', () => {
       expect(sortedTasks[2].is_start_here).toBeNull()
       expect(sortedTasks[3].is_start_here).toBeNull()
       expect(sortedTasks[4].is_start_here).toBeNull()
+    })
+
+    // Story 3.3: artifact_path tests
+    it('sets artifact_path for completed phases', () => {
+      const existingArtifacts = new Map<PhaseNumber, string>()
+      existingArtifacts.set(1, '/path/to/product-brief.md')
+      existingArtifacts.set(2, '/path/to/prd.md')
+
+      const result = initializePlanningTasks(testDb, existingArtifacts)
+
+      expect(result[0].artifact_path).toBe('/path/to/product-brief.md') // Phase 1
+      expect(result[1].artifact_path).toBe('/path/to/prd.md') // Phase 2
+      expect(result[2].artifact_path).toBeNull() // Phase 3 - no artifact
+      expect(result[3].artifact_path).toBeNull() // Phase 4 - no artifact
+      expect(result[4].artifact_path).toBeNull() // Phase 5 - no artifact
+    })
+
+    it('sets artifact_path to null for incomplete phases', () => {
+      const result = initializePlanningTasks(testDb, new Map())
+
+      for (const task of result) {
+        expect(task.artifact_path).toBeNull()
+      }
+    })
+
+    it('persists artifact_path to database', () => {
+      const existingArtifacts = new Map<PhaseNumber, string>()
+      existingArtifacts.set(1, '/path/to/product-brief.md')
+      existingArtifacts.set(3, '/path/to/architecture.md')
+
+      initializePlanningTasks(testDb, existingArtifacts)
+
+      const dbTasks = testDb.select().from(schema.tasks).where(eq(schema.tasks.task_type, 'planning')).all()
+      const sortedTasks = dbTasks.sort((a, b) => (a.phase_number || 0) - (b.phase_number || 0))
+
+      expect(sortedTasks[0].artifact_path).toBe('/path/to/product-brief.md')
+      expect(sortedTasks[1].artifact_path).toBeNull()
+      expect(sortedTasks[2].artifact_path).toBe('/path/to/architecture.md')
+      expect(sortedTasks[3].artifact_path).toBeNull()
+      expect(sortedTasks[4].artifact_path).toBeNull()
     })
   })
 })

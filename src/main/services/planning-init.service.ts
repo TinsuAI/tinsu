@@ -24,36 +24,47 @@ export class PlanningInitService {
    */
   static async initializePlanningTasks(projectPath: string, projectId: string): Promise<Task[]> {
     const existingArtifacts = ArtifactDetectorService.detectExistingArtifacts(projectPath)
-    const createdTasks: Task[] = []
 
-    for (const phaseNum of PHASE_NUMBERS) {
-      const phase = BMAD_PLANNING_PHASES[phaseNum]
-      const hasArtifact = existingArtifacts.has(phaseNum)
-      const now = new Date()
+    // Wrap all insertions in a transaction for atomicity (Code Review fix: M2)
+    // If any insertion fails, all are rolled back to prevent partial state
+    const createdTasks = db.transaction((tx) => {
+      const results: Task[] = []
 
-      const task = db
-        .insert(tasks)
-        .values({
-          id: randomUUID(),
-          title: phase.name,
-          description: `BMAD Planning Phase ${phaseNum}: ${phase.name}`,
-          task_type: 'planning',
-          phase_number: phaseNum,
-          phase_name: phase.name,
-          bmad_agent: phase.agent,
-          bmad_workflow: phase.workflow,
-          status: hasArtifact ? 'done' : 'backlog',
-          sort_order: phaseNum - 1, // 0-indexed for proper ordering
-          is_start_here: phaseNum === 1 ? true : null, // Story 3.2: Only phase 1 is "Start Here"
-          project_id: projectId, // Story 3.1.5: Associate with project
-          created_at: now,
-          updated_at: now
-        })
-        .returning()
-        .get()
+      for (const phaseNum of PHASE_NUMBERS) {
+        const phase = BMAD_PLANNING_PHASES[phaseNum]
+        const hasArtifact = existingArtifacts.has(phaseNum)
+        const now = new Date()
 
-      createdTasks.push(task)
-    }
+        // Story 3.3: Get artifact path if it exists
+        const artifactPath = existingArtifacts.get(phaseNum) ?? null
+
+        const task = tx
+          .insert(tasks)
+          .values({
+            id: randomUUID(),
+            title: phase.name,
+            description: `BMAD Planning Phase ${phaseNum}: ${phase.name}`,
+            task_type: 'planning',
+            phase_number: phaseNum,
+            phase_name: phase.name,
+            bmad_agent: phase.agent,
+            bmad_workflow: phase.workflow,
+            status: hasArtifact ? 'done' : 'backlog',
+            sort_order: phaseNum - 1, // 0-indexed for proper ordering
+            is_start_here: phaseNum === 1 ? true : null, // Story 3.2: Only phase 1 is "Start Here"
+            artifact_path: artifactPath, // Story 3.3: Store artifact path when detected
+            project_id: projectId, // Story 3.1.5: Associate with project
+            created_at: now,
+            updated_at: now
+          })
+          .returning()
+          .get()
+
+        results.push(task)
+      }
+
+      return results
+    })
 
     return createdTasks
   }

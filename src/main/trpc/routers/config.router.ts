@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { shell } from 'electron'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { ConfigService, ConfigError } from '../../services/config.service'
 import { MethodologySchema } from '../../../shared/types/config.types'
@@ -85,6 +86,33 @@ export const configRouter = router({
           })
         }
         throw error
+      }
+    }),
+
+  // Story 3.3: Open an artifact file in the system's default application
+  openArtifactFile: publicProcedure
+    .input(
+      z.object({
+        path: z.string().min(1, 'Path is required')
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        // shell.openPath returns empty string on success, error message on failure
+        const result = await shell.openPath(input.path)
+        if (result) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to open file: ${result}`
+          })
+        }
+        return { success: true }
+      } catch (error) {
+        if (error instanceof TRPCError) throw error
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to open file'
+        })
       }
     })
 })

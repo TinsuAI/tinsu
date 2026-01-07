@@ -1,0 +1,359 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { PlanningTaskCard } from './PlanningTaskCard'
+import type { PlanningTask } from '@shared/types/task.types'
+
+// Helper to render with userEvent for keyboard testing
+function renderWithUser(ui: React.ReactElement) {
+  return {
+    user: userEvent.setup(),
+    ...render(ui)
+  }
+}
+
+// Mock planning task data for testing
+const mockPlanningTask: PlanningTask = {
+  id: 'planning-1',
+  title: 'Product Brief',
+  description: null,
+  status: 'backlog',
+  sort_order: 0,
+  epic_id: null,
+  sprint_id: null,
+  project_id: 'proj-1',
+  task_type: 'planning',
+  phase_number: 1,
+  phase_name: 'Product Brief',
+  bmad_agent: 'business-analyst',
+  bmad_workflow: '/path/to/workflow.yaml',
+  is_start_here: true,
+  created_at: new Date('2026-01-01'),
+  updated_at: new Date('2026-01-01')
+}
+
+describe('PlanningTaskCard', () => {
+  it('renders phase name prominently', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const title = screen.getByText('Product Brief')
+    expect(title).toBeInTheDocument()
+    expect(title).toHaveClass('font-medium')
+  })
+
+  it('displays phase badge with correct number', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const badge = screen.getByTestId('phase-badge')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent('1/5')
+  })
+
+  it('shows phase description', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    expect(screen.getByText('Define your product vision and target users')).toBeInTheDocument()
+  })
+
+  it('renders different phase descriptions correctly', () => {
+    const phases: Array<{ phase: 1 | 2 | 3 | 4 | 5; description: string }> = [
+      { phase: 1, description: 'Define your product vision and target users' },
+      { phase: 2, description: 'Document detailed requirements and features' },
+      { phase: 3, description: 'Design technical architecture and stack' },
+      { phase: 4, description: 'Plan user experience and interface design' },
+      { phase: 5, description: 'Break down work into implementable stories' }
+    ]
+
+    phases.forEach(({ phase, description }) => {
+      const task: PlanningTask = {
+        ...mockPlanningTask,
+        phase_number: phase,
+        phase_name: `Phase ${phase}`
+      }
+      const { unmount } = render(<PlanningTaskCard task={task} />)
+      expect(screen.getByText(description)).toBeInTheDocument()
+      unmount()
+    })
+  })
+
+  it('has proper base styling', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveClass('rounded-lg')
+    expect(card).toHaveClass('border')
+    expect(card).toHaveClass('border-border')
+    expect(card).toHaveClass('bg-card')
+    expect(card).toHaveClass('p-3')
+  })
+
+  it('has hover states', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveClass('hover:border-primary/50')
+  })
+
+  it('has data-testid for testing', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    expect(screen.getByTestId('planning-task-card-planning-1')).toBeInTheDocument()
+  })
+})
+
+describe('PlanningTaskCard Start Here effect', () => {
+  it('shows glow effect when isStartHere=true', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isStartHere />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveClass('ring-2')
+    expect(card).toHaveClass('ring-cyan-500/50')
+  })
+
+  it('shows "Start here" text when isStartHere=true', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isStartHere />)
+
+    expect(screen.getByText('Start here')).toBeInTheDocument()
+  })
+
+  it('has tooltip title on Start here text', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isStartHere />)
+
+    const startHereText = screen.getByText('Start here')
+    expect(startHereText).toHaveAttribute('title', 'Recommended next step in planning workflow')
+  })
+
+  it('does not show glow when isStartHere=false', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isStartHere={false} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).not.toHaveClass('ring-cyan-500/50')
+  })
+
+  it('does not show glow when isStartHere but also isCompleted', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isStartHere isCompleted />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).not.toHaveClass('ring-cyan-500/50')
+    expect(screen.queryByText('Start here')).not.toBeInTheDocument()
+  })
+})
+
+describe('PlanningTaskCard completed state', () => {
+  it('shows checkmark when isCompleted=true', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isCompleted />)
+
+    // CheckCircle2 icon should be present
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    const svg = card.querySelector('svg.text-green-500')
+    expect(svg).toBeInTheDocument()
+  })
+
+  it('displays artifact path when completed with path', () => {
+    render(
+      <PlanningTaskCard
+        task={mockPlanningTask}
+        isCompleted
+        artifactPath="_bmad-output/product-brief.md"
+      />
+    )
+
+    expect(screen.getByText('_bmad-output/product-brief.md')).toBeInTheDocument()
+  })
+
+  it('does not show artifact path when not completed', () => {
+    render(
+      <PlanningTaskCard
+        task={mockPlanningTask}
+        isCompleted={false}
+        artifactPath="_bmad-output/product-brief.md"
+      />
+    )
+
+    expect(screen.queryByText('_bmad-output/product-brief.md')).not.toBeInTheDocument()
+  })
+
+  it('does not show artifact path when completed but path is null', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} isCompleted artifactPath={null} />)
+
+    // FileText icon should not be present
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    const fileIcon = card.querySelector('svg.text-cyan-400')
+    expect(fileIcon).not.toBeInTheDocument()
+  })
+
+  it('calls onOpenArtifact when completed card clicked', async () => {
+    const onOpenArtifact = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard
+        task={mockPlanningTask}
+        isCompleted
+        artifactPath="_bmad-output/product-brief.md"
+        onOpenArtifact={onOpenArtifact}
+      />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    await user.click(card)
+
+    expect(onOpenArtifact).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onOpenArtifact when not completed', async () => {
+    const onOpenArtifact = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard
+        task={mockPlanningTask}
+        isCompleted={false}
+        artifactPath="_bmad-output/product-brief.md"
+        onOpenArtifact={onOpenArtifact}
+      />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    await user.click(card)
+
+    expect(onOpenArtifact).not.toHaveBeenCalled()
+  })
+
+  it('has cursor-pointer when completed with artifact path', () => {
+    render(
+      <PlanningTaskCard
+        task={mockPlanningTask}
+        isCompleted
+        artifactPath="_bmad-output/product-brief.md"
+      />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveClass('cursor-pointer')
+  })
+
+  it('shows full path in title attribute for long paths', () => {
+    const longPath = '_bmad-output/very-long-path-to-the-artifact-file/product-brief.md'
+    render(<PlanningTaskCard task={mockPlanningTask} isCompleted artifactPath={longPath} />)
+
+    const pathElement = screen.getByText(longPath)
+    expect(pathElement).toHaveAttribute('title', longPath)
+  })
+})
+
+describe('PlanningTaskCard accessibility', () => {
+  it('has correct aria-label for screen readers', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveAttribute('aria-label', 'Planning phase 1 of 5: Product Brief')
+  })
+
+  it('has correct aria-label for different phases', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      phase_number: 3,
+      phase_name: 'Architecture'
+    }
+    render(<PlanningTaskCard task={task} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveAttribute('aria-label', 'Planning phase 3 of 5: Architecture')
+  })
+
+  it('has role="option" for listbox pattern', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveAttribute('role', 'option')
+  })
+
+  it('is focusable with tabIndex', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveAttribute('tabIndex', '0')
+  })
+
+  it('has visible focus ring styles', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    expect(card).toHaveClass('focus-visible:ring-2')
+    expect(card).toHaveClass('focus-visible:ring-primary')
+  })
+})
+
+describe('PlanningTaskCard keyboard navigation', () => {
+  it('calls onNavigate with "up" when ArrowUp is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard task={mockPlanningTask} onNavigate={onNavigate} />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    card.focus()
+    await user.keyboard('{ArrowUp}')
+
+    expect(onNavigate).toHaveBeenCalledWith('up')
+  })
+
+  it('calls onNavigate with "down" when ArrowDown is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard task={mockPlanningTask} onNavigate={onNavigate} />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    card.focus()
+    await user.keyboard('{ArrowDown}')
+
+    expect(onNavigate).toHaveBeenCalledWith('down')
+  })
+
+  it('calls onNavigate with "left" when ArrowLeft is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard task={mockPlanningTask} onNavigate={onNavigate} />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    card.focus()
+    await user.keyboard('{ArrowLeft}')
+
+    expect(onNavigate).toHaveBeenCalledWith('left')
+  })
+
+  it('calls onNavigate with "right" when ArrowRight is pressed', async () => {
+    const onNavigate = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard task={mockPlanningTask} onNavigate={onNavigate} />
+    )
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    card.focus()
+    await user.keyboard('{ArrowRight}')
+
+    expect(onNavigate).toHaveBeenCalledWith('right')
+  })
+
+  it('does not throw when onNavigate is not provided', async () => {
+    const { user } = renderWithUser(<PlanningTaskCard task={mockPlanningTask} />)
+
+    const card = screen.getByTestId('planning-task-card-planning-1')
+    card.focus()
+
+    await expect(user.keyboard('{ArrowUp}')).resolves.not.toThrow()
+  })
+})
+
+describe('PlanningTaskCard with AgentStatusBadge', () => {
+  it('displays AgentStatusBadge with default idle status', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} />)
+
+    expect(screen.getByTestId('agent-status-idle')).toBeInTheDocument()
+  })
+
+  it('displays custom agent status', () => {
+    render(<PlanningTaskCard task={mockPlanningTask} agentStatus="running" />)
+
+    expect(screen.getByTestId('agent-status-running')).toBeInTheDocument()
+  })
+})

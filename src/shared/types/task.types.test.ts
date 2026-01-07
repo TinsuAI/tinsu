@@ -24,6 +24,7 @@ describe('Task Types (Story 3.1)', () => {
       sprint_id: null,
       is_start_here: null,
       project_id: null,
+      artifact_path: null,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -148,6 +149,7 @@ describe('Task Types (Story 3.1)', () => {
       sprint_id: null,
       is_start_here: null,
       project_id: null,
+      artifact_path: null,
       created_at: new Date(),
       updated_at: new Date()
     })

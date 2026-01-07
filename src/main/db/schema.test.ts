@@ -40,6 +40,7 @@ function createTestDb(): TestDb {
       bmad_agent TEXT,
       bmad_workflow TEXT,
       is_start_here INTEGER,
+      artifact_path TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())

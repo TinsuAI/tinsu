@@ -17,7 +17,9 @@ import { cn } from '@renderer/lib/utils'
 import { KanbanColumn, COLUMN_CONFIG } from './KanbanColumn'
 import { TaskCard } from './TaskCard'
 import { SortableTaskCard } from './SortableTaskCard'
-import { TASK_STATUS, type TaskStatus, type Task } from '@shared/types/task.types'
+import { PlanningTaskCard } from './PlanningTaskCard'
+import { SortablePlanningTaskCard } from './SortablePlanningTaskCard'
+import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask } from '@shared/types/task.types'
 
 interface KanbanBoardProps {
   tasks: Task[]
@@ -35,6 +37,8 @@ interface KanbanBoardProps {
   onReorder?: (taskIds: string[], status: TaskStatus) => void
   /** Callback when the add task button is clicked in a column */
   onAddTask?: (status: TaskStatus) => void
+  /** Story 3.3: Callback when a planning task artifact should be opened */
+  onOpenArtifact?: (artifactPath: string) => void
 }
 
 export function KanbanBoard({
@@ -46,7 +50,8 @@ export function KanbanBoard({
   hasActiveFilters = false,
   onStatusChange,
   onReorder,
-  onAddTask
+  onAddTask,
+  onOpenArtifact
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -324,13 +329,29 @@ export function KanbanBoard({
                   <div className="flex flex-col gap-3" data-testid="task-list">
                     {columnTasks.map((task) => (
                       <div key={task.id} ref={(el) => registerCardRef(task.id, el)}>
-                        <SortableTaskCard
-                          task={task}
-                          epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
-                          epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
-                          onNavigate={(direction) => handleNavigate(task.id, direction)}
-                          isDragging={activeId === task.id}
-                        />
+                        {isPlanningTask(task) ? (
+                          <SortablePlanningTaskCard
+                            task={task}
+                            isStartHere={task.is_start_here ?? false}
+                            isCompleted={task.status === 'done'}
+                            artifactPath={task.artifact_path}
+                            onNavigate={(direction) => handleNavigate(task.id, direction)}
+                            onOpenArtifact={
+                              task.artifact_path && onOpenArtifact
+                                ? () => onOpenArtifact(task.artifact_path!)
+                                : undefined
+                            }
+                            isDragging={activeId === task.id}
+                          />
+                        ) : (
+                          <SortableTaskCard
+                            task={task}
+                            epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
+                            epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
+                            onNavigate={(direction) => handleNavigate(task.id, direction)}
+                            isDragging={activeId === task.id}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -345,11 +366,20 @@ export function KanbanBoard({
       <DragOverlay>
         {activeTask && (
           <div className="scale-[1.02] rotate-[2deg] rounded-lg border border-primary bg-card p-3 shadow-lg">
-            <TaskCard
-              task={activeTask}
-              epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
-              epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
-            />
+            {isPlanningTask(activeTask) ? (
+              <PlanningTaskCard
+                task={activeTask}
+                isStartHere={activeTask.is_start_here ?? false}
+                isCompleted={activeTask.status === 'done'}
+                artifactPath={activeTask.artifact_path}
+              />
+            ) : (
+              <TaskCard
+                task={activeTask}
+                epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
+                epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
+              />
+            )}
           </div>
         )}
       </DragOverlay>

@@ -241,6 +241,42 @@ export const taskRouter = router({
     return result
   }),
 
+  // Story 3.3: Update artifact path for a planning task
+  updateArtifactPath: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        artifactPath: z.string()
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      // Update artifact_path with project ownership check
+      const result = ctx.projectId
+        ? ctx.db
+            .update(tasks)
+            .set({
+              artifact_path: input.artifactPath,
+              updated_at: new Date()
+            })
+            .where(and(eq(tasks.id, input.id), eq(tasks.project_id, ctx.projectId)))
+            .returning()
+            .get()
+        : ctx.db
+            .update(tasks)
+            .set({
+              artifact_path: input.artifactPath,
+              updated_at: new Date()
+            })
+            .where(eq(tasks.id, input.id))
+            .returning()
+            .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+      return result
+    }),
+
   // Reorder tasks within a column (batch update sort_order)
   // Story 3.1.5: Scope to current project
   reorder: publicProcedure
