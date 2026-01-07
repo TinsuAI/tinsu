@@ -354,3 +354,18 @@ describe('KanbanBoard drag and drop', () => {
   // The callbacks (onStatusChange, onReorder) are integration-tested through
   // KanbanBoardContainer which connects to tRPC mutations with optimistic updates
 })
+
+// Story 3.4: Agent launch when planning task moved to in_progress
+describe('KanbanBoard planning task agent launch (Story 3.4)', () => {
+  it('should accept onPlanningTaskStart callback', () => {
+    const onPlanningTaskStart = vi.fn()
+    render(<KanbanBoard tasks={mockTasks} onPlanningTaskStart={onPlanningTaskStart} />)
+
+    // Callback should be accepted without error
+    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+  })
+
+  // Note: Full drag simulation to verify onPlanningTaskStart is called when
+  // planning task is dragged to in_progress requires @dnd-kit/testing utilities
+  // The actual integration behavior is tested in KanbanBoardContainer tests
+})

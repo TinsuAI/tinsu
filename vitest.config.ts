@@ -14,6 +14,12 @@ export default defineConfig({
       {
         // Main process tests (Node.js environment)
         // Also includes shared types tests (pure TypeScript, no DOM needed)
+        resolve: {
+          alias: {
+            '@renderer': path.resolve(__dirname, 'src/renderer/src'),
+            '@shared': path.resolve(__dirname, 'src/shared')
+          }
+        },
         test: {
           name: 'main',
           environment: 'node',

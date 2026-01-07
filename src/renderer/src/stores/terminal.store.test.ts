@@ -7,7 +7,8 @@ describe('useTerminalStore', () => {
     useTerminalStore.setState({
       isExpanded: true,
       height: window.innerHeight * 0.35,
-      activeProcessId: null
+      activeProcessId: null,
+      agentTaskId: null
     })
   })
 
@@ -24,6 +25,10 @@ describe('useTerminalStore', () => {
 
     it('should have activeProcessId set to null by default', () => {
       expect(useTerminalStore.getState().activeProcessId).toBeNull()
+    })
+
+    it('should have agentTaskId set to null by default', () => {
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
     })
   })
 
@@ -94,6 +99,39 @@ describe('useTerminalStore', () => {
     })
   })
 
+  describe('setAgentTask (Story 3.4)', () => {
+    it('should set agentTaskId to provided value', () => {
+      useTerminalStore.getState().setAgentTask('task-456')
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
+    })
+
+    it('should set agentTaskId to null', () => {
+      useTerminalStore.setState({ agentTaskId: 'task-456' })
+      useTerminalStore.getState().setAgentTask(null)
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+    })
+  })
+
+  describe('clearAgent (Story 3.4)', () => {
+    it('should clear both agentTaskId and activeProcessId', () => {
+      useTerminalStore.setState({
+        agentTaskId: 'task-123',
+        activeProcessId: 'process-456'
+      })
+
+      useTerminalStore.getState().clearAgent()
+
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+      expect(useTerminalStore.getState().activeProcessId).toBeNull()
+    })
+
+    it('should work when already null', () => {
+      useTerminalStore.getState().clearAgent()
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+      expect(useTerminalStore.getState().activeProcessId).toBeNull()
+    })
+  })
+
   describe('persistence', () => {
     // Note: Full persistence testing would require mocking localStorage
     // This tests the partialize function behavior
@@ -104,10 +142,13 @@ describe('useTerminalStore', () => {
       expect(state).toHaveProperty('isExpanded')
       expect(state).toHaveProperty('height')
       expect(state).toHaveProperty('activeProcessId')
+      expect(state).toHaveProperty('agentTaskId')
       expect(state).toHaveProperty('setExpanded')
       expect(state).toHaveProperty('toggleExpanded')
       expect(state).toHaveProperty('setHeight')
       expect(state).toHaveProperty('setActiveProcess')
+      expect(state).toHaveProperty('setAgentTask')
+      expect(state).toHaveProperty('clearAgent')
     })
   })
 })

@@ -5,12 +5,16 @@ import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
   const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
   const { data: epics } = trpc.epics.getAll.useQuery()
+
+  // Story 3.4: Agent launcher hook for planning tasks
+  const { launchPlanningAgent } = useAgentLauncher()
 
   // Story 2.6: Get all filter state
   const selectedSprintId = useUIStore((state) => state.selectedSprintId)
@@ -209,6 +213,7 @@ export function KanbanBoardContainer() {
         onStatusChange={handleStatusChange}
         onReorder={handleReorder}
         onAddTask={handleAddTask}
+        onPlanningTaskStart={launchPlanningAgent}
       />
       <CreateTaskDialog
         open={dialogOpen}

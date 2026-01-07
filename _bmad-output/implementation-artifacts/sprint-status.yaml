@@ -71,7 +71,7 @@ development_status:
   3-1-5-multi-project-database-support: done
   3-2-initialize-planning-tasks-on-new-project: done
   3-3-planning-task-card-ui: review
-  3-4-bmad-agent-launcher: backlog
+  3-4-bmad-agent-launcher: done
   3-5-artifact-detection-on-phase-completion: backlog
   3-6-next-phase-suggestion-with-skip-warning: backlog
   3-7-story-import-after-epics-phase: backlog

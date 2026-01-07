@@ -116,6 +116,15 @@ vi.mock('@renderer/lib/trpc', () => ({
         })
       }
     },
+    // Story 3.4: Mock agent router for planning task agent launch
+    agent: {
+      launchPlanningAgent: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          isPending: false
+        })
+      }
+    },
     useUtils: () => ({
       tasks: {
         getAll: {

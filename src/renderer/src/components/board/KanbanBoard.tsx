@@ -39,6 +39,8 @@ interface KanbanBoardProps {
   onAddTask?: (status: TaskStatus) => void
   /** Story 3.3: Callback when a planning task artifact should be opened */
   onOpenArtifact?: (artifactPath: string) => void
+  /** Story 3.4: Callback when a planning task is dragged to In Progress */
+  onPlanningTaskStart?: (taskId: string) => void
 }
 
 export function KanbanBoard({
@@ -51,7 +53,8 @@ export function KanbanBoard({
   onStatusChange,
   onReorder,
   onAddTask,
-  onOpenArtifact
+  onOpenArtifact,
+  onPlanningTaskStart
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -196,6 +199,10 @@ export function KanbanBoard({
         const targetStatus = overId.replace('column-', '') as TaskStatus
         if (task.status !== targetStatus && onStatusChange) {
           onStatusChange(taskId, targetStatus)
+          // Story 3.4: Trigger agent launch when planning task moved to in_progress
+          if (targetStatus === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
+            onPlanningTaskStart(taskId)
+          }
         }
         return
       }
@@ -206,6 +213,10 @@ export function KanbanBoard({
         // If different columns, update status
         if (task.status !== targetTask.status && onStatusChange) {
           onStatusChange(taskId, targetTask.status)
+          // Story 3.4: Trigger agent launch when planning task moved to in_progress
+          if (targetTask.status === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
+            onPlanningTaskStart(taskId)
+          }
         }
         // If same column, handle reorder
         else if (onReorder && taskId !== overId) {
@@ -228,7 +239,7 @@ export function KanbanBoard({
         }
       }
     },
-    [tasks, tasksByStatus, onStatusChange, onReorder]
+    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart]
   )
 
   const handleDragCancel = useCallback(() => {
