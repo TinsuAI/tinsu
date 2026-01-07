@@ -4,6 +4,31 @@ import * as path from 'path'
 import { ProjectService, ProjectError } from './project.service'
 import { PlanningInitService } from './planning-init.service'
 
+// Mock the database module to avoid Electron/sqlite dependencies (Story 3.1.5)
+vi.mock('../db', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue(null) // No existing project found
+        })
+      })
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        run: vi.fn()
+      })
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          run: vi.fn()
+        })
+      })
+    })
+  }
+}))
+
 // Mock PlanningInitService to avoid database/electron dependencies
 vi.mock('./planning-init.service', () => ({
   PlanningInitService: {
@@ -142,7 +167,7 @@ version: "1.0.0"
       await expect(ProjectService.openProject('/non/existent/path')).rejects.toThrow(ProjectError)
 
       await expect(ProjectService.openProject('/non/existent/path')).rejects.toThrow(
-        'does not exist'
+        'Invalid project path'
       )
     })
   })
@@ -236,7 +261,11 @@ version: "1.0.0"
     it('should call PlanningInitService.initializePlanningTasks on new project', async () => {
       await ProjectService.openProject(TEST_GIT_REPO)
 
-      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(TEST_GIT_REPO)
+      // Story 3.1.5: initializePlanningTasks now takes projectId as second arg
+      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(
+        TEST_GIT_REPO,
+        expect.any(String) // projectId
+      )
     })
 
     it('should set planningTasksInitialized to true after initialization', async () => {
@@ -249,7 +278,11 @@ version: "1.0.0"
       // Existing project WITHOUT planningTasksInitialized set
       await ProjectService.openProject(TEST_EXISTING_TINSU)
 
-      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(TEST_EXISTING_TINSU)
+      // Story 3.1.5: initializePlanningTasks now takes projectId as second arg
+      expect(PlanningInitService.initializePlanningTasks).toHaveBeenCalledWith(
+        TEST_EXISTING_TINSU,
+        expect.any(String) // projectId
+      )
     })
 
     it('should not call PlanningInitService if planningTasksInitialized is true', async () => {

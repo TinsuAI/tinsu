@@ -129,7 +129,8 @@ createdAt: "not-a-date"
         projectName: 'SavedProject',
         methodology: 'bmad' as const,
         createdAt: '2026-01-04T00:00:00Z',
-        version: '1.0.0'
+        version: '1.0.0',
+        planningTasksInitialized: false
       }
 
       configService.saveConfig(config)
@@ -146,7 +147,8 @@ createdAt: "not-a-date"
         projectName: 'NewProject',
         methodology: 'bmad' as const,
         createdAt: '2026-01-04T00:00:00Z',
-        version: '1.0.0'
+        version: '1.0.0',
+        planningTasksInitialized: false
       }
 
       configService.saveConfig(config)
@@ -160,7 +162,8 @@ createdAt: "not-a-date"
         projectName: 'Initial',
         methodology: 'bmad' as const,
         createdAt: '2026-01-01T00:00:00Z',
-        version: '1.0.0'
+        version: '1.0.0',
+        planningTasksInitialized: false
       }
       configService.saveConfig(initialConfig)
 
@@ -169,7 +172,8 @@ createdAt: "not-a-date"
         projectName: 'Updated',
         methodology: 'taskmaster' as const,
         createdAt: '2026-01-04T00:00:00Z',
-        version: '2.0.0'
+        version: '2.0.0',
+        planningTasksInitialized: true
       }
       configService.saveConfig(updatedConfig)
 
@@ -186,7 +190,8 @@ createdAt: "not-a-date"
         projectName: 'Original',
         methodology: 'bmad' as const,
         createdAt: '2026-01-01T00:00:00Z',
-        version: '1.0.0'
+        version: '1.0.0',
+        planningTasksInitialized: false
       }
       configService.saveConfig(initialConfig)
 
@@ -233,7 +238,8 @@ version: "1.0.0"
         projectName: 'TestProject',
         methodology: 'bmad' as const,
         createdAt: '2026-01-04T00:00:00Z',
-        version: '1.0.0'
+        version: '1.0.0',
+        planningTasksInitialized: false
       }
 
       try {

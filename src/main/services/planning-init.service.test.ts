@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { eq } from 'drizzle-orm'
@@ -12,7 +12,20 @@ type TestDb = BetterSQLite3Database<typeof schema>
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema (including is_start_here from Story 3.2)
+  // Create the projects table first (Story 3.1.5)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY NOT NULL,
+      path TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      last_opened_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+    CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
+  `)
+
+  // Create the tasks table matching Drizzle schema (including is_start_here from Story 3.2, project_id from Story 3.1.5)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -28,6 +41,7 @@ function createTestDb(): TestDb {
       bmad_agent TEXT,
       bmad_workflow TEXT,
       is_start_here INTEGER,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -36,6 +50,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
     CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks(task_type);
+    CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   `)
 
   return drizzle({ client: sqlite, schema })

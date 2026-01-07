@@ -1,7 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { nanoid } from 'nanoid'
+import { eq } from 'drizzle-orm'
 import { ConfigService } from './config.service'
 import { PlanningInitService } from './planning-init.service'
+import { db } from '../db'
+import { projects } from '../db/schema'
 import type { ProjectConfig } from '../../shared/types/config.types'
 
 /**
@@ -11,7 +15,12 @@ import type { ProjectConfig } from '../../shared/types/config.types'
 export class ProjectError extends Error {
   constructor(
     message: string,
-    public readonly code: 'NOT_GIT_REPO' | 'NOT_FOUND' | 'ALREADY_OPEN' | 'INIT_ERROR',
+    public readonly code:
+      | 'NOT_GIT_REPO'
+      | 'NOT_FOUND'
+      | 'ALREADY_OPEN'
+      | 'INIT_ERROR'
+      | 'INVALID_PATH',
     public readonly details?: string
   ) {
     super(message)
@@ -23,6 +32,7 @@ export class ProjectError extends Error {
  * Project information returned when opening a project.
  */
 export interface ProjectInfo {
+  id: string
   path: string
   config: ProjectConfig
   isNewProject: boolean
@@ -31,12 +41,13 @@ export interface ProjectInfo {
 /**
  * Service for managing project initialization and state.
  * Handles git repository validation, .tinsu folder creation,
- * and tracking the currently open project.
+ * database project registration, and tracking the currently open project.
  *
  * Uses static methods with singleton state for current project tracking.
  */
 export class ProjectService {
   private static currentProjectPath: string | null = null
+  private static currentProjectId: string | null = null
   private static currentProjectInfo: ProjectInfo | null = null
 
   /**
@@ -82,17 +93,27 @@ export class ProjectService {
 
   /**
    * Opens a project directory, initializing TinSu if needed.
+   * Registers or updates the project in the database.
    *
    * @param projectPath - Path to the project directory
-   * @returns Project info including path, config, and whether it was newly initialized
+   * @returns Project info including id, path, config, and whether it was newly initialized
    * @throws ProjectError if the directory doesn't exist or is not a git repository
    */
   static async openProject(projectPath: string): Promise<ProjectInfo> {
     // Validate directory exists
     if (!fs.existsSync(projectPath)) {
       throw new ProjectError(
-        'Directory does not exist. Please select a valid directory.',
-        'NOT_FOUND',
+        `Invalid project path: ${projectPath}`,
+        'INVALID_PATH',
+        projectPath
+      )
+    }
+
+    // Validate it's a directory
+    if (!fs.statSync(projectPath).isDirectory()) {
+      throw new ProjectError(
+        `Invalid project path: ${projectPath}`,
+        'INVALID_PATH',
         projectPath
       )
     }
@@ -120,22 +141,70 @@ export class ProjectService {
       config = configService.loadConfig()
     }
 
+    // Story 3.1.5: Register or lookup project in database
+    const projectId = await this.registerOrUpdateProject(projectPath, config.projectName)
+
     // Initialize planning tasks if not already done (Story 3.2)
     if (!config.planningTasksInitialized) {
-      await PlanningInitService.initializePlanningTasks(projectPath)
+      await PlanningInitService.initializePlanningTasks(projectPath, projectId)
       const configService = new ConfigService(projectPath)
       config = configService.updateConfig({ planningTasksInitialized: true })
     }
 
     // Store current project
     this.currentProjectPath = projectPath
+    this.currentProjectId = projectId
     this.currentProjectInfo = {
+      id: projectId,
       path: projectPath,
       config,
       isNewProject
     }
 
     return this.currentProjectInfo
+  }
+
+  /**
+   * Registers a new project in the database or updates last_opened_at for existing project.
+   *
+   * @param projectPath - The absolute path to the project directory
+   * @param projectName - The name of the project (from config or directory basename)
+   * @returns The project ID
+   */
+  private static async registerOrUpdateProject(
+    projectPath: string,
+    projectName?: string
+  ): Promise<string> {
+    // Check if project exists in database by path
+    const existingProject = db
+      .select()
+      .from(projects)
+      .where(eq(projects.path, projectPath))
+      .get()
+
+    if (existingProject) {
+      // Update last_opened_at for existing project
+      db.update(projects)
+        .set({ last_opened_at: new Date() })
+        .where(eq(projects.id, existingProject.id))
+        .run()
+      return existingProject.id
+    }
+
+    // Create new project record
+    const projectId = nanoid()
+    const name = projectName || path.basename(projectPath)
+
+    db.insert(projects)
+      .values({
+        id: projectId,
+        path: projectPath,
+        name,
+        last_opened_at: new Date()
+      })
+      .run()
+
+    return projectId
   }
 
   /**
@@ -181,6 +250,16 @@ export class ProjectService {
   }
 
   /**
+   * Gets the ID of the currently open project.
+   * Used by tRPC context to scope queries to the current project.
+   *
+   * @returns The project ID, or null if no project is open
+   */
+  static getCurrentProjectId(): string | null {
+    return this.currentProjectId
+  }
+
+  /**
    * Gets full info about the currently open project.
    *
    * @returns Project info, or null if no project is open
@@ -194,6 +273,7 @@ export class ProjectService {
    */
   static closeProject(): void {
     this.currentProjectPath = null
+    this.currentProjectId = null
     this.currentProjectInfo = null
   }
 
@@ -202,6 +282,7 @@ export class ProjectService {
    */
   static reset(): void {
     this.currentProjectPath = null
+    this.currentProjectId = null
     this.currentProjectInfo = null
   }
 }

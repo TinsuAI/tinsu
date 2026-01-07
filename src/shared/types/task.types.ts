@@ -25,6 +25,23 @@ export const EPIC_COLORS = [
 ] as const
 export type EpicColor = (typeof EPIC_COLORS)[number]
 
+// Project entity type (Story 3.1.5)
+export interface Project {
+  id: string
+  path: string
+  name: string
+  created_at: Date
+  last_opened_at: Date | null
+}
+
+// Input type for creating a new project (Story 3.1.5)
+export interface NewProject {
+  id: string
+  path: string
+  name: string
+  last_opened_at?: Date | null
+}
+
 // Task entity type (matches Drizzle schema)
 export interface Task {
   id: string
@@ -42,6 +59,8 @@ export interface Task {
   bmad_workflow: string | null // Path to workflow.yaml
   // Story 3.2: Start Here indicator
   is_start_here: boolean | null // true only for phase 1 planning task
+  // Story 3.1.5: Project scoping
+  project_id: string | null
   created_at: Date
   updated_at: Date
 }
@@ -63,6 +82,8 @@ export interface NewTask {
   bmad_workflow?: string | null
   // Story 3.2: Start Here indicator
   is_start_here?: boolean | null
+  // Story 3.1.5: Project scoping
+  project_id?: string | null
   created_at?: Date
   updated_at?: Date
 }
@@ -91,38 +112,46 @@ export interface NewAgentRun {
   log_path?: string | null
 }
 
-// Epic entity type (Story 2.5)
+// Epic entity type (Story 2.5, Story 3.1.5 - project_id)
 export interface Epic {
   id: string
   title: string
   description: string | null
   color: EpicColor
+  // Story 3.1.5: Project scoping
+  project_id: string | null
   created_at: Date
 }
 
-// Input type for creating a new epic (Story 2.5)
+// Input type for creating a new epic (Story 2.5, Story 3.1.5 - project_id)
 export interface NewEpic {
   title: string
   description?: string | null
   color?: EpicColor
+  // Story 3.1.5: Project scoping
+  project_id?: string | null
 }
 
-// Sprint entity type (Story 2.5)
+// Sprint entity type (Story 2.5, Story 3.1.5 - project_id)
 export interface Sprint {
   id: string
   name: string
   start_date: Date | null
   end_date: Date | null
   is_active: boolean
+  // Story 3.1.5: Project scoping
+  project_id: string | null
   created_at: Date
 }
 
-// Input type for creating a new sprint (Story 2.5)
+// Input type for creating a new sprint (Story 2.5, Story 3.1.5 - project_id)
 export interface NewSprint {
   name: string
   start_date?: Date | null
   end_date?: Date | null
   is_active?: boolean
+  // Story 3.1.5: Project scoping
+  project_id?: string | null
 }
 
 // Task with related epic and sprint data (Story 2.5)

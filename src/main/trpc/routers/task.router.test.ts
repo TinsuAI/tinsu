@@ -7,11 +7,26 @@ import * as schema from '../../db/schema'
 
 type TestDb = BetterSQLite3Database<typeof schema>
 
+const TEST_PROJECT_ID = 'test-project-id'
+
 // Create an in-memory SQLite database for testing
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here)
+  // Create the projects table first (Story 3.1.5)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY NOT NULL,
+      path TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      last_opened_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+    CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
+  `)
+
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -27,6 +42,7 @@ function createTestDb(): TestDb {
       bmad_agent TEXT,
       bmad_workflow TEXT,
       is_start_here INTEGER,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -35,18 +51,44 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
     CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks(task_type);
+    CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   `)
 
-  return drizzle({ client: sqlite, schema })
+  // Create epics table (needed for getAllWithEpics)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS epics (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      color TEXT NOT NULL DEFAULT 'blue',
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_epics_project_id ON epics(project_id);
+  `)
+
+  const db = drizzle({ client: sqlite, schema })
+
+  // Create test project
+  db.insert(schema.projects)
+    .values({
+      id: TEST_PROJECT_ID,
+      path: '/test/project',
+      name: 'Test Project'
+    })
+    .run()
+
+  return db
 }
 
-// Helper to create a test caller
-function createTestCaller(db: TestDb) {
+// Helper to create a test caller with projectId (Story 3.1.5)
+function createTestCaller(db: TestDb, projectId: string | null = TEST_PROJECT_ID) {
   const createCaller = taskRouter.createCaller
   return createCaller({
     db,
-    projectRoot: process.cwd()
-  } as { db: typeof import('../../db').db; projectRoot: string })
+    projectRoot: process.cwd(),
+    projectId
+  } as { db: typeof import('../../db').db; projectRoot: string; projectId: string | null })
 }
 
 describe('taskRouter', () => {
@@ -65,12 +107,13 @@ describe('taskRouter', () => {
     })
 
     it('should return all tasks', async () => {
-      // Insert test tasks directly
+      // Insert test tasks directly with project_id
       db.insert(schema.tasks)
         .values({
           id: 'task-1',
           title: 'Test Task 1',
           status: 'backlog',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -80,6 +123,7 @@ describe('taskRouter', () => {
           id: 'task-2',
           title: 'Test Task 2',
           status: 'in_progress',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -99,6 +143,7 @@ describe('taskRouter', () => {
           id: 'task-1',
           title: 'Test Task',
           status: 'backlog',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -128,6 +173,7 @@ describe('taskRouter', () => {
       expect(result.title).toBe('New Task')
       expect(result.status).toBe('backlog')
       expect(result.description).toBeNull()
+      expect(result.project_id).toBe(TEST_PROJECT_ID) // Story 3.1.5: Verify project_id is set
     })
 
     it('should create a task with all fields', async () => {
@@ -144,6 +190,7 @@ describe('taskRouter', () => {
       expect(result.status).toBe('in_progress')
       expect(result.epic_id).toBe('epic-1')
       expect(result.sprint_id).toBe('sprint-1')
+      expect(result.project_id).toBe(TEST_PROJECT_ID)
     })
 
     it('should reject empty title', async () => {
@@ -158,6 +205,7 @@ describe('taskRouter', () => {
           id: 'task-1',
           title: 'Test Task',
           status: 'backlog',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -185,6 +233,7 @@ describe('taskRouter', () => {
           id: 'task-1',
           title: 'Test Task',
           status: 'backlog',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -203,6 +252,7 @@ describe('taskRouter', () => {
           id: 'task-1',
           title: 'Test Task',
           status: 'backlog',
+          project_id: TEST_PROJECT_ID,
           created_at: new Date(),
           updated_at: new Date()
         })
@@ -232,9 +282,9 @@ describe('taskRouter', () => {
       // Create 3 tasks in backlog column
       db.insert(schema.tasks)
         .values([
-          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, created_at: new Date(), updated_at: new Date() },
-          { id: 'task-2', title: 'Task 2', status: 'backlog', sort_order: 1, created_at: new Date(), updated_at: new Date() },
-          { id: 'task-3', title: 'Task 3', status: 'backlog', sort_order: 2, created_at: new Date(), updated_at: new Date() }
+          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'backlog', sort_order: 1, project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-3', title: 'Task 3', status: 'backlog', sort_order: 2, project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
         ])
         .run()
 
@@ -257,8 +307,8 @@ describe('taskRouter', () => {
       // Create tasks in different columns
       db.insert(schema.tasks)
         .values([
-          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, created_at: new Date(), updated_at: new Date() },
-          { id: 'task-2', title: 'Task 2', status: 'in_progress', sort_order: 0, created_at: new Date(), updated_at: new Date() }
+          { id: 'task-1', title: 'Task 1', status: 'backlog', sort_order: 0, project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'in_progress', sort_order: 0, project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
         ])
         .run()
 
@@ -282,9 +332,9 @@ describe('taskRouter', () => {
     it('should return only planning tasks (not story tasks)', async () => {
       db.insert(schema.tasks)
         .values([
-          { id: 'story-1', title: 'Story Task', task_type: 'story', status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+          { id: 'story-1', title: 'Story Task', task_type: 'story', status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
         ])
         .run()
 
@@ -298,11 +348,11 @@ describe('taskRouter', () => {
       // Insert out of order
       db.insert(schema.tasks)
         .values([
-          { id: 'planning-3', title: 'Architecture', task_type: 'planning', phase_number: 3, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-5', title: 'Epics', task_type: 'planning', phase_number: 5, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-4', title: 'UX Design', task_type: 'planning', phase_number: 4, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+          { id: 'planning-3', title: 'Architecture', task_type: 'planning', phase_number: 3, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-5', title: 'Epics', task_type: 'planning', phase_number: 5, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-4', title: 'UX Design', task_type: 'planning', phase_number: 4, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
         ])
         .run()
 
@@ -319,8 +369,8 @@ describe('taskRouter', () => {
     it('should include is_start_here field in response', async () => {
       db.insert(schema.tasks)
         .values([
-          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, is_start_here: true, status: 'backlog', created_at: new Date(), updated_at: new Date() },
-          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, is_start_here: null, status: 'backlog', created_at: new Date(), updated_at: new Date() }
+          { id: 'planning-1', title: 'Product Brief', task_type: 'planning', phase_number: 1, is_start_here: true, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'planning-2', title: 'PRD', task_type: 'planning', phase_number: 2, is_start_here: null, status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
         ])
         .run()
 
@@ -328,6 +378,63 @@ describe('taskRouter', () => {
 
       expect(result[0].is_start_here).toBe(true)
       expect(result[1].is_start_here).toBeNull()
+    })
+  })
+
+  // Story 3.1.5: Project isolation tests
+  describe('project isolation', () => {
+    it('should only return tasks from current project', async () => {
+      // Create another project
+      db.insert(schema.projects)
+        .values({
+          id: 'other-project',
+          path: '/other/project',
+          name: 'Other Project'
+        })
+        .run()
+
+      // Create tasks in both projects
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'backlog', project_id: 'other-project', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.getAll()
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('task-1')
+    })
+
+    it('should return empty array when no project is open', async () => {
+      // Insert a task
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          status: 'backlog',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Create caller with no projectId
+      const noProjectCaller = createTestCaller(db, null)
+      const result = await noProjectCaller.getAll()
+      expect(result).toEqual([])
+    })
+
+    it('should throw error when creating task without project open', async () => {
+      const noProjectCaller = createTestCaller(db, null)
+      await expect(noProjectCaller.create({ title: 'Test' })).rejects.toThrow(TRPCError)
+
+      try {
+        await noProjectCaller.create({ title: 'Test' })
+      } catch (error) {
+        expect((error as TRPCError).code).toBe('PRECONDITION_FAILED')
+        expect((error as TRPCError).message).toBe('No project open')
+      }
     })
   })
 })

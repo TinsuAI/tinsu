@@ -6,7 +6,7 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-design-specification.md
 completedDate: 2026-01-04
 totalEpics: 7
-totalStories: 76
+totalStories: 77
 deferredEpics: [4]
 ---
 
@@ -991,6 +991,55 @@ So that TinSu can handle them differently in the UI and execution.
 
 ---
 
+### Story 3.1.5: Multi-Project Database Support
+
+As a founder,
+I want tasks, epics, and sprints scoped to individual projects,
+So that I can work on multiple projects without data mixing between them.
+
+**Acceptance Criteria:**
+
+**Given** a new database migration
+**When** applied
+**Then** a `projects` table exists with columns: id (TEXT PK), path (TEXT UNIQUE), name (TEXT), created_at (INTEGER), last_opened_at (INTEGER)
+**And** indexes exist on `path` and `last_opened_at`
+
+**Given** existing tables (tasks, epics, sprints)
+**When** migration is applied
+**Then** each has a `project_id` column (TEXT) with foreign key to projects(id) ON DELETE CASCADE
+**And** indexes exist on each `project_id` column
+
+**Given** I open a project directory for the first time
+**When** the project loads via `ProjectService.openProject(path)`
+**Then** a new record is created in `projects` table with the path and name
+**And** the project's `id` is stored in app state as `currentProjectId`
+
+**Given** I open a previously opened project
+**When** the project loads
+**Then** the existing project record is found by `path` and `last_opened_at` is updated
+
+**Given** I create a task in Project A
+**When** I open Project B
+**Then** Project A's tasks do not appear on Project B's board
+
+**Given** any tRPC procedure that queries tasks, epics, or sprints
+**When** the procedure executes
+**Then** it receives `project_id` from tRPC context and filters by that ID
+
+**Given** I call `ProjectService.openProject()` with an invalid path
+**When** the path does not exist
+**Then** an error is thrown and no project record is created
+
+**Given** no project has been opened (currentProjectId is null)
+**When** a tRPC query for tasks/epics/sprints is executed
+**Then** the query returns an empty array and create operations throw "No project open"
+
+**Priority:** High (Blocks Story 3.2)
+**Depends On:** Story 3.1
+**Full Spec:** `_bmad-output/implementation-artifacts/3-1-5-multi-project-database-support.md`
+
+---
+
 ### Story 3.2: Initialize Planning Tasks on New Project
 
 As a founder,
@@ -1019,6 +1068,8 @@ So that I have a guided path through the planning workflow.
 **When** planning tasks are initialized
 **Then** the initialization state is persisted in .tinsu/config.yaml
 **And** re-opening the project does not duplicate planning tasks
+
+**Depends On:** Story 3.1.5 (Multi-Project Database Support)
 
 ---
 

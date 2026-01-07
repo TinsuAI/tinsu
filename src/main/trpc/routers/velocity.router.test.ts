@@ -3,15 +3,30 @@ import { velocityRouter } from './velocity.router'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
-import { startOfISOWeek, subWeeks, subDays, addDays, getISOWeek, getISOWeekYear } from 'date-fns'
+import { startOfISOWeek, subWeeks, subDays, addDays, getISOWeek } from 'date-fns'
 
 type TestDb = BetterSQLite3Database<typeof schema>
+
+const TEST_PROJECT_ID = 'test-project-id'
 
 // Create an in-memory SQLite database for testing
 function createTestDb(): TestDb {
   const sqlite = new Database(':memory:')
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here)
+  // Create the projects table first (Story 3.1.5)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY NOT NULL,
+      path TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      last_opened_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+    CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
+  `)
+
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -27,33 +42,48 @@ function createTestDb(): TestDb {
       bmad_agent TEXT,
       bmad_workflow TEXT,
       is_start_here INTEGER,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks(task_type);
+    CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   `)
 
-  return drizzle({ client: sqlite, schema })
+  const db = drizzle({ client: sqlite, schema })
+
+  // Create test project
+  db.insert(schema.projects)
+    .values({
+      id: TEST_PROJECT_ID,
+      path: '/test/project',
+      name: 'Test Project'
+    })
+    .run()
+
+  return db
 }
 
-// Helper to create a test caller
-function createTestCaller(db: TestDb) {
+// Helper to create a test caller with projectId (Story 3.1.5)
+function createTestCaller(db: TestDb, projectId: string | null = TEST_PROJECT_ID) {
   const createCaller = velocityRouter.createCaller
   return createCaller({
     db,
-    projectRoot: process.cwd()
-  } as { db: typeof import('../../db').db; projectRoot: string })
+    projectRoot: process.cwd(),
+    projectId
+  } as { db: typeof import('../../db').db; projectRoot: string; projectId: string | null })
 }
 
 // Helper to insert a completed task at a specific date
-function insertCompletedTask(db: TestDb, id: string, completedAt: Date) {
+function insertCompletedTask(db: TestDb, id: string, completedAt: Date, projectId: string = TEST_PROJECT_ID) {
   db.insert(schema.tasks)
     .values({
       id,
       title: `Task ${id}`,
       status: 'done',
       sort_order: 0,
+      project_id: projectId,
       created_at: new Date(),
       updated_at: completedAt
     })
@@ -61,13 +91,14 @@ function insertCompletedTask(db: TestDb, id: string, completedAt: Date) {
 }
 
 // Helper to insert a non-completed task
-function insertInProgressTask(db: TestDb, id: string) {
+function insertInProgressTask(db: TestDb, id: string, projectId: string = TEST_PROJECT_ID) {
   db.insert(schema.tasks)
     .values({
       id,
       title: `Task ${id}`,
       status: 'in_progress',
       sort_order: 0,
+      project_id: projectId,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -140,9 +171,8 @@ describe('velocityRouter', () => {
 
       const result = await caller.getWeeklyVelocity({ weeks: 4 })
 
-      // Both tasks should be in different weeks since ISO weeks start on Monday
-      const weekWithSunday = result.weeks.find((w) => w.count > 0 && w.week !== result.weeks[0].week)
-      const weekWithMonday = result.weeks.find((w) => w.week === result.weeks[0]?.week)
+      // Verify the tasks were inserted (should have 2 total)
+      expect(result.totalCompleted).toBe(2)
 
       // They should be in different ISO weeks
       const sundayISOWeek = getISOWeek(sunday)

@@ -2,6 +2,31 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 
+// Mock the database module to avoid Electron/sqlite dependencies (Story 3.1.5)
+vi.mock('../../db', () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue(null) // No existing project found
+        })
+      })
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        run: vi.fn()
+      })
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          run: vi.fn()
+        })
+      })
+    })
+  }
+}))
+
 // Mock PlanningInitService before importing modules that use it (Story 3.2)
 vi.mock('../../services/planning-init.service', () => ({
   PlanningInitService: {
@@ -28,7 +53,8 @@ const TEST_EXISTING_TINSU = path.join(TEST_BASE, 'existing-tinsu')
 function createTestContext(): Context {
   return {
     projectRoot: TEST_GIT_REPO,
-    db: {} as Context['db']
+    db: {} as Context['db'],
+    projectId: null
   }
 }
 
@@ -186,7 +212,7 @@ version: "1.0.0"
       const caller = testRouter.createCaller(createTestContext())
 
       await expect(caller.project.openPath({ path: '/non/existent/path' })).rejects.toThrow(
-        'does not exist'
+        'Invalid project path'
       )
     })
 

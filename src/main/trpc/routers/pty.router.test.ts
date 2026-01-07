@@ -8,7 +8,8 @@ function createTestCaller(): ReturnType<typeof ptyRouter.createCaller> {
   const createCaller = ptyRouter.createCaller
   return createCaller({
     db: {} as never,
-    projectRoot: process.cwd()
+    projectRoot: process.cwd(),
+    projectId: null // Story 3.1.5: projectId added to context
   })
 }
 

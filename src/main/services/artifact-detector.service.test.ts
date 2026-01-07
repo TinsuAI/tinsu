@@ -22,8 +22,8 @@ describe('ArtifactDetectorService', () => {
     it('detects product-brief artifact (phase 1)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'product-brief-project-2026-01-01.md' as unknown as fs.Dirent
-      ])
+        'product-brief-project-2026-01-01.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -34,8 +34,8 @@ describe('ArtifactDetectorService', () => {
     it('detects prd artifact (phase 2)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'prd.md' as unknown as fs.Dirent
-      ])
+        'prd.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -46,8 +46,8 @@ describe('ArtifactDetectorService', () => {
     it('detects architecture artifact (phase 3)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'architecture.md' as unknown as fs.Dirent
-      ])
+        'architecture.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -58,8 +58,8 @@ describe('ArtifactDetectorService', () => {
     it('detects ux-design artifact (phase 4)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'ux-design-specification.md' as unknown as fs.Dirent
-      ])
+        'ux-design-specification.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -70,8 +70,8 @@ describe('ArtifactDetectorService', () => {
     it('detects ux artifact with alternative pattern (phase 4)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'project-ux.md' as unknown as fs.Dirent
-      ])
+        'project-ux.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -82,8 +82,8 @@ describe('ArtifactDetectorService', () => {
     it('detects epics artifact (phase 5)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'epics.md' as unknown as fs.Dirent
-      ])
+        'epics.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -103,9 +103,9 @@ describe('ArtifactDetectorService', () => {
     it('handles partial artifacts (some present, some missing)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'product-brief-test.md' as unknown as fs.Dirent,
-        'architecture.md' as unknown as fs.Dirent
-      ])
+        'product-brief-test.md',
+        'architecture.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -120,12 +120,12 @@ describe('ArtifactDetectorService', () => {
     it('detects all 5 artifacts when all present', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'product-brief-project.md' as unknown as fs.Dirent,
-        'prd.md' as unknown as fs.Dirent,
-        'architecture.md' as unknown as fs.Dirent,
-        'ux-design.md' as unknown as fs.Dirent,
-        'epics.md' as unknown as fs.Dirent
-      ])
+        'product-brief-project.md',
+        'prd.md',
+        'architecture.md',
+        'ux-design.md',
+        'epics.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -138,9 +138,9 @@ describe('ArtifactDetectorService', () => {
     it('is case-insensitive for file matching', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'PRODUCT-BRIEF.MD' as unknown as fs.Dirent,
-        'PRD.md' as unknown as fs.Dirent
-      ])
+        'PRODUCT-BRIEF.MD',
+        'PRD.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 
@@ -151,10 +151,10 @@ describe('ArtifactDetectorService', () => {
     it('ignores non-matching files', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readdirSync).mockReturnValue([
-        'readme.md' as unknown as fs.Dirent,
-        'notes.txt' as unknown as fs.Dirent,
-        'something-else.md' as unknown as fs.Dirent
-      ])
+        'readme.md',
+        'notes.txt',
+        'something-else.md'
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const result = ArtifactDetectorService.detectExistingArtifacts(mockProjectPath)
 

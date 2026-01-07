@@ -19,7 +19,8 @@ function createTestContext() {
   return {
     projectRoot: TEST_PROJECT_ROOT,
     // db is not used by config router, so we can pass a minimal mock
-    db: {} as any
+    db: {} as any,
+    projectId: null // Story 3.1.5: projectId added to context
   }
 }
 

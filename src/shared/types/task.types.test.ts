@@ -1,12 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  isPlanningTask,
-  isStoryTask,
-  TASK_TYPE,
-  type Task,
-  type PlanningTask,
-  type StoryTask
-} from './task.types'
+import { isPlanningTask, isStoryTask, TASK_TYPE, type Task } from './task.types'
 
 describe('Task Types (Story 3.1)', () => {
   describe('TASK_TYPE enum', () => {
@@ -29,6 +22,8 @@ describe('Task Types (Story 3.1)', () => {
       sort_order: 0,
       epic_id: null,
       sprint_id: null,
+      is_start_here: null,
+      project_id: null,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -151,6 +146,8 @@ describe('Task Types (Story 3.1)', () => {
       sort_order: 0,
       epic_id: null,
       sprint_id: null,
+      is_start_here: null,
+      project_id: null,
       created_at: new Date(),
       updated_at: new Date()
     })
