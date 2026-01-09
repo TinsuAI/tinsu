@@ -6,6 +6,8 @@ import { StoryTaskCard, type StoryTaskCardProps } from './StoryTaskCard'
 interface SortableStoryTaskCardProps extends StoryTaskCardProps {
   /** Whether this card is currently being dragged */
   isDragging?: boolean
+  /** Story 3.9: Whether this task is currently syncing with its story file */
+  isSyncing?: boolean
 }
 
 /**
@@ -16,6 +18,7 @@ interface SortableStoryTaskCardProps extends StoryTaskCardProps {
 export function SortableStoryTaskCard({
   task,
   isDragging,
+  isSyncing = false,
   className,
   ...props
 }: SortableStoryTaskCardProps) {
@@ -32,7 +35,9 @@ export function SortableStoryTaskCard({
       task,
       title: task.title,
       status: task.status
-    }
+    },
+    // Story 3.9: Disable drag when syncing (AC: 5)
+    disabled: isSyncing
   })
 
   // Use prop or hook state for dragging
@@ -56,7 +61,12 @@ export function SortableStoryTaskCard({
       )}
       data-testid={`sortable-story-task-${task.id}`}
     >
-      <StoryTaskCard task={task} className={cn(isCurrentlyDragging && 'shadow-md')} {...props} />
+      <StoryTaskCard
+        task={task}
+        isSyncing={isSyncing}
+        className={cn(isCurrentlyDragging && 'shadow-md')}
+        {...props}
+      />
     </div>
   )
 }

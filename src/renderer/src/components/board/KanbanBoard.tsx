@@ -33,6 +33,8 @@ interface KanbanBoardProps {
   className?: string
   /** Story 2.6: Whether any filters are currently active */
   hasActiveFilters?: boolean
+  /** Story 3.9: Set of task IDs currently syncing (AC: 5) */
+  syncingTaskIds?: Set<string>
   /** Callback when task status changes via drag-drop */
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
   /** Callback when task order changes within a column (receives new order of task IDs) */
@@ -49,6 +51,8 @@ interface KanbanBoardProps {
   onPhase5Complete?: (artifactPath: string) => void
   /** Story 3.7: Callback when a story task card is clicked to view details */
   onStoryClick?: (taskId: string) => void
+  /** Callback when a task is deleted */
+  onDeleteTask?: (taskId: string) => void
 }
 
 export function KanbanBoard({
@@ -58,6 +62,7 @@ export function KanbanBoard({
   isLoading = false,
   className,
   hasActiveFilters = false,
+  syncingTaskIds = new Set(),
   onStatusChange,
   onReorder,
   onAddTask,
@@ -65,7 +70,8 @@ export function KanbanBoard({
   onPlanningTaskStart,
   onImportStories,
   onPhase5Complete,
-  onStoryClick
+  onStoryClick,
+  onDeleteTask
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -388,6 +394,7 @@ export function KanbanBoard({
                                 ? () => onImportStories(task.artifact_path ?? '')
                                 : undefined
                             }
+                            onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
                           />
                         ) : isStoryTask(task) ? (
@@ -397,7 +404,9 @@ export function KanbanBoard({
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
                             onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
+                            onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
+                            isSyncing={syncingTaskIds.has(task.id)}
                           />
                         ) : (
                           <SortableTaskCard
@@ -405,6 +414,7 @@ export function KanbanBoard({
                             epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
+                            onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
                           />
                         )}
@@ -434,6 +444,7 @@ export function KanbanBoard({
                 task={activeTask}
                 epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
                 epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
+                isSyncing={syncingTaskIds.has(activeTask.id)}
               />
             ) : (
               <TaskCard

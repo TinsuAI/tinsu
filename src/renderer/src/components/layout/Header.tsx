@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Download, Trash2 } from 'lucide-react'
+import { X, Download, Trash2, RefreshCw } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
@@ -14,9 +14,13 @@ interface HeaderProps {
   onImportStories?: () => void
   /** Callback to open the Delete All Tasks dialog */
   onDeleteAllTasks?: () => void
+  /** Story 3.9: Callback to sync all stories from files */
+  onSyncAll?: () => void
+  /** Story 3.9: Whether sync all is in progress */
+  isSyncingAll?: boolean
 }
 
-export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks }: HeaderProps) {
+export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -55,6 +59,20 @@ export function Header({ className, onOpenProject, onImportStories, onDeleteAllT
             onOpenChange={setFilterPanelOpen}
             trigger={<FilterButton onClick={() => setFilterPanelOpen(!filterPanelOpen)} />}
           />
+
+          {/* Story 3.9: Sync All button */}
+          {onSyncAll && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSyncAll}
+              disabled={isSyncingAll}
+              data-testid="header-sync-all"
+            >
+              <RefreshCw className={cn('mr-1 h-3 w-3', isSyncingAll && 'animate-spin')} />
+              {isSyncingAll ? 'Syncing...' : 'Sync All'}
+            </Button>
+          )}
 
           {/* Story 3.7: Import Stories button - always available */}
           {onImportStories && (

@@ -192,3 +192,36 @@ describe('StoryTaskCard keyboard navigation', () => {
     await expect(user.keyboard('{ArrowUp}')).resolves.not.toThrow()
   })
 })
+
+// Story 3.9: Sync indicator tests
+describe('StoryTaskCard sync indicator', () => {
+  it('does not show sync indicator when isSyncing is false', () => {
+    render(<StoryTaskCard task={mockStoryTask} isSyncing={false} />)
+
+    expect(screen.queryByTestId('sync-indicator')).not.toBeInTheDocument()
+  })
+
+  it('shows sync indicator when isSyncing is true', () => {
+    render(<StoryTaskCard task={mockStoryTask} isSyncing={true} />)
+
+    expect(screen.getByTestId('sync-indicator')).toBeInTheDocument()
+  })
+
+  it('has reduced opacity when syncing', () => {
+    render(<StoryTaskCard task={mockStoryTask} isSyncing={true} />)
+
+    const card = screen.getByTestId(`story-task-card-${mockStoryTask.id}`)
+    // Card should have pointer-events-none when syncing
+    expect(card).toHaveClass('pointer-events-none')
+  })
+
+  it('includes syncing status in aria-label when syncing', () => {
+    render(<StoryTaskCard task={mockStoryTask} epicName="Foundation" isSyncing={true} />)
+
+    const card = screen.getByTestId(`story-task-card-${mockStoryTask.id}`)
+    expect(card).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Syncing')
+    )
+  })
+})

@@ -7,6 +7,7 @@ import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
 import { useUIStore, useStoryViewStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
+import { useStorySync } from '@renderer/hooks/useStorySync'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
@@ -16,6 +17,9 @@ export function KanbanBoardContainer() {
 
   // Story 3.4: Agent launcher hook for planning tasks
   const { launchPlanningAgent } = useAgentLauncher()
+
+  // Story 3.9: Sync hook for bidirectional sync (AC: 5)
+  const { syncingTaskIds } = useStorySync()
 
   // Story 3.7: Story view store for full-page view
   const openStory = useStoryViewStore((state) => state.openStory)
@@ -151,6 +155,44 @@ export function KanbanBoardContainer() {
     [reorderMutation]
   )
 
+  // Mutation for deleting tasks
+  const deleteMutation = trpc.tasks.delete.useMutation({
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: [['tasks', 'getAll']] })
+      const previousTasks = queryClient.getQueryData([['tasks', 'getAll']])
+
+      // Optimistically remove the task from cache
+      queryClient.setQueryData([['tasks', 'getAll']], (old: Task[] | undefined) => {
+        if (!old) return old
+        return old.filter((task) => task.id !== id)
+      })
+
+      return { previousTasks }
+    },
+    onError: (err, _variables, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
+      }
+      toast.error('Failed to delete task', {
+        description: err.message
+      })
+    },
+    onSuccess: () => {
+      toast.success('Task deleted')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [['tasks', 'getAll']] })
+    }
+  })
+
+  // Handle delete task
+  const handleDeleteTask = useCallback(
+    (taskId: string) => {
+      deleteMutation.mutate({ id: taskId })
+    },
+    [deleteMutation]
+  )
+
   if (isError) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -239,6 +281,7 @@ export function KanbanBoardContainer() {
         epicColors={epicColors}
         isLoading={isLoading}
         hasActiveFilters={hasActiveFilters}
+        syncingTaskIds={syncingTaskIds}
         onStatusChange={handleStatusChange}
         onReorder={handleReorder}
         onAddTask={handleAddTask}
@@ -246,6 +289,7 @@ export function KanbanBoardContainer() {
         onImportStories={handleImportStories}
         onPhase5Complete={handleImportStories}
         onStoryClick={handleStoryClick}
+        onDeleteTask={handleDeleteTask}
       />
       <CreateTaskDialog
         open={dialogOpen}

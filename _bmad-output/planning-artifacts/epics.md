@@ -1294,29 +1294,32 @@ So that I can open a project mid-planning and continue where I left off.
 
 ---
 
-### Story 3.9: Bidirectional Sync Between Kanban and epics.md
+### Story 3.9: Bidirectional Sync Between Kanban and Detail Story Files
 
 As a founder,
-I want changes in the Kanban board and epics.md to stay synchronized,
+I want changes in the Kanban board and detail story files to stay synchronized,
 So that I can edit in either place without conflicts.
+
+**Note:** Story 3.7 imports stories with `file_path` (path to detail file in `implementation-artifacts/`) and `full_content` (full story content). This story syncs with those detail files, NOT the epics.md summary.
 
 **Acceptance Criteria:**
 
 **Given** I move a story task to a different column
 **When** the status changes
-**Then** the corresponding story in epics.md is updated with a status marker
+**Then** the corresponding detail story file (at task.file_path) is updated with the new status in frontmatter
+**And** the `Status:` field changes to match (e.g., "in-progress", "review", "done")
 **And** the file write completes within 1 second
 
-**Given** I edit epics.md externally (e.g., in VS Code)
+**Given** I edit a detail story file externally (e.g., in VS Code)
 **When** I return to TinSu
-**Then** it detects file changes via file watcher
-**And** a notification appears: "epics.md changed. Sync now?"
+**Then** it detects file changes via file watcher on the task's `file_path`
+**And** a notification appears: "Story file changed. Sync now?"
 
 **Given** I click "Sync now"
 **When** sync runs
-**Then** new stories are added to the board
-**And** deleted stories are removed (with confirmation)
-**And** updated content is reflected in task details
+**Then** updated content (acceptance criteria, tasks, dev notes) is reflected in task.full_content
+**And** status changes in the file are reflected on the Kanban board
+**And** the task detail panel shows the updated content
 
 **Given** both Kanban and file changed the same story
 **When** conflict is detected
@@ -1327,6 +1330,11 @@ So that I can edit in either place without conflicts.
 **When** I try to edit a task
 **Then** editing is blocked with "Syncing..." indicator
 **And** editing resumes after sync completes
+
+**Given** a story task has no `file_path` (manually created task)
+**When** I try to sync
+**Then** the sync is skipped for that task
+**And** no error occurs
 
 ---
 

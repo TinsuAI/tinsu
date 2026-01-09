@@ -9,6 +9,7 @@ import { DeleteAllTasksDialog } from '@renderer/components/dialogs/DeleteAllTask
 import { useTerminalStore } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useStorySync } from '@renderer/hooks/useStorySync'
 
 interface AppShellProps {
   children?: React.ReactNode
@@ -18,6 +19,9 @@ export function AppShell({ children }: AppShellProps) {
   const { isExpanded, height } = useTerminalStore()
   const projectPath = useProjectStore((state) => state.projectPath)
   const syncProjectPath = useUIStore((state) => state.syncProjectPath)
+
+  // Story 3.9: Story sync hook for Sync All button
+  const { syncAllFromFiles, isSyncingAll } = useStorySync()
 
   // Story 3.7: Import Stories dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -32,6 +36,11 @@ export function AppShell({ children }: AppShellProps) {
     setDeleteAllDialogOpen(true)
   }, [])
 
+  // Story 3.9: Handle Sync All button click (syncs existing + imports new)
+  const handleSyncAll = useCallback(() => {
+    syncAllFromFiles(projectPath || undefined)
+  }, [syncAllFromFiles, projectPath])
+
   // Story 2.6: Sync filter state with project - clear filters when project changes
   useEffect(() => {
     syncProjectPath(projectPath)
@@ -41,7 +50,12 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen min-w-[1024px] flex-col bg-background">
-      <Header onImportStories={handleImportStories} onDeleteAllTasks={handleDeleteAllTasks} />
+      <Header
+        onImportStories={handleImportStories}
+        onDeleteAllTasks={handleDeleteAllTasks}
+        onSyncAll={handleSyncAll}
+        isSyncingAll={isSyncingAll}
+      />
       <div className="flex flex-1" style={{ paddingBottom: terminalHeight }}>
         <Sidebar />
         <MainContent>{children}</MainContent>

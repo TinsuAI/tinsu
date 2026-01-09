@@ -1,5 +1,5 @@
-import { useCallback, type KeyboardEvent } from 'react'
-import { BookOpen } from 'lucide-react'
+import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
+import { BookOpen, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import type { StoryTask } from '@shared/types/task.types'
@@ -14,6 +14,10 @@ export interface StoryTaskCardProps {
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right') => void
   /** Callback when the card is clicked */
   onClick?: () => void
+  /** Story 3.9: Whether this task is currently syncing with its story file */
+  isSyncing?: boolean
+  /** Callback when delete button is clicked */
+  onDelete?: () => void
   className?: string
 }
 
@@ -33,8 +37,18 @@ export function StoryTaskCard({
   epicColor = 'blue',
   onNavigate,
   onClick,
+  isSyncing = false,
+  onDelete,
   className
 }: StoryTaskCardProps) {
+  const handleDeleteClick = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation()
+      onDelete?.()
+    },
+    [onDelete]
+  )
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       if (!onNavigate) return
@@ -61,16 +75,26 @@ export function StoryTaskCard({
     [onNavigate]
   )
 
+  // Build aria-label with sync status
+  const ariaLabel = [
+    `Story: ${task.title}`,
+    epicName ? `Epic: ${epicName}` : null,
+    isSyncing ? 'Syncing' : null
+  ]
+    .filter(Boolean)
+    .join(', ')
+
   return (
     <div
       role="option"
-      tabIndex={0}
-      aria-label={`Story: ${task.title}${epicName ? `, Epic: ${epicName}` : ''}`}
+      tabIndex={isSyncing ? -1 : 0}
+      aria-label={ariaLabel}
+      aria-busy={isSyncing}
       onKeyDown={handleKeyDown}
-      onClick={onClick}
+      onClick={isSyncing ? undefined : onClick}
       className={cn(
         // Base card styling
-        'rounded-lg border border-border bg-card p-3',
+        'group rounded-lg border border-border bg-card p-3',
         // Story-specific styling: cyan left border
         'border-l-2 border-l-cyan-500',
         // Hover states
@@ -81,22 +105,38 @@ export function StoryTaskCard({
         'cursor-pointer',
         // Transition for smooth hover effect
         'transition-colors',
+        // Story 3.9: Sync state styling
+        isSyncing && 'pointer-events-none opacity-70',
         className
       )}
       data-testid={`story-task-card-${task.id}`}
     >
-      {/* Header row with title and story indicator */}
+      {/* Header row with title, story indicator, and delete button */}
       <div className="flex items-start justify-between gap-2">
         {/* Task title - prominent */}
-        <h3 className="text-sm font-medium text-foreground">{task.title}</h3>
+        <h3 className="flex-1 text-sm font-medium text-foreground">{task.title}</h3>
 
-        {/* Story indicator icon */}
-        <div
-          className="flex size-5 shrink-0 items-center justify-center rounded bg-cyan-500/10"
-          data-testid="story-indicator"
-          title="Story"
-        >
-          <BookOpen className="size-3 text-cyan-500" aria-hidden="true" />
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Delete button - visible on hover */}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={handleDeleteClick}
+              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+              aria-label={`Delete story: ${task.title}`}
+              data-testid="story-delete-button"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+          {/* Story indicator icon */}
+          <div
+            className="flex size-5 items-center justify-center rounded bg-cyan-500/10"
+            data-testid="story-indicator"
+            title="Story"
+          >
+            <BookOpen className="size-3 text-cyan-500" aria-hidden="true" />
+          </div>
         </div>
       </div>
 

@@ -75,8 +75,8 @@ development_status:
   3-5-artifact-detection-on-phase-completion: deferred
   3-6-next-phase-suggestion-with-skip-warning: deferred
   3-7-story-import-after-epics-phase: in-progress
-  3-8-bmad-artifact-scanner-and-parser: backlog
-  3-9-bidirectional-sync-between-kanban-and-epics-md: backlog
+  3-8-bmad-artifact-scanner-and-parser: deferred
+  3-9-bidirectional-sync-between-kanban-and-epics-md: in-progress
   3-10-link-artifacts-to-tasks: backlog
   3-11-context-builder-service: backlog
   3-12-re-run-planning-phase-brownfield-refinement: backlog

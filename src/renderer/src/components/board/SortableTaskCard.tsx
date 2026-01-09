@@ -6,6 +6,8 @@ import { TaskCard, type TaskCardProps } from './TaskCard'
 interface SortableTaskCardProps extends TaskCardProps {
   /** Whether this card is currently being dragged */
   isDragging?: boolean
+  /** Callback when delete button is clicked */
+  onDelete?: () => void
 }
 
 export function SortableTaskCard({ task, isDragging, className, ...props }: SortableTaskCardProps) {

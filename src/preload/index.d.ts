@@ -10,10 +10,22 @@ interface RendererGlobalElectronTRPC {
   onMessage: (callback: (args: TRPCResponseMessage) => void) => void
 }
 
+// Story 3.9: File change event types
+interface FileChangeEvent {
+  taskId: string
+  taskTitle: string
+  filePath: string
+}
+
+// Story 3.9: Custom API types
+interface CustomAPI {
+  onFileChange: (callback: (event: FileChangeEvent) => void) => () => void
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: unknown
+    api: CustomAPI
     // trpc-electron exposes this via exposeElectronTRPC()
     electronTRPC: RendererGlobalElectronTRPC
   }

@@ -1,9 +1,28 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeElectronTRPC } from 'trpc-electron/main'
 
+// Story 3.9: File change event types
+interface FileChangeEvent {
+  taskId: string
+  taskTitle: string
+  filePath: string
+}
+
 // Custom APIs for renderer
-const api = {}
+const api = {
+  // Story 3.9: Subscribe to file change events
+  onFileChange: (callback: (event: FileChangeEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: FileChangeEvent) => {
+      callback(data)
+    }
+    ipcRenderer.on('file-change', handler)
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener('file-change', handler)
+    }
+  }
+}
 
 // Expose tRPC IPC bridge to renderer
 // Must be called before context isolation check

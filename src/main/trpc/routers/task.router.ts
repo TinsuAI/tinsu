@@ -3,6 +3,21 @@ import { router, publicProcedure, TRPCError } from '../trpc'
 import { tasks, epics, sprints, TASK_STATUS } from '../../db/schema'
 import { eq, asc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
+import { StorySyncService } from '../../services/story-sync.service'
+
+/**
+ * Map database status to file status format.
+ * DB uses snake_case, files use kebab-case.
+ */
+function mapDbStatusToFileStatus(dbStatus: string): string {
+  const statusMap: Record<string, string> = {
+    backlog: 'ready-for-dev',
+    in_progress: 'in-progress',
+    review: 'review',
+    done: 'done'
+  }
+  return statusMap[dbStatus] || 'ready-for-dev'
+}
 
 // Zod schema for task status validation
 const taskStatusSchema = z.enum(TASK_STATUS)
@@ -165,6 +180,7 @@ export const taskRouter = router({
     }),
 
   // Update task status
+  // Story 3.9: Sync status change to story file (AC: 1)
   updateStatus: publicProcedure
     .input(
       z.object({
@@ -172,7 +188,7 @@ export const taskRouter = router({
         status: taskStatusSchema
       })
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const result = ctx.db
         .update(tasks)
         .set({ status: input.status, updated_at: new Date() })
@@ -183,6 +199,18 @@ export const taskRouter = router({
       if (!result) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
       }
+
+      // Story 3.9: Sync status to story file if path exists (AC: 1)
+      if (result.story_file_path) {
+        try {
+          const fileStatus = mapDbStatusToFileStatus(input.status)
+          await StorySyncService.updateStoryFileStatus(result.story_file_path, fileStatus)
+        } catch (error) {
+          // Log but don't fail the status update if file sync fails
+          console.error('Failed to sync status to file:', error)
+        }
+      }
+
       return result
     }),
 

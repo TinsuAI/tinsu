@@ -9,6 +9,7 @@ interface UIStore {
   selectedEpicIds: string[] // Story 2.6: Epic filter (multi-select, OR logic)
   selectedStatuses: TaskStatus[] // Story 2.6: Status filter (multi-select, OR logic)
   lastProjectPath: string | null // Story 2.6: Track project for filter scoping
+  syncingTaskIds: string[] // Story 3.9: Track tasks currently syncing (AC: 5)
 
   // Actions
   setSidebarCollapsed: (collapsed: boolean) => void
@@ -24,6 +25,11 @@ interface UIStore {
   clearAllFilters: () => void
   hasActiveFilters: () => boolean
   syncProjectPath: (projectPath: string | null) => void // Clear filters if project changed
+
+  // Story 3.9: Sync state actions (AC: 5)
+  addSyncingTask: (taskId: string) => void
+  removeSyncingTask: (taskId: string) => void
+  isTaskSyncing: (taskId: string) => boolean
 }
 
 // Story 2.6: Persist filter state to localStorage
@@ -36,6 +42,7 @@ export const useUIStore = create<UIStore>()(
       selectedEpicIds: [],
       selectedStatuses: [],
       lastProjectPath: null,
+      syncingTaskIds: [], // Story 3.9
 
       // Sidebar actions
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
@@ -96,7 +103,20 @@ export const useUIStore = create<UIStore>()(
             lastProjectPath: projectPath
           })
         }
-      }
+      },
+
+      // Story 3.9: Sync state actions (AC: 5)
+      addSyncingTask: (taskId) =>
+        set((state) => ({
+          syncingTaskIds: state.syncingTaskIds.includes(taskId)
+            ? state.syncingTaskIds
+            : [...state.syncingTaskIds, taskId]
+        })),
+      removeSyncingTask: (taskId) =>
+        set((state) => ({
+          syncingTaskIds: state.syncingTaskIds.filter((id) => id !== taskId)
+        })),
+      isTaskSyncing: (taskId) => get().syncingTaskIds.includes(taskId)
     }),
     {
       name: 'tinsu-ui-filters',

@@ -7,10 +7,14 @@ import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
 import { useStoryViewStore } from './stores'
 import { trpc } from './lib/trpc'
+import { useFileWatcher } from './hooks/useFileWatcher'
 
 function App(): React.JSX.Element {
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
   const activeStoryId = useStoryViewStore((state) => state.activeStoryId)
+
+  // Story 3.9: Start file watching when project is opened
+  useFileWatcher(projectPath)
   const hasAttemptedReopen = useRef(false)
   // Track whether we're attempting to reopen a persisted project
   const [isReopening, setIsReopening] = useState(() => {

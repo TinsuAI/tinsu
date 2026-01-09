@@ -8,6 +8,7 @@ import { sprintRouter } from './routers/sprint.router'
 import { velocityRouter } from './routers/velocity.router'
 import { agentRouter } from './routers/agent.router'
 import { importRouter } from './routers/import.router'
+import { syncRouter } from './routers/sync.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -19,7 +20,8 @@ export const appRouter = router({
   sprints: sprintRouter,
   velocity: velocityRouter,
   agent: agentRouter,
-  import: importRouter
+  import: importRouter,
+  sync: syncRouter
 })
 
 // Export type for client consumption
