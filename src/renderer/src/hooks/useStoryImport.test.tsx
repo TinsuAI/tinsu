@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor, act } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { useStoryImport } from './useStoryImport'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactNode } from 'react'
-import { trpc, trpcClient } from '@renderer/lib/trpc'
 
 // Mock sonner toast
 vi.mock('sonner', () => ({

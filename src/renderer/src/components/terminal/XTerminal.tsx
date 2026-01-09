@@ -72,6 +72,10 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
 
   // Close context menu on click outside or escape
   useEffect(() => {
+    if (!contextMenu.visible) {
+      return
+    }
+
     const handleClickOutside = (): void => {
       setContextMenu((prev) => (prev.visible ? { visible: false, x: 0, y: 0 } : prev))
     }
@@ -81,13 +85,11 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
       }
     }
 
-    if (contextMenu.visible) {
-      document.addEventListener('click', handleClickOutside)
-      document.addEventListener('keydown', handleKeyDown)
-      return () => {
-        document.removeEventListener('click', handleClickOutside)
-        document.removeEventListener('keydown', handleKeyDown)
-      }
+    document.addEventListener('click', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [contextMenu.visible])
 

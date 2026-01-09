@@ -50,10 +50,21 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
           id: `temp-${Date.now()}`, // Temporary ID until server responds
           title: newTask.title,
           description: newTask.description ?? null,
-          status: newTask.status,
+          status: newTask.status ?? 'backlog',
           sort_order: 0, // New tasks go to top
           epic_id: newTask.epic_id ?? null,
           sprint_id: newTask.sprint_id ?? null,
+          task_type: 'story',
+          phase_number: null,
+          phase_name: null,
+          bmad_agent: null,
+          bmad_workflow: null,
+          is_start_here: null,
+          artifact_path: null,
+          story_number: null,
+          story_file_path: null,
+          full_content: null,
+          project_id: null,
           created_at: new Date(),
           updated_at: new Date()
         }

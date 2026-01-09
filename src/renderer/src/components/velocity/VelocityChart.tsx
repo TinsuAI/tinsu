@@ -49,7 +49,7 @@ export function VelocityChart({ data }: VelocityChartProps) {
             cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
           />
           <Bar dataKey="count" radius={[2, 2, 0, 0]} animationDuration={300}>
-            {chartData.map((entry, index) => (
+            {chartData.map((_, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={index === chartData.length - 1 ? '#71717a' : '#52525b'}

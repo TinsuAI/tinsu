@@ -22,7 +22,7 @@ function calculateTrend(weeks: Array<{ count: number }>): number {
   return 0
 }
 
-export function VelocityWidget({ className }: VelocityWidgetProps) {
+export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
   const [detailOpen, setDetailOpen] = useState(false)
   const { data: velocityData, isLoading } = trpc.velocity.getWeeklyVelocity.useQuery({ weeks: 4 })
 
@@ -71,7 +71,13 @@ export function VelocityWidget({ className }: VelocityWidgetProps) {
         {trend > 0 && <TrendingUp className="h-3 w-3 text-green-500" data-testid="trend-up" />}
         {trend < 0 && <TrendingDown className="h-3 w-3 text-red-500" data-testid="trend-down" />}
         {trend === 0 && <Minus className="h-3 w-3 text-zinc-500" data-testid="trend-neutral" />}
-        <VelocityChart data={velocityData.weeks} />
+        <VelocityChart
+          data={velocityData.weeks.map((w) => ({
+            ...w,
+            startDate: new Date(w.startDate),
+            endDate: new Date(w.endDate)
+          }))}
+        />
       </button>
 
       <VelocityDetailPanel open={detailOpen} onOpenChange={setDetailOpen} />

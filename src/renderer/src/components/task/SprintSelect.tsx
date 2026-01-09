@@ -41,7 +41,7 @@ export function SprintSelect({
               <span>{sprint.name}</span>
               {sprint.start_date && sprint.end_date && (
                 <span className="text-xs text-muted-foreground">
-                  ({formatDateRange(sprint.start_date, sprint.end_date)})
+                  ({formatDateRange(new Date(sprint.start_date), new Date(sprint.end_date))})
                 </span>
               )}
             </span>

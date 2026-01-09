@@ -28,6 +28,10 @@ const mockPlanningTask: PlanningTask = {
   bmad_agent: 'business-analyst',
   bmad_workflow: '/path/to/workflow.yaml',
   is_start_here: true,
+  artifact_path: null,
+  story_number: null,
+  story_file_path: null,
+  full_content: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }

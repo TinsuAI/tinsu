@@ -1,65 +1,37 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { KanbanBoard } from './KanbanBoard'
-import type { Task } from '@shared/types/task.types'
+import type { Task, TaskStatus } from '@shared/types/task.types'
+
+// Helper to create a mock task with all required fields
+const createMockTask = (overrides: Partial<Task> & { id: string; title: string; status: TaskStatus }): Task => ({
+  description: null,
+  sort_order: 0,
+  epic_id: null,
+  sprint_id: null,
+  task_type: 'story',
+  phase_number: null,
+  phase_name: null,
+  bmad_agent: null,
+  bmad_workflow: null,
+  is_start_here: null,
+  artifact_path: null,
+  story_number: null,
+  story_file_path: null,
+  full_content: null,
+  project_id: null,
+  created_at: new Date(),
+  updated_at: new Date(),
+  ...overrides
+})
 
 // Mock tasks for testing
 const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Task 1',
-    description: 'Description 1',
-    status: 'backlog',
-    sort_order: 0,
-    epic_id: null,
-    sprint_id: null,
-    created_at: new Date(),
-    updated_at: new Date()
-  },
-  {
-    id: '2',
-    title: 'Task 2',
-    description: 'Description 2',
-    status: 'backlog',
-    sort_order: 1,
-    epic_id: null,
-    sprint_id: null,
-    created_at: new Date(),
-    updated_at: new Date()
-  },
-  {
-    id: '3',
-    title: 'Task 3',
-    description: 'Description 3',
-    status: 'in_progress',
-    sort_order: 0,
-    epic_id: null,
-    sprint_id: null,
-    created_at: new Date(),
-    updated_at: new Date()
-  },
-  {
-    id: '4',
-    title: 'Task 4',
-    description: null,
-    status: 'review',
-    sort_order: 0,
-    epic_id: null,
-    sprint_id: null,
-    created_at: new Date(),
-    updated_at: new Date()
-  },
-  {
-    id: '5',
-    title: 'Task 5',
-    description: null,
-    status: 'done',
-    sort_order: 0,
-    epic_id: null,
-    sprint_id: null,
-    created_at: new Date(),
-    updated_at: new Date()
-  }
+  createMockTask({ id: '1', title: 'Task 1', description: 'Description 1', status: 'backlog', sort_order: 0 }),
+  createMockTask({ id: '2', title: 'Task 2', description: 'Description 2', status: 'backlog', sort_order: 1 }),
+  createMockTask({ id: '3', title: 'Task 3', description: 'Description 3', status: 'in_progress', sort_order: 0 }),
+  createMockTask({ id: '4', title: 'Task 4', status: 'review', sort_order: 0 }),
+  createMockTask({ id: '5', title: 'Task 5', status: 'done', sort_order: 0 })
 ]
 
 describe('KanbanBoard', () => {
@@ -149,17 +121,7 @@ describe('KanbanBoard task grouping', () => {
   it('should correctly group tasks by status', () => {
     const tasksWithMultipleInProgress: Task[] = [
       ...mockTasks,
-      {
-        id: '6',
-        title: 'Task 6',
-        description: null,
-        status: 'in_progress',
-        sort_order: 1,
-        epic_id: null,
-        sprint_id: null,
-        created_at: new Date(),
-        updated_at: new Date()
-      }
+      createMockTask({ id: '6', title: 'Task 6', status: 'in_progress', sort_order: 1 })
     ]
 
     render(<KanbanBoard tasks={tasksWithMultipleInProgress} />)
@@ -241,17 +203,7 @@ describe('KanbanBoard card spacing', () => {
 describe('KanbanBoard epicNames', () => {
   it('should pass epicName to TaskCard when epicNames map is provided', () => {
     const tasksWithEpic: Task[] = [
-      {
-        id: '1',
-        title: 'Task with Epic',
-        description: null,
-        status: 'backlog',
-        sort_order: 0,
-        epic_id: 'epic-1',
-        sprint_id: null,
-        created_at: new Date(),
-        updated_at: new Date()
-      }
+      createMockTask({ id: '1', title: 'Task with Epic', status: 'backlog', epic_id: 'epic-1' })
     ]
 
     const epicNames = { 'epic-1': 'Epic 1: Foundation' }

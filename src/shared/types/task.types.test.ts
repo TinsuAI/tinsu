@@ -25,6 +25,9 @@ describe('Task Types (Story 3.1)', () => {
       is_start_here: null,
       project_id: null,
       artifact_path: null,
+      story_number: null,
+      story_file_path: null,
+      full_content: null,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -150,6 +153,9 @@ describe('Task Types (Story 3.1)', () => {
       is_start_here: null,
       project_id: null,
       artifact_path: null,
+      story_number: null,
+      story_file_path: null,
+      full_content: null,
       created_at: new Date(),
       updated_at: new Date()
     })

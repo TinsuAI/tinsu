@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
-import { StoryImportService, ImportResult } from './story-import.service'
+import { StoryImportService } from './story-import.service'
 import type { ParsedEpic } from './epics-parser.service'
+import type { StoryKey } from './detailed-story-parser.service'
 
 type TestDb = BetterSQLite3Database<typeof schema>
 
@@ -649,8 +650,8 @@ describe('StoryImportService', () => {
         }
       ]
 
-      const detailedStoriesMap = new Map([
-        ['1-1', { filePath: '/path/to/1-1-story-one.md', fullContent: '# Story 1.1: Story One\n\nFull detailed content here.' }]
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/to/1-1-story-one.md', fullContent: '# Story 1.1: Story One\n\nFull detailed content here.' }]
       ])
 
       await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)
@@ -674,8 +675,8 @@ describe('StoryImportService', () => {
       ]
 
       // Only provide detailed content for story 1-1
-      const detailedStoriesMap = new Map([
-        ['1-1', { filePath: '/path/to/1-1.md', fullContent: 'Detailed content' }]
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/to/1-1.md', fullContent: 'Detailed content' }]
       ])
 
       await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)
@@ -705,9 +706,9 @@ describe('StoryImportService', () => {
       ]
 
       // Only provide detailed content for 2 of 3 stories
-      const detailedStoriesMap = new Map([
-        ['1-1', { filePath: '/path/1-1.md', fullContent: 'Content 1' }],
-        ['1-3', { filePath: '/path/1-3.md', fullContent: 'Content 3' }]
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/1-1.md', fullContent: 'Content 1' }],
+        ['1-3' as StoryKey, { filePath: '/path/1-3.md', fullContent: 'Content 3' }]
       ])
 
       const result = await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)
@@ -735,8 +736,8 @@ describe('StoryImportService', () => {
       expect(task?.full_content).toBeNull()
 
       // Re-import with detailed content
-      const detailedStoriesMap = new Map([
-        ['1-1', { filePath: '/path/1-1.md', fullContent: 'New detailed content' }]
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/1-1.md', fullContent: 'New detailed content' }]
       ])
 
       const result = await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)

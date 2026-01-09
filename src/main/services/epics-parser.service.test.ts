@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EpicsParserService, ParsedEpic, ParsedStory } from './epics-parser.service'
+import { EpicsParserService } from './epics-parser.service'
 import { writeFileSync, unlinkSync, mkdtempSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'

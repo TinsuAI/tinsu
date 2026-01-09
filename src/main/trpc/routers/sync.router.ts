@@ -123,7 +123,7 @@ export const syncRouter = router({
    */
   checkFileChanges: publicProcedure
     .input(z.object({ taskId: z.string() }))
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.taskId)).get()
 
       if (!task) {
@@ -152,7 +152,7 @@ export const syncRouter = router({
    */
   detectConflict: publicProcedure
     .input(z.object({ taskId: z.string() }))
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.taskId)).get()
 
       if (!task) {

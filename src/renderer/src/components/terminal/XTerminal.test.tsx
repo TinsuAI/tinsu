@@ -133,7 +133,10 @@ describe('XTerminal', () => {
     render(<XTerminal onData={onData} />)
 
     // Get the callback passed to terminal.onData
-    const onDataCallback = mocks.mockOnData.mock.calls[0][0]
+    const calls = mocks.mockOnData.mock.calls
+    expect(calls.length).toBeGreaterThan(0)
+    const firstCall = calls[0] as unknown[]
+    const onDataCallback = firstCall[0] as (data: string) => void
     onDataCallback('test input')
 
     expect(onData).toHaveBeenCalledWith('test input')

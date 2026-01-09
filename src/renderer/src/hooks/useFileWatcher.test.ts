@@ -31,10 +31,9 @@ const mockUnsubscribe = vi.fn()
 const mockOnFileChange = vi.fn().mockReturnValue(mockUnsubscribe)
 
 beforeEach(() => {
-  // @ts-expect-error - mocking window.api
-  window.api = {
+  ;(window as { api?: typeof window.api }).api = {
     onFileChange: mockOnFileChange
-  }
+  } as typeof window.api
   vi.clearAllMocks()
 })
 

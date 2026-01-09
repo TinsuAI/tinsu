@@ -21,6 +21,17 @@ const mockTask: Task = {
   sort_order: 0,
   epic_id: null,
   sprint_id: null,
+  task_type: 'story',
+  phase_number: null,
+  phase_name: null,
+  bmad_agent: null,
+  bmad_workflow: null,
+  is_start_here: null,
+  artifact_path: null,
+  story_number: null,
+  story_file_path: null,
+  full_content: null,
+  project_id: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }

@@ -4,7 +4,7 @@ import { tasks } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
-import { isPlanningTask } from '../../../shared/types/task.types'
+import { isPlanningTask, type Task } from '../../../shared/types/task.types'
 
 /**
  * tRPC router for BMAD agent operations.
@@ -69,7 +69,9 @@ export const agentRouter = router({
       }
 
       // Validate task is a planning task using type guard
-      if (!isPlanningTask(task)) {
+      // Cast to Task type since drizzle returns string for status column
+      const typedTask = task as Task
+      if (!isPlanningTask(typedTask)) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Task is not a planning task'
@@ -77,7 +79,7 @@ export const agentRouter = router({
       }
 
       // Launch the agent using the service
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, ctx.projectRoot)
+      const result = BmadAgentLauncherService.launchPlanningAgent(typedTask, ctx.projectRoot)
 
       return result
     })

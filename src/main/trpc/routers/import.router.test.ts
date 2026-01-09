@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { importRouter } from './import.router'
 import { TRPCError } from '@trpc/server'
 import Database from 'better-sqlite3'
@@ -8,7 +8,7 @@ import { writeFileSync, unlinkSync, mkdtempSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-type TestDb = BetterSQLite3Database<typeof schema>
+type TestDb = BetterSQLite3Database<typeof schema> & { $client: Database.Database }
 
 const TEST_PROJECT_ID = 'test-project-id'
 

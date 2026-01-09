@@ -29,7 +29,7 @@ interface FileSyncNotificationProps {
  * ```
  */
 export function showFileSyncNotification({
-  taskId,
+  taskId: _taskId,
   taskTitle,
   filePath,
   onSync
