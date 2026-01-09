@@ -116,21 +116,18 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
     []
   )
 
-  // Stable callback for onData
-  const handleData = useCallback(
-    (data: string) => {
-      onData?.(data)
-    },
-    [onData]
-  )
+  // Use refs to store callbacks so they don't trigger terminal recreation
+  const onDataRef = useRef(onData)
+  const onResizeRef = useRef(onResize)
 
-  // Stable callback for resize
-  const handleResize = useCallback(
-    (cols: number, rows: number) => {
-      onResize?.(cols, rows)
-    },
-    [onResize]
-  )
+  // Keep refs updated when props change
+  useEffect(() => {
+    onDataRef.current = onData
+  }, [onData])
+
+  useEffect(() => {
+    onResizeRef.current = onResize
+  }, [onResize])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -163,12 +160,14 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
     // Initial fit
     fitAddon.fit()
 
-    // Handle user input
-    const dataDisposer = terminal.onData(handleData)
+    // Handle user input - use ref to avoid recreation on callback change
+    const dataDisposer = terminal.onData((data) => {
+      onDataRef.current?.(data)
+    })
 
-    // Handle resize
+    // Handle resize - use ref to avoid recreation on callback change
     const resizeDisposer = terminal.onResize(({ cols, rows }) => {
-      handleResize(cols, rows)
+      onResizeRef.current?.(cols, rows)
     })
 
     // Store refs
@@ -193,7 +192,7 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
       terminalRef.current = null
       fitAddonRef.current = null
     }
-  }, [handleData, handleResize])
+  }, []) // Empty deps - terminal created once, callbacks accessed via refs
 
   return (
     <div className="relative w-full h-full">
