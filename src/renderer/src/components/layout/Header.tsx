@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Download, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
@@ -10,9 +10,13 @@ import { Button } from '@renderer/components/ui/button'
 interface HeaderProps {
   className?: string
   onOpenProject?: () => void
+  /** Story 3.7: Callback to open the Import Stories dialog */
+  onImportStories?: () => void
+  /** Callback to open the Delete All Tasks dialog */
+  onDeleteAllTasks?: () => void
 }
 
-export function Header({ className, onOpenProject }: HeaderProps) {
+export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -51,6 +55,33 @@ export function Header({ className, onOpenProject }: HeaderProps) {
             onOpenChange={setFilterPanelOpen}
             trigger={<FilterButton onClick={() => setFilterPanelOpen(!filterPanelOpen)} />}
           />
+
+          {/* Story 3.7: Import Stories button - always available */}
+          {onImportStories && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onImportStories}
+              data-testid="header-import-stories"
+            >
+              <Download className="mr-1 h-3 w-3" />
+              Import Stories
+            </Button>
+          )}
+
+          {/* Delete All Tasks button */}
+          {onDeleteAllTasks && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDeleteAllTasks}
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              data-testid="header-delete-all-tasks"
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              Delete All
+            </Button>
+          )}
 
           {onOpenProject && (
             <button

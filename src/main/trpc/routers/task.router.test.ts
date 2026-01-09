@@ -26,7 +26,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id)
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -43,6 +43,9 @@ function createTestDb(): TestDb {
       bmad_workflow TEXT,
       is_start_here INTEGER,
       artifact_path TEXT,
+      story_number INTEGER,
+      story_file_path TEXT,
+      full_content TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -55,13 +58,15 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   `)
 
-  // Create epics table (needed for getAllWithEpics)
+  // Create epics table (needed for getAllWithEpics, Story 3.7 - epic_number, goal)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS epics (
       id TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
       color TEXT NOT NULL DEFAULT 'blue',
+      epic_number INTEGER,
+      goal TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -432,6 +437,71 @@ describe('taskRouter', () => {
 
       try {
         await noProjectCaller.create({ title: 'Test' })
+      } catch (error) {
+        expect((error as TRPCError).code).toBe('PRECONDITION_FAILED')
+        expect((error as TRPCError).message).toBe('No project open')
+      }
+    })
+  })
+
+  describe('deleteAll', () => {
+    it('should delete all tasks in current project and return count', async () => {
+      // Create multiple tasks
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'in_progress', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-3', title: 'Task 3', status: 'done', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.deleteAll()
+      expect(result.deletedCount).toBe(3)
+
+      // Verify all tasks are deleted
+      const remainingTasks = await caller.getAll()
+      expect(remainingTasks).toHaveLength(0)
+    })
+
+    it('should return 0 when no tasks exist', async () => {
+      const result = await caller.deleteAll()
+      expect(result.deletedCount).toBe(0)
+    })
+
+    it('should only delete tasks from current project', async () => {
+      // Create another project
+      db.insert(schema.projects)
+        .values({
+          id: 'other-project',
+          path: '/other/project',
+          name: 'Other Project'
+        })
+        .run()
+
+      // Create tasks in both projects
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', status: 'backlog', project_id: TEST_PROJECT_ID, created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', status: 'backlog', project_id: 'other-project', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const result = await caller.deleteAll()
+      expect(result.deletedCount).toBe(1)
+
+      // Verify other project's task still exists
+      const otherCaller = createTestCaller(db, 'other-project')
+      const otherTasks = await otherCaller.getAll()
+      expect(otherTasks).toHaveLength(1)
+      expect(otherTasks[0].id).toBe('task-2')
+    })
+
+    it('should throw error when no project is open', async () => {
+      const noProjectCaller = createTestCaller(db, null)
+      await expect(noProjectCaller.deleteAll()).rejects.toThrow(TRPCError)
+
+      try {
+        await noProjectCaller.deleteAll()
       } catch (error) {
         expect((error as TRPCError).code).toBe('PRECONDITION_FAILED')
         expect((error as TRPCError).message).toBe('No project open')

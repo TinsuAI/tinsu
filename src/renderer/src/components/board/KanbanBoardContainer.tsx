@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
-import { useUIStore } from '@renderer/stores/ui.store'
+import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
+import { useUIStore, useStoryViewStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
@@ -16,6 +17,9 @@ export function KanbanBoardContainer() {
   // Story 3.4: Agent launcher hook for planning tasks
   const { launchPlanningAgent } = useAgentLauncher()
 
+  // Story 3.7: Story view store for full-page view
+  const openStory = useStoryViewStore((state) => state.openStory)
+
   // Story 2.6: Get all filter state
   const selectedSprintId = useUIStore((state) => state.selectedSprintId)
   const selectedEpicIds = useUIStore((state) => state.selectedEpicIds)
@@ -26,10 +30,20 @@ export function KanbanBoardContainer() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogInitialStatus, setDialogInitialStatus] = useState<TaskStatus>('backlog')
 
+  // Story 3.7: Import stories dialog state
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importDefaultPath, setImportDefaultPath] = useState<string>('')
+
   // Handle add task from column "+" button
   const handleAddTask = useCallback((status: TaskStatus) => {
     setDialogInitialStatus(status)
     setDialogOpen(true)
+  }, [])
+
+  // Story 3.7: Handle import stories button click from phase 5 card
+  const handleImportStories = useCallback((artifactPath: string) => {
+    setImportDefaultPath(artifactPath)
+    setImportDialogOpen(true)
   }, [])
 
   // Global "N" keyboard shortcut to open dialog
@@ -156,6 +170,7 @@ export function KanbanBoardContainer() {
     let filtered = (tasks ?? []).map((task) => ({
       ...task,
       status: task.status as TaskStatus,
+      task_type: task.task_type as 'planning' | 'story',
       created_at: new Date(task.created_at),
       updated_at: new Date(task.updated_at)
     }))
@@ -178,6 +193,14 @@ export function KanbanBoardContainer() {
 
     return filtered
   }, [tasks, selectedSprintId, selectedEpicIds, selectedStatuses])
+
+  // Story 3.7: Handle story card click to open full-page view
+  const handleStoryClick = useCallback(
+    (taskId: string) => {
+      openStory(taskId)
+    },
+    [openStory]
+  )
 
   // Create epic name and color maps for display on task cards
   const epicNames = useMemo(() => {
@@ -202,6 +225,12 @@ export function KanbanBoardContainer() {
     )
   }, [epics])
 
+  // Story 3.7: Get project ID from the first task that has one
+  const projectId = useMemo(() => {
+    const taskWithProject = transformedTasks.find((t) => t.project_id)
+    return taskWithProject?.project_id ?? ''
+  }, [transformedTasks])
+
   return (
     <>
       <KanbanBoard
@@ -214,11 +243,25 @@ export function KanbanBoardContainer() {
         onReorder={handleReorder}
         onAddTask={handleAddTask}
         onPlanningTaskStart={launchPlanningAgent}
+        onImportStories={handleImportStories}
+        onPhase5Complete={handleImportStories}
+        onStoryClick={handleStoryClick}
       />
       <CreateTaskDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initialStatus={dialogInitialStatus}
+      />
+      <ImportStoriesDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        projectId={projectId}
+        defaultPath={importDefaultPath}
+        onSuccess={(result) => {
+          toast.success('Import completed', {
+            description: `Imported ${result.storiesCreated} stories from ${result.epicsCreated} epics`
+          })
+        }}
       />
     </>
   )

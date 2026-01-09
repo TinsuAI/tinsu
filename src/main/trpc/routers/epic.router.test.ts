@@ -26,13 +26,15 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the epics table matching Drizzle schema (Story 3.1.5 project_id)
+  // Create the epics table matching Drizzle schema (Story 3.1.5 project_id, Story 3.7 epic_number, goal)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS epics (
       id TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
       color TEXT NOT NULL DEFAULT 'blue',
+      epic_number INTEGER,
+      goal TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );

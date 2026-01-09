@@ -61,6 +61,11 @@ export interface Task {
   is_start_here: boolean | null // true only for phase 1 planning task
   // Story 3.3: Artifact path for completed planning tasks
   artifact_path: string | null
+  // Story 3.7: Story number for imported stories from epics.md
+  story_number: number | null // 1, 2, 3... within each epic
+  // Story 3.7: Full content from detailed story file in implementation-artifacts
+  story_file_path: string | null // Path to detailed story .md file
+  full_content: string | null // Full markdown content from detailed story file
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
@@ -86,6 +91,11 @@ export interface NewTask {
   is_start_here?: boolean | null
   // Story 3.3: Artifact path for completed planning tasks
   artifact_path?: string | null
+  // Story 3.7: Story number for imported stories
+  story_number?: number | null
+  // Story 3.7: Full content from detailed story file
+  story_file_path?: string | null
+  full_content?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
   created_at?: Date
@@ -116,22 +126,28 @@ export interface NewAgentRun {
   log_path?: string | null
 }
 
-// Epic entity type (Story 2.5, Story 3.1.5 - project_id)
+// Epic entity type (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
 export interface Epic {
   id: string
   title: string
   description: string | null
   color: EpicColor
+  // Story 3.7: Epic number and goal for imported epics from epics.md
+  epic_number: number | null
+  goal: string | null
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
 }
 
-// Input type for creating a new epic (Story 2.5, Story 3.1.5 - project_id)
+// Input type for creating a new epic (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
 export interface NewEpic {
   title: string
   description?: string | null
   color?: EpicColor
+  // Story 3.7: Epic number and goal for imported epics
+  epic_number?: number | null
+  goal?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
 }
@@ -183,6 +199,11 @@ export interface StoryTaskFields {
   bmad_workflow: null
   is_start_here: null // Story 3.2: always null for story tasks
   artifact_path: null // Story 3.3: always null for story tasks
+  // Story 3.7: story_number is set for imported stories, null for manually created
+  story_number: number | null
+  // Story 3.7: Full content from detailed story file
+  story_file_path: string | null
+  full_content: string | null
 }
 
 // Type for a planning task (narrowed)
@@ -195,7 +216,7 @@ export type PlanningTask = Omit<
 // Type for a story task (narrowed)
 export type StoryTask = Omit<
   Task,
-  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here' | 'artifact_path'
+  'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'is_start_here' | 'artifact_path' | 'story_number' | 'story_file_path' | 'full_content'
 > &
   StoryTaskFields
 

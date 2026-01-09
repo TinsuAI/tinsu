@@ -25,7 +25,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the tasks table matching Drizzle schema (including is_start_here from Story 3.2, project_id from Story 3.1.5)
+  // Create the tasks table matching Drizzle schema (including is_start_here from Story 3.2, project_id from Story 3.1.5, story_number, story_file_path, full_content from Story 3.7)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -42,6 +42,9 @@ function createTestDb(): TestDb {
       bmad_workflow TEXT,
       is_start_here INTEGER,
       artifact_path TEXT,
+      story_number INTEGER,
+      story_file_path TEXT,
+      full_content TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())

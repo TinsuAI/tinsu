@@ -102,6 +102,31 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE sprints ADD COLUMN project_id TEXT REFERENCES projects(id)')
     sqlite.exec('CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id)')
   }
+
+  // Migration: Add story_number column to tasks (Story 3.7)
+  if (!existingColumns.has('story_number')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN story_number INTEGER')
+  }
+
+  // Migration: Add story_file_path and full_content columns to tasks (Story 3.7)
+  if (!existingColumns.has('story_file_path')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN story_file_path TEXT')
+  }
+  if (!existingColumns.has('full_content')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN full_content TEXT')
+  }
+
+  // Migration: Add epic_number and goal columns to epics (Story 3.7)
+  const epicColumnsCheck = sqlite
+    .prepare("PRAGMA table_info(epics)")
+    .all() as Array<{ name: string }>
+  const epicColNames = new Set(epicColumnsCheck.map((c) => c.name))
+  if (epicColumnsCheck.length > 0 && !epicColNames.has('epic_number')) {
+    sqlite.exec('ALTER TABLE epics ADD COLUMN epic_number INTEGER')
+  }
+  if (epicColumnsCheck.length > 0 && !epicColNames.has('goal')) {
+    sqlite.exec('ALTER TABLE epics ADD COLUMN goal TEXT')
+  }
 }
 
 const dbPath = getDbPath()

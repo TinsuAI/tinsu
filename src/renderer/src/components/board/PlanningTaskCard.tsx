@@ -1,9 +1,10 @@
-import { useCallback, type KeyboardEvent } from 'react'
+import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { PhaseBadge } from '@renderer/components/task/PhaseBadge'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import { PHASE_DESCRIPTIONS } from '@renderer/constants/planning-phases'
-import { CheckCircle2, FileText } from 'lucide-react'
+import { CheckCircle2, FileText, Download } from 'lucide-react'
+import { Button } from '@renderer/components/ui/button'
 import type { PlanningTask } from '@shared/types/task.types'
 
 export interface PlanningTaskCardProps {
@@ -20,6 +21,8 @@ export interface PlanningTaskCardProps {
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right') => void
   /** Callback when artifact file should be opened */
   onOpenArtifact?: () => void
+  /** Story 3.7: Callback when Import Stories button is clicked (phase 5 only) */
+  onImportStories?: () => void
   className?: string
 }
 
@@ -31,6 +34,7 @@ export function PlanningTaskCard({
   artifactPath,
   onNavigate,
   onOpenArtifact,
+  onImportStories,
   className
 }: PlanningTaskCardProps) {
   // Keyboard navigation handler (same pattern as TaskCard)
@@ -65,6 +69,18 @@ export function PlanningTaskCard({
       onOpenArtifact()
     }
   }, [isCompleted, artifactPath, onOpenArtifact])
+
+  // Story 3.7: Handler for Import Stories button (phase 5 only)
+  const handleImportStoriesClick = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation() // Prevent card click (opening artifact)
+      onImportStories?.()
+    },
+    [onImportStories]
+  )
+
+  // Story 3.7: Show Import Stories button only on phase 5 when completed
+  const showImportStoriesButton = task.phase_number === 5 && isCompleted
 
   const description = PHASE_DESCRIPTIONS[task.phase_number]
 
@@ -118,6 +134,20 @@ export function PlanningTaskCard({
             {artifactPath}
           </span>
         </div>
+      )}
+
+      {/* Story 3.7: Import Stories button (phase 5 only) */}
+      {showImportStoriesButton && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full text-xs"
+          onClick={handleImportStoriesClick}
+          data-testid="import-stories-button"
+        >
+          <Download className="mr-1 size-3" aria-hidden="true" />
+          Import Stories
+        </Button>
       )}
 
       {/* Start Here indicator */}

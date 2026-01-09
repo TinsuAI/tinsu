@@ -125,10 +125,45 @@ vi.mock('@renderer/lib/trpc', () => ({
         })
       }
     },
+    // Story 3.7: Mock import router for story import
+    import: {
+      importStoriesFromEpics: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({
+            epicsCreated: 0,
+            storiesCreated: 0,
+            epicIds: [],
+            storyIds: []
+          }),
+          isPending: false,
+          reset: vi.fn(),
+          data: null,
+          error: null
+        })
+      }
+    },
+    // Story 3.7: Mock config router for file picker
+    config: {
+      showOpenDialog: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          isPending: false
+        })
+      }
+    },
     useUtils: () => ({
       tasks: {
         getAll: {
           invalidate: mockInvalidate
+        },
+        getAllWithEpics: {
+          invalidate: vi.fn()
+        }
+      },
+      epics: {
+        getAll: {
+          invalidate: vi.fn()
         }
       }
     })

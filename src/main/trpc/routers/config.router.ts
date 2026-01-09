@@ -1,5 +1,7 @@
 import { z } from 'zod'
-import { shell } from 'electron'
+import { shell, dialog } from 'electron'
+import { existsSync } from 'fs'
+import { join } from 'path'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { ConfigService, ConfigError } from '../../services/config.service'
 import { MethodologySchema } from '../../../shared/types/config.types'
@@ -114,5 +116,70 @@ export const configRouter = router({
           message: error instanceof Error ? error.message : 'Failed to open file'
         })
       }
-    })
+    }),
+
+  // Story 3.7: Show native file picker dialog
+  showOpenDialog: publicProcedure
+    .input(
+      z
+        .object({
+          filters: z
+            .array(
+              z.object({
+                name: z.string(),
+                extensions: z.array(z.string())
+              })
+            )
+            .optional(),
+          defaultPath: z.string().optional(),
+          title: z.string().optional()
+        })
+        .optional()
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          filters: input?.filters || [{ name: 'All Files', extensions: ['*'] }],
+          defaultPath: input?.defaultPath,
+          title: input?.title || 'Select File'
+        })
+
+        return result.canceled ? null : result.filePaths[0] || null
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to open file dialog'
+        })
+      }
+    }),
+
+  // Detect BMAD import files (epics.md and sprint-status.yaml)
+  detectImportFiles: publicProcedure.query(({ ctx }) => {
+    const projectRoot = ctx.projectRoot
+    if (!projectRoot) {
+      return { epicsPath: null, statusPath: null }
+    }
+
+    // Common locations to search for epics.md
+    const epicsPaths = [
+      join(projectRoot, '_bmad-output', 'planning-artifacts', 'epics.md'),
+      join(projectRoot, '_bmad-output', 'epics.md'),
+      join(projectRoot, 'docs', 'epics.md'),
+      join(projectRoot, 'epics.md')
+    ]
+
+    // Common locations to search for sprint-status.yaml
+    const statusPaths = [
+      join(projectRoot, '_bmad-output', 'implementation-artifacts', 'sprint-status.yaml'),
+      join(projectRoot, '_bmad-output', 'sprint-status.yaml'),
+      join(projectRoot, '_bmad-output', 'planning-artifacts', 'sprint-status.yaml'),
+      join(projectRoot, 'sprint-status.yaml')
+    ]
+
+    const epicsPath = epicsPaths.find((p) => existsSync(p)) || null
+    const statusPath = statusPaths.find((p) => existsSync(p)) || null
+
+    return { epicsPath, statusPath }
+  })
 })

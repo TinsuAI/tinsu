@@ -21,9 +21,13 @@ vi.mock('@renderer/components/terminal', () => ({
   TerminalDock: () => <div data-testid="terminal-dock">Mock TerminalDock</div>
 }))
 
-// Mock tRPC for SprintList in Sidebar, FilterPanel in Header (Story 2.6), and VelocityWidget (Story 2.7)
+// Mock tRPC for SprintList in Sidebar, FilterPanel in Header (Story 2.6), VelocityWidget (Story 2.7), and ImportStoriesDialog (Story 3.7)
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      tasks: { getAllWithEpics: { invalidate: vi.fn() } },
+      epics: { getAll: { invalidate: vi.fn() } }
+    }),
     sprints: {
       getAll: {
         useQuery: () => ({
@@ -58,6 +62,34 @@ vi.mock('@renderer/lib/trpc', () => ({
         useQuery: () => ({
           data: { days: [], totalCompleted: 0 },
           isLoading: false
+        })
+      }
+    },
+    // Story 3.7: Mock import router for ImportStoriesDialog
+    import: {
+      importStoriesFromEpics: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({
+            epicsCreated: 0,
+            epicsUpdated: 0,
+            storiesCreated: 0,
+            storiesUpdated: 0,
+            epicIds: [],
+            storyIds: []
+          }),
+          isPending: false,
+          reset: vi.fn(),
+          data: null,
+          error: null
+        })
+      }
+    },
+    config: {
+      showOpenDialog: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          isPending: false
         })
       }
     }

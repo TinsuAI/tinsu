@@ -19,7 +19,9 @@ import { TaskCard } from './TaskCard'
 import { SortableTaskCard } from './SortableTaskCard'
 import { PlanningTaskCard } from './PlanningTaskCard'
 import { SortablePlanningTaskCard } from './SortablePlanningTaskCard'
-import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask } from '@shared/types/task.types'
+import { StoryTaskCard } from './StoryTaskCard'
+import { SortableStoryTaskCard } from './SortableStoryTaskCard'
+import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask, isStoryTask } from '@shared/types/task.types'
 
 interface KanbanBoardProps {
   tasks: Task[]
@@ -41,6 +43,12 @@ interface KanbanBoardProps {
   onOpenArtifact?: (artifactPath: string) => void
   /** Story 3.4: Callback when a planning task is dragged to In Progress */
   onPlanningTaskStart?: (taskId: string) => void
+  /** Story 3.7: Callback when Import Stories button is clicked on phase 5 card */
+  onImportStories?: (artifactPath: string) => void
+  /** Story 3.7: Callback when phase 5 (Epics & Stories) planning task is moved to done */
+  onPhase5Complete?: (artifactPath: string) => void
+  /** Story 3.7: Callback when a story task card is clicked to view details */
+  onStoryClick?: (taskId: string) => void
 }
 
 export function KanbanBoard({
@@ -54,7 +62,10 @@ export function KanbanBoard({
   onReorder,
   onAddTask,
   onOpenArtifact,
-  onPlanningTaskStart
+  onPlanningTaskStart,
+  onImportStories,
+  onPhase5Complete,
+  onStoryClick
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -203,6 +214,16 @@ export function KanbanBoard({
           if (targetStatus === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
             onPlanningTaskStart(taskId)
           }
+          // Story 3.7: Trigger import when phase 5 (Epics & Stories) is moved to done
+          if (
+            targetStatus === 'done' &&
+            isPlanningTask(task) &&
+            task.phase_number === 5 &&
+            task.artifact_path &&
+            onPhase5Complete
+          ) {
+            onPhase5Complete(task.artifact_path)
+          }
         }
         return
       }
@@ -216,6 +237,16 @@ export function KanbanBoard({
           // Story 3.4: Trigger agent launch when planning task moved to in_progress
           if (targetTask.status === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
             onPlanningTaskStart(taskId)
+          }
+          // Story 3.7: Trigger import when phase 5 (Epics & Stories) is moved to done
+          if (
+            targetTask.status === 'done' &&
+            isPlanningTask(task) &&
+            task.phase_number === 5 &&
+            task.artifact_path &&
+            onPhase5Complete
+          ) {
+            onPhase5Complete(task.artifact_path)
           }
         }
         // If same column, handle reorder
@@ -239,7 +270,7 @@ export function KanbanBoard({
         }
       }
     },
-    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart]
+    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete]
   )
 
   const handleDragCancel = useCallback(() => {
@@ -352,6 +383,20 @@ export function KanbanBoard({
                                 ? () => onOpenArtifact(task.artifact_path!)
                                 : undefined
                             }
+                            onImportStories={
+                              onImportStories
+                                ? () => onImportStories(task.artifact_path ?? '')
+                                : undefined
+                            }
+                            isDragging={activeId === task.id}
+                          />
+                        ) : isStoryTask(task) ? (
+                          <SortableStoryTaskCard
+                            task={task}
+                            epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
+                            epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
+                            onNavigate={(direction) => handleNavigate(task.id, direction)}
+                            onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
                             isDragging={activeId === task.id}
                           />
                         ) : (
@@ -383,6 +428,12 @@ export function KanbanBoard({
                 isStartHere={activeTask.is_start_here ?? false}
                 isCompleted={activeTask.status === 'done'}
                 artifactPath={activeTask.artifact_path}
+              />
+            ) : isStoryTask(activeTask) ? (
+              <StoryTaskCard
+                task={activeTask}
+                epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
+                epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
               />
             ) : (
               <TaskCard

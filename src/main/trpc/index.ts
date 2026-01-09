@@ -7,6 +7,7 @@ import { epicRouter } from './routers/epic.router'
 import { sprintRouter } from './routers/sprint.router'
 import { velocityRouter } from './routers/velocity.router'
 import { agentRouter } from './routers/agent.router'
+import { importRouter } from './routers/import.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -17,7 +18,8 @@ export const appRouter = router({
   epics: epicRouter,
   sprints: sprintRouter,
   velocity: velocityRouter,
-  agent: agentRouter
+  agent: agentRouter,
+  import: importRouter
 })
 
 // Export type for client consumption

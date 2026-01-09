@@ -2,12 +2,15 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { Welcome } from './components/Welcome'
 import { KanbanBoardContainer } from './components/board'
+import { StoryFullView } from './components/story'
 import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
+import { useStoryViewStore } from './stores'
 import { trpc } from './lib/trpc'
 
 function App(): React.JSX.Element {
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
+  const activeStoryId = useStoryViewStore((state) => state.activeStoryId)
   const hasAttemptedReopen = useRef(false)
   // Track whether we're attempting to reopen a persisted project
   const [isReopening, setIsReopening] = useState(() => {
@@ -65,6 +68,16 @@ function App(): React.JSX.Element {
     return (
       <>
         <Welcome onProjectOpened={handleProjectOpened} />
+        <Toaster />
+      </>
+    )
+  }
+
+  // Show full-page story view when a story is active
+  if (activeStoryId) {
+    return (
+      <>
+        <StoryFullView />
         <Toaster />
       </>
     )

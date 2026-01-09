@@ -241,6 +241,24 @@ export const taskRouter = router({
     return result
   }),
 
+  // Delete all tasks in current project
+  deleteAll: publicProcedure.mutation(({ ctx }) => {
+    if (!ctx.projectId) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'No project open'
+      })
+    }
+
+    const result = ctx.db
+      .delete(tasks)
+      .where(eq(tasks.project_id, ctx.projectId))
+      .returning()
+      .all()
+
+    return { deletedCount: result.length }
+  }),
+
   // Story 3.3: Update artifact path for a planning task
   updateArtifactPath: publicProcedure
     .input(
@@ -265,6 +283,42 @@ export const taskRouter = router({
             .update(tasks)
             .set({
               artifact_path: input.artifactPath,
+              updated_at: new Date()
+            })
+            .where(eq(tasks.id, input.id))
+            .returning()
+            .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+      return result
+    }),
+
+  // Story 3.7: Update full_content for a story task
+  updateFullContent: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        fullContent: z.string()
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      // Update full_content with project ownership check
+      const result = ctx.projectId
+        ? ctx.db
+            .update(tasks)
+            .set({
+              full_content: input.fullContent,
+              updated_at: new Date()
+            })
+            .where(and(eq(tasks.id, input.id), eq(tasks.project_id, ctx.projectId)))
+            .returning()
+            .get()
+        : ctx.db
+            .update(tasks)
+            .set({
+              full_content: input.fullContent,
               updated_at: new Date()
             })
             .where(eq(tasks.id, input.id))

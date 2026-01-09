@@ -357,3 +357,73 @@ describe('PlanningTaskCard with AgentStatusBadge', () => {
     expect(screen.getByTestId('agent-status-running')).toBeInTheDocument()
   })
 })
+
+// Story 3.7: Import Stories button tests
+describe('PlanningTaskCard Import Stories button', () => {
+  const phase5Task: PlanningTask = {
+    ...mockPlanningTask,
+    id: 'planning-5',
+    phase_number: 5,
+    phase_name: 'Epics & Stories',
+    artifact_path: '_bmad-output/planning-artifacts/epics.md'
+  }
+
+  it('shows Import Stories button on phase 5 when completed', () => {
+    render(<PlanningTaskCard task={phase5Task} isCompleted artifactPath={phase5Task.artifact_path} />)
+
+    expect(screen.getByTestId('import-stories-button')).toBeInTheDocument()
+    expect(screen.getByText('Import Stories')).toBeInTheDocument()
+  })
+
+  it('does not show Import Stories button on phase 5 when not completed', () => {
+    render(<PlanningTaskCard task={phase5Task} isCompleted={false} />)
+
+    expect(screen.queryByTestId('import-stories-button')).not.toBeInTheDocument()
+  })
+
+  it('does not show Import Stories button on other phases even when completed', () => {
+    const phase3Task: PlanningTask = {
+      ...mockPlanningTask,
+      phase_number: 3,
+      phase_name: 'Architecture'
+    }
+    render(<PlanningTaskCard task={phase3Task} isCompleted artifactPath="_bmad-output/arch.md" />)
+
+    expect(screen.queryByTestId('import-stories-button')).not.toBeInTheDocument()
+  })
+
+  it('calls onImportStories when Import Stories button clicked', async () => {
+    const onImportStories = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard
+        task={phase5Task}
+        isCompleted
+        artifactPath={phase5Task.artifact_path}
+        onImportStories={onImportStories}
+      />
+    )
+
+    await user.click(screen.getByTestId('import-stories-button'))
+
+    expect(onImportStories).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not propagate click to card when button clicked', async () => {
+    const onOpenArtifact = vi.fn()
+    const onImportStories = vi.fn()
+    const { user } = renderWithUser(
+      <PlanningTaskCard
+        task={phase5Task}
+        isCompleted
+        artifactPath={phase5Task.artifact_path}
+        onOpenArtifact={onOpenArtifact}
+        onImportStories={onImportStories}
+      />
+    )
+
+    await user.click(screen.getByTestId('import-stories-button'))
+
+    expect(onImportStories).toHaveBeenCalledTimes(1)
+    expect(onOpenArtifact).not.toHaveBeenCalled()
+  })
+})

@@ -369,3 +369,26 @@ describe('KanbanBoard planning task agent launch (Story 3.4)', () => {
   // planning task is dragged to in_progress requires @dnd-kit/testing utilities
   // The actual integration behavior is tested in KanbanBoardContainer tests
 })
+
+// Story 3.7: Import stories when phase 5 planning task completes
+describe('KanbanBoard phase 5 completion (Story 3.7)', () => {
+  it('should accept onPhase5Complete callback', () => {
+    const onPhase5Complete = vi.fn()
+    render(<KanbanBoard tasks={mockTasks} onPhase5Complete={onPhase5Complete} />)
+
+    // Callback should be accepted without error
+    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+  })
+
+  it('should accept onImportStories callback', () => {
+    const onImportStories = vi.fn()
+    render(<KanbanBoard tasks={mockTasks} onImportStories={onImportStories} />)
+
+    // Callback should be accepted without error
+    expect(screen.getByTestId('kanban-board')).toBeInTheDocument()
+  })
+
+  // Note: Full drag simulation to verify onPhase5Complete is called when
+  // phase 5 planning task is dragged to done requires @dnd-kit/testing utilities
+  // The actual integration behavior is tested in KanbanBoardContainer tests
+})

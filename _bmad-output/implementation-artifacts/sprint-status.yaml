@@ -70,11 +70,11 @@ development_status:
   3-1-planning-task-type-and-database-schema: done
   3-1-5-multi-project-database-support: done
   3-2-initialize-planning-tasks-on-new-project: done
-  3-3-planning-task-card-ui: review
+  3-3-planning-task-card-ui: done
   3-4-bmad-agent-launcher: done
-  3-5-artifact-detection-on-phase-completion: backlog
-  3-6-next-phase-suggestion-with-skip-warning: backlog
-  3-7-story-import-after-epics-phase: backlog
+  3-5-artifact-detection-on-phase-completion: deferred
+  3-6-next-phase-suggestion-with-skip-warning: deferred
+  3-7-story-import-after-epics-phase: in-progress
   3-8-bmad-artifact-scanner-and-parser: backlog
   3-9-bidirectional-sync-between-kanban-and-epics-md: backlog
   3-10-link-artifacts-to-tasks: backlog

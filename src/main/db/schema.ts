@@ -53,7 +53,7 @@ export const EPIC_COLORS = [
 ] as const
 export type EpicColor = (typeof EPIC_COLORS)[number]
 
-// Epics table (Story 2.5 - AC1, Story 3.1.5 - project_id)
+// Epics table (Story 2.5 - AC1, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
 export const epics = sqliteTable(
   'epics',
   {
@@ -61,6 +61,9 @@ export const epics = sqliteTable(
     title: text('title').notNull(),
     description: text('description'),
     color: text('color').notNull().default('blue'),
+    // Story 3.7: Epic number and goal for imported epics from epics.md
+    epic_number: integer('epic_number'), // 1, 2, 3... from epics.md
+    goal: text('goal'), // Goal description from epics.md
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })
@@ -88,7 +91,7 @@ export const sprints = sqliteTable(
   (table) => [index('idx_sprints_project_id').on(table.project_id)]
 )
 
-// Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields, Story 3.2 - is_start_here, Story 3.1.5 - project_id)
+// Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields, Story 3.2 - is_start_here, Story 3.1.5 - project_id, Story 3.7 - story_number)
 export const tasks = sqliteTable(
   'tasks',
   {
@@ -109,6 +112,11 @@ export const tasks = sqliteTable(
     is_start_here: integer('is_start_here', { mode: 'boolean' }), // true only for phase 1, null for others
     // Story 3.3: Artifact path for completed planning tasks
     artifact_path: text('artifact_path'), // Path to generated artifact file
+    // Story 3.7: Story number for imported stories from epics.md
+    story_number: integer('story_number'), // 1, 2, 3... within each epic
+    // Story 3.7: Full content from detailed story file in implementation-artifacts
+    story_file_path: text('story_file_path'), // Path to detailed story .md file
+    full_content: text('full_content'), // Full markdown content from detailed story file
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })
