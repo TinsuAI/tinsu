@@ -27,10 +27,10 @@ interface StoryViewStore {
 export const useStoryViewStore = create<StoryViewStore>()((set) => ({
   // Initial state
   activeStoryId: null,
-  isEditing: false,
+  isEditing: true,
 
   // Actions
-  openStory: (storyId) => set({ activeStoryId: storyId, isEditing: false }),
+  openStory: (storyId) => set({ activeStoryId: storyId, isEditing: true }),
   closeStory: () => set({ activeStoryId: null, isEditing: false }),
   setEditing: (editing) => set({ isEditing: editing }),
   toggleEditing: () => set((state) => ({ isEditing: !state.isEditing }))

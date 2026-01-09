@@ -3,10 +3,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check } from 'lucide-react'
+import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
+import { NotionEditor } from '@renderer/components/editor'
 import { useStoryViewStore } from '@renderer/stores'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
@@ -271,17 +272,28 @@ export function StoryFullView() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleCancel}
+                  onClick={() => setEditing(false)}
                   className="gap-2 text-muted-foreground"
                 >
-                  <X className="h-4 w-4" />
-                  Cancel
+                  <Eye className="h-4 w-4" />
+                  Preview
                 </Button>
+                {hasChanges && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancel}
+                    className="gap-2 text-muted-foreground hover:text-red-400"
+                  >
+                    <X className="h-4 w-4" />
+                    Discard
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleSave}
                   disabled={updateMutation.isPending || !hasChanges}
-                  className="gap-2 bg-cyan-600 text-white hover:bg-cyan-700"
+                  className="gap-2 bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50"
                 >
                   {updateMutation.isPending ? (
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -345,30 +357,22 @@ export function StoryFullView() {
         {/* Content area */}
         {isEditing ? (
           <div className="relative">
-            {/* Edit mode indicator */}
-            <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <Pencil className="h-3.5 w-3.5" />
-              <span>Editing mode</span>
-              <span className="text-xs text-muted-foreground/60">
-                — Press <kbd className="rounded border border-border px-1.5 py-0.5 text-xs">⌘S</kbd>{' '}
-                to save, <kbd className="rounded border border-border px-1.5 py-0.5 text-xs">Esc</kbd>{' '}
-                to cancel
-              </span>
+            {/* Keyboard shortcuts hint */}
+            <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground/60">
+              <kbd className="rounded border border-border px-1.5 py-0.5">⌘S</kbd>
+              <span>save</span>
+              <span className="mx-1">·</span>
+              <kbd className="rounded border border-border px-1.5 py-0.5">/</kbd>
+              <span>commands</span>
             </div>
 
-            {/* Textarea for editing */}
-            <textarea
-              value={editContent}
-              onChange={(e) => handleContentChange(e.target.value)}
-              className={cn(
-                'min-h-[60vh] w-full resize-y rounded-lg border border-border/50 bg-card/50 p-6',
-                'font-mono text-sm leading-relaxed text-foreground',
-                'placeholder:text-muted-foreground/50',
-                'focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30',
-                'transition-colors'
-              )}
-              placeholder="Write your story content in Markdown..."
+            {/* Notion-like rich text editor */}
+            <NotionEditor
+              content={editContent}
+              onChange={handleContentChange}
+              placeholder="Start writing your story..."
               autoFocus
+              className="min-h-[60vh] rounded-lg border border-border/50 bg-card/30 p-6"
             />
 
             {/* Change indicator */}
