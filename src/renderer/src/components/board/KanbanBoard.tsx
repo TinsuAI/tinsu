@@ -353,7 +353,7 @@ export function KanbanBoard({
       accessibility={{ announcements }}
     >
       <div
-        className={cn('grid flex-1 grid-cols-4 gap-4 p-4', className)}
+        className={cn('grid h-full min-h-0 flex-1 grid-cols-4 gap-4 overflow-hidden p-4', className)}
         data-testid="kanban-board"
       >
         {sortedStatuses.map((status) => {

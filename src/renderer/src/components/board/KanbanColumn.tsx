@@ -48,7 +48,7 @@ export function KanbanColumn({
       role="listbox"
       aria-label={`${config.title} column with ${taskCount} tasks`}
       className={cn(
-        'flex flex-col rounded-lg bg-card',
+        'flex min-h-0 flex-col rounded-lg bg-card',
         'border border-border',
         // Highlight when item is dragged over
         isOver && 'border-primary/50 bg-primary/5',
@@ -79,7 +79,7 @@ export function KanbanColumn({
       </div>
 
       {/* Column content with vertical scroll */}
-      <div className="flex-1 overflow-y-auto p-4">{children}</div>
+      <div className="kanban-scroll flex-1 overflow-y-auto p-4">{children}</div>
     </div>
   )
 }

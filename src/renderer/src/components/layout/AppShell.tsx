@@ -49,14 +49,14 @@ export function AppShell({ children }: AppShellProps) {
   const terminalHeight = isExpanded ? height : 80
 
   return (
-    <div className="flex min-h-screen min-w-[1024px] flex-col bg-background">
+    <div className="flex h-screen min-w-[1024px] flex-col overflow-hidden bg-background">
       <Header
         onImportStories={handleImportStories}
         onDeleteAllTasks={handleDeleteAllTasks}
         onSyncAll={handleSyncAll}
         isSyncingAll={isSyncingAll}
       />
-      <div className="flex flex-1" style={{ paddingBottom: terminalHeight }}>
+      <div className="flex min-h-0 flex-1 overflow-hidden" style={{ paddingBottom: terminalHeight }}>
         <Sidebar />
         <MainContent>{children}</MainContent>
       </div>
