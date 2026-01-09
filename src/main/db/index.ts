@@ -27,7 +27,88 @@ function ensureDbDirectory(dbPath: string): void {
  * This handles adding new columns that may be missing in older databases.
  */
 function applyIncrementalMigrations(sqlite: Database.Database): void {
-  // Get existing columns in tasks table
+  // First, ensure all base tables exist (for fresh databases)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+    )
+  `)
+
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS epics (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      color TEXT NOT NULL DEFAULT 'blue',
+      epic_number INTEGER,
+      goal TEXT,
+      project_id TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+    )
+  `)
+
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS sprints (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      start_date INTEGER,
+      end_date INTEGER,
+      is_active INTEGER NOT NULL DEFAULT 0,
+      project_id TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+    )
+  `)
+
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'backlog',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      epic_id TEXT,
+      sprint_id TEXT,
+      task_type TEXT NOT NULL DEFAULT 'story',
+      phase_number INTEGER,
+      phase_name TEXT,
+      bmad_agent TEXT,
+      bmad_workflow TEXT,
+      is_start_here INTEGER,
+      artifact_path TEXT,
+      story_number INTEGER,
+      story_file_path TEXT,
+      full_content TEXT,
+      project_id TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
+    )
+  `)
+
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      start_time INTEGER NOT NULL,
+      end_time INTEGER,
+      duration_ms INTEGER,
+      token_usage INTEGER,
+      exit_status TEXT,
+      log_path TEXT
+    )
+  `)
+
+  // Create indexes
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_epic_id ON tasks(epic_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks(task_type)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_agent_runs_task_id ON agent_runs(task_id)')
+
+  // Get existing columns in tasks table for incremental migrations
   const columns = sqlite
     .prepare("PRAGMA table_info(tasks)")
     .all() as Array<{ name: string }>
