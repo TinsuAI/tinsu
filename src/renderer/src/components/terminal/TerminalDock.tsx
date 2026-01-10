@@ -163,6 +163,7 @@ export function TerminalDock(): React.JSX.Element {
   }, [isExpanded, dockPosition])
 
   // Container classes based on dock position
+  // Note: left/right positions use top-12 to avoid overlapping with the header (h-12 = 48px)
   const containerClasses = useMemo(() => {
     const base = 'fixed bg-zinc-900 z-50 transition-all duration-200 ease-out'
     switch (dockPosition) {
@@ -171,9 +172,9 @@ export function TerminalDock(): React.JSX.Element {
       case 'top':
         return cn(base, 'top-0 left-0 right-0 border-b border-zinc-800 flex flex-col')
       case 'left':
-        return cn(base, 'top-0 left-0 bottom-0 border-r border-zinc-800 flex flex-row')
+        return cn(base, 'top-12 left-0 bottom-0 border-r border-zinc-800 flex flex-row')
       case 'right':
-        return cn(base, 'top-0 right-0 bottom-0 border-l border-zinc-800 flex flex-row-reverse')
+        return cn(base, 'top-12 right-0 bottom-0 border-l border-zinc-800 flex flex-row-reverse')
     }
   }, [dockPosition])
 
