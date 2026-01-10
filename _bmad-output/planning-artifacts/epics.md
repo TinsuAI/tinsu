@@ -1465,110 +1465,234 @@ So that I can update my PRD or Architecture as I learn more.
 
 ---
 
-## Epic 5: Story Implementation Workflow
+## Epic 5: Task Execution Workflow
 
-**Goal:** Founder can execute stories using the full BMAD implementation workflow (Sprint Planning → SM Draft → DEV Implement → DEV Review → Human Review → Retrospective) or basic Claude Code mode. Multi-agent orchestration with configurable models, automated code review loop (max 5 retries), and epic retrospectives.
+**Goal:** Founder can execute tasks using two distinct paths based on task type:
+
+1. **Story Tasks (BMAD Method):** Create Story column generates full story file via `/bmad:bmm:workflows:create-story` → User reviews → In Progress executes via `/bmad:bmm:workflows:dev-story` → Automated code review → Human Review
+
+2. **Basic Tasks (Direct Execution):** Skip Create Story → In Progress executes directly with task description → Human Review
+
+Multi-agent orchestration with configurable models, automated code review loop (max 5 retries), and epic retrospectives.
 
 **FRs covered:** FR7, FR8, FR9, FR10, FR11
-**Dependencies:** Epic 1 (PTY, terminal), Epic 2 (Kanban), Epic 3 (context injection)
+**Dependencies:** Epic 1 (PTY, terminal), Epic 2 (Kanban with 5 columns), Epic 3 (context injection)
 
-### Story 5.1: Execution Mode Configuration
+### Story 5.1: Agent Model Configuration
 
 As a founder,
-I want to configure the execution mode and model settings for my project,
-So that I can choose between full BMAD workflow or basic Claude Code execution.
+I want to configure the AI model settings for task execution,
+So that I can optimize cost/performance for different agent roles.
 
 **Acceptance Criteria:**
 
 **Given** the project settings panel
-**When** I view execution configuration
-**Then** I see options for: Execution Mode (BMAD Method | Basic Claude Code)
-**And** I see model selection for: Dev Agent, Review Agent
+**When** I view agent configuration
+**Then** I see model selection for:
+  - Dev Agent model (used for /dev-story and Basic Task execution)
+  - Review Agent model (used for automated code review)
 **And** settings persist in .tinsu/config.yaml
 
-**Given** BMAD Method mode is selected
-**When** I configure models
-**Then** I can select different models for Dev (e.g., Claude Opus) and Review (e.g., Claude Sonnet)
-**And** a tooltip explains why different models are recommended
+**Given** I configure models
+**When** I select different models for Dev and Review agents
+**Then** a tooltip explains: "Use powerful model for Dev, faster model for Review"
+**And** I can select from available Claude models (Opus, Sonnet, etc.)
 
-**Given** Basic Claude Code mode is selected
+**Given** the dual-mode execution system
 **When** I view settings
-**Then** model selection shows only one model option
-**And** the multi-agent workflow options are hidden
+**Then** I understand that:
+  - Story Tasks automatically use BMAD workflows
+  - Basic Tasks automatically use direct Claude Code execution
+  - Model settings apply to both modes
 
-**Given** I change execution mode
-**When** I save settings
-**Then** the change applies to future story executions
-**And** in-progress stories continue with their original mode
-
----
-
-### Story 5.2: Sprint Planning Agent Step
-
-As a founder,
-I want TinSu to run the Scrum Master agent for sprint planning at the start of a sprint,
-So that stories are properly prioritized and the sprint scope is defined.
-
-**Acceptance Criteria:**
-
-**Given** I have stories in Backlog
-**When** I click "Start Sprint" or create a new sprint
-**Then** TinSu prompts: "Run Sprint Planning with SM agent?"
-**And** I can choose "Run Planning" or "Skip"
-
-**Given** I choose "Run Planning"
-**When** the SM agent spawns
-**Then** it analyzes available stories and suggests sprint scope
-**And** the terminal shows the agent's reasoning
-**And** a sprint-status.yaml file is created/updated
-
-**Given** sprint planning completes
-**When** I view the board
-**Then** suggested stories are marked with a "Sprint" badge
-**And** I can accept or modify the sprint scope
-
-**Given** I skip sprint planning
-**When** I proceed
-**Then** I can manually add stories to the sprint
-**And** no SM agent is invoked
-
-**Given** an active sprint exists
-**When** I try to start another sprint
-**Then** TinSu warns: "Active sprint exists. Close current sprint first?"
+**Given** I save model settings
+**When** a task starts execution
+**Then** the configured models are used for that execution
+**And** in-progress tasks continue with their original model settings
 
 ---
 
-### Story 5.3: Trigger Story Execution on Drag
+### Story 5.2: [REMOVED - Not needed for MVP]
+
+> **Note:** Sprint planning can be done manually by dragging stories into sprints,
+> or by using BMAD's `/sprint-planning` workflow directly in Claude Code.
+> Automated SM agent sprint planning is not required for MVP.
+
+---
+
+### Story 5.2b: Add "Create Story" Column to Kanban Board
 
 As a founder,
-I want to start story execution by dragging a story card to In Progress,
-So that the BMAD workflow begins automatically (FR7).
+I want a "Create Story" column between Backlog and In Progress,
+So that Story Tasks have a dedicated phase for full story file generation before development.
 
 **Acceptance Criteria:**
 
-**Given** BMAD Method mode is configured
-**When** I drag a story to In Progress
-**Then** TinSu shows the workflow steps: "SM Draft → DEV → Review"
-**And** the first agent (SM) spawns automatically
+**Given** the existing 4-column Kanban board
+**When** Epic 5 is implemented
+**Then** a new "Create Story" column appears between "Backlog" and "In Progress"
+**And** the board now has 5 columns: Backlog → Create Story → In Progress → Review → Done
+
+**Given** the "Create Story" column header
+**When** I view it
+**Then** it displays the column name and task count
+**And** a tooltip explains: "Story Tasks generate full story files here before development"
+**And** an optional icon distinguishes it from other columns
+
+**Given** the 5-column layout
+**When** I view the board on desktop (1024px+)
+**Then** all 5 columns fit with equal width and 16px padding
+**And** horizontal scrolling is available if viewport is narrower
+
+**Given** the database schema
+**When** the column is added
+**Then** task status enum includes: 'backlog', 'create_story', 'in_progress', 'review', 'done'
+**And** existing tasks remain in their current status (no migration issues)
+
+---
+
+### Story 5.2c: Task Type and Story File Status Handling
+
+As a founder,
+I want tasks classified by type (Story/Basic) and Story Tasks to show their story file status,
+So that I know which tasks need story creation and which are ready for development.
+
+**Acceptance Criteria:**
+
+**TASK TYPE ASSIGNMENT:**
+
+**Given** a task is imported from epics.md (via Epic 3 story sync)
+**When** the import completes
+**Then** the task is marked as type: "story_task"
+**And** story_file_status is set to: "summary_only"
+**And** a visual indicator shows it's a Story Task without full story
+
+**Given** I create a task manually on the Kanban board
+**When** I save the new task
+**Then** the task is marked as type: "basic_task"
+**And** story_file_status is null (not applicable)
+**And** a visual indicator shows it's a Basic Task
+
+**STORY FILE STATUS (Story Tasks only):**
+
+**Given** a Story Task with story_file_status: "summary_only"
+**When** I view the card
+**Then** it shows an indicator: "Summary Only" or similar icon
+**And** a tooltip explains: "Needs full story creation before development"
+
+**Given** a Story Task completes the Create Story workflow
+**When** the story file is saved to `implementation-artifacts/`
+**Then** story_file_status updates to: "story_ready"
+**And** the card shows: "Story Ready" indicator
+**And** a link to the story file appears on the card
+
+**Given** a Story Task with story_file_status: "story_ready"
+**When** I view the card in Create Story column
+**Then** it shows the story file path
+**And** I can click to preview/review the story content
+
+**DRAG BEHAVIOR:**
+
+**Given** a Story Task with status "summary_only"
+**When** I try to drag it to "In Progress"
+**Then** TinSu warns: "Story file required. Move to 'Create Story' first."
+**And** the drag is prevented
+
+**Given** a Story Task with status "story_ready"
+**When** I drag it to "In Progress"
+**Then** the drag succeeds
+**And** `/bmad:bmm:workflows:dev-story` executes with the story file
+
+**Given** a Basic Task
+**When** I view valid drag targets
+**Then** "Create Story" is not a valid destination (grayed out)
+**And** can drag directly from Backlog to In Progress
+
+**SCHEMA:**
+
+**Given** the tasks database table
+**When** Epic 5 is implemented
+**Then** columns added:
+  - `task_type`: enum ('story_task', 'basic_task'), default 'basic_task'
+  - `story_file_status`: enum ('summary_only', 'story_ready') | null
+  - `story_file_path`: string | null (path to implementation-artifacts file)
+**And** existing tasks default to 'basic_task' (safe migration)
+
+---
+
+### Story 5.3: Story Task Execution Path (BMAD Workflow)
+
+As a founder,
+I want Story Tasks to go through a "Create Story" phase before development,
+So that full story content is generated and reviewed before implementation begins.
+
+**Acceptance Criteria:**
+
+**Given** a Story Task (imported from epics.md or created via BMAD workflow)
+**When** I drag it to the "Create Story" column
+**Then** TinSu prompts: "Create full story file using /bmad:bmm:workflows:create-story?"
+**And** on confirmation, Claude Code spawns with the create-story workflow
 **And** the terminal dock expands
 
-**Given** Basic Claude Code mode is configured
-**When** I drag a story to In Progress
-**Then** Claude Code spawns directly with story context
-**And** no multi-agent workflow UI is shown
+**Given** create-story workflow completes
+**When** the full story file is saved to `implementation-artifacts/`
+**Then** the task card shows "Story Ready" status
+**And** a link to the story file appears on the card
+**And** I can review the full story content before proceeding
 
-**Given** a story is already In Progress
-**When** I try to drag another story to In Progress
-**Then** TinSu warns: "Another story is running. Queue this story?"
+**Given** a Story Task in "Create Story" with full story file
+**When** I drag it to "In Progress"
+**Then** TinSu executes `/bmad:bmm:workflows:dev-story` with the story file
+**And** the BMAD workflow steps display: "DEV → Review"
+
+**Given** a Story Task without a story file
+**When** I try to drag it directly to "In Progress" (skipping Create Story)
+**Then** TinSu warns: "Story file required. Move to 'Create Story' first to generate it."
+
+**Given** a task is already In Progress
+**When** I try to drag another task to In Progress
+**Then** TinSu warns: "Another task is running. Queue this task?"
 **And** I can choose "Queue", "Cancel", or "Run in parallel" (if supported)
-
-**Given** the story has no acceptance criteria
-**When** I drag it to In Progress
-**Then** TinSu warns: "Story has no acceptance criteria. SM agent will draft them first."
 
 ---
 
-### Story 5.4: SM Agent: Draft Story File
+### Story 5.3b: Basic Task Execution Path (Direct Execution)
+
+As a founder,
+I want Basic Tasks to execute directly when moved to In Progress,
+So that manually-created tasks run without BMAD workflow overhead.
+
+**Acceptance Criteria:**
+
+**Given** a Basic Task (manually created on kanban board)
+**When** I drag it to "In Progress"
+**Then** Claude Code spawns directly with the task description/prompt
+**And** no BMAD workflow commands are used
+**And** the terminal dock expands
+
+**Given** a Basic Task
+**When** I view the Kanban board
+**Then** the "Create Story" column is visually skipped/grayed for Basic Tasks
+**Or** drag path goes directly from Backlog to In Progress
+
+**Given** a Basic Task execution completes
+**When** Claude Code exits successfully
+**Then** the task moves to "Review" column
+**And** standard review workflow applies
+
+**Given** a Basic Task
+**When** I try to drag it to "Create Story" column
+**Then** TinSu shows info: "Basic Tasks execute directly. Drag to In Progress instead."
+
+---
+
+### Story 5.4: [REMOVED - Merged into Story 5.3]
+
+> **Note:** Story file creation is now handled by the "Create Story" column workflow (Story 5.3). When a Story Task moves to "Create Story", the `/bmad:bmm:workflows:create-story` command generates the full story file. This eliminates the need for a separate SM draft step inside "In Progress".
+
+---
+
+### Story 5.5: DEV Agent: Implement Story
 
 As a founder,
 I want the Scrum Master agent to draft detailed story files before development,
@@ -1901,33 +2025,14 @@ So that learnings are captured for future sprints.
 
 ---
 
-### Story 5.14: Basic Claude Code Mode (Fallback)
+### Story 5.14: [REMOVED - Covered by Story 5.3b]
 
-As a founder,
-I want a simple execution mode without the multi-agent workflow,
-So that I can quickly test or run simple tasks.
-
-**Acceptance Criteria:**
-
-**Given** Basic Claude Code mode is configured
-**When** I drag a story to In Progress
-**Then** Claude Code spawns directly with Context Builder output
-**And** no SM draft or code review steps occur
-
-**Given** basic mode execution
-**When** the agent completes
-**Then** task moves to Review (success) or stays In Progress (error)
-**And** only one agent run is recorded in history
-
-**Given** I want to switch modes mid-project
-**When** I change execution mode in settings
-**Then** the change applies to next story execution
-**And** in-progress stories continue with their original mode
-
-**Given** basic mode is selected
-**When** I view settings
-**Then** review model configuration is hidden
-**And** UI is simplified to single-model selection
+> **Note:** Basic Task execution is now handled by Story 5.3b (Basic Task Execution Path).
+> The execution mode is determined automatically by task type:
+> - Story Tasks → BMAD workflow (Story 5.3)
+> - Basic Tasks → Direct execution (Story 5.3b)
+>
+> There is no project-level "mode" setting – both modes are always available.
 
 ---
 

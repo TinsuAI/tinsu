@@ -555,7 +555,7 @@ tinsu/
 │   │   │   │   └── BottomPanel.tsx      # Collapsible terminal area
 │   │   │   │
 │   │   │   ├── board/
-│   │   │   │   ├── KanbanBoard.tsx      # FR1: 4-column board container
+│   │   │   │   ├── KanbanBoard.tsx      # FR1: 5-column board container
 │   │   │   │   ├── KanbanColumn.tsx     # FR1: Single column (Backlog/In Progress/Review/Done)
 │   │   │   │   ├── TaskCard.tsx         # FR2: Draggable task card
 │   │   │   │   └── NewTaskButton.tsx    # FR3: Quick task creation

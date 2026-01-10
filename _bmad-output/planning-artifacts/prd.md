@@ -447,7 +447,7 @@ project/
 
 ### Board & Task Management
 
-- FR1: Founder can view a Kanban board with four columns (Backlog, In Progress, Review, Done)
+- FR1: Founder can view a Kanban board with five columns (Backlog, Create Story, In Progress, Review, Done)
 - FR2: Founder can drag tasks between columns to change their status
 - FR3: Founder can create new tasks (stories) with title, description, and acceptance criteria
 - FR4: Founder can organize tasks into a Sprint/Epic/Story hierarchy

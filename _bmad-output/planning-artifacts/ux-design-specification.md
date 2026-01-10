@@ -541,7 +541,7 @@ This hybrid approach combines the familiar, instant-recognition Kanban layout wi
 
 | Decision                            | Rationale                                                  |
 | ----------------------------------- | ---------------------------------------------------------- |
-| **Classic 4-column Kanban**         | Trello mental model = zero learning curve for target users |
+| **Classic 5-column Kanban**         | Trello mental model = zero learning curve for target users |
 | **Larger terminal (30-40% height)** | Supports "teammate not machine" emotional goal             |
 | **Slide-over review panel**         | Maintains board context during approval loop               |
 | **Cards with status badges**        | Glanceable agent state without clicking                    |
@@ -551,7 +551,7 @@ This hybrid approach combines the familiar, instant-recognition Kanban layout wi
 
 | Element            | Specification                                              |
 | ------------------ | ---------------------------------------------------------- |
-| **Board columns**  | 4 equal-width columns (Backlog, In Progress, Review, Done) |
+| **Board columns**  | 5 equal-width columns (Backlog, Create Story, In Progress, Review, Done) |
 | **Card height**    | Auto-sized based on content, ~80-100px typical             |
 | **Card gap**       | 12px between cards                                         |
 | **Column padding** | 16px                                                       |
@@ -563,7 +563,7 @@ This hybrid approach combines the familiar, instant-recognition Kanban layout wi
 
 **Phase 1: Core Layout**
 
-- Implement 4-column Kanban with drag-drop (using @dnd-kit or similar)
+- Implement 5-column Kanban with drag-drop (using @dnd-kit or similar)
 - Add card components with status badge variants
 - Build collapsible terminal dock with WebSocket streaming
 
@@ -849,7 +849,7 @@ TinSu leverages shadcn/ui (Tailwind CSS + Radix UI) as the foundation:
 
 **Structure:**
 
-- 4 columns: Backlog, In Progress, Review, Done
+- 5 columns: Backlog, Create Story, In Progress, Review, Done
 - Task cards with status, title, sprint/epic hierarchy
 - Column headers with task counts
 
@@ -1186,13 +1186,13 @@ Arrow keys: ← → between columns, ↑ ↓ within column
 
 | Viewport            | Primary Use        | Layout                                 |
 | ------------------- | ------------------ | -------------------------------------- |
-| Desktop (1024px+)   | Full workflow      | 4-column board + docked terminal       |
+| Desktop (1024px+)   | Full workflow      | 5-column board + docked terminal       |
 | Tablet (768-1023px) | Quick intervention | 2-column board, swipe for more columns |
 | Mobile (320-767px)  | Emergency actions  | Single card view, Review + Pause focus |
 
 **Desktop Layout:**
 
-- 4 equal-width columns (Backlog, In Progress, Review, Done)
+- 5 equal-width columns (Backlog, Create Story, In Progress, Review, Done)
 - Docked terminal at bottom (30-40% height, collapsible)
 - Review panel slides over from right (400px)
 
@@ -1214,7 +1214,7 @@ Arrow keys: ← → between columns, ↑ ↓ within column
 | ---------- | ------------- | ----------------------------------------------- |
 | `375px`    | Mobile        | Single column, minimal UI, bottom actions       |
 | `768px`    | Tablet        | 2-column board, collapsible terminal            |
-| `1024px`   | Desktop       | Full 4-column + docked terminal                 |
+| `1024px`   | Desktop       | Full 5-column + docked terminal                 |
 | `1440px`   | Large Desktop | Enhanced spacing, larger cards                  |
 | `1920px`   | Extra Large   | Optional split view with permanent review panel |
 

@@ -86,12 +86,16 @@ development_status:
   # epic-4: deferred
   # epic-4-retrospective: optional
 
-  # Epic 5: Story Implementation Workflow
+  # Epic 5: Task Execution Workflow (Updated 2026-01-10)
+  # Two-path execution: Story Tasks (BMAD) vs Basic Tasks (Direct)
   epic-5: backlog
-  5-1-execution-mode-configuration: backlog
-  5-2-sprint-planning-agent-step: backlog
-  5-3-trigger-story-execution-on-drag: backlog
-  5-4-sm-agent-draft-story-file: backlog
+  5-1-agent-model-configuration: backlog
+  # 5-2-sprint-planning-agent-step: removed (not needed for MVP)
+  5-2b-add-create-story-column: backlog
+  5-2c-task-type-and-story-file-status: backlog
+  5-3-story-task-execution-path: backlog
+  5-3b-basic-task-execution-path: backlog
+  # 5-4-sm-agent-draft-story-file: removed (merged into 5-3)
   5-5-dev-agent-implement-story: backlog
   5-6-dev-agent-automated-code-review: backlog
   5-7-code-review-retry-loop: backlog
@@ -101,7 +105,7 @@ development_status:
   5-11-context-notes-for-stories: backlog
   5-12-agent-run-history: backlog
   5-13-sm-agent-epic-retrospective: backlog
-  5-14-basic-claude-code-mode-fallback: backlog
+  # 5-14-basic-claude-code-mode-fallback: removed (covered by 5-3b)
   epic-5-retrospective: optional
 
   # Epic 6: Agent Monitoring & Control
