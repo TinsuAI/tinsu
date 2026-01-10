@@ -77,21 +77,16 @@ function App(): React.JSX.Element {
     )
   }
 
-  // Show full-page story view when a story is active
-  if (activeStoryId) {
-    return (
-      <>
-        <StoryFullView />
-        <Toaster />
-      </>
-    )
-  }
-
+  // Keep AppShell mounted but hidden when viewing stories to preserve scroll positions
+  // StoryFullView renders as full-screen overlay when active
   return (
     <>
-      <AppShell>
-        <KanbanBoardContainer />
-      </AppShell>
+      <div className={activeStoryId ? 'hidden' : undefined}>
+        <AppShell>
+          <KanbanBoardContainer />
+        </AppShell>
+      </div>
+      {activeStoryId && <StoryFullView />}
       <Toaster />
     </>
   )
