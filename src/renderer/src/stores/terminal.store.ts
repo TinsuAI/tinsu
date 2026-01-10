@@ -2,13 +2,21 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 const DEFAULT_HEIGHT = typeof window !== 'undefined' ? window.innerHeight * 0.35 : 300
-const MIN_HEIGHT = 80
+const DEFAULT_WIDTH = typeof window !== 'undefined' ? window.innerWidth * 0.35 : 400
+const MIN_SIZE = 80
+
+/** Terminal dock position options */
+export type DockPosition = 'bottom' | 'top' | 'left' | 'right'
 
 interface TerminalState {
   /** Whether the terminal dock is expanded */
   isExpanded: boolean
-  /** Height of the terminal dock in pixels */
+  /** Height of the terminal dock in pixels (for top/bottom positions) */
   height: number
+  /** Width of the terminal dock in pixels (for left/right positions) */
+  width: number
+  /** Position of the terminal dock */
+  dockPosition: DockPosition
   /** ID of the currently active PTY process */
   activeProcessId: string | null
   /** ID of the task that spawned the current agent process (Story 3.4) */
@@ -20,6 +28,10 @@ interface TerminalState {
   toggleExpanded: () => void
   /** Set the terminal dock height */
   setHeight: (height: number) => void
+  /** Set the terminal dock width */
+  setWidth: (width: number) => void
+  /** Set the dock position */
+  setDockPosition: (position: DockPosition) => void
   /** Set the active process ID */
   setActiveProcess: (processId: string | null) => void
   /** Set the task ID that spawned the current agent (Story 3.4) */
@@ -33,22 +45,28 @@ export const useTerminalStore = create<TerminalState>()(
     (set) => ({
       isExpanded: true,
       height: DEFAULT_HEIGHT,
+      width: DEFAULT_WIDTH,
+      dockPosition: 'bottom',
       activeProcessId: null,
       agentTaskId: null,
 
       setExpanded: (isExpanded) => set({ isExpanded }),
       toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
-      setHeight: (height) => set({ height: Math.max(MIN_HEIGHT, height) }),
+      setHeight: (height) => set({ height: Math.max(MIN_SIZE, height) }),
+      setWidth: (width) => set({ width: Math.max(MIN_SIZE, width) }),
+      setDockPosition: (dockPosition) => set({ dockPosition }),
       setActiveProcess: (activeProcessId) => set({ activeProcessId }),
       setAgentTask: (agentTaskId) => set({ agentTaskId }),
       clearAgent: () => set({ agentTaskId: null, activeProcessId: null })
     }),
     {
       name: 'terminal-storage',
-      // Only persist height and isExpanded, not activeProcessId (transient state)
+      // Persist height, width, isExpanded, and dockPosition, not activeProcessId (transient state)
       partialize: (state) => ({
         height: state.height,
-        isExpanded: state.isExpanded
+        width: state.width,
+        isExpanded: state.isExpanded,
+        dockPosition: state.dockPosition
       })
     }
   )

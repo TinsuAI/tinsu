@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
@@ -11,12 +11,14 @@ import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 
+const MIN_SIZE = 80
+
 interface AppShellProps {
   children?: React.ReactNode
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const { isExpanded, height } = useTerminalStore()
+  const { isExpanded, height, width, dockPosition } = useTerminalStore()
   const projectPath = useProjectStore((state) => state.projectPath)
   const syncProjectPath = useUIStore((state) => state.syncProjectPath)
 
@@ -45,8 +47,21 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     syncProjectPath(projectPath)
   }, [projectPath, syncProjectPath])
-  // Calculate bottom padding based on terminal dock state
-  const terminalHeight = isExpanded ? height : 80
+
+  // Calculate content area padding based on terminal dock position and state
+  const contentPadding = useMemo(() => {
+    const size = isExpanded ? (dockPosition === 'left' || dockPosition === 'right' ? width : height) : MIN_SIZE
+    switch (dockPosition) {
+      case 'bottom':
+        return { paddingBottom: size }
+      case 'top':
+        return { paddingTop: size }
+      case 'left':
+        return { paddingLeft: size }
+      case 'right':
+        return { paddingRight: size }
+    }
+  }, [isExpanded, dockPosition, height, width])
 
   return (
     <div className="flex h-screen min-w-[1024px] flex-col overflow-hidden bg-background">
@@ -56,7 +71,7 @@ export function AppShell({ children }: AppShellProps) {
         onSyncAll={handleSyncAll}
         isSyncingAll={isSyncingAll}
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden" style={{ paddingBottom: terminalHeight }}>
+      <div className="flex min-h-0 flex-1 overflow-hidden" style={contentPadding}>
         <Sidebar />
         <MainContent>{children}</MainContent>
       </div>

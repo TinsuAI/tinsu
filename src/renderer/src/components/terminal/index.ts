@@ -1,2 +1,3 @@
 export { TerminalDock } from './TerminalDock'
 export { XTerminal, type XTerminalRef, type XTerminalProps } from './XTerminal'
+export { DockPositionSelector } from './DockPositionSelector'
