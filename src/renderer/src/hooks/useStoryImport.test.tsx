@@ -47,6 +47,7 @@ vi.mock('@renderer/lib/trpc', async (importOriginal) => {
       },
       useUtils: () => ({
         tasks: {
+          getById: { invalidate: vi.fn() },
           getAll: { invalidate: vi.fn() },
           getAllWithEpics: { invalidate: vi.fn() }
         },

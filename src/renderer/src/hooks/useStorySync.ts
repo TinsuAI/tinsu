@@ -79,11 +79,12 @@ export function useStorySync() {
   // Mutation: Sync content from file
   const syncFromFileMutation = trpc.sync.syncFromFile.useMutation({
     onSuccess: (result) => {
-      if (result.synced) {
+      if (result.synced && 'task' in result && result.task) {
         toast.success('Story synced from file', {
           description: 'Content and status updated from file'
         })
-        // Invalidate task queries to refresh the board
+        // Invalidate task queries to refresh the board and detail view
+        utils.tasks.getById.invalidate({ id: result.task.id })
         utils.tasks.getAll.invalidate()
         utils.tasks.getAllWithEpics.invalidate()
       }
@@ -103,12 +104,13 @@ export function useStorySync() {
 
   // Mutation: Resolve conflict
   const resolveConflictMutation = trpc.sync.resolveConflict.useMutation({
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       if (result.resolved) {
         toast.success('Conflict resolved', {
           description: 'Story versions are now synchronized'
         })
-        // Invalidate task queries to refresh the board
+        // Invalidate task queries to refresh the board and detail view
+        utils.tasks.getById.invalidate({ id: variables.taskId })
         utils.tasks.getAll.invalidate()
         utils.tasks.getAllWithEpics.invalidate()
       }
@@ -238,6 +240,8 @@ export function useStorySync() {
         toast.success(`Stories updated`, {
           description: parts.join(', ')
         })
+        // Invalidate all task queries including getById cache
+        utils.tasks.getById.invalidate()
         utils.tasks.getAll.invalidate()
         utils.tasks.getAllWithEpics.invalidate()
       } else if (result.failedCount > 0) {

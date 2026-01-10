@@ -58,7 +58,8 @@ export function useStoryImport() {
         description: `${storyText} stories from ${result.epicsCreated + result.epicsUpdated} epics`
       })
 
-      // Invalidate task queries to refresh the board
+      // Invalidate task queries to refresh the board and detail views
+      utils.tasks.getById.invalidate()
       utils.tasks.getAll.invalidate()
       utils.tasks.getAllWithEpics.invalidate()
 

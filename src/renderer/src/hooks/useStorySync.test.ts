@@ -17,12 +17,14 @@ const mockSyncFromFileMutateAsync = vi.fn()
 const mockCheckFileChangesMutateAsync = vi.fn()
 const mockDetectConflictMutateAsync = vi.fn()
 const mockResolveConflictMutateAsync = vi.fn()
+const mockSyncAllFromFilesMutateAsync = vi.fn()
 const mockInvalidate = vi.fn()
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       tasks: {
+        getById: { invalidate: mockInvalidate },
         getAll: { invalidate: mockInvalidate },
         getAllWithEpics: { invalidate: mockInvalidate }
       }
@@ -69,6 +71,17 @@ vi.mock('@renderer/lib/trpc', () => ({
           onSuccess: options?.onSuccess,
           onError: options?.onError
         })
+      },
+      syncAllFromFiles: {
+        useMutation: (options?: {
+          onSuccess?: (result: { syncedCount: number; failedCount: number; importedCount?: number }) => void
+          onError?: (error: Error) => void
+        }) => ({
+          mutateAsync: mockSyncAllFromFilesMutateAsync,
+          isPending: false,
+          onSuccess: options?.onSuccess,
+          onError: options?.onError
+        })
       }
     }
   }
@@ -82,6 +95,7 @@ describe('useStorySync', () => {
     mockCheckFileChangesMutateAsync.mockResolvedValue({ hasChanges: false })
     mockDetectConflictMutateAsync.mockResolvedValue({ hasConflict: false })
     mockResolveConflictMutateAsync.mockResolvedValue({ resolved: true })
+    mockSyncAllFromFilesMutateAsync.mockResolvedValue({ syncedCount: 0, failedCount: 0 })
   })
 
   describe('syncStatusToFile', () => {
