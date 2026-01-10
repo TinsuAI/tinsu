@@ -289,20 +289,20 @@ describe('KanbanBoardContainer dialog integration', () => {
     expect(screen.getByText('Create New Task')).toBeInTheDocument()
   })
 
-  it('should open dialog when N key is pressed', async () => {
+  it('should open dialog when Ctrl+N is pressed', async () => {
     render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
-    fireEvent.keyDown(window, { key: 'n' })
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true })
 
     await waitFor(() => {
       expect(screen.getByText('Create New Task')).toBeInTheDocument()
     })
   })
 
-  it('should not open dialog when N is pressed with modifier keys', async () => {
+  it('should not open dialog when N is pressed without Ctrl', async () => {
     render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
-    fireEvent.keyDown(window, { key: 'n', ctrlKey: true })
+    fireEvent.keyDown(window, { key: 'n' })
 
     expect(screen.queryByText('Create New Task')).not.toBeInTheDocument()
   })
@@ -380,11 +380,11 @@ describe('KanbanBoardContainer dialog integration', () => {
     )
   })
 
-  it('should use backlog status when dialog opened via N key', async () => {
+  it('should use backlog status when dialog opened via Ctrl+N', async () => {
     const user = userEvent.setup()
     render(<KanbanBoardContainer />, { wrapper: createWrapper() })
 
-    fireEvent.keyDown(window, { key: 'n' })
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true })
 
     await waitFor(() => {
       expect(screen.getByText('Create New Task')).toBeInTheDocument()

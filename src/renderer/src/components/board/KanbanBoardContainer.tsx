@@ -50,14 +50,14 @@ export function KanbanBoardContainer() {
     setImportDialogOpen(true)
   }, [])
 
-  // Global "N" keyboard shortcut to open dialog
+  // Global "Ctrl+N" keyboard shortcut to open dialog
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only trigger if no input/textarea is focused
+      // Only trigger if Ctrl+N pressed and no input/textarea is focused
       if (
         e.key.toLowerCase() === 'n' &&
+        e.ctrlKey &&
         !e.metaKey &&
-        !e.ctrlKey &&
         !e.altKey &&
         !(e.target instanceof HTMLInputElement) &&
         !(e.target instanceof HTMLTextAreaElement)
