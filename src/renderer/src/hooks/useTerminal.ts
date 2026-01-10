@@ -114,7 +114,7 @@ export function useTerminal({ terminalRef, onExit }: UseTerminalOptions): UseTer
       const dimensions = terminalRef.current?.getDimensions()
 
       const processId = await spawnMutation.mutateAsync({
-        command: options?.command ?? '/bin/bash',
+        command: options?.command,
         args: options?.args ?? [],
         cwd: options?.cwd,
         cols: dimensions?.cols,

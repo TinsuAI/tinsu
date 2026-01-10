@@ -3,6 +3,18 @@ import { router, publicProcedure, TRPCError } from '../trpc'
 import { observable } from '@trpc/server/observable'
 import { ptyService, PtyError, PtyOutputEvent, PtyExitEvent } from '../../services/pty.service'
 
+/**
+ * Gets the default shell for the current platform.
+ * - Windows: Uses ComSpec env var (usually cmd.exe) or falls back to powershell
+ * - Unix/Linux/macOS: Uses SHELL env var or falls back to /bin/bash
+ */
+function getDefaultShell(): string {
+  if (process.platform === 'win32') {
+    return process.env.ComSpec || 'powershell.exe'
+  }
+  return process.env.SHELL || '/bin/bash'
+}
+
 export const ptyRouter = router({
   /**
    * Spawns a new PTY process.
@@ -11,7 +23,7 @@ export const ptyRouter = router({
   spawn: publicProcedure
     .input(
       z.object({
-        command: z.string().optional().default('/bin/bash'),
+        command: z.string().optional(),
         args: z.array(z.string()).optional().default([]),
         cwd: z.string().optional(),
         cols: z.number().int().positive().optional(),
@@ -19,8 +31,9 @@ export const ptyRouter = router({
       })
     )
     .mutation(({ input }) => {
+      const command = input.command || getDefaultShell()
       try {
-        return ptyService.spawn(input.command, input.args, {
+        return ptyService.spawn(command, input.args, {
           cwd: input.cwd,
           cols: input.cols,
           rows: input.rows

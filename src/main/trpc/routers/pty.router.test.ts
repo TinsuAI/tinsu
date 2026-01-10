@@ -41,7 +41,12 @@ describe('ptyRouter', () => {
 
       const proc = ptyService.getProcess(processId)
       expect(proc).toBeDefined()
-      expect(proc?.command).toBe('/bin/bash')
+      // On Windows uses ComSpec (cmd.exe) or powershell, on Unix uses SHELL or /bin/bash
+      const expectedShell =
+        process.platform === 'win32'
+          ? process.env.ComSpec || 'powershell.exe'
+          : process.env.SHELL || '/bin/bash'
+      expect(proc?.command).toBe(expectedShell)
     })
 
     it('should spawn with custom command and args', async () => {

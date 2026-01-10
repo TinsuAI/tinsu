@@ -100,7 +100,7 @@ describe('useTerminal', () => {
       })
 
       expect(mockSpawnMutateAsync).toHaveBeenCalledWith({
-        command: '/bin/bash',
+        command: undefined, // Server decides default shell based on platform
         args: [],
         cwd: undefined,
         cols: 80,
