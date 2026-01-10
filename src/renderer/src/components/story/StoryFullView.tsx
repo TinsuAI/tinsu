@@ -185,6 +185,13 @@ export function StoryFullView() {
     }
   }, [closeStory, hasChanges])
 
+  // Scroll to top when opening a story
+  useEffect(() => {
+    if (activeStoryId) {
+      window.scrollTo(0, 0)
+    }
+  }, [activeStoryId])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -87,6 +87,7 @@ export function NotionEditor({
   const slashMenuRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const isSettingContentRef = useRef(false)
 
   const editor = useEditor({
     extensions: [
@@ -139,7 +140,13 @@ export function NotionEditor({
     },
     onUpdate: ({ editor: ed }) => {
       const markdown = (ed.storage as { markdown: { getMarkdown: () => string } }).markdown.getMarkdown()
-      onChange(markdown)
+
+      // Skip onChange during programmatic content setting to avoid false hasChanges
+      if (isSettingContentRef.current) {
+        isSettingContentRef.current = false
+      } else {
+        onChange(markdown)
+      }
 
       const { from } = ed.state.selection
       const textBefore = ed.state.doc.textBetween(Math.max(0, from - 50), from, '\n')
@@ -190,7 +197,10 @@ export function NotionEditor({
     if (editor && content) {
       const currentContent = (editor.storage as { markdown: { getMarkdown: () => string } }).markdown.getMarkdown()
       if (currentContent !== content && !editor.isFocused) {
+        isSettingContentRef.current = true
         editor.commands.setContent(content)
+        // Move cursor to start to prevent scroll to bottom
+        editor.commands.setTextSelection(0)
       }
     }
   }, [editor, content])
