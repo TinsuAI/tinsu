@@ -80,40 +80,50 @@
   --sidebar-ring: oklch(0.21 0.01 285);
 }
 
-/* Dark mode - Calm Command palette */
+/* Dark mode - Obsidian Studio palette with depth */
 .dark {
-  --background: oklch(0.07 0.005 285);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0.005 285);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0.005 285);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.21 0.01 285);
-  --secondary: oklch(0.22 0.01 285);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0.01 285);
-  --muted-foreground: oklch(0.65 0.01 285);
-  --accent: oklch(0.22 0.01 285);
-  --accent-foreground: oklch(0.98 0 0);
+  --background: oklch(0.08 0.008 280);
+  --foreground: oklch(0.95 0.005 280);
+  --card: oklch(0.13 0.012 280);
+  --card-foreground: oklch(0.95 0.005 280);
+  --popover: oklch(0.14 0.012 280);
+  --popover-foreground: oklch(0.95 0.005 280);
+  --primary: oklch(0.75 0.12 270);
+  --primary-foreground: oklch(0.15 0.01 280);
+  --secondary: oklch(0.2 0.015 280);
+  --secondary-foreground: oklch(0.92 0.005 280);
+  --muted: oklch(0.18 0.012 280);
+  --muted-foreground: oklch(0.6 0.015 280);
+  --accent: oklch(0.25 0.02 280);
+  --accent-foreground: oklch(0.92 0.005 280);
   --destructive: oklch(0.55 0.22 27);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.22 0.01 285);
-  --input: oklch(0.22 0.01 285);
-  --ring: oklch(0.85 0.01 285);
+  --border: oklch(0.2 0.015 280);
+  --input: oklch(0.18 0.012 280);
+  --ring: oklch(0.7 0.12 270);
   --chart-1: oklch(0.7 0.15 230);
   --chart-2: oklch(0.68 0.15 160);
   --chart-3: oklch(0.85 0.01 285);
   --chart-4: oklch(0.73 0.15 85);
   --chart-5: oklch(0.63 0.18 30);
-  --sidebar: oklch(0.1 0.005 285);
-  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar: oklch(0.1 0.01 280);
+  --sidebar-foreground: oklch(0.95 0.005 280);
   --sidebar-primary: oklch(0.7 0.15 230);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.22 0.01 285);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.22 0.01 285);
+  --sidebar-accent: oklch(0.18 0.015 280);
+  --sidebar-accent-foreground: oklch(0.92 0.005 280);
+  --sidebar-border: oklch(0.2 0.015 280);
   --sidebar-ring: oklch(0.7 0.15 230);
+
+  /* Kanban-specific depth variables */
+  --kanban-column-bg: oklch(0.11 0.01 280);
+  --kanban-column-header: oklch(0.14 0.012 280);
+  --kanban-card-bg: oklch(0.15 0.015 280);
+  --kanban-card-hover: oklch(0.18 0.018 280);
+  --kanban-glow-violet: oklch(0.6 0.2 290);
+  --kanban-glow-cyan: oklch(0.7 0.15 200);
+  --kanban-glow-emerald: oklch(0.7 0.15 160);
+  --kanban-glow-amber: oklch(0.75 0.15 80);
 }
 
 /* Base styles */
@@ -173,4 +183,172 @@ body {
 
 .kanban-scroll::-webkit-scrollbar-thumb:active {
   background: oklch(0.5 0.01 285);
+}
+
+/* =====================================================
+   KANBAN BOARD - Obsidian Studio Depth System
+   ===================================================== */
+
+/* Board background with subtle gradient */
+.kanban-board-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.15 0.03 280 / 0.5), transparent),
+    linear-gradient(180deg, oklch(0.08 0.008 280) 0%, oklch(0.06 0.005 280) 100%);
+}
+
+/* Column styling with depth */
+.kanban-column {
+  background: linear-gradient(
+    180deg,
+    oklch(0.12 0.012 280) 0%,
+    oklch(0.1 0.008 280) 100%
+  );
+  border: 1px solid oklch(0.22 0.02 280);
+  box-shadow:
+    inset 0 1px 0 oklch(0.2 0.015 280 / 0.5),
+    0 4px 16px -4px oklch(0 0 0 / 0.4),
+    0 2px 4px -2px oklch(0 0 0 / 0.3);
+}
+
+/* Column header with glass effect */
+.kanban-column-header {
+  background: linear-gradient(
+    180deg,
+    oklch(0.16 0.015 280 / 0.9) 0%,
+    oklch(0.13 0.012 280 / 0.8) 100%
+  );
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid oklch(0.25 0.02 280 / 0.6);
+}
+
+/* Status-specific column accents */
+.kanban-column[data-status='backlog'] {
+  border-top: 2px solid oklch(0.5 0.08 280);
+}
+.kanban-column[data-status='in_progress'] {
+  border-top: 2px solid oklch(0.7 0.15 200);
+}
+.kanban-column[data-status='review'] {
+  border-top: 2px solid oklch(0.75 0.15 80);
+}
+.kanban-column[data-status='done'] {
+  border-top: 2px solid oklch(0.7 0.15 160);
+}
+
+/* Column drop highlight */
+.kanban-column-over {
+  background: linear-gradient(
+    180deg,
+    oklch(0.14 0.025 270) 0%,
+    oklch(0.11 0.015 280) 100%
+  );
+  border-color: oklch(0.6 0.12 270 / 0.6);
+  box-shadow:
+    inset 0 0 20px oklch(0.6 0.12 270 / 0.1),
+    0 4px 16px -4px oklch(0 0 0 / 0.4);
+}
+
+/* Task card with layered shadows */
+.kanban-card {
+  background: linear-gradient(
+    135deg,
+    oklch(0.16 0.018 280) 0%,
+    oklch(0.14 0.015 280) 100%
+  );
+  border: 1px solid oklch(0.24 0.02 280);
+  box-shadow:
+    0 2px 8px -2px oklch(0 0 0 / 0.4),
+    0 1px 2px -1px oklch(0 0 0 / 0.3),
+    inset 0 1px 0 oklch(0.22 0.02 280 / 0.5);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kanban-card:hover {
+  background: linear-gradient(
+    135deg,
+    oklch(0.19 0.022 280) 0%,
+    oklch(0.16 0.018 280) 100%
+  );
+  border-color: oklch(0.5 0.1 270 / 0.5);
+  box-shadow:
+    0 8px 24px -4px oklch(0 0 0 / 0.5),
+    0 4px 8px -2px oklch(0 0 0 / 0.3),
+    0 0 0 1px oklch(0.5 0.1 270 / 0.2),
+    inset 0 1px 0 oklch(0.25 0.025 280 / 0.6);
+  transform: translateY(-1px);
+}
+
+.kanban-card:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px oklch(0.7 0.12 270),
+    0 8px 24px -4px oklch(0 0 0 / 0.5);
+}
+
+/* Planning card special glow */
+.kanban-card-planning {
+  border-left: 3px solid oklch(0.65 0.15 270);
+}
+
+.kanban-card-planning.start-here {
+  box-shadow:
+    0 0 20px -4px oklch(0.7 0.15 200 / 0.4),
+    0 0 40px -8px oklch(0.7 0.15 200 / 0.2),
+    0 2px 8px -2px oklch(0 0 0 / 0.4),
+    inset 0 1px 0 oklch(0.22 0.02 280 / 0.5);
+  border-color: oklch(0.6 0.12 200 / 0.6);
+}
+
+/* Story card styling */
+.kanban-card-story {
+  border-left: 3px solid oklch(0.7 0.15 200);
+}
+
+/* Completed card styling */
+.kanban-card-completed {
+  border-left-color: oklch(0.7 0.15 160);
+}
+
+/* Dragging state */
+.kanban-card-dragging {
+  box-shadow:
+    0 20px 40px -8px oklch(0 0 0 / 0.6),
+    0 8px 16px -4px oklch(0 0 0 / 0.4),
+    0 0 0 2px oklch(0.7 0.12 270 / 0.5);
+  transform: rotate(2deg) scale(1.02);
+}
+
+/* Add button styling */
+.kanban-add-btn {
+  background: oklch(0.18 0.015 280);
+  border: 1px solid oklch(0.25 0.02 280);
+  transition: all 0.15s ease;
+}
+
+.kanban-add-btn:hover {
+  background: oklch(0.22 0.02 280);
+  border-color: oklch(0.5 0.1 270 / 0.5);
+  box-shadow: 0 0 12px -2px oklch(0.6 0.12 270 / 0.3);
+}
+
+/* Epic badge enhanced */
+.kanban-epic-badge {
+  background: linear-gradient(
+    135deg,
+    oklch(0.25 0.04 var(--badge-hue, 270)) 0%,
+    oklch(0.2 0.03 var(--badge-hue, 270)) 100%
+  );
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+}
+
+/* Phase badge enhanced */
+.kanban-phase-badge {
+  background: linear-gradient(
+    135deg,
+    oklch(0.3 0.08 270) 0%,
+    oklch(0.25 0.06 280) 100%
+  );
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 0.3),
+    inset 0 1px 0 oklch(0.4 0.08 270 / 0.3);
 }

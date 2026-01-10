@@ -106,18 +106,16 @@ export function PlanningTaskCard({
       onKeyDown={handleKeyDown}
       onClick={handleClick}
       className={cn(
-        // Base card styling
-        'group rounded-lg border border-border bg-card p-3',
-        // Hover states
-        'hover:border-primary/50 hover:bg-card/80',
+        // Base card styling with depth
+        'kanban-card kanban-card-planning group rounded-xl p-3.5',
         // Focus states for keyboard navigation
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        // Start Here glow effect - cyan ring with soft shadow
-        showStartHereGlow && 'ring-2 ring-cyan-500/50 shadow-[0_0_15px_-3px] shadow-cyan-500/30',
+        'focus-visible:outline-none',
+        // Start Here glow effect
+        showStartHereGlow && 'start-here',
+        // Completed styling
+        isCompleted && 'kanban-card-completed',
         // Completed + clickable cursor
         isCompleted && artifactPath && 'cursor-pointer',
-        // Transition for smooth hover effect
-        'transition-colors',
         className
       )}
       data-testid={`planning-task-card-${task.id}`}

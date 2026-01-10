@@ -70,16 +70,12 @@ export function TaskCard({
       aria-label={`Task: ${task.title}${epicName ? `, Epic: ${epicName}` : ''}`}
       onKeyDown={handleKeyDown}
       className={cn(
-        // Base card styling
-        'group rounded-lg border border-border bg-card p-3',
-        // Hover states
-        'hover:border-primary/50 hover:bg-card/80',
+        // Base card styling with depth
+        'kanban-card group rounded-xl p-3.5',
         // Focus states for keyboard navigation
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none',
         // Cursor
         'cursor-pointer',
-        // Transition for smooth hover effect
-        'transition-colors',
         className
       )}
       data-testid={`task-card-${task.id}`}

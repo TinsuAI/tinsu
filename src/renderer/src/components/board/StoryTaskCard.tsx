@@ -93,18 +93,12 @@ export function StoryTaskCard({
       onKeyDown={handleKeyDown}
       onClick={isSyncing ? undefined : onClick}
       className={cn(
-        // Base card styling
-        'group rounded-lg border border-border bg-card p-3',
-        // Story-specific styling: cyan left border
-        'border-l-2 border-l-cyan-500',
-        // Hover states
-        'hover:border-primary/50 hover:bg-card/80',
+        // Base card styling with depth
+        'kanban-card kanban-card-story group rounded-xl p-3.5',
         // Focus states for keyboard navigation
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'focus-visible:outline-none',
         // Cursor
         'cursor-pointer',
-        // Transition for smooth hover effect
-        'transition-colors',
         // Story 3.9: Sync state styling
         isSyncing && 'pointer-events-none opacity-70',
         className

@@ -47,29 +47,33 @@ export function KanbanColumn({
       ref={setNodeRef}
       role="listbox"
       aria-label={`${config.title} column with ${taskCount} tasks`}
+      data-status={status}
       className={cn(
-        'flex min-h-0 flex-col rounded-lg bg-card',
-        'border border-border',
+        // Base column styling with depth
+        'kanban-column flex min-h-0 flex-col rounded-xl',
         // Highlight when item is dragged over
-        isOver && 'border-primary/50 bg-primary/5',
+        isOver && 'kanban-column-over',
         // Smooth transition
-        'transition-colors duration-150',
+        'transition-all duration-200',
         className
       )}
       data-testid={`column-${status}`}
     >
-      {/* Column header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">{config.title}</h2>
-          <span className="text-xs text-muted-foreground" data-testid={`count-${status}`}>
+      {/* Column header with glass effect */}
+      <div className="kanban-column-header flex items-center justify-between rounded-t-xl px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-sm font-semibold tracking-wide text-foreground/95">{config.title}</h2>
+          <span
+            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/10 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground"
+            data-testid={`count-${status}`}
+          >
             {taskCount}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="kanban-add-btn h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
           onClick={() => onAddTask?.(status)}
           aria-label={`Add task to ${config.title}`}
           data-testid={`add-task-${status}`}
@@ -79,7 +83,7 @@ export function KanbanColumn({
       </div>
 
       {/* Column content with vertical scroll */}
-      <div className="kanban-scroll flex-1 overflow-y-auto p-4">{children}</div>
+      <div className="kanban-scroll flex-1 overflow-y-auto p-3">{children}</div>
     </div>
   )
 }

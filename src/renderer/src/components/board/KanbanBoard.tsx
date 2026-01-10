@@ -353,7 +353,10 @@ export function KanbanBoard({
       accessibility={{ announcements }}
     >
       <div
-        className={cn('grid h-full min-h-0 flex-1 grid-cols-4 gap-4 overflow-hidden p-4', className)}
+        className={cn(
+          'kanban-board-bg grid h-full min-h-0 flex-1 grid-cols-4 gap-5 overflow-hidden p-5',
+          className
+        )}
         data-testid="kanban-board"
       >
         {sortedStatuses.map((status) => {
@@ -431,7 +434,7 @@ export function KanbanBoard({
       {/* Drag Overlay - rendered in portal for proper z-index */}
       <DragOverlay>
         {activeTask && (
-          <div className="scale-[1.02] rotate-[2deg] rounded-lg border border-primary bg-card p-3 shadow-lg">
+          <div className="kanban-card kanban-card-dragging rounded-xl p-3.5">
             {isPlanningTask(activeTask) ? (
               <PlanningTaskCard
                 task={activeTask}
