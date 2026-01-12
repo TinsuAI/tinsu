@@ -16,7 +16,10 @@ export interface ParsedStory {
   epicNumber: number
   /** Story number as string to support formats like "2", "2b", "1.5" */
   storyNumber: string
-  /** Story number as integer (for database storage, ignores letter suffixes) */
+  /**
+   * Story number as integer (for database storage, ignores letter suffixes)
+   * @deprecated No longer used - story_number column is now TEXT
+   */
   storyNumberInt: number
   title: string
   userStory: UserStory

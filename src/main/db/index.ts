@@ -78,7 +78,7 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       bmad_workflow TEXT,
       is_start_here INTEGER,
       artifact_path TEXT,
-      story_number INTEGER,
+      story_number TEXT,
       story_file_path TEXT,
       full_content TEXT,
       project_id TEXT,
@@ -185,8 +185,9 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   }
 
   // Migration: Add story_number column to tasks (Story 3.7)
+  // Note: Changed to TEXT type to support "2b", "3", etc. suffixes
   if (!existingColumns.has('story_number')) {
-    sqlite.exec('ALTER TABLE tasks ADD COLUMN story_number INTEGER')
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN story_number TEXT')
   }
 
   // Migration: Add story_file_path and full_content columns to tasks (Story 3.7)

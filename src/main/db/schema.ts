@@ -114,7 +114,7 @@ export const tasks = sqliteTable(
     // Story 3.3: Artifact path for completed planning tasks
     artifact_path: text('artifact_path'), // Path to generated artifact file
     // Story 3.7: Story number for imported stories from epics.md
-    story_number: integer('story_number'), // 1, 2, 3... within each epic
+    story_number: text('story_number'), // "1", "2", "2b", "3b"... within each epic
     // Story 3.7: Full content from detailed story file in implementation-artifacts
     story_file_path: text('story_file_path'), // Path to detailed story .md file
     full_content: text('full_content'), // Full markdown content from detailed story file

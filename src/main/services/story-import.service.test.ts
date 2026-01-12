@@ -65,7 +65,7 @@ function createTestDb(): TestDb {
       bmad_workflow TEXT,
       is_start_here INTEGER,
       artifact_path TEXT,
-      story_number INTEGER,
+      story_number TEXT,
       story_file_path TEXT,
       full_content TEXT,
       story_file_status TEXT,
@@ -161,12 +161,12 @@ describe('StoryImportService', () => {
 
       // Check first task
       expect(tasks[0].task_type).toBe('story')
-      expect(tasks[0].story_number).toBe(1)
+      expect(tasks[0].story_number).toBe('1')
       expect(tasks[0].project_id).toBe(TEST_PROJECT_ID)
       expect(tasks[0].epic_id).not.toBeNull()
 
       // Check second task
-      expect(tasks[1].story_number).toBe(2)
+      expect(tasks[1].story_number).toBe('2')
     })
 
     it('sets correct task_type as story', async () => {

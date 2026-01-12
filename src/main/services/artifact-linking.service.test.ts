@@ -49,7 +49,7 @@ function createTestDb(): TestDb {
       bmad_workflow TEXT,
       is_start_here INTEGER,
       artifact_path TEXT,
-      story_number INTEGER,
+      story_number TEXT,
       story_file_path TEXT,
       full_content TEXT,
       story_file_status TEXT,

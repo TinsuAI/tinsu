@@ -79,7 +79,7 @@ So that I can change their status.
         expect(result).toHaveLength(1)
         expect(result[0].stories).toHaveLength(1)
         expect(result[0].stories[0].epicNumber).toBe(2)
-        expect(result[0].stories[0].storyNumber).toBe(3)
+        expect(result[0].stories[0].storyNumber).toBe('3')
         expect(result[0].stories[0].title).toBe('Implement Drag and Drop')
       } finally {
         cleanup(filePath)
@@ -387,9 +387,9 @@ So that tenth.
 
         const stories = result[0].stories
         expect(stories).toHaveLength(3)
-        expect(stories[0].storyNumber).toBe(1)
-        expect(stories[1].storyNumber).toBe(5)
-        expect(stories[2].storyNumber).toBe(10)
+        expect(stories[0].storyNumber).toBe('1')
+        expect(stories[1].storyNumber).toBe('5')
+        expect(stories[2].storyNumber).toBe('10')
       } finally {
         cleanup(filePath)
       }

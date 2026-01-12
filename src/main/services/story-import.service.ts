@@ -190,14 +190,14 @@ export class StoryImportService {
         const title = `${story.epicNumber}.${story.storyNumber}: ${story.title}`
 
         // Story 3.7 AC 7: Check for existing story by epic_id and story_number
-        // Use storyNumberInt for database queries (integer column)
+        // Use full storyNumber string for database queries (text column)
         const existingStory = db
           .select()
           .from(schema.tasks)
           .where(
             and(
               eq(schema.tasks.epic_id, epicId),
-              eq(schema.tasks.story_number, story.storyNumberInt),
+              eq(schema.tasks.story_number, story.storyNumber),
               eq(schema.tasks.task_type, 'story')
             )
           )
@@ -245,7 +245,7 @@ export class StoryImportService {
               project_id: projectId,
               task_type: 'story',
               epic_id: epicId,
-              story_number: story.storyNumberInt, // Use integer for database
+              story_number: story.storyNumber, // Use full string ("2b", "3", etc.)
               title,
               description,
               status: kanbanStatus,
