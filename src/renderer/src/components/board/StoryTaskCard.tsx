@@ -1,8 +1,11 @@
 import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
-import { BookOpen, Trash2 } from 'lucide-react'
+import { BookOpen, Trash2, Zap } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
+import { StoryFileStatusBadge } from '@renderer/components/ui/StoryFileStatusBadge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import type { StoryTask } from '@shared/types/task.types'
+import type { StoryFileStatus } from '@shared/types/story-file-status.types'
 
 export interface StoryTaskCardProps {
   task: StoryTask
@@ -18,6 +21,8 @@ export interface StoryTaskCardProps {
   isSyncing?: boolean
   /** Callback when delete button is clicked */
   onDelete?: () => void
+  /** Story 5.2c: Callback when story file path link is clicked */
+  onStoryFileClick?: () => void
   className?: string
 }
 
@@ -39,6 +44,7 @@ export function StoryTaskCard({
   onClick,
   isSyncing = false,
   onDelete,
+  onStoryFileClick,
   className
 }: StoryTaskCardProps) {
   const handleDeleteClick = useCallback(
@@ -107,6 +113,28 @@ export function StoryTaskCard({
     >
       {/* Header row with title, story indicator, and delete button */}
       <div className="flex items-start justify-between gap-2">
+        {/* Story 5.2c: Task type indicator */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {task.story_number !== null ? (
+                <BookOpen
+                  className="mt-0.5 size-3.5 shrink-0 text-blue-400"
+                  data-testid="task-type-imported"
+                />
+              ) : (
+                <Zap
+                  className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+                  data-testid="task-type-basic"
+                />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{task.story_number !== null ? 'Imported Story' : 'Basic Task'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         {/* Task title - prominent */}
         <h3 className="flex-1 text-sm font-medium text-foreground">{task.title}</h3>
 
@@ -145,6 +173,17 @@ export function StoryTaskCard({
       {epicName && (
         <div className="mt-2" data-testid="task-epic-label">
           <EpicBadge title={epicName} color={epicColor} />
+        </div>
+      )}
+
+      {/* Story 5.2c: Story file status badge for imported story tasks */}
+      {task.story_file_status && (
+        <div className="mt-2" data-testid="task-story-file-status">
+          <StoryFileStatusBadge
+            status={task.story_file_status as StoryFileStatus}
+            storyFilePath={task.story_file_path}
+            onPathClick={onStoryFileClick}
+          />
         </div>
       )}
     </div>

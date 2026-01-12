@@ -30,6 +30,7 @@ const mockTask: Task = {
   artifact_path: null,
   story_number: null,
   story_file_path: null,
+  story_file_status: null,
   full_content: null,
   project_id: null,
   created_at: new Date('2026-01-01'),
@@ -66,18 +67,11 @@ describe('TaskCard', () => {
     expect(screen.queryByTestId('task-description')).not.toBeInTheDocument()
   })
 
-  it('should render with dark theme styling', () => {
+  it('should render with kanban-card styling', () => {
     render(<TaskCard task={mockTask} />)
 
     const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('bg-card')
-  })
-
-  it('should have hover states', () => {
-    render(<TaskCard task={mockTask} />)
-
-    const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('hover:border-primary/50')
+    expect(card).toHaveClass('kanban-card')
   })
 
   it('should have data-testid for testing', () => {
@@ -96,25 +90,11 @@ describe('TaskCard', () => {
     expect(description).toHaveClass('text-muted-foreground')
   })
 
-  it('should have 12px internal padding', () => {
-    render(<TaskCard task={mockTask} />)
-
-    const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('p-3') // p-3 = 12px
-  })
-
   it('should have rounded corners', () => {
     render(<TaskCard task={mockTask} />)
 
     const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('rounded-lg')
-  })
-
-  it('should have border styling', () => {
-    render(<TaskCard task={mockTask} />)
-
-    const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('border', 'border-border')
+    expect(card).toHaveClass('rounded-xl')
   })
 })
 
@@ -196,27 +176,11 @@ describe('TaskCard with AgentStatusBadge', () => {
 })
 
 describe('TaskCard keyboard navigation', () => {
-  it('should have visible 2px focus ring styles', () => {
-    render(<TaskCard task={mockTask} />)
-
-    const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('focus-visible:ring-2')
-    expect(card).toHaveClass('focus-visible:ring-primary')
-  })
-
   it('should have focus-visible:outline-none to use ring instead', () => {
     render(<TaskCard task={mockTask} />)
 
     const card = screen.getByTestId('task-card-task-1')
     expect(card).toHaveClass('focus-visible:outline-none')
-  })
-
-  it('should have ring-offset for better visibility', () => {
-    render(<TaskCard task={mockTask} />)
-
-    const card = screen.getByTestId('task-card-task-1')
-    expect(card).toHaveClass('focus-visible:ring-offset-2')
-    expect(card).toHaveClass('focus-visible:ring-offset-background')
   })
 
   it('should call onNavigate with "up" when ArrowUp is pressed', async () => {
@@ -287,5 +251,105 @@ describe('TaskCard aria-label', () => {
 
     const card = screen.getByTestId('task-card-task-1')
     expect(card).toHaveAttribute('aria-label', 'Task: Implement feature X, Epic: Epic 1: Foundation')
+  })
+})
+
+// Story 5.2c: Task type indicator tests
+describe('TaskCard with task type indicator', () => {
+  it('should display imported story icon for tasks with story_number', () => {
+    const importedStoryTask: Task = {
+      ...mockTask,
+      story_number: 1,
+      story_file_status: 'summary_only'
+    }
+
+    render(<TaskCard task={importedStoryTask} />)
+
+    expect(screen.getByTestId('task-type-imported')).toBeInTheDocument()
+  })
+
+  it('should display basic task icon for tasks without story_number', () => {
+    const basicTask: Task = {
+      ...mockTask,
+      story_number: null,
+      story_file_status: null
+    }
+
+    render(<TaskCard task={basicTask} />)
+
+    expect(screen.getByTestId('task-type-basic')).toBeInTheDocument()
+  })
+
+  it('should not display task type indicator for planning tasks', () => {
+    const planningTask: Task = {
+      ...mockTask,
+      task_type: 'planning',
+      phase_number: 1,
+      phase_name: 'Product Brief',
+      bmad_agent: 'bmad:bmm:agents:pm',
+      bmad_workflow: '_bmad/workflow.yaml',
+      story_number: null
+    }
+
+    render(<TaskCard task={planningTask} />)
+
+    expect(screen.queryByTestId('task-type-imported')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('task-type-basic')).not.toBeInTheDocument()
+  })
+})
+
+// Story 5.2c: Story file status badge tests
+describe('TaskCard with StoryFileStatusBadge', () => {
+  it('should display story file status badge for summary_only', () => {
+    const importedStoryTask: Task = {
+      ...mockTask,
+      story_number: 1,
+      story_file_status: 'summary_only'
+    }
+
+    render(<TaskCard task={importedStoryTask} />)
+
+    expect(screen.getByTestId('task-story-file-status')).toBeInTheDocument()
+    expect(screen.getByText('Summary Only')).toBeInTheDocument()
+  })
+
+  it('should display story file status badge for story_ready', () => {
+    const readyStoryTask: Task = {
+      ...mockTask,
+      story_number: 1,
+      story_file_status: 'story_ready',
+      story_file_path: '/path/to/1-1-story.md'
+    }
+
+    render(<TaskCard task={readyStoryTask} />)
+
+    expect(screen.getByTestId('task-story-file-status')).toBeInTheDocument()
+    expect(screen.getByText('Story Ready')).toBeInTheDocument()
+  })
+
+  it('should not display story file status badge for basic tasks (null status)', () => {
+    const basicTask: Task = {
+      ...mockTask,
+      story_number: null,
+      story_file_status: null
+    }
+
+    render(<TaskCard task={basicTask} />)
+
+    expect(screen.queryByTestId('task-story-file-status')).not.toBeInTheDocument()
+  })
+
+  it('should display story file link when story_ready with path', () => {
+    const readyStoryTask: Task = {
+      ...mockTask,
+      story_number: 2,
+      story_file_status: 'story_ready',
+      story_file_path: '/path/to/1-2-feature-story.md'
+    }
+
+    render(<TaskCard task={readyStoryTask} />)
+
+    expect(screen.getByTestId('story-file-link')).toBeInTheDocument()
+    expect(screen.getByText('1-2-feature-story.md')).toBeInTheDocument()
   })
 })

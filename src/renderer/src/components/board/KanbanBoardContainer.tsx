@@ -193,6 +193,13 @@ export function KanbanBoardContainer() {
     [deleteMutation]
   )
 
+  // Story 5.2c: Handle drag blocked notification
+  const handleDragBlocked = useCallback((message: string) => {
+    toast.warning('Move blocked', {
+      description: message
+    })
+  }, [])
+
   if (isError) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -290,6 +297,7 @@ export function KanbanBoardContainer() {
         onPhase5Complete={handleImportStories}
         onStoryClick={handleStoryClick}
         onDeleteTask={handleDeleteTask}
+        onDragBlocked={handleDragBlocked}
       />
       <CreateTaskDialog
         open={dialogOpen}

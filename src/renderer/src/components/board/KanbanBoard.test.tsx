@@ -18,6 +18,7 @@ const createMockTask = (overrides: Partial<Task> & { id: string; title: string; 
   artifact_path: null,
   story_number: null,
   story_file_path: null,
+  story_file_status: null,
   full_content: null,
   project_id: null,
   created_at: new Date(),

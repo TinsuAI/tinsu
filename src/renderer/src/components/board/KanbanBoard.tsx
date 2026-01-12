@@ -22,6 +22,7 @@ import { SortablePlanningTaskCard } from './SortablePlanningTaskCard'
 import { StoryTaskCard } from './StoryTaskCard'
 import { SortableStoryTaskCard } from './SortableStoryTaskCard'
 import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask, isStoryTask } from '@shared/types/task.types'
+import { validateDragMove } from '@shared/utils/drag-validation'
 
 interface KanbanBoardProps {
   tasks: Task[]
@@ -53,6 +54,8 @@ interface KanbanBoardProps {
   onStoryClick?: (taskId: string) => void
   /** Callback when a task is deleted */
   onDeleteTask?: (taskId: string) => void
+  /** Story 5.2c: Callback when a drag operation is blocked due to validation */
+  onDragBlocked?: (message: string) => void
 }
 
 export function KanbanBoard({
@@ -71,7 +74,8 @@ export function KanbanBoard({
   onImportStories,
   onPhase5Complete,
   onStoryClick,
-  onDeleteTask
+  onDeleteTask,
+  onDragBlocked
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -186,6 +190,8 @@ export function KanbanBoard({
   // Get the active task being dragged
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null
 
+  // Story 5.2c: Use shared validation utility for drag moves
+
   // Drag event handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string)
@@ -215,6 +221,13 @@ export function KanbanBoard({
       if (overId.startsWith('column-')) {
         const targetStatus = overId.replace('column-', '') as TaskStatus
         if (task.status !== targetStatus && onStatusChange) {
+          // Story 5.2c: Validate drag before allowing status change
+          const blockMessage = validateDragMove(task, targetStatus)
+          if (blockMessage) {
+            onDragBlocked?.(blockMessage)
+            return // Block the move
+          }
+
           onStatusChange(taskId, targetStatus)
           // Story 3.4: Trigger agent launch when planning task moved to in_progress
           if (targetStatus === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
@@ -239,6 +252,13 @@ export function KanbanBoard({
       if (targetTask) {
         // If different columns, update status
         if (task.status !== targetTask.status && onStatusChange) {
+          // Story 5.2c: Validate drag before allowing status change
+          const blockMessage = validateDragMove(task, targetTask.status)
+          if (blockMessage) {
+            onDragBlocked?.(blockMessage)
+            return // Block the move
+          }
+
           onStatusChange(taskId, targetTask.status)
           // Story 3.4: Trigger agent launch when planning task moved to in_progress
           if (targetTask.status === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
@@ -276,7 +296,7 @@ export function KanbanBoard({
         }
       }
     },
-    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete]
+    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete, validateDragMove, onDragBlocked]
   )
 
   const handleDragCancel = useCallback(() => {
@@ -408,6 +428,7 @@ export function KanbanBoard({
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
                             onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
+                            onStoryFileClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
                             onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
                             isSyncing={syncingTaskIds.has(task.id)}

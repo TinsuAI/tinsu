@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isPlanningTask, isStoryTask, TASK_TYPE, TASK_STATUS, type Task, type TaskStatus } from './task.types'
+import { isPlanningTask, isStoryTask, isImportedStoryTask, TASK_TYPE, TASK_STATUS, type Task, type TaskStatus } from './task.types'
 
 describe('TASK_STATUS enum (Story 5.2b)', () => {
   it('includes create_story status', () => {
@@ -227,5 +227,87 @@ describe('Task Types (Story 3.1)', () => {
         expect(true).toBe(false)
       }
     })
+  })
+})
+
+describe('isImportedStoryTask helper (Story 5.2c)', () => {
+  const createBaseTask = (): Omit<
+    Task,
+    'task_type' | 'phase_number' | 'phase_name' | 'bmad_agent' | 'bmad_workflow' | 'story_number' | 'story_file_status'
+  > => ({
+    id: 'task-1',
+    title: 'Test Task',
+    description: null,
+    status: 'backlog',
+    sort_order: 0,
+    epic_id: null,
+    sprint_id: null,
+    is_start_here: null,
+    project_id: null,
+    artifact_path: null,
+    story_file_path: null,
+    full_content: null,
+    created_at: new Date(),
+    updated_at: new Date()
+  })
+
+  it('returns true for story tasks with story_number', () => {
+    const importedStoryTask: Task = {
+      ...createBaseTask(),
+      task_type: 'story',
+      phase_number: null,
+      phase_name: null,
+      bmad_agent: null,
+      bmad_workflow: null,
+      story_number: 1,
+      story_file_status: 'summary_only'
+    }
+
+    expect(isImportedStoryTask(importedStoryTask)).toBe(true)
+  })
+
+  it('returns false for story tasks without story_number (basic task)', () => {
+    const basicTask: Task = {
+      ...createBaseTask(),
+      task_type: 'story',
+      phase_number: null,
+      phase_name: null,
+      bmad_agent: null,
+      bmad_workflow: null,
+      story_number: null,
+      story_file_status: null
+    }
+
+    expect(isImportedStoryTask(basicTask)).toBe(false)
+  })
+
+  it('returns false for planning tasks', () => {
+    const planningTask: Task = {
+      ...createBaseTask(),
+      task_type: 'planning',
+      phase_number: 1,
+      phase_name: 'Product Brief',
+      bmad_agent: 'bmad:bmm:agents:pm',
+      bmad_workflow: '_bmad/bmm/workflows/1-ideation/create-product-brief/workflow.yaml',
+      story_number: null,
+      story_file_status: null
+    }
+
+    expect(isImportedStoryTask(planningTask)).toBe(false)
+  })
+
+  it('returns true for imported story with story_ready status', () => {
+    const readyStoryTask: Task = {
+      ...createBaseTask(),
+      task_type: 'story',
+      phase_number: null,
+      phase_name: null,
+      bmad_agent: null,
+      bmad_workflow: null,
+      story_number: 2,
+      story_file_status: 'story_ready'
+    }
+
+    expect(isImportedStoryTask(readyStoryTask)).toBe(true)
   })
 })

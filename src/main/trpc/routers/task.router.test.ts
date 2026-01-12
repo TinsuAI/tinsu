@@ -183,6 +183,15 @@ describe('taskRouter', () => {
       expect(result.project_id).toBe(TEST_PROJECT_ID) // Story 3.1.5: Verify project_id is set
     })
 
+    // Story 5.2c: Basic task (manually created) should have null story_file_status
+    it('should create a basic task with null story_file_status', async () => {
+      const result = await caller.create({ title: 'Manual Basic Task' })
+
+      expect(result.story_number).toBeNull()
+      expect(result.story_file_status).toBeNull()
+      expect(result.task_type).toBe('story') // Default task_type
+    })
+
     it('should create a task with all fields', async () => {
       const result = await caller.create({
         title: 'Full Task',

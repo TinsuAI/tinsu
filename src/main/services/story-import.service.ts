@@ -214,14 +214,19 @@ export class StoryImportService {
         const fullContent = detailedStory?.fullContent ?? null
         const hasDetailedStory = detailedStory !== undefined
 
+        // Story 5.2c: Set story_file_status based on whether detailed story exists
+        const storyFileStatus = hasDetailedStory ? 'story_ready' : 'summary_only'
+
         if (existingStory) {
           // Update existing story (preserving status and other user-modified fields)
+          // Story 5.2c: Update story_file_status based on whether detailed story file exists
           db.update(schema.tasks)
             .set({
               title,
               description,
               story_file_path: storyFilePath,
               full_content: fullContent,
+              story_file_status: storyFileStatus,
               updated_at: now
               // Note: status is intentionally NOT updated to preserve user progress
             })
@@ -246,6 +251,7 @@ export class StoryImportService {
               sort_order: sortOrder++,
               story_file_path: storyFilePath,
               full_content: fullContent,
+              story_file_status: storyFileStatus, // Story 5.2c
               created_at: now,
               updated_at: now
             })

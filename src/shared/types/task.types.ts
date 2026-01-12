@@ -241,3 +241,10 @@ export function isPlanningTask(task: Task): task is PlanningTask {
 export function isStoryTask(task: Task): task is StoryTask {
   return task.task_type === 'story'
 }
+
+// Story 5.2c: Helper to distinguish imported story tasks from basic tasks
+// Imported story tasks have story_number (imported from epics.md)
+// Basic tasks are manually created (story_number is null)
+export function isImportedStoryTask(task: Task): boolean {
+  return task.task_type === 'story' && task.story_number !== null
+}

@@ -645,6 +645,79 @@ describe('StoryImportService', () => {
     })
   })
 
+  // Story 5.2c: story_file_status handling
+  describe('story_file_status setting (Story 5.2c)', () => {
+    it('sets story_file_status to summary_only when creating new story', async () => {
+      const parsedEpics: ParsedEpic[] = [
+        {
+          epicNumber: 1,
+          title: 'Epic',
+          goal: 'Goal',
+          stories: [
+            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+          ]
+        }
+      ]
+
+      await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics)
+
+      const task = db.select().from(schema.tasks).get()
+      expect(task?.story_file_status).toBe('summary_only')
+    })
+
+    it('sets story_file_status to story_ready when detailed story file exists', async () => {
+      const parsedEpics: ParsedEpic[] = [
+        {
+          epicNumber: 1,
+          title: 'Epic',
+          goal: 'Goal',
+          stories: [
+            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+          ]
+        }
+      ]
+
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/to/1-1-story.md', fullContent: '# Story content' }]
+      ])
+
+      await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)
+
+      const task = db.select().from(schema.tasks).get()
+      expect(task?.story_file_status).toBe('story_ready')
+    })
+
+    it('updates story_file_status on re-import based on detailed story existence', async () => {
+      const parsedEpics: ParsedEpic[] = [
+        {
+          epicNumber: 1,
+          title: 'Epic',
+          goal: 'Goal',
+          stories: [
+            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+          ]
+        }
+      ]
+
+      // First import - no detailed story, should be summary_only
+      await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics)
+      let task = db.select().from(schema.tasks).get()
+      expect(task?.story_file_status).toBe('summary_only')
+
+      // Re-import WITH detailed story - should update to story_ready
+      const detailedStoriesMap = new Map<StoryKey, { filePath: string; fullContent: string }>([
+        ['1-1' as StoryKey, { filePath: '/path/to/1-1-story.md', fullContent: '# Story content' }]
+      ])
+
+      await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, detailedStoriesMap)
+
+      // story_file_status should be updated to story_ready
+      task = db.select().from(schema.tasks).get()
+      expect(task?.story_file_status).toBe('story_ready')
+      expect(task?.story_file_path).toBe('/path/to/1-1-story.md')
+    })
+  })
+
   describe('detailed story import', () => {
     it('stores story_file_path and full_content from detailed stories map', async () => {
       const parsedEpics: ParsedEpic[] = [
