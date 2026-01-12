@@ -21,6 +21,18 @@ vi.mock('../../services/bmad-agent-launcher.service', () => ({
   }
 }))
 
+// Mock ConfigService for Story 5.1: Agent Model Configuration
+vi.mock('../../services/config.service', () => ({
+  ConfigService: class MockConfigService {
+    getDevAgentModel() {
+      return 'opus'
+    }
+    getReviewAgentModel() {
+      return 'sonnet'
+    }
+  }
+}))
+
 type TestDb = BetterSQLite3Database<typeof schema>
 
 const TEST_PROJECT_ID = 'test-project-id'
@@ -226,12 +238,12 @@ describe('agentRouter', () => {
       expect(BmadAgentLauncherService.launchPlanningAgent).toHaveBeenCalled()
     })
 
-    it('calls BmadAgentLauncherService with correct arguments', async () => {
+    it('calls BmadAgentLauncherService with correct arguments including model (Story 5.1)', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
       vi.mocked(BmadAgentLauncherService.launchPlanningAgent).mockReturnValue({
         processId: 'process-123',
         command: 'claude',
-        args: ['--skill', 'bmad:bmm:agents:architect']
+        args: ['--skill', 'bmad:bmm:agents:architect', '--model', 'opus']
       })
 
       const task = createPlanningTask({
@@ -242,13 +254,15 @@ describe('agentRouter', () => {
 
       await caller.launchPlanningAgent({ taskId: task.id })
 
+      // Should now include model as third argument
       expect(BmadAgentLauncherService.launchPlanningAgent).toHaveBeenCalledWith(
         expect.objectContaining({
           id: task.id,
           bmad_agent: 'bmad:bmm:agents:architect',
           phase_number: 3
         }),
-        TEST_PROJECT_ROOT
+        TEST_PROJECT_ROOT,
+        'opus' // Story 5.1: Dev agent model from config
       )
     })
   })

@@ -1,5 +1,6 @@
 import { ptyService } from './pty.service'
 import { PlanningTask } from '../../shared/types/task.types'
+import type { ClaudeModel } from '../../shared/types/config.types'
 
 /**
  * Result returned when launching a BMAD planning agent.
@@ -32,20 +33,30 @@ export class BmadAgentLauncherService {
    *
    * @param task - The planning task to launch agent for (must be a valid PlanningTask)
    * @param projectPath - Root path of the project (used as working directory)
+   * @param model - Optional Claude model to use (opus, sonnet, haiku). If not specified, uses CLI default.
    * @returns Process ID, command, and args for tracking
    * @throws Error if ptyService.spawn fails
    *
    * @example
    * ```typescript
-   * const result = BmadAgentLauncherService.launchPlanningAgent(task, '/path/to/project')
+   * const result = BmadAgentLauncherService.launchPlanningAgent(task, '/path/to/project', 'opus')
    * console.log(`Launched process ${result.processId}`)
    * ```
    */
-  static launchPlanningAgent(task: PlanningTask, projectPath: string): BmadAgentLaunchResult {
+  static launchPlanningAgent(
+    task: PlanningTask,
+    projectPath: string,
+    model?: ClaudeModel
+  ): BmadAgentLaunchResult {
     // Use the --skill flag with agent identifier as documented in Dev Notes
     // e.g., 'bmad:bmm:agents:pm' -> claude --skill bmad:bmm:agents:pm
     const command = 'claude'
     const args = ['--skill', task.bmad_agent]
+
+    // Add model flag if specified (Story 5.1: Agent Model Configuration)
+    if (model) {
+      args.push('--model', model)
+    }
 
     // Spawn the process via PTY service
     const processId = ptyService.spawn(command, args, {

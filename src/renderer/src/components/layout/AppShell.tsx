@@ -6,6 +6,7 @@ import { MainContent } from './MainContent'
 import { TerminalDock } from '@renderer/components/terminal'
 import { ImportStoriesDialog } from '@renderer/components/dialogs/ImportStoriesDialog'
 import { DeleteAllTasksDialog } from '@renderer/components/dialogs/DeleteAllTasksDialog'
+import { SettingsDialog } from '@renderer/components/dialogs/SettingsDialog'
 import { useTerminalStore } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
@@ -29,6 +30,8 @@ export function AppShell({ children }: AppShellProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   // Delete All Tasks dialog state
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false)
+  // Story 5.1: Settings dialog state
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
 
   const handleImportStories = useCallback(() => {
     setImportDialogOpen(true)
@@ -36,6 +39,11 @@ export function AppShell({ children }: AppShellProps) {
 
   const handleDeleteAllTasks = useCallback(() => {
     setDeleteAllDialogOpen(true)
+  }, [])
+
+  // Story 5.1: Open settings dialog
+  const handleOpenSettings = useCallback(() => {
+    setSettingsDialogOpen(true)
   }, [])
 
   // Story 3.9: Handle Sync All button click (syncs existing + imports new)
@@ -70,6 +78,7 @@ export function AppShell({ children }: AppShellProps) {
         onDeleteAllTasks={handleDeleteAllTasks}
         onSyncAll={handleSyncAll}
         isSyncingAll={isSyncingAll}
+        onOpenSettings={handleOpenSettings}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden" style={contentPadding}>
         <Sidebar />
@@ -99,6 +108,12 @@ export function AppShell({ children }: AppShellProps) {
             description: `Deleted ${count} task${count === 1 ? '' : 's'} from the project`
           })
         }}
+      />
+
+      {/* Story 5.1: Settings dialog */}
+      <SettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
       />
     </div>
   )

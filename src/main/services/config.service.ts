@@ -4,7 +4,10 @@ import * as yaml from 'js-yaml'
 import {
   ProjectConfig,
   ProjectConfigSchema,
-  ProjectConfigUpdate
+  ProjectConfigUpdate,
+  ClaudeModel,
+  DEFAULT_DEV_AGENT_MODEL,
+  DEFAULT_REVIEW_AGENT_MODEL
 } from '../../shared/types/config.types'
 
 /**
@@ -163,6 +166,32 @@ export class ConfigService {
   }
 
   /**
+   * Gets the configured model for the Dev Agent.
+   * Returns the default if not configured or config doesn't exist.
+   */
+  getDevAgentModel(): ClaudeModel {
+    try {
+      const config = this.loadConfig()
+      return config.devAgentModel ?? DEFAULT_DEV_AGENT_MODEL
+    } catch {
+      return DEFAULT_DEV_AGENT_MODEL
+    }
+  }
+
+  /**
+   * Gets the configured model for the Review Agent.
+   * Returns the default if not configured or config doesn't exist.
+   */
+  getReviewAgentModel(): ClaudeModel {
+    try {
+      const config = this.loadConfig()
+      return config.reviewAgentModel ?? DEFAULT_REVIEW_AGENT_MODEL
+    } catch {
+      return DEFAULT_REVIEW_AGENT_MODEL
+    }
+  }
+
+  /**
    * Creates a default configuration for a new project.
    */
   private createDefaultConfig(): ProjectConfig {
@@ -174,7 +203,9 @@ export class ConfigService {
       methodology: 'bmad',
       createdAt: new Date().toISOString(),
       version: '1.0.0',
-      planningTasksInitialized: false
+      planningTasksInitialized: false,
+      devAgentModel: DEFAULT_DEV_AGENT_MODEL,
+      reviewAgentModel: DEFAULT_REVIEW_AGENT_MODEL
     }
   }
 

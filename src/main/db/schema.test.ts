@@ -56,6 +56,19 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   `)
 
+  // Story 3.10: Create task_artifacts table for artifact linking
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_artifacts (
+      id TEXT PRIMARY KEY NOT NULL,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      artifact_type TEXT NOT NULL,
+      artifact_path TEXT NOT NULL,
+      section_ref TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_artifacts_task_id ON task_artifacts(task_id);
+  `)
+
   return drizzle({ client: sqlite, schema })
 }
 

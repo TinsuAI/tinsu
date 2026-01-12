@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { ConfigService, ConfigError } from '../../services/config.service'
-import { MethodologySchema } from '../../../shared/types/config.types'
+import { MethodologySchema, ClaudeModelSchema } from '../../../shared/types/config.types'
 
 // Cache ConfigService instances per projectRoot to avoid recreation on every request
 const configServiceCache = new Map<string, ConfigService>()
@@ -50,7 +50,9 @@ export const configRouter = router({
       z.object({
         projectName: z.string().min(1).optional(),
         methodology: MethodologySchema.optional(),
-        version: z.string().optional()
+        version: z.string().optional(),
+        devAgentModel: ClaudeModelSchema.optional(),
+        reviewAgentModel: ClaudeModelSchema.optional()
       })
     )
     .mutation(({ ctx, input }) => {

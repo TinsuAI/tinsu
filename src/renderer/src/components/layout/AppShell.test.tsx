@@ -91,6 +91,94 @@ vi.mock('@renderer/lib/trpc', () => ({
           mutate: vi.fn(),
           isPending: false
         })
+      },
+      get: {
+        useQuery: () => ({
+          data: {
+            devAgentModel: 'opus',
+            reviewAgentModel: 'sonnet'
+          },
+          isLoading: false
+        })
+      },
+      update: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          isPending: false
+        })
+      },
+      detectImportFiles: {
+        useQuery: () => ({
+          data: { epicsPath: null, statusPath: null },
+          isLoading: false
+        })
+      }
+    },
+    // Story 3.9: Mock sync router for useStorySync hook
+    sync: {
+      syncStatusToFile: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ synced: true }),
+          isPending: false
+        })
+      },
+      syncFromFile: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ synced: true }),
+          isPending: false
+        })
+      },
+      checkFileChanges: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ hasChanges: false }),
+          isPending: false
+        })
+      },
+      detectConflict: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ hasConflict: false }),
+          isPending: false
+        })
+      },
+      resolveConflict: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ resolved: true }),
+          isPending: false
+        })
+      },
+      syncAllFromFiles: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({
+            syncedCount: 0,
+            failedCount: 0,
+            importedCount: 0
+          }),
+          isPending: false
+        })
+      }
+    },
+    tasks: {
+      getById: {
+        invalidate: vi.fn()
+      },
+      getAll: {
+        invalidate: vi.fn()
+      },
+      getAllWithEpics: {
+        invalidate: vi.fn()
+      },
+      deleteAll: {
+        useMutation: () => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn().mockResolvedValue({ deleted: 0 }),
+          isPending: false
+        })
       }
     }
   }
@@ -162,11 +250,11 @@ describe('AppShell', () => {
     expect(container).toHaveClass('min-w-[1024px]')
   })
 
-  it('should have min-h-screen for full viewport height', () => {
+  it('should have h-screen for full viewport height', () => {
     render(<AppShell />, { wrapper: createWrapper() })
     // The container is 2 levels up from the header (header > wrapper div > container)
     const container = screen.getByRole('banner').parentElement?.parentElement
-    expect(container).toHaveClass('min-h-screen')
+    expect(container).toHaveClass('h-screen')
   })
 
   it('should have correct layout structure', () => {

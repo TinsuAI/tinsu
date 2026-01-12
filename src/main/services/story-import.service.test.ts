@@ -1,8 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
+
+// Mock the database module before importing StoryImportService (required for ArtifactLinkingService)
+vi.mock('../db', () => ({
+  db: null as unknown as BetterSQLite3Database<typeof schema>
+}))
+
+import * as dbModule from '../db'
 import { StoryImportService } from './story-import.service'
 import type { ParsedEpic } from './epics-parser.service'
 import type { StoryKey } from './detailed-story-parser.service'

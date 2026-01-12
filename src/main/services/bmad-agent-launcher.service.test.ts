@@ -180,7 +180,7 @@ describe('BmadAgentLauncherService', () => {
       expect(result.processId).toBe(expectedProcessId)
     })
 
-    it('includes command and args in result', () => {
+    it('includes command and args in result without model', () => {
       const mockProcessId = 'process-uuid-606'
       vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
 
@@ -195,6 +195,63 @@ describe('BmadAgentLauncherService', () => {
         command: 'claude',
         args: ['--skill', 'bmad:bmm:agents:architect']
       })
+    })
+
+    it('includes model flag when model is specified (Story 5.1)', () => {
+      const mockProcessId = 'process-uuid-707'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const task = createMockPlanningTask({
+        bmad_agent: 'bmad:bmm:agents:dev'
+      })
+
+      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'opus')
+
+      expect(result).toEqual<BmadAgentLaunchResult>({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--skill', 'bmad:bmm:agents:dev', '--model', 'opus']
+      })
+    })
+
+    it('includes sonnet model when specified (Story 5.1)', () => {
+      const mockProcessId = 'process-uuid-808'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const task = createMockPlanningTask({
+        bmad_agent: 'bmad:bmm:agents:pm'
+      })
+
+      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'sonnet')
+
+      expect(result.args).toContain('--model')
+      expect(result.args).toContain('sonnet')
+    })
+
+    it('includes haiku model when specified (Story 5.1)', () => {
+      const mockProcessId = 'process-uuid-909'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const task = createMockPlanningTask({
+        bmad_agent: 'bmad:bmm:agents:sm'
+      })
+
+      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'haiku')
+
+      expect(result.args).toContain('--model')
+      expect(result.args).toContain('haiku')
+    })
+
+    it('does not include model flag when model is undefined (Story 5.1)', () => {
+      const mockProcessId = 'process-uuid-1010'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const task = createMockPlanningTask()
+
+      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, undefined)
+
+      expect(result.args).not.toContain('--model')
+      expect(result.args).toEqual(['--skill', task.bmad_agent])
     })
 
     it('propagates ptyService.spawn errors', () => {

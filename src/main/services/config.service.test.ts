@@ -208,6 +208,92 @@ createdAt: "not-a-date"
     })
   })
 
+  describe('Agent Model Settings', () => {
+    it('should return default dev agent model when config does not exist', () => {
+      const model = configService.getDevAgentModel()
+      expect(model).toBe('opus')
+    })
+
+    it('should return default review agent model when config does not exist', () => {
+      const model = configService.getReviewAgentModel()
+      expect(model).toBe('sonnet')
+    })
+
+    it('should return configured dev agent model', () => {
+      const configContent = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-04T12:00:00Z"
+version: "1.0.0"
+devAgentModel: haiku
+reviewAgentModel: opus
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, configContent)
+
+      const model = configService.getDevAgentModel()
+      expect(model).toBe('haiku')
+    })
+
+    it('should return configured review agent model', () => {
+      const configContent = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-04T12:00:00Z"
+version: "1.0.0"
+devAgentModel: haiku
+reviewAgentModel: opus
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, configContent)
+
+      const model = configService.getReviewAgentModel()
+      expect(model).toBe('opus')
+    })
+
+    it('should migrate old config without model fields', () => {
+      // Old config without agent model fields
+      const oldConfig = `projectName: "OldProject"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, oldConfig)
+
+      // Loading should work with defaults applied
+      const config = configService.loadConfig()
+      expect(config.devAgentModel).toBe('opus')
+      expect(config.reviewAgentModel).toBe('sonnet')
+    })
+
+    it('should include agent model settings in default config', () => {
+      const config = configService.getOrCreateConfig()
+      expect(config.devAgentModel).toBe('opus')
+      expect(config.reviewAgentModel).toBe('sonnet')
+    })
+
+    it('should persist agent model changes', () => {
+      const initialConfig = {
+        projectName: 'TestProject',
+        methodology: 'bmad' as const,
+        createdAt: '2026-01-04T00:00:00Z',
+        version: '1.0.0',
+        devAgentModel: 'opus' as const,
+        reviewAgentModel: 'sonnet' as const
+      }
+      configService.saveConfig(initialConfig)
+
+      const updated = configService.updateConfig({
+        devAgentModel: 'haiku',
+        reviewAgentModel: 'opus'
+      })
+
+      expect(updated.devAgentModel).toBe('haiku')
+      expect(updated.reviewAgentModel).toBe('opus')
+
+      // Verify persisted
+      const loaded = configService.loadConfig()
+      expect(loaded.devAgentModel).toBe('haiku')
+      expect(loaded.reviewAgentModel).toBe('opus')
+    })
+  })
+
   describe('error handling', () => {
     it('should provide clear error message for permission errors on read', () => {
       // Create a valid config file

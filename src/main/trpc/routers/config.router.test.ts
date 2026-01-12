@@ -147,5 +147,81 @@ version: "1.0.0"
 
       await expect(caller.config.update({ methodology: 'invalid' as 'bmad' })).rejects.toThrow()
     })
+
+    it('should update devAgentModel', async () => {
+      // Create initial config
+      const initialConfig = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, initialConfig)
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      const updated = await caller.config.update({
+        devAgentModel: 'haiku'
+      })
+
+      expect(updated.devAgentModel).toBe('haiku')
+      expect(updated.projectName).toBe('TestProject') // Preserved
+    })
+
+    it('should update reviewAgentModel', async () => {
+      // Create initial config
+      const initialConfig = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, initialConfig)
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      const updated = await caller.config.update({
+        reviewAgentModel: 'opus'
+      })
+
+      expect(updated.reviewAgentModel).toBe('opus')
+      expect(updated.projectName).toBe('TestProject') // Preserved
+    })
+
+    it('should update both agent models at once', async () => {
+      // Create initial config
+      const initialConfig = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+devAgentModel: opus
+reviewAgentModel: sonnet
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, initialConfig)
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      const updated = await caller.config.update({
+        devAgentModel: 'sonnet',
+        reviewAgentModel: 'haiku'
+      })
+
+      expect(updated.devAgentModel).toBe('sonnet')
+      expect(updated.reviewAgentModel).toBe('haiku')
+    })
+
+    it('should reject invalid devAgentModel value', async () => {
+      // Create initial config
+      const initialConfig = `projectName: "TestProject"
+methodology: bmad
+createdAt: "2026-01-01T00:00:00Z"
+version: "1.0.0"
+`
+      fs.writeFileSync(TEST_CONFIG_PATH, initialConfig)
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.config.update({ devAgentModel: 'gpt4' as 'opus' })
+      ).rejects.toThrow()
+    })
   })
 })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Download, Trash2, RefreshCw } from 'lucide-react'
+import { X, Download, Trash2, RefreshCw, Settings } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
@@ -18,9 +18,11 @@ interface HeaderProps {
   onSyncAll?: () => void
   /** Story 3.9: Whether sync all is in progress */
   isSyncingAll?: boolean
+  /** Story 5.1: Callback to open the Settings dialog */
+  onOpenSettings?: () => void
 }
 
-export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false }: HeaderProps) {
+export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false, onOpenSettings }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -98,6 +100,19 @@ export function Header({ className, onOpenProject, onImportStories, onDeleteAllT
             >
               <Trash2 className="mr-1 h-3 w-3" />
               Delete All
+            </Button>
+          )}
+
+          {/* Story 5.1: Settings button */}
+          {onOpenSettings && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenSettings}
+              data-testid="header-settings"
+            >
+              <Settings className="mr-1 h-3 w-3" />
+              Settings
             </Button>
           )}
 

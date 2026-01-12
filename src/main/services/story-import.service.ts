@@ -1,13 +1,14 @@
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { eq, and } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, readdirSync } from 'fs'
 import { dirname, join } from 'path'
 import * as yaml from 'yaml'
 import * as schema from '../db/schema'
 import { EpicsParserService, ParsedEpic, ParsedStory } from './epics-parser.service'
 import { DetailedStoryParserService, StoryKey } from './detailed-story-parser.service'
-import { EPIC_COLORS } from '../db/schema'
+import { EPIC_COLORS, ArtifactType } from '../db/schema'
+import { ArtifactLinkingService } from './artifact-linking.service'
 import type { TaskStatus } from '@shared/types/task.types'
 
 /**

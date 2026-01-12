@@ -4,6 +4,7 @@ import { tasks } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
+import { ConfigService } from '../../services/config.service'
 import { isPlanningTask, type Task } from '../../../shared/types/task.types'
 
 /**
@@ -78,8 +79,16 @@ export const agentRouter = router({
         })
       }
 
-      // Launch the agent using the service
-      const result = BmadAgentLauncherService.launchPlanningAgent(typedTask, ctx.projectRoot)
+      // Story 5.1: Get configured dev agent model from project config
+      const configService = new ConfigService(ctx.projectRoot)
+      const devAgentModel = configService.getDevAgentModel()
+
+      // Launch the agent using the service with configured model
+      const result = BmadAgentLauncherService.launchPlanningAgent(
+        typedTask,
+        ctx.projectRoot,
+        devAgentModel
+      )
 
       return result
     })

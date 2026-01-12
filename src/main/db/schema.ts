@@ -174,3 +174,29 @@ export type NewSprint = InferInsertModel<typeof sprints>
 // Project type exports (Story 3.1.5)
 export type Project = InferSelectModel<typeof projects>
 export type NewProject = InferInsertModel<typeof projects>
+
+// Story 3.10: Artifact type enum for artifact linking
+export const ARTIFACT_TYPE = ['prd', 'architecture', 'ux_design', 'epics', 'custom'] as const
+export type ArtifactType = (typeof ARTIFACT_TYPE)[number]
+
+// Story 3.10: Task artifacts table for linking artifacts to tasks
+export const task_artifacts = sqliteTable(
+  'task_artifacts',
+  {
+    id: text('id').primaryKey(),
+    task_id: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    artifact_type: text('artifact_type').notNull(), // 'prd' | 'architecture' | 'ux_design' | 'epics' | 'custom'
+    artifact_path: text('artifact_path').notNull(), // Absolute or relative path to artifact file
+    section_ref: text('section_ref'), // Optional: reference to section (e.g., "Story 3.10" or line number)
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [index('idx_task_artifacts_task_id').on(table.task_id)]
+)
+
+// Story 3.10: Task artifact type exports
+export type TaskArtifact = InferSelectModel<typeof task_artifacts>
+export type NewTaskArtifact = InferInsertModel<typeof task_artifacts>
