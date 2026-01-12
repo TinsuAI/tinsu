@@ -34,6 +34,7 @@ describe('BmadAgentLauncherService', () => {
     artifact_path: null,
     story_number: null,
     story_file_path: null,
+    story_file_status: null,
     full_content: null,
     project_id: 'project-1',
     created_at: new Date(),
@@ -264,6 +265,144 @@ describe('BmadAgentLauncherService', () => {
 
       expect(() => {
         BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
+      }).toThrow('Spawn failed')
+    })
+  })
+
+  describe('launchCreateStory (Story 5.3 - AC: 1)', () => {
+    const mockStoryIdentifier = '5.3'
+
+    it('launches claude with create-story workflow command and story identifier as single arg', () => {
+      const mockProcessId = 'process-create-story-1'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+      expect(result.args).toContain('--dangerously-skip-permissions')
+      expect(result.args).toContain(`/bmad:bmm:workflows:create-story ${mockStoryIdentifier}`)
+    })
+
+    it('combines workflow and story identifier in single string argument', () => {
+      const mockProcessId = 'process-create-story-2'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, '5.1')
+
+      // Workflow and story identifier should be combined in single arg
+      expect(result.args).toContain('/bmad:bmm:workflows:create-story 5.1')
+    })
+
+    it('sets working directory to project path', () => {
+      const mockProcessId = 'process-create-story-3'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
+
+      expect(ptyService.spawn).toHaveBeenCalledWith(
+        'claude',
+        expect.any(Array),
+        expect.objectContaining({ cwd: mockProjectPath })
+      )
+    })
+
+    it('includes model flag when specified', () => {
+      const mockProcessId = 'process-create-story-4'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier, 'opus')
+
+      expect(result.args).toContain('--model')
+      expect(result.args).toContain('opus')
+    })
+
+    it('does not include model flag when undefined', () => {
+      const mockProcessId = 'process-create-story-5'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
+
+      expect(result.args).not.toContain('--model')
+    })
+
+    it('propagates ptyService.spawn errors', () => {
+      const spawnError = new Error('Spawn failed')
+      vi.mocked(ptyService.spawn).mockImplementation(() => {
+        throw spawnError
+      })
+
+      expect(() => {
+        BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
+      }).toThrow('Spawn failed')
+    })
+  })
+
+  describe('launchDevStory (Story 5.3 - AC: 3)', () => {
+    const mockStoryFilePath = '/path/to/story/5-3-story-task-execution-path.md'
+
+    it('launches claude with dev-story workflow command and story path as single arg', () => {
+      const mockProcessId = 'process-dev-story-1'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+      expect(result.args).toContain('--dangerously-skip-permissions')
+      expect(result.args).toContain(`/bmad:bmm:workflows:dev-story ${mockStoryFilePath}`)
+    })
+
+    it('combines workflow and story file path in single string argument', () => {
+      const mockProcessId = 'process-dev-story-2'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
+
+      // Workflow and story file path should be combined in single arg
+      expect(result.args).toContain(`/bmad:bmm:workflows:dev-story ${mockStoryFilePath}`)
+    })
+
+    it('sets working directory to project path', () => {
+      const mockProcessId = 'process-dev-story-3'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
+
+      expect(ptyService.spawn).toHaveBeenCalledWith(
+        'claude',
+        expect.any(Array),
+        expect.objectContaining({ cwd: mockProjectPath })
+      )
+    })
+
+    it('includes model flag when specified', () => {
+      const mockProcessId = 'process-dev-story-4'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath, 'sonnet')
+
+      expect(result.args).toContain('--model')
+      expect(result.args).toContain('sonnet')
+    })
+
+    it('does not include model flag when undefined', () => {
+      const mockProcessId = 'process-dev-story-5'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
+
+      expect(result.args).not.toContain('--model')
+    })
+
+    it('propagates ptyService.spawn errors', () => {
+      const spawnError = new Error('Spawn failed')
+      vi.mocked(ptyService.spawn).mockImplementation(() => {
+        throw spawnError
+      })
+
+      expect(() => {
+        BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
       }).toThrow('Spawn failed')
     })
   })

@@ -8,6 +8,9 @@ const MIN_SIZE = 80
 /** Terminal dock position options */
 export type DockPosition = 'bottom' | 'top' | 'left' | 'right'
 
+/** Story 5.3: Workflow type for completion handling */
+export type AgentWorkflowType = 'planning' | 'create_story' | 'dev_story' | null
+
 interface TerminalState {
   /** Whether the terminal dock is expanded */
   isExpanded: boolean
@@ -21,6 +24,8 @@ interface TerminalState {
   activeProcessId: string | null
   /** ID of the task that spawned the current agent process (Story 3.4) */
   agentTaskId: string | null
+  /** Story 5.3: Type of workflow running (for completion handling) */
+  agentWorkflowType: AgentWorkflowType
 
   /** Set the expanded state */
   setExpanded: (expanded: boolean) => void
@@ -36,6 +41,8 @@ interface TerminalState {
   setActiveProcess: (processId: string | null) => void
   /** Set the task ID that spawned the current agent (Story 3.4) */
   setAgentTask: (taskId: string | null) => void
+  /** Story 5.3: Set the workflow type for completion handling */
+  setAgentWorkflowType: (workflowType: AgentWorkflowType) => void
   /** Clear agent tracking when process exits (Story 3.4) */
   clearAgent: () => void
 }
@@ -49,6 +56,7 @@ export const useTerminalStore = create<TerminalState>()(
       dockPosition: 'bottom',
       activeProcessId: null,
       agentTaskId: null,
+      agentWorkflowType: null,
 
       setExpanded: (isExpanded) => set({ isExpanded }),
       toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
@@ -57,7 +65,8 @@ export const useTerminalStore = create<TerminalState>()(
       setDockPosition: (dockPosition) => set({ dockPosition }),
       setActiveProcess: (activeProcessId) => set({ activeProcessId }),
       setAgentTask: (agentTaskId) => set({ agentTaskId }),
-      clearAgent: () => set({ agentTaskId: null, activeProcessId: null })
+      setAgentWorkflowType: (agentWorkflowType) => set({ agentWorkflowType }),
+      clearAgent: () => set({ agentTaskId: null, activeProcessId: null, agentWorkflowType: null })
     }),
     {
       name: 'terminal-storage',

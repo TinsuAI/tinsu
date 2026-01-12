@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
+import { StoryCompletionService } from '../../services/story-completion.service'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
@@ -17,7 +18,9 @@ vi.mock('../../services/claude-cli-detector.service', () => ({
 
 vi.mock('../../services/bmad-agent-launcher.service', () => ({
   BmadAgentLauncherService: {
-    launchPlanningAgent: vi.fn()
+    launchPlanningAgent: vi.fn(),
+    launchCreateStory: vi.fn(),
+    launchDevStory: vi.fn()
   }
 }))
 
@@ -30,6 +33,13 @@ vi.mock('../../services/config.service', () => ({
     getReviewAgentModel() {
       return 'sonnet'
     }
+  }
+}))
+
+// Mock StoryCompletionService for Story 5.3 - AC: 2
+vi.mock('../../services/story-completion.service', () => ({
+  StoryCompletionService: {
+    handleCreateStoryComplete: vi.fn()
   }
 }))
 
@@ -53,6 +63,20 @@ function createTestDb(): TestDb {
     );
   `)
 
+  // Create the epics table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS epics (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      color TEXT NOT NULL DEFAULT 'blue',
+      epic_number INTEGER,
+      goal TEXT,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `)
+
   // Create the tasks table matching Drizzle schema (Story 3.7: added story_number, story_file_path, full_content)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -61,7 +85,7 @@ function createTestDb(): TestDb {
       description TEXT,
       status TEXT NOT NULL DEFAULT 'backlog',
       sort_order INTEGER NOT NULL DEFAULT 0,
-      epic_id TEXT,
+      epic_id TEXT REFERENCES epics(id),
       sprint_id TEXT,
       task_type TEXT NOT NULL DEFAULT 'story',
       phase_number INTEGER,
@@ -127,6 +151,23 @@ describe('agentRouter', () => {
         project_id: TEST_PROJECT_ID,
         created_at: now,
         updated_at: now,
+        ...overrides
+      })
+      .returning()
+      .get()
+  }
+
+  // Helper to create an epic
+  const createEpic = (overrides: Partial<typeof schema.epics.$inferInsert> = {}) => {
+    const id = `epic-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    return db
+      .insert(schema.epics)
+      .values({
+        id,
+        title: 'Test Epic',
+        color: 'blue',
+        epic_number: 5,
+        project_id: TEST_PROJECT_ID,
         ...overrides
       })
       .returning()
@@ -265,6 +306,232 @@ describe('agentRouter', () => {
         TEST_PROJECT_ROOT,
         'opus' // Story 5.1: Dev agent model from config
       )
+    })
+  })
+
+  describe('startCreateStory (Story 5.3 - AC: 1)', () => {
+    it('throws PRECONDITION_FAILED when CLI not installed', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(false)
+      const epic = createEpic({ epic_number: 5 })
+      const task = createStoryTask({ story_number: 3, epic_id: epic.id })
+
+      await expect(caller.startCreateStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'PRECONDITION_FAILED',
+        message: expect.stringContaining('Claude Code CLI is not installed')
+      })
+    })
+
+    it('throws NOT_FOUND for invalid taskId', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+
+      await expect(caller.startCreateStory({ taskId: 'non-existent-id' })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Task not found'
+      })
+    })
+
+    it('throws BAD_REQUEST for non-story task (planning task)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const planningTask = createPlanningTask()
+
+      await expect(caller.startCreateStory({ taskId: planningTask.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: 'Task is not a story task'
+      })
+    })
+
+    it('throws BAD_REQUEST when story_number is missing', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const task = createStoryTask({ story_number: null })
+
+      await expect(caller.startCreateStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: expect.stringContaining('Cannot determine story identifier')
+      })
+    })
+
+    it('passes story identifier from epic_number.story_number', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-create-story-123'
+      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story', '5.3']
+      })
+
+      const epic = createEpic({ epic_number: 5 })
+      const task = createStoryTask({ story_number: 3, epic_id: epic.id })
+
+      const result = await caller.startCreateStory({ taskId: task.id })
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+      expect(BmadAgentLauncherService.launchCreateStory).toHaveBeenCalledWith(
+        TEST_PROJECT_ROOT,
+        '5.3', // Story identifier in format epic_number.story_number
+        'opus' // Story 5.1: Dev agent model from config
+      )
+    })
+
+    it('falls back to story_number only when no epic', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-create-story-124'
+      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story', '7']
+      })
+
+      const task = createStoryTask({ story_number: 7, epic_id: null })
+
+      const result = await caller.startCreateStory({ taskId: task.id })
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(BmadAgentLauncherService.launchCreateStory).toHaveBeenCalledWith(
+        TEST_PROJECT_ROOT,
+        '7', // Story number only when no epic
+        'opus'
+      )
+    })
+  })
+
+  describe('startDevStory (Story 5.3 - AC: 3)', () => {
+    const mockStoryFilePath = '/path/to/story/5-3-story.md'
+
+    it('throws PRECONDITION_FAILED when CLI not installed', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(false)
+      const task = createStoryTask({
+        story_number: 3,
+        story_file_status: 'story_ready',
+        story_file_path: mockStoryFilePath
+      })
+
+      await expect(caller.startDevStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'PRECONDITION_FAILED',
+        message: expect.stringContaining('Claude Code CLI is not installed')
+      })
+    })
+
+    it('throws NOT_FOUND for invalid taskId', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+
+      await expect(caller.startDevStory({ taskId: 'non-existent-id' })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Task not found'
+      })
+    })
+
+    it('throws BAD_REQUEST for non-story task', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const planningTask = createPlanningTask()
+
+      await expect(caller.startDevStory({ taskId: planningTask.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: 'Task is not a story task'
+      })
+    })
+
+    it('throws BAD_REQUEST when story file is not ready', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const task = createStoryTask({
+        story_number: 3,
+        story_file_status: 'summary_only'
+      })
+
+      await expect(caller.startDevStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: expect.stringContaining('Story file not ready')
+      })
+    })
+
+    it('throws BAD_REQUEST when story file path is missing', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const task = createStoryTask({
+        story_number: 3,
+        story_file_status: 'story_ready',
+        story_file_path: null
+      })
+
+      await expect(caller.startDevStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: expect.stringContaining('Story file path is missing')
+      })
+    })
+
+    it('returns processId on successful launch', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-dev-story-123'
+      vi.mocked(BmadAgentLauncherService.launchDevStory).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:dev-story', mockStoryFilePath]
+      })
+
+      const task = createStoryTask({
+        story_number: 3,
+        story_file_status: 'story_ready',
+        story_file_path: mockStoryFilePath
+      })
+
+      const result = await caller.startDevStory({ taskId: task.id })
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+      expect(BmadAgentLauncherService.launchDevStory).toHaveBeenCalledWith(
+        TEST_PROJECT_ROOT,
+        mockStoryFilePath,
+        'opus' // Story 5.1: Dev agent model from config
+      )
+    })
+  })
+
+  describe('handleCreateStoryComplete (Story 5.3 - AC: 2)', () => {
+    it('calls StoryCompletionService with correct arguments', async () => {
+      vi.mocked(StoryCompletionService.handleCreateStoryComplete).mockResolvedValue({
+        success: true,
+        storyFilePath: '/path/to/story/5-3-story.md'
+      })
+
+      const task = createStoryTask({ story_number: 3 })
+
+      const result = await caller.handleCreateStoryComplete({ taskId: task.id })
+
+      expect(StoryCompletionService.handleCreateStoryComplete).toHaveBeenCalledWith(
+        expect.anything(), // db
+        task.id,
+        TEST_PROJECT_ROOT
+      )
+      expect(result.success).toBe(true)
+      expect(result.storyFilePath).toBe('/path/to/story/5-3-story.md')
+    })
+
+    it('returns error result when service returns error', async () => {
+      vi.mocked(StoryCompletionService.handleCreateStoryComplete).mockResolvedValue({
+        success: false,
+        storyFilePath: null,
+        error: 'Task not found'
+      })
+
+      const result = await caller.handleCreateStoryComplete({ taskId: 'nonexistent-task' })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Task not found')
+      expect(result.storyFilePath).toBeNull()
+    })
+
+    it('handles story file not found gracefully', async () => {
+      vi.mocked(StoryCompletionService.handleCreateStoryComplete).mockResolvedValue({
+        success: false,
+        storyFilePath: null,
+        error: 'Story file not found in implementation-artifacts'
+      })
+
+      const task = createStoryTask({ story_number: 3 })
+
+      const result = await caller.handleCreateStoryComplete({ taskId: task.id })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Story file not found in implementation-artifacts')
     })
   })
 })

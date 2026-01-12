@@ -93,7 +93,7 @@ development_status:
   # 5-2-sprint-planning-agent-step: removed (not needed for MVP)
   5-2b-add-create-story-column: done
   5-2c-task-type-and-story-file-status-handling: done
-  5-3-story-task-execution-path: backlog
+  5-3-story-task-execution-path: done
   5-3b-basic-task-execution-path: backlog
   # 5-4-sm-agent-draft-story-file: removed (merged into 5-3)
   5-5-dev-agent-implement-story: backlog

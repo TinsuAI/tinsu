@@ -56,6 +56,10 @@ interface KanbanBoardProps {
   onDeleteTask?: (taskId: string) => void
   /** Story 5.2c: Callback when a drag operation is blocked due to validation */
   onDragBlocked?: (message: string) => void
+  /** Story 5.3 - AC: 1: Callback when story task is dragged to create_story column (requires confirmation) */
+  onCreateStoryRequested?: (task: Task) => void
+  /** Story 5.3 - AC: 3: Callback when story_ready task is dragged to in_progress column (requires confirmation) */
+  onDevStoryRequested?: (task: Task) => void
 }
 
 export function KanbanBoard({
@@ -75,7 +79,9 @@ export function KanbanBoard({
   onPhase5Complete,
   onStoryClick,
   onDeleteTask,
-  onDragBlocked
+  onDragBlocked,
+  onCreateStoryRequested,
+  onDevStoryRequested
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -217,17 +223,36 @@ export function KanbanBoard({
       const task = tasks.find((t) => t.id === taskId)
       if (!task) return
 
-      // Check if dropped on a column
-      if (overId.startsWith('column-')) {
-        const targetStatus = overId.replace('column-', '') as TaskStatus
-        if (task.status !== targetStatus && onStatusChange) {
-          // Story 5.2c: Validate drag before allowing status change
-          const blockMessage = validateDragMove(task, targetStatus)
-          if (blockMessage) {
-            onDragBlocked?.(blockMessage)
-            return // Block the move
-          }
+      // Helper to process status change (shared logic)
+      const processStatusChange = (targetStatus: TaskStatus) => {
+        if (task.status === targetStatus) return // Same status, no change
 
+        // Story 5.2c: Validate drag before allowing status change
+        const blockMessage = validateDragMove(task, targetStatus)
+        if (blockMessage) {
+          onDragBlocked?.(blockMessage)
+          return // Block the move
+        }
+
+        // Story 5.3 - AC: 1: Intercept story tasks dragged to create_story
+        if (targetStatus === 'create_story' && isStoryTask(task) && onCreateStoryRequested) {
+          onCreateStoryRequested(task)
+          return // Let the callback handle the status change
+        }
+
+        // Story 5.3 - AC: 3: Intercept story_ready tasks dragged to in_progress
+        if (
+          targetStatus === 'in_progress' &&
+          isStoryTask(task) &&
+          task.story_file_status === 'story_ready' &&
+          onDevStoryRequested
+        ) {
+          onDevStoryRequested(task)
+          return // Let the callback handle the status change
+        }
+
+        // Default: Commit the status change immediately
+        if (onStatusChange) {
           onStatusChange(taskId, targetStatus)
           // Story 3.4: Trigger agent launch when planning task moved to in_progress
           if (targetStatus === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
@@ -244,6 +269,12 @@ export function KanbanBoard({
             onPhase5Complete(task.artifact_path)
           }
         }
+      }
+
+      // Check if dropped on a column
+      if (overId.startsWith('column-')) {
+        const targetStatus = overId.replace('column-', '') as TaskStatus
+        processStatusChange(targetStatus)
         return
       }
 
@@ -251,29 +282,8 @@ export function KanbanBoard({
       const targetTask = tasks.find((t) => t.id === overId)
       if (targetTask) {
         // If different columns, update status
-        if (task.status !== targetTask.status && onStatusChange) {
-          // Story 5.2c: Validate drag before allowing status change
-          const blockMessage = validateDragMove(task, targetTask.status)
-          if (blockMessage) {
-            onDragBlocked?.(blockMessage)
-            return // Block the move
-          }
-
-          onStatusChange(taskId, targetTask.status)
-          // Story 3.4: Trigger agent launch when planning task moved to in_progress
-          if (targetTask.status === 'in_progress' && isPlanningTask(task) && onPlanningTaskStart) {
-            onPlanningTaskStart(taskId)
-          }
-          // Story 3.7: Trigger import when phase 5 (Epics & Stories) is moved to done
-          if (
-            targetTask.status === 'done' &&
-            isPlanningTask(task) &&
-            task.phase_number === 5 &&
-            task.artifact_path &&
-            onPhase5Complete
-          ) {
-            onPhase5Complete(task.artifact_path)
-          }
+        if (task.status !== targetTask.status) {
+          processStatusChange(targetTask.status)
         }
         // If same column, handle reorder
         else if (onReorder && taskId !== overId) {
@@ -296,7 +306,7 @@ export function KanbanBoard({
         }
       }
     },
-    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete, validateDragMove, onDragBlocked]
+    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete, onDragBlocked, onCreateStoryRequested, onDevStoryRequested]
   )
 
   const handleDragCancel = useCallback(() => {

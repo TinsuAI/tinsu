@@ -69,4 +69,104 @@ export class BmadAgentLauncherService {
       args
     }
   }
+
+  /**
+   * Launches the BMAD create-story workflow to generate a full story file.
+   *
+   * Story 5.3 - AC: 1
+   *
+   * Uses `--dangerously-skip-permissions` flag for non-interactive execution.
+   * Passes the story identifier (e.g., "5.3") to target a specific story.
+   *
+   * @param projectPath - Root path of the project (used as working directory)
+   * @param storyIdentifier - Story identifier in format "epic.story" (e.g., "5.3")
+   * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @returns Process ID, command, and args for tracking
+   * @throws Error if ptyService.spawn fails
+   *
+   * @example
+   * ```typescript
+   * const result = BmadAgentLauncherService.launchCreateStory('/path/to/project', '5.3', 'opus')
+   * console.log(`Launched process ${result.processId}`)
+   * ```
+   */
+  static launchCreateStory(
+    projectPath: string,
+    storyIdentifier: string,
+    model?: ClaudeModel
+  ): BmadAgentLaunchResult {
+    const command = 'claude'
+    // Combine workflow command and story identifier as single string argument
+    // This passes the story number as part of the workflow invocation message
+    const workflowWithArg = `/bmad:bmm:workflows:create-story ${storyIdentifier}`
+    const args = ['--dangerously-skip-permissions', workflowWithArg]
+
+    // Add model flag if specified
+    if (model) {
+      args.push('--model', model)
+    }
+
+    // Spawn the process via PTY service
+    const processId = ptyService.spawn(command, args, {
+      cwd: projectPath
+    })
+
+    return {
+      processId,
+      command,
+      args
+    }
+  }
+
+  /**
+   * Launches the BMAD dev-story workflow to implement a story.
+   *
+   * Story 5.3 - AC: 3
+   *
+   * Uses `--dangerously-skip-permissions` flag for non-interactive execution.
+   * Passes the story file path as an argument to the workflow.
+   *
+   * @param projectPath - Root path of the project (used as working directory)
+   * @param storyFilePath - Full path to the story file (.md) to implement
+   * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @returns Process ID, command, and args for tracking
+   * @throws Error if ptyService.spawn fails
+   *
+   * @example
+   * ```typescript
+   * const result = BmadAgentLauncherService.launchDevStory(
+   *   '/path/to/project',
+   *   '/path/to/story/5-3-story.md',
+   *   'sonnet'
+   * )
+   * console.log(`Launched process ${result.processId}`)
+   * ```
+   */
+  static launchDevStory(
+    projectPath: string,
+    storyFilePath: string,
+    model?: ClaudeModel
+  ): BmadAgentLaunchResult {
+    const command = 'claude'
+    // Combine workflow command and story file path as single string argument
+    // This passes the story path as part of the workflow invocation message
+    const workflowWithArg = `/bmad:bmm:workflows:dev-story ${storyFilePath}`
+    const args = ['--dangerously-skip-permissions', workflowWithArg]
+
+    // Add model flag if specified
+    if (model) {
+      args.push('--model', model)
+    }
+
+    // Spawn the process via PTY service
+    const processId = ptyService.spawn(command, args, {
+      cwd: projectPath
+    })
+
+    return {
+      processId,
+      command,
+      args
+    }
+  }
 }

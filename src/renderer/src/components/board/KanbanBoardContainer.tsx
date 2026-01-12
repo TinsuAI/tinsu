@@ -5,6 +5,8 @@ import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
+import { CreateStoryConfirmDialog } from '../dialogs/CreateStoryConfirmDialog'
+import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
 import { useUIStore, useStoryViewStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
@@ -16,7 +18,8 @@ export function KanbanBoardContainer() {
   const { data: epics } = trpc.epics.getAll.useQuery()
 
   // Story 3.4: Agent launcher hook for planning tasks
-  const { launchPlanningAgent } = useAgentLauncher()
+  // Story 5.3: Extended with launchCreateStory and launchDevStory
+  const { launchPlanningAgent, launchCreateStory, launchDevStory } = useAgentLauncher()
 
   // Story 3.9: Sync hook for bidirectional sync (AC: 5)
   const { syncingTaskIds } = useStorySync()
@@ -37,6 +40,14 @@ export function KanbanBoardContainer() {
   // Story 3.7: Import stories dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importDefaultPath, setImportDefaultPath] = useState<string>('')
+
+  // Story 5.3: Create Story confirmation dialog state
+  const [createStoryDialogOpen, setCreateStoryDialogOpen] = useState(false)
+  const [createStoryTask, setCreateStoryTask] = useState<Task | null>(null)
+
+  // Story 5.3: Dev Story confirmation dialog state
+  const [devStoryDialogOpen, setDevStoryDialogOpen] = useState(false)
+  const [devStoryTask, setDevStoryTask] = useState<Task | null>(null)
 
   // Handle add task from column "+" button
   const handleAddTask = useCallback((status: TaskStatus) => {
@@ -200,6 +211,46 @@ export function KanbanBoardContainer() {
     })
   }, [])
 
+  // Story 5.3 - AC: 1: Handle create-story dialog request
+  const handleCreateStoryRequested = useCallback((task: Task) => {
+    setCreateStoryTask(task)
+    setCreateStoryDialogOpen(true)
+  }, [])
+
+  // Story 5.3 - AC: 1: Handle create-story confirmation
+  const handleCreateStoryConfirm = useCallback(() => {
+    if (!createStoryTask) return
+
+    // Move task to create_story status
+    updateStatusMutation.mutate({ id: createStoryTask.id, status: 'create_story' })
+
+    // Launch the create-story workflow
+    launchCreateStory(createStoryTask.id)
+
+    // Clear the dialog state
+    setCreateStoryTask(null)
+  }, [createStoryTask, updateStatusMutation, launchCreateStory])
+
+  // Story 5.3 - AC: 3: Handle dev-story dialog request
+  const handleDevStoryRequested = useCallback((task: Task) => {
+    setDevStoryTask(task)
+    setDevStoryDialogOpen(true)
+  }, [])
+
+  // Story 5.3 - AC: 3: Handle dev-story confirmation
+  const handleDevStoryConfirm = useCallback(() => {
+    if (!devStoryTask) return
+
+    // Move task to in_progress status
+    updateStatusMutation.mutate({ id: devStoryTask.id, status: 'in_progress' })
+
+    // Launch the dev-story workflow
+    launchDevStory(devStoryTask.id)
+
+    // Clear the dialog state
+    setDevStoryTask(null)
+  }, [devStoryTask, updateStatusMutation, launchDevStory])
+
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
   // Story 2.6: Apply comprehensive filtering with AND logic between filter types
   const transformedTasks: Task[] = useMemo(() => {
@@ -299,6 +350,8 @@ export function KanbanBoardContainer() {
         onStoryClick={handleStoryClick}
         onDeleteTask={handleDeleteTask}
         onDragBlocked={handleDragBlocked}
+        onCreateStoryRequested={handleCreateStoryRequested}
+        onDevStoryRequested={handleDevStoryRequested}
       />
       <CreateTaskDialog
         open={dialogOpen}
@@ -316,6 +369,24 @@ export function KanbanBoardContainer() {
           })
         }}
       />
+      {/* Story 5.3 - AC: 1: Create Story confirmation dialog */}
+      {createStoryTask && (
+        <CreateStoryConfirmDialog
+          open={createStoryDialogOpen}
+          onOpenChange={setCreateStoryDialogOpen}
+          task={createStoryTask}
+          onConfirm={handleCreateStoryConfirm}
+        />
+      )}
+      {/* Story 5.3 - AC: 3: Dev Story confirmation dialog */}
+      {devStoryTask && (
+        <DevStoryConfirmDialog
+          open={devStoryDialogOpen}
+          onOpenChange={setDevStoryDialogOpen}
+          task={devStoryTask}
+          onConfirm={handleDevStoryConfirm}
+        />
+      )}
     </>
   )
 }
