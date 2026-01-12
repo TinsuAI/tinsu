@@ -347,6 +347,7 @@ export const syncRouter = router({
       }
 
       // 2. Find and import new story files
+      console.log(`[SyncAll] Part 2: Looking for new story files to import...`)
       // Determine implementation-artifacts path
       let artifactsDir: string | null = null
 
@@ -365,6 +366,9 @@ export const syncRouter = router({
           // Scan for all story files
           const allStoryFiles = await DetailedStoryParserService.scanDetailedStories(artifactsDir)
 
+          console.log(`[SyncAll] Found ${allStoryFiles.size} story files in ${artifactsDir}`)
+          console.log(`[SyncAll] Existing file paths in DB: ${existingFilePaths.size}`, [...existingFilePaths])
+
           // Find new files that aren't in the database yet
           for (const [storyKey, detailedStory] of allStoryFiles) {
             const normalizedFilePath = path.normalize(detailedStory.filePath)
@@ -374,11 +378,17 @@ export const syncRouter = router({
               (existingPath) => path.normalize(existingPath) === normalizedFilePath
             )
 
+            console.log(`[SyncAll] Checking ${storyKey}: ${normalizedFilePath} - isExisting=${isExisting}`)
+
             if (!isExisting) {
               // This file isn't linked to a task yet - check if task exists by epic+story_number
               try {
-                // Find or create the epic for this story
-                const [epicNum, storyNum] = storyKey.split('-').map(Number)
+                // Parse story key - storyNum may have letters like "3b" so keep as string
+                const keyParts = storyKey.split('-')
+                const epicNum = parseInt(keyParts[0], 10)
+                const storyNum = keyParts.slice(1).join('-') // Keep as string: "3", "3b", "1-5"
+
+                console.log(`[SyncAll] Processing unlinked file: ${storyKey} -> epicNum=${epicNum}, storyNum="${storyNum}"`)
 
                 // Look up epic by epic_number column
                 const existingEpic = ctx.db
@@ -394,18 +404,25 @@ export const syncRouter = router({
                   continue
                 }
 
+                console.log(`[SyncAll] Found epic: ${existingEpic.id} (${existingEpic.title})`)
+
                 // Parse the story file content
                 const fileContent = await StorySyncService.readStoryFileContent(
                   detailedStory.filePath
                 )
 
                 // Check if task already exists by epic_id + story_number (may be missing story_file_path)
-                const existingTask = ctx.db
+                const tasksInEpic = ctx.db
                   .select()
                   .from(tasks)
                   .where(eq(tasks.epic_id, existingEpic.id))
                   .all()
-                  .find((t) => t.story_number === storyNum)
+
+                console.log(`[SyncAll] Tasks in epic ${epicNum}:`, tasksInEpic.map(t => ({ id: t.id, story_number: t.story_number, title: t.title?.substring(0, 30) })))
+
+                const existingTask = tasksInEpic.find((t) => t.story_number === storyNum)
+
+                console.log(`[SyncAll] Looking for story_number="${storyNum}", found:`, existingTask ? existingTask.id : 'null')
 
                 if (existingTask) {
                   // Task exists but wasn't linked to file - update it
@@ -415,6 +432,7 @@ export const syncRouter = router({
                       story_file_path: detailedStory.filePath,
                       full_content: detailedStory.fullContent,
                       status: mapFileStatusToDbStatus(fileContent.status),
+                      story_file_status: 'story_ready', // Story 5.2c: File exists = story_ready
                       updated_at: new Date()
                     })
                     .where(eq(tasks.id, existingTask.id))
@@ -458,6 +476,7 @@ export const syncRouter = router({
                     story_number: storyNum,
                     story_file_path: detailedStory.filePath,
                     full_content: detailedStory.fullContent,
+                    story_file_status: 'story_ready', // Story 5.2c: File exists = story_ready
                     created_at: new Date(),
                     updated_at: new Date()
                   })
