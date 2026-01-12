@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import {
   DndContext,
-  closestCorners,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -384,7 +384,7 @@ export function KanbanBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
