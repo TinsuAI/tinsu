@@ -18,12 +18,13 @@ const fileWatcher = new FileWatcherService()
  */
 function mapFileStatusToDbStatus(fileStatus: string): string {
   const statusMap: Record<string, string> = {
-    'ready-for-dev': 'backlog',
+    'ready-for-dev': 'create_story',
     'in-progress': 'in_progress',
     review: 'review',
     done: 'done',
     // Handle DB status values that might appear in files
     backlog: 'backlog',
+    create_story: 'create_story',
     in_progress: 'in_progress'
   }
   return statusMap[fileStatus.toLowerCase()] || 'backlog'
@@ -35,6 +36,7 @@ function mapFileStatusToDbStatus(fileStatus: string): string {
 function mapDbStatusToFileStatus(dbStatus: string): string {
   const statusMap: Record<string, string> = {
     backlog: 'ready-for-dev',
+    create_story: 'ready-for-dev',
     in_progress: 'in-progress',
     review: 'review',
     done: 'done'
