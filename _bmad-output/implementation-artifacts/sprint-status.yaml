@@ -76,7 +76,7 @@ development_status:
   3-6-next-phase-suggestion-with-skip-warning: deferred
   3-7-story-import-after-epics-phase: deferred
   3-8-bmad-artifact-scanner-and-parser: deferred
-  3-9-bidirectional-sync-between-kanban-and-epics-md: done
+  3-9-bidirectional-sync-between-kanban-and-detail-story-files: done
   3-10-link-artifacts-to-tasks: deferred
   3-11-context-builder-service: deferred
   3-12-re-run-planning-phase-brownfield-refinement: deferred
@@ -92,7 +92,7 @@ development_status:
   5-1-agent-model-configuration: done
   # 5-2-sprint-planning-agent-step: removed (not needed for MVP)
   5-2b-add-create-story-column: done
-  5-2c-task-type-and-story-file-status: done
+  5-2c-task-type-and-story-file-status-handling: done
   5-3-story-task-execution-path: backlog
   5-3b-basic-task-execution-path: backlog
   # 5-4-sm-agent-draft-story-file: removed (merged into 5-3)

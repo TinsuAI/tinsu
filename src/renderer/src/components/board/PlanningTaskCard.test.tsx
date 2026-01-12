@@ -31,6 +31,7 @@ const mockPlanningTask: PlanningTask = {
   artifact_path: null,
   story_number: null,
   story_file_path: null,
+  story_file_status: null,
   full_content: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')

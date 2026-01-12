@@ -190,19 +190,20 @@ export class StoryImportService {
         const title = `${story.epicNumber}.${story.storyNumber}: ${story.title}`
 
         // Story 3.7 AC 7: Check for existing story by epic_id and story_number
+        // Use storyNumberInt for database queries (integer column)
         const existingStory = db
           .select()
           .from(schema.tasks)
           .where(
             and(
               eq(schema.tasks.epic_id, epicId),
-              eq(schema.tasks.story_number, story.storyNumber),
+              eq(schema.tasks.story_number, story.storyNumberInt),
               eq(schema.tasks.task_type, 'story')
             )
           )
           .get()
 
-        // Generate story key for status lookup
+        // Generate story key for status lookup (uses string storyNumber for "2b", "1.5" etc)
         const storyKey = this.generateStoryKey(story.epicNumber, story.storyNumber, story.title)
         const sprintStatus = statusMap?.get(storyKey)
         const kanbanStatus = this.mapSprintStatusToKanban(sprintStatus)
@@ -244,7 +245,7 @@ export class StoryImportService {
               project_id: projectId,
               task_type: 'story',
               epic_id: epicId,
-              story_number: story.storyNumber,
+              story_number: story.storyNumberInt, // Use integer for database
               title,
               description,
               status: kanbanStatus,
@@ -432,22 +433,29 @@ export class StoryImportService {
    * Generates the sprint-status.yaml key for a story.
    *
    * Keys are formatted as: {epic_number}-{story_number}-{kebab-case-title}
-   * Example: "3-7-story-import-after-epics-phase"
+   * Examples:
+   *   - "3-7-story-import-after-epics-phase"
+   *   - "5-2b-add-create-story-column" (with letter suffix)
+   *   - "3-1-5-multi-project-database-support" (with extra decimal)
    *
    * @param epicNumber - Epic number
-   * @param storyNumber - Story number
+   * @param storyNumber - Story number as string (supports "2", "2b", "1.5")
    * @param title - Story title
    * @returns Key string matching sprint-status.yaml format
    */
-  static generateStoryKey(epicNumber: number, storyNumber: number, title: string): string {
+  static generateStoryKey(epicNumber: number, storyNumber: string, title: string): string {
     // Convert title to kebab-case
     const kebabTitle = title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\//g, '-') // Convert slashes to hyphens (e.g., "shadcn/ui" -> "shadcn-ui")
+      .replace(/[^a-z0-9\s-]/g, '') // Remove other special characters
       .replace(/\s+/g, '-') // Replace spaces with hyphens
       .replace(/-+/g, '-') // Collapse multiple hyphens
       .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
 
-    return `${epicNumber}-${storyNumber}-${kebabTitle}`
+    // Convert story number dots to hyphens (e.g., "1.5" -> "1-5")
+    const normalizedStoryNumber = storyNumber.replace(/\./g, '-')
+
+    return `${epicNumber}-${normalizedStoryNumber}-${kebabTitle}`
   }
 }

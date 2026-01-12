@@ -197,6 +197,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN full_content TEXT')
   }
 
+  // Migration: Add story_file_status column to tasks (Story 5.2c)
+  if (!existingColumns.has('story_file_status')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN story_file_status TEXT')
+  }
+
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
   const epicColumnsCheck = sqlite
     .prepare("PRAGMA table_info(epics)")

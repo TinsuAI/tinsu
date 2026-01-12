@@ -23,6 +23,7 @@ const createTask = (overrides: Partial<Task> = {}): Task => ({
   artifact_path: null,
   story_number: null,
   story_file_path: null,
+  story_file_status: null,
   full_content: null,
   project_id: null,
   created_at: new Date('2024-01-01'),

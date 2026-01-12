@@ -128,7 +128,7 @@ describe('StoryImportService', () => {
           stories: [
             {
               epicNumber: 1,
-              storyNumber: 1,
+              storyNumber: "1", storyNumberInt: 1,
               title: 'Initialize Project',
               userStory: {
                 role: 'developer',
@@ -139,7 +139,7 @@ describe('StoryImportService', () => {
             },
             {
               epicNumber: 1,
-              storyNumber: 2,
+              storyNumber: "2", storyNumberInt: 2,
               title: 'Configure Tools',
               userStory: {
                 role: 'developer',
@@ -178,7 +178,7 @@ describe('StoryImportService', () => {
           stories: [
             {
               epicNumber: 1,
-              storyNumber: 1,
+              storyNumber: "1", storyNumberInt: 1,
               title: 'Test Story',
               userStory: { role: 'user', action: 'test', benefit: 'works' },
               acceptanceCriteria: ''
@@ -200,8 +200,8 @@ describe('StoryImportService', () => {
           title: 'Epic 1',
           goal: 'Goal 1',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story 1.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 2, title: 'Story 1.2', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story 1.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'Story 1.2', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         },
         {
@@ -209,7 +209,7 @@ describe('StoryImportService', () => {
           title: 'Epic 2',
           goal: 'Goal 2',
           stories: [
-            { epicNumber: 2, storyNumber: 1, title: 'Story 2.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 2, storyNumber: "1", storyNumberInt: 1, title: 'Story 2.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -231,7 +231,7 @@ describe('StoryImportService', () => {
           stories: [
             {
               epicNumber: 1,
-              storyNumber: 1,
+              storyNumber: "1", storyNumberInt: 1,
               title: 'Test Story',
               userStory: {
                 role: 'developer',
@@ -301,7 +301,7 @@ describe('StoryImportService', () => {
           stories: [
             {
               epicNumber: 2,
-              storyNumber: 3,
+              storyNumber: "3", storyNumberInt: 3,
               title: 'Implement Feature',
               userStory: { role: 'user', action: 'use feature', benefit: 'happy' },
               acceptanceCriteria: ''
@@ -325,7 +325,7 @@ describe('StoryImportService', () => {
           stories: [
             {
               epicNumber: 1,
-              storyNumber: 1,
+              storyNumber: "1", storyNumberInt: 1,
               title: 'Story',
               userStory: { role: 'u', action: 'a', benefit: 'b' },
               acceptanceCriteria: ''
@@ -347,8 +347,8 @@ describe('StoryImportService', () => {
           title: 'Epic 1',
           goal: '',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'S 1.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 2, title: 'S 1.2', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'S 1.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'S 1.2', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         },
         {
@@ -356,7 +356,7 @@ describe('StoryImportService', () => {
           title: 'Epic 2',
           goal: '',
           stories: [
-            { epicNumber: 2, storyNumber: 1, title: 'S 2.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 2, storyNumber: "1", storyNumberInt: 1, title: 'S 2.1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -404,7 +404,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Original Story', userStory: { role: 'user', action: 'act', benefit: 'gain' }, acceptanceCriteria: 'Original AC' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Original Story', userStory: { role: 'user', action: 'act', benefit: 'gain' }, acceptanceCriteria: 'Original AC' }
           ]
         }
       ]
@@ -415,7 +415,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Updated Story', userStory: { role: 'admin', action: 'manage', benefit: 'control' }, acceptanceCriteria: 'Updated AC' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Updated Story', userStory: { role: 'admin', action: 'manage', benefit: 'control' }, acceptanceCriteria: 'Updated AC' }
           ]
         }
       ]
@@ -444,7 +444,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -463,7 +463,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Updated Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Updated Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -483,7 +483,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story 1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story 1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -500,8 +500,8 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story 1 Updated', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 2, title: 'Story 2 New', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story 1 Updated', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'Story 2 New', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -542,18 +542,36 @@ describe('StoryImportService', () => {
   describe('sprint status mapping', () => {
     describe('generateStoryKey', () => {
       it('generates correct key format', () => {
-        const key = StoryImportService.generateStoryKey(3, 7, 'Story Import After Epics Phase')
+        const key = StoryImportService.generateStoryKey(3, '7', 'Story Import After Epics Phase')
         expect(key).toBe('3-7-story-import-after-epics-phase')
       })
 
       it('handles special characters', () => {
-        const key = StoryImportService.generateStoryKey(1, 1, "Initialize Project's Core & Setup")
+        const key = StoryImportService.generateStoryKey(1, '1', "Initialize Project's Core & Setup")
         expect(key).toBe('1-1-initialize-projects-core-setup')
       })
 
+      it('converts slashes to hyphens', () => {
+        const key1 = StoryImportService.generateStoryKey(1, '2', 'Configure Tailwind CSS 4 and shadcn/ui')
+        expect(key1).toBe('1-2-configure-tailwind-css-4-and-shadcn-ui')
+
+        const key2 = StoryImportService.generateStoryKey(2, '5', 'Add Sprint/Epic/Story Hierarchy')
+        expect(key2).toBe('2-5-add-sprint-epic-story-hierarchy')
+      })
+
       it('handles multiple spaces', () => {
-        const key = StoryImportService.generateStoryKey(2, 3, 'Add   Extra   Spaces')
+        const key = StoryImportService.generateStoryKey(2, '3', 'Add   Extra   Spaces')
         expect(key).toBe('2-3-add-extra-spaces')
+      })
+
+      it('handles letter suffix in story number', () => {
+        const key = StoryImportService.generateStoryKey(5, '2b', 'Add Create Story Column')
+        expect(key).toBe('5-2b-add-create-story-column')
+      })
+
+      it('handles sub-story numbers with dots', () => {
+        const key = StoryImportService.generateStoryKey(3, '1.5', 'Multi-Project Database Support')
+        expect(key).toBe('3-1-5-multi-project-database-support')
       })
     })
 
@@ -599,9 +617,9 @@ describe('StoryImportService', () => {
             title: 'Epic',
             goal: 'Goal',
             stories: [
-              { epicNumber: 1, storyNumber: 1, title: 'Done Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-              { epicNumber: 1, storyNumber: 2, title: 'In Progress Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-              { epicNumber: 1, storyNumber: 3, title: 'Backlog Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+              { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Done Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+              { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'In Progress Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+              { epicNumber: 1, storyNumber: "3", storyNumberInt: 3, title: 'Backlog Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
             ]
           }
         ]
@@ -629,7 +647,7 @@ describe('StoryImportService', () => {
             title: 'Epic',
             goal: 'Goal',
             stories: [
-              { epicNumber: 1, storyNumber: 1, title: 'Unknown Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+              { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Unknown Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
             ]
           }
         ]
@@ -654,7 +672,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -672,7 +690,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -694,7 +712,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Test Story', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -726,7 +744,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -749,8 +767,8 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 2, title: 'Story Two', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'Story Two', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -779,9 +797,9 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 2, title: 'Story Two', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
-            { epicNumber: 1, storyNumber: 3, title: 'Story Three', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'Story Two', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "3", storyNumberInt: 3, title: 'Story Three', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]
@@ -805,7 +823,7 @@ describe('StoryImportService', () => {
           title: 'Epic',
           goal: 'Goal',
           stories: [
-            { epicNumber: 1, storyNumber: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story One', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
           ]
         }
       ]

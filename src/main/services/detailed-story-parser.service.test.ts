@@ -51,8 +51,16 @@ describe('DetailedStoryParserService', () => {
 
   describe('generateKey', () => {
     it('generates correct story key', () => {
-      expect(DetailedStoryParserService.generateKey(3, 4)).toBe('3-4')
-      expect(DetailedStoryParserService.generateKey(1, 10)).toBe('1-10')
+      expect(DetailedStoryParserService.generateKey(3, '4')).toBe('3-4')
+      expect(DetailedStoryParserService.generateKey(1, '10')).toBe('1-10')
+    })
+
+    it('handles letter suffixes in story numbers', () => {
+      expect(DetailedStoryParserService.generateKey(5, '2b')).toBe('5-2b')
+    })
+
+    it('handles sub-story numbers', () => {
+      expect(DetailedStoryParserService.generateKey(3, '1-5')).toBe('3-1-5')
     })
   })
 
@@ -86,7 +94,7 @@ describe('DetailedStoryParserService', () => {
 
       const story1 = result.get('1-1')
       expect(story1?.epicNumber).toBe(1)
-      expect(story1?.storyNumber).toBe(1)
+      expect(story1?.storyNumber).toBe('1')
       expect(story1?.fullContent).toContain('First Story')
     })
 
@@ -114,14 +122,14 @@ describe('DetailedStoryParserService', () => {
 
   describe('findStoryFile', () => {
     it('returns null for non-existent directory', async () => {
-      const result = await DetailedStoryParserService.findStoryFile('/non/existent', 1, 1)
+      const result = await DetailedStoryParserService.findStoryFile('/non/existent', 1, '1')
       expect(result).toBeNull()
     })
 
     it('returns null when story file not found', async () => {
       writeFileSync(join(tempDir, '1-1-story.md'), 'Content')
 
-      const result = await DetailedStoryParserService.findStoryFile(tempDir, 2, 2)
+      const result = await DetailedStoryParserService.findStoryFile(tempDir, 2, '2')
       expect(result).toBeNull()
     })
 
@@ -129,12 +137,22 @@ describe('DetailedStoryParserService', () => {
       const content = '# Story 3.4\n\nFull detailed content here.'
       writeFileSync(join(tempDir, '3-4-specific-story.md'), content)
 
-      const result = await DetailedStoryParserService.findStoryFile(tempDir, 3, 4)
+      const result = await DetailedStoryParserService.findStoryFile(tempDir, 3, '4')
 
       expect(result).not.toBeNull()
       expect(result?.epicNumber).toBe(3)
-      expect(result?.storyNumber).toBe(4)
+      expect(result?.storyNumber).toBe('4')
       expect(result?.fullContent).toBe(content)
+    })
+
+    it('finds story file with letter suffix', async () => {
+      const content = '# Story 5.2b\n\nLetter suffix content.'
+      writeFileSync(join(tempDir, '5-2b-add-create-story-column.md'), content)
+
+      const result = await DetailedStoryParserService.findStoryFile(tempDir, 5, '2b')
+
+      expect(result).not.toBeNull()
+      expect(result?.storyNumber).toBe('2b')
     })
   })
 })

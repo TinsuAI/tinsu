@@ -200,19 +200,6 @@ export function KanbanBoardContainer() {
     })
   }, [])
 
-  if (isError) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <p className="text-destructive">Failed to load tasks</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {error?.message || 'An unexpected error occurred'}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
   // Story 2.6: Apply comprehensive filtering with AND logic between filter types
   const transformedTasks: Task[] = useMemo(() => {
@@ -279,6 +266,20 @@ export function KanbanBoardContainer() {
     const taskWithProject = transformedTasks.find((t) => t.project_id)
     return taskWithProject?.project_id ?? ''
   }, [transformedTasks])
+
+  // Error state - must be after all hooks to avoid "fewer hooks than expected" error
+  if (isError) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive">Failed to load tasks</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error?.message || 'An unexpected error occurred'}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

@@ -7,15 +7,17 @@ import { join } from 'path'
  */
 export interface DetailedStory {
   epicNumber: number
-  storyNumber: number
+  /** Story number as string to support formats like "2", "2b", "1-5" */
+  storyNumber: string
   filePath: string
   fullContent: string
 }
 
 /**
  * Map key for story lookup: "epicNumber-storyNumber"
+ * Examples: "3-4", "5-2b", "3-1-5"
  */
-export type StoryKey = `${number}-${number}`
+export type StoryKey = string
 
 /**
  * Service for scanning and parsing detailed story files from implementation-artifacts.
@@ -90,6 +92,8 @@ export class DetailedStoryParserService {
    * Examples:
    * - 1-3-set-up-sqlite-database.md -> true
    * - 3-4-bmad-agent-launcher.md -> true
+   * - 5-2b-add-create-story-column.md -> true (letter suffix)
+   * - 3-1-5-multi-project-database-support.md -> true (sub-story)
    * - sprint-status.yaml -> false
    * - schema-gap-multi-project-support.md -> false
    *
@@ -97,8 +101,9 @@ export class DetailedStoryParserService {
    * @returns true if the file matches the story pattern
    */
   static isStoryFile(filename: string): boolean {
-    // Pattern: starts with digit-digit-
-    const pattern = /^\d+-\d+-.+\.md$/
+    // Pattern: starts with digit-{digits/letters/dots}- and ends with .md
+    // Supports: 1-3-name.md, 5-2b-name.md, 3-1-5-name.md
+    const pattern = /^\d+-[\d\w]+-[^.]+\.md$/
     return pattern.test(filename)
   }
 
@@ -107,14 +112,21 @@ export class DetailedStoryParserService {
    *
    * @param filename - The filename to parse
    * @returns Object with epicNumber and storyNumber, or null if not a valid story file
+   *
+   * Examples:
+   * - "3-4-bmad-agent-launcher.md" -> { epicNumber: 3, storyNumber: "4" }
+   * - "5-2b-add-create-story-column.md" -> { epicNumber: 5, storyNumber: "2b" }
+   * - "3-1-5-multi-project-database-support.md" -> { epicNumber: 3, storyNumber: "1-5" }
    */
-  static parseFileName(filename: string): { epicNumber: number; storyNumber: number } | null {
-    const match = filename.match(/^(\d+)-(\d+)-.+\.md$/)
+  static parseFileName(filename: string): { epicNumber: number; storyNumber: string } | null {
+    // Match: epicNumber - storyNumber (with optional letter or sub-number) - rest.md
+    // Pattern captures: epicNumber, storyNumber (which may contain letters or be like "1-5")
+    const match = filename.match(/^(\d+)-([\d\w]+(?:-\d+)?)-[^.]+\.md$/)
     if (!match) return null
 
     return {
       epicNumber: parseInt(match[1], 10),
-      storyNumber: parseInt(match[2], 10)
+      storyNumber: match[2] // Keep as string: "4", "2b", "1-5"
     }
   }
 
@@ -123,13 +135,13 @@ export class DetailedStoryParserService {
    *
    * @param artifactsDir - Absolute path to implementation-artifacts directory
    * @param epicNumber - Epic number
-   * @param storyNumber - Story number
+   * @param storyNumber - Story number as string (supports "2", "2b", "1-5")
    * @returns DetailedStory if found, null otherwise
    */
   static async findStoryFile(
     artifactsDir: string,
     epicNumber: number,
-    storyNumber: number
+    storyNumber: string
   ): Promise<DetailedStory | null> {
     if (!existsSync(artifactsDir)) {
       return null
@@ -139,7 +151,9 @@ export class DetailedStoryParserService {
       const files = await readdir(artifactsDir)
 
       // Find file matching pattern {epicNumber}-{storyNumber}-*.md
-      const pattern = new RegExp(`^${epicNumber}-${storyNumber}-.+\\.md$`)
+      // Escape special regex chars in storyNumber
+      const escapedStoryNum = storyNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const pattern = new RegExp(`^${epicNumber}-${escapedStoryNum}-.+\\.md$`)
       const matchingFile = files.find((file) => pattern.test(file))
 
       if (!matchingFile) {
@@ -164,10 +178,10 @@ export class DetailedStoryParserService {
    * Generates the story key for lookup.
    *
    * @param epicNumber - Epic number
-   * @param storyNumber - Story number
+   * @param storyNumber - Story number as string (supports "2", "2b", "1-5")
    * @returns Story key string
    */
-  static generateKey(epicNumber: number, storyNumber: number): StoryKey {
+  static generateKey(epicNumber: number, storyNumber: string): StoryKey {
     return `${epicNumber}-${storyNumber}`
   }
 }

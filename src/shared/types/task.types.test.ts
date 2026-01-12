@@ -46,6 +46,7 @@ describe('Task Types (Story 3.1)', () => {
       artifact_path: null,
       story_number: null,
       story_file_path: null,
+      story_file_status: null,
       full_content: null,
       created_at: new Date(),
       updated_at: new Date()
@@ -174,6 +175,7 @@ describe('Task Types (Story 3.1)', () => {
       artifact_path: null,
       story_number: null,
       story_file_path: null,
+      story_file_status: null,
       full_content: null,
       created_at: new Date(),
       updated_at: new Date()

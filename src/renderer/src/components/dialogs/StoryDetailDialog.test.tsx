@@ -18,6 +18,7 @@ const mockStoryTask: StoryTask = {
   task_type: 'story',
   story_number: 1,
   story_file_path: null,
+  story_file_status: null,
   full_content: null,
   phase_number: null,
   phase_name: null,

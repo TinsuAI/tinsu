@@ -14,7 +14,10 @@ export interface UserStory {
  */
 export interface ParsedStory {
   epicNumber: number
-  storyNumber: number
+  /** Story number as string to support formats like "2", "2b", "1.5" */
+  storyNumber: string
+  /** Story number as integer (for database storage, ignores letter suffixes) */
+  storyNumberInt: number
   title: string
   userStory: UserStory
   /** Full acceptance criteria text for storage */
@@ -130,14 +133,17 @@ export class EpicsParserService {
   private static extractStories(epicContent: string, epicNumber: number): ParsedStory[] {
     const stories: ParsedStory[] = []
 
-    // Match: ### Story X.Y: Title
-    const storyRegex = /^###\s+Story\s+(\d+)\.(\d+):\s*(.+)$/gm
+    // Match: ### Story X.Y: Title where Y can be "2", "2b", "1.5", etc.
+    // Supports formats: Story 5.2, Story 5.2b, Story 3.1.5
+    const storyRegex = /^###\s+Story\s+(\d+)\.([\d\w.]+):\s*(.+)$/gm
     const storyMatches = [...epicContent.matchAll(storyRegex)]
 
     for (let i = 0; i < storyMatches.length; i++) {
       const match = storyMatches[i]
       const storyEpicNum = parseInt(match[1], 10)
-      const storyNumber = parseInt(match[2], 10)
+      const storyNumber = match[2] // Keep as string: "2", "2b", "1.5"
+      // Extract integer part for database (ignores letters and extra decimals)
+      const storyNumberInt = parseInt(storyNumber.replace(/[^\d]/g, ''), 10) || 0
       const title = match[3].trim()
 
       // Get content between this story and the next (or next epic/section)
@@ -154,6 +160,7 @@ export class EpicsParserService {
       stories.push({
         epicNumber: storyEpicNum || epicNumber,
         storyNumber,
+        storyNumberInt,
         title,
         userStory,
         acceptanceCriteria
