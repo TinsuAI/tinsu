@@ -47,10 +47,11 @@ export function useAgentLauncher() {
   const isAgentRunning = agentTaskId !== null
 
   // Story 5.3 - AC: 2: Track workflow type and task ID for completion handling
+  // IMPORTANT: These refs are set ONLY when launching an agent, not on every render.
+  // This prevents race conditions where useTerminal clears activeProcessId before
+  // the exit handler runs, causing a re-render that would clear these values.
   const workflowTypeRef = useRef<AgentWorkflowType>(null)
   const taskIdRef = useRef<string | null>(null)
-  workflowTypeRef.current = agentWorkflowType
-  taskIdRef.current = agentTaskId
 
   // TanStack Query client for cache invalidation
   const utils = trpc.useUtils()
@@ -75,6 +76,9 @@ export function useAgentLauncher() {
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
       setAgentWorkflowType('planning')
+      // Set refs for completion handler (immune to re-renders)
+      workflowTypeRef.current = 'planning'
+      taskIdRef.current = variables.taskId
       // Expand terminal dock to show agent output
       setExpanded(true)
     },
@@ -90,6 +94,9 @@ export function useAgentLauncher() {
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
       setAgentWorkflowType('create_story')
+      // Set refs for completion handler (immune to re-renders)
+      workflowTypeRef.current = 'create_story'
+      taskIdRef.current = variables.taskId
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Create Story workflow started', {
@@ -108,6 +115,9 @@ export function useAgentLauncher() {
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
       setAgentWorkflowType('dev_story')
+      // Set refs for completion handler (immune to re-renders)
+      workflowTypeRef.current = 'dev_story'
+      taskIdRef.current = variables.taskId
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Dev Story workflow started', {
@@ -126,6 +136,9 @@ export function useAgentLauncher() {
       setAgentTask(variables.taskId)
       // Story 5.3b - AC: 1: Track workflow type for completion handling
       setAgentWorkflowType('basic_task')
+      // Set refs for completion handler (immune to re-renders)
+      workflowTypeRef.current = 'basic_task'
+      taskIdRef.current = variables.taskId
       // Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Basic task started', {
@@ -179,11 +192,16 @@ export function useAgentLauncher() {
     {
       enabled: !!activeProcessId,
       onData: (event) => {
+        // Capture ref values immediately (before any re-renders clear them)
+        const currentWorkflowType = workflowTypeRef.current
+        const currentTaskId = taskIdRef.current
+
+        // Clear refs to prevent stale data on next run
+        workflowTypeRef.current = null
+        taskIdRef.current = null
+
         // Only handle successful exits (exit code 0)
         if (event.exitCode === 0) {
-          const currentWorkflowType = workflowTypeRef.current
-          const currentTaskId = taskIdRef.current
-
           // Handle create-story workflow completion
           if (currentWorkflowType === 'create_story' && currentTaskId) {
             // Call completion handler to scan for story file and update task

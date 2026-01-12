@@ -17,14 +17,19 @@ vi.mock('sonner', () => ({
 const mockLaunchMutate = vi.fn()
 const mockCreateStoryMutate = vi.fn()
 const mockDevStoryMutate = vi.fn()
+const mockBasicTaskMutate = vi.fn()
 const mockHandleCompleteMutate = vi.fn()
+const mockHandleBasicTaskCompleteMutate = vi.fn()
 let mockOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
 let mockOnError: ((error: Error) => void) | undefined
 let mockCreateStoryOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
 let mockCreateStoryOnError: ((error: Error) => void) | undefined
 let mockDevStoryOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
 let mockDevStoryOnError: ((error: Error) => void) | undefined
+let mockBasicTaskOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
+let mockBasicTaskOnError: ((error: Error) => void) | undefined
 let mockHandleCompleteOnSuccess: ((result: { success: boolean; storyFilePath: string | null; error?: string }) => void) | undefined
+let mockHandleBasicTaskCompleteOnSuccess: ((result: { success: boolean; newStatus?: string; error?: string }) => void) | undefined
 let mockExitSubscriptionOnData: ((event: { processId: string; exitCode: number; signal?: number }) => void) | undefined
 
 vi.mock('@renderer/lib/trpc', () => ({
@@ -84,6 +89,31 @@ vi.mock('@renderer/lib/trpc', () => ({
           mockHandleCompleteOnSuccess = options?.onSuccess
           return {
             mutate: mockHandleCompleteMutate,
+            isPending: false
+          }
+        }
+      },
+      startBasicTask: {
+        useMutation: (options?: {
+          onSuccess?: (result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void
+          onError?: (error: Error) => void
+        }) => {
+          mockBasicTaskOnSuccess = options?.onSuccess
+          mockBasicTaskOnError = options?.onError
+          return {
+            mutate: mockBasicTaskMutate,
+            isPending: false
+          }
+        }
+      },
+      handleBasicTaskComplete: {
+        useMutation: (options?: {
+          onSuccess?: (result: { success: boolean; newStatus?: string; error?: string }) => void
+          onError?: (error: Error) => void
+        }) => {
+          mockHandleBasicTaskCompleteOnSuccess = options?.onSuccess
+          return {
+            mutate: mockHandleBasicTaskCompleteMutate,
             isPending: false
           }
         }
