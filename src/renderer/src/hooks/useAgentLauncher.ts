@@ -11,13 +11,14 @@ import { toast } from 'sonner'
  * - Planning tasks (existing)
  * - Create-story workflow (Story 5.3 - AC: 1)
  * - Dev-story workflow (Story 5.3 - AC: 3)
+ * - Basic tasks (Story 5.3b - AC: 1) - direct execution without BMAD workflow
  *
  * All launch functions expand the terminal dock on success.
  *
  * @example
  * ```tsx
  * function StoryTaskCard({ task }) {
- *   const { launchCreateStory, launchDevStory, isLaunching } = useAgentLauncher()
+ *   const { launchCreateStory, launchDevStory, launchBasicTask, isLaunching } = useAgentLauncher()
  *
  *   const handleCreateStory = () => {
  *     launchCreateStory(task.id)
@@ -116,6 +117,24 @@ export function useAgentLauncher() {
     onError: handleAgentError
   })
 
+  // Basic task mutation (Story 5.3b - AC: 1)
+  const basicTaskMutation = trpc.agent.startBasicTask.useMutation({
+    onSuccess: (result, variables) => {
+      // Track the active agent process
+      setActiveProcess(result.processId)
+      // Track which task spawned this agent
+      setAgentTask(variables.taskId)
+      // Story 5.3b - AC: 1: Track workflow type for completion handling
+      setAgentWorkflowType('basic_task')
+      // Expand terminal dock on workflow start
+      setExpanded(true)
+      toast.success('Basic task started', {
+        description: 'Check the terminal for progress'
+      })
+    },
+    onError: handleAgentError
+  })
+
   // Story 5.3 - AC: 2: Mutation for handling create-story workflow completion
   const handleCreateStoryCompleteMutation = trpc.agent.handleCreateStoryComplete.useMutation({
     onSuccess: (result) => {
@@ -135,7 +154,26 @@ export function useAgentLauncher() {
     }
   })
 
+  // Story 5.3b - AC: 3: Mutation for handling basic task completion
+  const handleBasicTaskCompleteMutation = trpc.agent.handleBasicTaskComplete.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('Basic task completed', {
+          description: 'Task moved to Review'
+        })
+        // Invalidate tasks query to refresh UI
+        utils.tasks.getAll.invalidate()
+      } else if (result.error) {
+        console.warn(`[useAgentLauncher] Basic task completion: ${result.error}`)
+      }
+    },
+    onError: (error) => {
+      console.warn(`[useAgentLauncher] Failed to handle basic task completion: ${error.message}`)
+    }
+  })
+
   // Story 5.3 - AC: 2: Subscribe to PTY exit events for completion handling
+  // Story 5.3b - AC: 3: Extended to handle basic_task completion
   trpc.pty.onExit.useSubscription(
     { processId: activeProcessId ?? '' },
     {
@@ -150,6 +188,12 @@ export function useAgentLauncher() {
           if (currentWorkflowType === 'create_story' && currentTaskId) {
             // Call completion handler to scan for story file and update task
             handleCreateStoryCompleteMutation.mutate({ taskId: currentTaskId })
+          }
+
+          // Story 5.3b - AC: 3: Handle basic task completion
+          if (currentWorkflowType === 'basic_task' && currentTaskId) {
+            // Call completion handler to update task status to 'review'
+            handleBasicTaskCompleteMutation.mutate({ taskId: currentTaskId })
           }
         }
       }
@@ -200,6 +244,21 @@ export function useAgentLauncher() {
     [devStoryMutation, isAgentRunning]
   )
 
+  // Story 5.3b - AC: 1: Launch basic task directly
+  const launchBasicTask = useCallback(
+    (taskId: string) => {
+      // Block concurrent execution
+      if (isAgentRunning) {
+        toast.warning('Agent already running', {
+          description: 'Another workflow is currently executing. Wait for it to complete.'
+        })
+        return // Block the launch - don't allow concurrent execution
+      }
+      basicTaskMutation.mutate({ taskId })
+    },
+    [basicTaskMutation, isAgentRunning]
+  )
+
   return {
     /** Launch a BMAD planning agent for the given task ID */
     launchPlanningAgent,
@@ -207,15 +266,20 @@ export function useAgentLauncher() {
     launchCreateStory,
     /** Story 5.3 - AC: 3: Launch dev-story workflow for the given task ID */
     launchDevStory,
+    /** Story 5.3b - AC: 1: Launch basic task directly (no BMAD workflow) */
+    launchBasicTask,
     /** Whether any agent launch is currently in progress */
     isLaunching:
       launchPlanningMutation.isPending ||
       createStoryMutation.isPending ||
-      devStoryMutation.isPending,
+      devStoryMutation.isPending ||
+      basicTaskMutation.isPending,
     /** Whether create-story is currently launching */
     isCreatingStory: createStoryMutation.isPending,
     /** Whether dev-story is currently launching */
     isDevStory: devStoryMutation.isPending,
+    /** Story 5.3b: Whether basic task is currently launching */
+    isBasicTask: basicTaskMutation.isPending,
     /** Story 5.3 - Task 8: Whether an agent is currently running */
     isAgentRunning
   }

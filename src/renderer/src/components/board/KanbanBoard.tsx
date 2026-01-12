@@ -21,7 +21,7 @@ import { PlanningTaskCard } from './PlanningTaskCard'
 import { SortablePlanningTaskCard } from './SortablePlanningTaskCard'
 import { StoryTaskCard } from './StoryTaskCard'
 import { SortableStoryTaskCard } from './SortableStoryTaskCard'
-import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask, isStoryTask } from '@shared/types/task.types'
+import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask, isStoryTask, isBasicTask } from '@shared/types/task.types'
 import { validateDragMove } from '@shared/utils/drag-validation'
 
 interface KanbanBoardProps {
@@ -60,6 +60,8 @@ interface KanbanBoardProps {
   onCreateStoryRequested?: (task: Task) => void
   /** Story 5.3 - AC: 3: Callback when story_ready task is dragged to in_progress column (requires confirmation) */
   onDevStoryRequested?: (task: Task) => void
+  /** Story 5.3b - AC: 1: Callback when basic task is dragged to in_progress column (requires confirmation) */
+  onBasicTaskRequested?: (task: Task) => void
 }
 
 export function KanbanBoard({
@@ -81,7 +83,8 @@ export function KanbanBoard({
   onDeleteTask,
   onDragBlocked,
   onCreateStoryRequested,
-  onDevStoryRequested
+  onDevStoryRequested,
+  onBasicTaskRequested
 }: KanbanBoardProps) {
   // Ref to store all card elements for keyboard navigation
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -251,6 +254,12 @@ export function KanbanBoard({
           return // Let the callback handle the status change
         }
 
+        // Story 5.3b - AC: 1: Intercept basic tasks dragged to in_progress
+        if (targetStatus === 'in_progress' && isBasicTask(task) && onBasicTaskRequested) {
+          onBasicTaskRequested(task)
+          return // Let the callback handle the status change
+        }
+
         // Default: Commit the status change immediately
         if (onStatusChange) {
           onStatusChange(taskId, targetStatus)
@@ -306,7 +315,7 @@ export function KanbanBoard({
         }
       }
     },
-    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete, onDragBlocked, onCreateStoryRequested, onDevStoryRequested]
+    [tasks, tasksByStatus, onStatusChange, onReorder, onPlanningTaskStart, onPhase5Complete, onDragBlocked, onCreateStoryRequested, onDevStoryRequested, onBasicTaskRequested]
   )
 
   const handleDragCancel = useCallback(() => {

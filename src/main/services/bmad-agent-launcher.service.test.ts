@@ -406,4 +406,108 @@ describe('BmadAgentLauncherService', () => {
       }).toThrow('Spawn failed')
     })
   })
+
+  describe('launchBasicTask (Story 5.3b - AC: 1)', () => {
+    const mockTaskTitle = 'Fix login bug'
+    const mockTaskDescription = 'The login button does not work on mobile Safari'
+
+    it('spawns claude with task title as prompt', () => {
+      const mockProcessId = 'process-basic-1'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+      expect(result.args).toContain('--dangerously-skip-permissions')
+      expect(result.args).toContain(mockTaskTitle)
+    })
+
+    it('includes description in prompt when provided', () => {
+      const mockProcessId = 'process-basic-2'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(
+        mockProjectPath,
+        mockTaskTitle,
+        mockTaskDescription
+      )
+
+      // Should combine title and description with double newline
+      expect(result.args).toContain(`${mockTaskTitle}\n\n${mockTaskDescription}`)
+    })
+
+    it('uses only title when description is undefined', () => {
+      const mockProcessId = 'process-basic-3'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
+
+      expect(result.args).toContain(mockTaskTitle)
+      expect(result.args).not.toContain('\n\n')
+    })
+
+    it('sets working directory to project path', () => {
+      const mockProcessId = 'process-basic-4'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
+
+      expect(ptyService.spawn).toHaveBeenCalledWith(
+        'claude',
+        expect.any(Array),
+        expect.objectContaining({ cwd: mockProjectPath })
+      )
+    })
+
+    it('adds model flag when specified', () => {
+      const mockProcessId = 'process-basic-5'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(
+        mockProjectPath,
+        mockTaskTitle,
+        undefined,
+        'opus'
+      )
+
+      expect(result.args).toContain('--model')
+      expect(result.args).toContain('opus')
+    })
+
+    it('does not include model flag when undefined', () => {
+      const mockProcessId = 'process-basic-6'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
+
+      expect(result.args).not.toContain('--model')
+    })
+
+    it('does not use any workflow flags (no --skill, no /bmad prefix)', () => {
+      const mockProcessId = 'process-basic-7'
+      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+
+      const result = BmadAgentLauncherService.launchBasicTask(
+        mockProjectPath,
+        mockTaskTitle,
+        mockTaskDescription
+      )
+
+      // Basic tasks should NOT use workflow flags
+      expect(result.args).not.toContain('--skill')
+      expect(result.args.some((arg) => arg.startsWith('/bmad'))).toBe(false)
+    })
+
+    it('propagates ptyService.spawn errors', () => {
+      const spawnError = new Error('Spawn failed')
+      vi.mocked(ptyService.spawn).mockImplementation(() => {
+        throw spawnError
+      })
+
+      expect(() => {
+        BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
+      }).toThrow('Spawn failed')
+    })
+  })
 })

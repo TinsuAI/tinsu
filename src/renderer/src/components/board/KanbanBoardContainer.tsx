@@ -7,6 +7,7 @@ import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
 import { CreateStoryConfirmDialog } from '../dialogs/CreateStoryConfirmDialog'
 import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
+import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
 import { useUIStore, useStoryViewStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
@@ -19,7 +20,8 @@ export function KanbanBoardContainer() {
 
   // Story 3.4: Agent launcher hook for planning tasks
   // Story 5.3: Extended with launchCreateStory and launchDevStory
-  const { launchPlanningAgent, launchCreateStory, launchDevStory } = useAgentLauncher()
+  // Story 5.3b: Extended with launchBasicTask
+  const { launchPlanningAgent, launchCreateStory, launchDevStory, launchBasicTask } = useAgentLauncher()
 
   // Story 3.9: Sync hook for bidirectional sync (AC: 5)
   const { syncingTaskIds } = useStorySync()
@@ -48,6 +50,10 @@ export function KanbanBoardContainer() {
   // Story 5.3: Dev Story confirmation dialog state
   const [devStoryDialogOpen, setDevStoryDialogOpen] = useState(false)
   const [devStoryTask, setDevStoryTask] = useState<Task | null>(null)
+
+  // Story 5.3b: Basic Task confirmation dialog state
+  const [basicTaskDialogOpen, setBasicTaskDialogOpen] = useState(false)
+  const [basicTask, setBasicTask] = useState<Task | null>(null)
 
   // Handle add task from column "+" button
   const handleAddTask = useCallback((status: TaskStatus) => {
@@ -205,10 +211,18 @@ export function KanbanBoardContainer() {
   )
 
   // Story 5.2c: Handle drag blocked notification
+  // Story 5.3b AC4: Use toast.info for basic task guidance (not warning)
   const handleDragBlocked = useCallback((message: string) => {
-    toast.warning('Move blocked', {
-      description: message
-    })
+    // Basic task guidance should be info, not warning
+    if (message.includes('Basic Tasks execute directly')) {
+      toast.info('Move blocked', {
+        description: message
+      })
+    } else {
+      toast.warning('Move blocked', {
+        description: message
+      })
+    }
   }, [])
 
   // Story 5.3 - AC: 1: Handle create-story dialog request
@@ -250,6 +264,26 @@ export function KanbanBoardContainer() {
     // Clear the dialog state
     setDevStoryTask(null)
   }, [devStoryTask, updateStatusMutation, launchDevStory])
+
+  // Story 5.3b - AC: 1: Handle basic task dialog request
+  const handleBasicTaskRequested = useCallback((task: Task) => {
+    setBasicTask(task)
+    setBasicTaskDialogOpen(true)
+  }, [])
+
+  // Story 5.3b - AC: 1: Handle basic task confirmation
+  const handleBasicTaskConfirm = useCallback(() => {
+    if (!basicTask) return
+
+    // Move task to in_progress status
+    updateStatusMutation.mutate({ id: basicTask.id, status: 'in_progress' })
+
+    // Launch the basic task directly
+    launchBasicTask(basicTask.id)
+
+    // Clear the dialog state
+    setBasicTask(null)
+  }, [basicTask, updateStatusMutation, launchBasicTask])
 
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
   // Story 2.6: Apply comprehensive filtering with AND logic between filter types
@@ -352,6 +386,7 @@ export function KanbanBoardContainer() {
         onDragBlocked={handleDragBlocked}
         onCreateStoryRequested={handleCreateStoryRequested}
         onDevStoryRequested={handleDevStoryRequested}
+        onBasicTaskRequested={handleBasicTaskRequested}
       />
       <CreateTaskDialog
         open={dialogOpen}
@@ -385,6 +420,15 @@ export function KanbanBoardContainer() {
           onOpenChange={setDevStoryDialogOpen}
           task={devStoryTask}
           onConfirm={handleDevStoryConfirm}
+        />
+      )}
+      {/* Story 5.3b - AC: 1: Basic Task confirmation dialog */}
+      {basicTask && (
+        <BasicTaskConfirmDialog
+          open={basicTaskDialogOpen}
+          onOpenChange={setBasicTaskDialogOpen}
+          task={basicTask}
+          onConfirm={handleBasicTaskConfirm}
         />
       )}
     </>

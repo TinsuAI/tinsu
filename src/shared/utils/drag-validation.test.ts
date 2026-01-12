@@ -32,6 +32,7 @@ function createMockTask(overrides: Partial<Task>): Task {
 
 describe('validateDragMove (Story 5.2c)', () => {
   describe('AC8: Basic tasks cannot go to create_story', () => {
+    // Story 5.3b AC4: Updated message to guide users to In Progress
     it('blocks basic task from being dragged to create_story', () => {
       const basicTask = createMockTask({
         task_type: 'story',
@@ -39,7 +40,7 @@ describe('validateDragMove (Story 5.2c)', () => {
       })
 
       const result = validateDragMove(basicTask, 'create_story')
-      expect(result).toBe('Basic tasks skip the Create Story phase')
+      expect(result).toBe('Basic Tasks execute directly. Drag to In Progress instead.')
     })
 
     it('allows basic task to go to backlog', () => {

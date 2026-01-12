@@ -8,8 +8,9 @@ const MIN_SIZE = 80
 /** Terminal dock position options */
 export type DockPosition = 'bottom' | 'top' | 'left' | 'right'
 
-/** Story 5.3: Workflow type for completion handling */
-export type AgentWorkflowType = 'planning' | 'create_story' | 'dev_story' | null
+/** Story 5.3: Workflow type for completion handling
+ * Story 5.3b: Added 'basic_task' for direct execution without BMAD workflow */
+export type AgentWorkflowType = 'planning' | 'create_story' | 'dev_story' | 'basic_task' | null
 
 interface TerminalState {
   /** Whether the terminal dock is expanded */

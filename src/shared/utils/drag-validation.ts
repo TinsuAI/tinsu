@@ -11,8 +11,9 @@ import { isImportedStoryTask } from '../types/task.types'
  */
 export function validateDragMove(task: Task, targetStatus: TaskStatus): string | undefined {
   // AC8: Basic tasks (story tasks without story_number) cannot go to create_story
+  // Story 5.3b AC4: Updated message to guide users to In Progress
   if (task.task_type === 'story' && !isImportedStoryTask(task) && targetStatus === 'create_story') {
-    return 'Basic tasks skip the Create Story phase'
+    return 'Basic Tasks execute directly. Drag to In Progress instead.'
   }
 
   // AC6: Imported story tasks with summary_only cannot go to in_progress/review/done

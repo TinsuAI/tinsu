@@ -248,3 +248,9 @@ export function isStoryTask(task: Task): task is StoryTask {
 export function isImportedStoryTask(task: Task): boolean {
   return task.task_type === 'story' && task.story_number !== null
 }
+
+// Story 5.3b: Helper to identify basic tasks (manually created, no story_number)
+// Basic tasks execute directly without BMAD workflow overhead
+export function isBasicTask(task: Task): boolean {
+  return task.task_type === 'story' && task.story_number === null
+}

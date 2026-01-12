@@ -20,7 +20,8 @@ vi.mock('../../services/bmad-agent-launcher.service', () => ({
   BmadAgentLauncherService: {
     launchPlanningAgent: vi.fn(),
     launchCreateStory: vi.fn(),
-    launchDevStory: vi.fn()
+    launchDevStory: vi.fn(),
+    launchBasicTask: vi.fn()
   }
 }))
 
@@ -532,6 +533,184 @@ describe('agentRouter', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Story file not found in implementation-artifacts')
+    })
+  })
+
+  describe('startBasicTask (Story 5.3b - AC: 1)', () => {
+    // Helper to create a basic task (story type without story_number)
+    const createBasicTask = (overrides: Partial<typeof schema.tasks.$inferInsert> = {}) => {
+      const id = `basic-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const now = new Date()
+      return db
+        .insert(schema.tasks)
+        .values({
+          id,
+          title: 'Fix login bug',
+          description: 'The login button does not work on mobile Safari',
+          status: 'in_progress',
+          sort_order: 0,
+          task_type: 'story',
+          phase_number: null,
+          phase_name: null,
+          bmad_agent: null,
+          bmad_workflow: null,
+          is_start_here: null,
+          story_number: null, // Basic tasks have no story_number
+          project_id: TEST_PROJECT_ID,
+          created_at: now,
+          updated_at: now,
+          ...overrides
+        })
+        .returning()
+        .get()
+    }
+
+    it('throws PRECONDITION_FAILED when CLI not installed', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(false)
+      const task = createBasicTask()
+
+      await expect(caller.startBasicTask({ taskId: task.id })).rejects.toMatchObject({
+        code: 'PRECONDITION_FAILED',
+        message: expect.stringContaining('Claude Code CLI is not installed')
+      })
+    })
+
+    it('throws NOT_FOUND for invalid taskId', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+
+      await expect(caller.startBasicTask({ taskId: 'non-existent-id' })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Task not found'
+      })
+    })
+
+    it('throws BAD_REQUEST for imported story task (has story_number)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const importedStory = createStoryTask({ story_number: 3 })
+
+      await expect(caller.startBasicTask({ taskId: importedStory.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: expect.stringContaining('Task is not a basic task')
+      })
+    })
+
+    it('throws BAD_REQUEST for planning task', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const planningTask = createPlanningTask()
+
+      await expect(caller.startBasicTask({ taskId: planningTask.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: expect.stringContaining('Task is not a basic task')
+      })
+    })
+
+    it('returns processId on successful launch', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-basic-123'
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', 'Fix login bug']
+      })
+
+      const task = createBasicTask()
+
+      const result = await caller.startBasicTask({ taskId: task.id })
+
+      expect(result.processId).toBe(mockProcessId)
+      expect(result.command).toBe('claude')
+    })
+
+    it('passes task title and description to launcher', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-basic-124'
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', 'Fix login bug\n\nThe login button does not work on mobile Safari']
+      })
+
+      const task = createBasicTask({
+        title: 'Fix login bug',
+        description: 'The login button does not work on mobile Safari'
+      })
+
+      await caller.startBasicTask({ taskId: task.id })
+
+      expect(BmadAgentLauncherService.launchBasicTask).toHaveBeenCalledWith(
+        TEST_PROJECT_ROOT,
+        'Fix login bug',
+        'The login button does not work on mobile Safari',
+        'opus' // Story 5.1: Dev agent model from config
+      )
+    })
+
+    it('handles task with no description', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      const mockProcessId = 'process-basic-125'
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
+        processId: mockProcessId,
+        command: 'claude',
+        args: ['--dangerously-skip-permissions', 'Quick fix']
+      })
+
+      const task = createBasicTask({
+        title: 'Quick fix',
+        description: null
+      })
+
+      await caller.startBasicTask({ taskId: task.id })
+
+      expect(BmadAgentLauncherService.launchBasicTask).toHaveBeenCalledWith(
+        TEST_PROJECT_ROOT,
+        'Quick fix',
+        undefined, // description is undefined when null
+        'opus'
+      )
+    })
+  })
+
+  describe('handleBasicTaskComplete (Story 5.3b - AC: 3)', () => {
+    const createBasicTask = (overrides: Partial<typeof schema.tasks.$inferInsert> = {}) => {
+      const id = `basic-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const now = new Date()
+      return db
+        .insert(schema.tasks)
+        .values({
+          id,
+          title: 'Fix login bug',
+          status: 'in_progress',
+          sort_order: 0,
+          task_type: 'story',
+          story_number: null,
+          project_id: TEST_PROJECT_ID,
+          created_at: now,
+          updated_at: now,
+          ...overrides
+        })
+        .returning()
+        .get()
+    }
+
+    it('returns error for non-existent task', async () => {
+      const result = await caller.handleBasicTaskComplete({ taskId: 'non-existent-id' })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Task not found')
+    })
+
+    it('updates task status to review on success', async () => {
+      const task = createBasicTask({ status: 'in_progress' })
+
+      const result = await caller.handleBasicTaskComplete({ taskId: task.id })
+
+      expect(result.success).toBe(true)
+      expect(result.newStatus).toBe('review')
+
+      // Verify database was updated using drizzle eq function
+      const { eq } = await import('drizzle-orm')
+      const updatedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, task.id)).get()
+      expect(updatedTask?.status).toBe('review')
     })
   })
 })

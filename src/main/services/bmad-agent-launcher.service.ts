@@ -169,4 +169,59 @@ export class BmadAgentLauncherService {
       args
     }
   }
+
+  /**
+   * Launches Claude Code directly for a basic (manually-created) task.
+   *
+   * Story 5.3b - AC: 1
+   *
+   * Basic tasks execute directly without BMAD workflow overhead.
+   * Uses `--dangerously-skip-permissions` flag for non-interactive execution.
+   * Passes task title and description as the prompt.
+   *
+   * @param projectPath - Root path of the project (used as working directory)
+   * @param taskTitle - Title of the task to execute
+   * @param taskDescription - Optional detailed description of the task
+   * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @returns Process ID, command, and args for tracking
+   * @throws Error if ptyService.spawn fails
+   *
+   * @example
+   * ```typescript
+   * const result = BmadAgentLauncherService.launchBasicTask(
+   *   '/path/to/project',
+   *   'Fix login bug',
+   *   'The login button does not work on mobile Safari',
+   *   'sonnet'
+   * )
+   * console.log(`Launched process ${result.processId}`)
+   * ```
+   */
+  static launchBasicTask(
+    projectPath: string,
+    taskTitle: string,
+    taskDescription?: string,
+    model?: ClaudeModel
+  ): BmadAgentLaunchResult {
+    const command = 'claude'
+    // Construct prompt from task title and description
+    const prompt = taskDescription ? `${taskTitle}\n\n${taskDescription}` : taskTitle
+    const args = ['--dangerously-skip-permissions', prompt]
+
+    // Add model flag if specified
+    if (model) {
+      args.push('--model', model)
+    }
+
+    // Spawn the process via PTY service
+    const processId = ptyService.spawn(command, args, {
+      cwd: projectPath
+    })
+
+    return {
+      processId,
+      command,
+      args
+    }
+  }
 }

@@ -6,7 +6,7 @@ import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.ser
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { ConfigService } from '../../services/config.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
-import { isPlanningTask, isStoryTask, type Task } from '../../../shared/types/task.types'
+import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
 
 /**
  * tRPC router for BMAD agent operations.
@@ -293,5 +293,101 @@ export const agentRouter = router({
       }
 
       return result
+    }),
+
+  /**
+   * Start a basic task directly with Claude Code.
+   *
+   * Story 5.3b - AC: 1
+   *
+   * Spawns Claude Code directly with the task title/description as prompt.
+   * No BMAD workflow is used - this is for manually-created quick tasks.
+   *
+   * @param taskId - ID of the basic task to start
+   * @returns Process ID and command details for tracking
+   *
+   * @throws PRECONDITION_FAILED - If Claude Code CLI is not installed
+   * @throws NOT_FOUND - If task doesn't exist
+   * @throws BAD_REQUEST - If task is not a basic task (has story_number)
+   */
+  startBasicTask: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Check CLI is installed first
+      const isInstalled = await ClaudeCliDetectorService.isClaudeCodeInstalled()
+      if (!isInstalled) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Claude Code CLI is not installed. Run: npm install -g @anthropic-ai/claude-code'
+        })
+      }
+
+      // Get task from database
+      const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.taskId)).get()
+
+      if (!task) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Task not found'
+        })
+      }
+
+      // Validate task is a basic task (story type without story_number)
+      const typedTask = task as Task
+      if (!isBasicTask(typedTask)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Task is not a basic task. Use create-story or dev-story for imported stories.'
+        })
+      }
+
+      // Get configured dev agent model from project config
+      const configService = new ConfigService(ctx.projectRoot)
+      const devAgentModel = configService.getDevAgentModel()
+
+      // Launch Claude Code directly with task title and description
+      const result = BmadAgentLauncherService.launchBasicTask(
+        ctx.projectRoot,
+        typedTask.title,
+        typedTask.description ?? undefined,
+        devAgentModel
+      )
+
+      return result
+    }),
+
+  /**
+   * Handle basic task completion.
+   *
+   * Story 5.3b - AC: 3
+   *
+   * Called when the basic task process exits successfully.
+   * Updates the task status to 'review'.
+   *
+   * @param taskId - ID of the basic task that completed
+   * @returns Result indicating whether the task was updated
+   */
+  handleBasicTaskComplete: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get task from database
+      const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.taskId)).get()
+
+      if (!task) {
+        return { success: false, error: 'Task not found' }
+      }
+
+      // Update task status to 'review'
+      ctx.db.update(tasks).set({ status: 'review', updated_at: new Date() }).where(eq(tasks.id, input.taskId)).run()
+
+      return { success: true, newStatus: 'review' }
     })
 })
