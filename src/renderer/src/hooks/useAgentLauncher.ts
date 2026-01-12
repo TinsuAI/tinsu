@@ -52,6 +52,9 @@ export function useAgentLauncher() {
   // the exit handler runs, causing a re-render that would clear these values.
   const workflowTypeRef = useRef<AgentWorkflowType>(null)
   const taskIdRef = useRef<string | null>(null)
+  // Story 5.3b fix: Track processId in ref to keep subscription stable even when
+  // useTerminal clears activeProcessId from store on exit
+  const processIdRef = useRef<string | null>(null)
 
   // TanStack Query client for cache invalidation
   const utils = trpc.useUtils()
@@ -79,6 +82,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'planning'
       taskIdRef.current = variables.taskId
+      processIdRef.current = result.processId
       // Expand terminal dock to show agent output
       setExpanded(true)
     },
@@ -97,6 +101,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'create_story'
       taskIdRef.current = variables.taskId
+      processIdRef.current = result.processId
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Create Story workflow started', {
@@ -118,6 +123,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'dev_story'
       taskIdRef.current = variables.taskId
+      processIdRef.current = result.processId
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Dev Story workflow started', {
@@ -139,6 +145,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'basic_task'
       taskIdRef.current = variables.taskId
+      processIdRef.current = result.processId
       // Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Basic task started', {
@@ -187,21 +194,26 @@ export function useAgentLauncher() {
 
   // Story 5.3 - AC: 2: Subscribe to PTY exit events for completion handling
   // Story 5.3b - AC: 3: Extended to handle basic_task completion
+  // Story 5.3b fix: Use processIdRef for subscription stability - useTerminal clears
+  // activeProcessId on exit which could disable this subscription before handler runs
+  const subscriptionProcessId = processIdRef.current ?? activeProcessId ?? ''
   trpc.pty.onExit.useSubscription(
-    { processId: activeProcessId ?? '' },
+    { processId: subscriptionProcessId },
     {
-      enabled: !!activeProcessId,
+      enabled: !!subscriptionProcessId,
       onData: (event) => {
         // Capture ref values immediately (before any re-renders clear them)
         const currentWorkflowType = workflowTypeRef.current
         const currentTaskId = taskIdRef.current
+        const currentProcessId = processIdRef.current
 
         // Clear refs to prevent stale data on next run
         workflowTypeRef.current = null
         taskIdRef.current = null
+        processIdRef.current = null
 
-        // Only handle successful exits (exit code 0)
-        if (event.exitCode === 0) {
+        // Only handle successful exits (exit code 0) and verify processId matches
+        if (event.exitCode === 0 && currentProcessId) {
           // Handle create-story workflow completion
           if (currentWorkflowType === 'create_story' && currentTaskId) {
             // Call completion handler to scan for story file and update task
