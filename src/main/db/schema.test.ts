@@ -24,7 +24,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content)
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content, Story 5.2b story_file_status)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -44,6 +44,7 @@ function createTestDb(): TestDb {
       story_number INTEGER,
       story_file_path TEXT,
       full_content TEXT,
+      story_file_status TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -301,6 +302,77 @@ describe('Task Schema (Story 3.1)', () => {
       expect(task.task_type).toBe('story')
       expect(task.phase_number).toBeNull()
     })
+  })
+})
+
+describe('Story 5.2b: story_file_status field', () => {
+  let db: TestDb
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  it('allows creating task with story_file_status', () => {
+    db.insert(schema.tasks)
+      .values({
+        id: 'task-with-status',
+        title: 'Task with Story File Status',
+        status: 'create_story',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .run()
+
+    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, 'task-with-status')).get()
+    expect(task?.status).toBe('create_story')
+    expect(task?.story_file_status).toBeNull()
+  })
+
+  it('allows setting story_file_status to summary_only', () => {
+    db.insert(schema.tasks)
+      .values({
+        id: 'summary-task',
+        title: 'Summary Only Task',
+        status: 'create_story',
+        story_file_status: 'summary_only',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .run()
+
+    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, 'summary-task')).get()
+    expect(task?.story_file_status).toBe('summary_only')
+  })
+
+  it('allows setting story_file_status to story_ready', () => {
+    db.insert(schema.tasks)
+      .values({
+        id: 'ready-task',
+        title: 'Story Ready Task',
+        status: 'in_progress',
+        story_file_status: 'story_ready',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .run()
+
+    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, 'ready-task')).get()
+    expect(task?.story_file_status).toBe('story_ready')
+  })
+
+  it('allows create_story as a valid status', () => {
+    db.insert(schema.tasks)
+      .values({
+        id: 'create-story-task',
+        title: 'Create Story Task',
+        status: 'create_story',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .run()
+
+    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, 'create-story-task')).get()
+    expect(task?.status).toBe('create_story')
   })
 })
 

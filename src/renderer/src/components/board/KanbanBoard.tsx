@@ -352,9 +352,10 @@ export function KanbanBoard({
       onDragCancel={handleDragCancel}
       accessibility={{ announcements }}
     >
+      {/* Story 5.2b: Updated from grid-cols-4 to grid-cols-5 for Create Story column */}
       <div
         className={cn(
-          'kanban-board-bg grid h-full min-h-0 flex-1 grid-cols-4 gap-5 overflow-hidden p-5',
+          'kanban-board-bg grid h-full min-h-0 flex-1 grid-cols-5 gap-5 overflow-hidden p-5',
           className
         )}
         data-testid="kanban-board"

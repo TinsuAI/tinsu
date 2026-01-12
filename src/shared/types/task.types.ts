@@ -1,5 +1,6 @@
 // Task status enum values (shared between main and renderer)
-export const TASK_STATUS = ['backlog', 'in_progress', 'review', 'done'] as const
+// Story 5.2b: Added 'create_story' column between backlog and in_progress
+export const TASK_STATUS = ['backlog', 'create_story', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
 // Task type enum values (Story 3.1 - AC1)
@@ -66,6 +67,8 @@ export interface Task {
   // Story 3.7: Full content from detailed story file in implementation-artifacts
   story_file_path: string | null // Path to detailed story .md file
   full_content: string | null // Full markdown content from detailed story file
+  // Story 5.2b: Story file status for create_story phase
+  story_file_status: string | null // 'summary_only' | 'story_ready' | null
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
@@ -96,6 +99,8 @@ export interface NewTask {
   // Story 3.7: Full content from detailed story file
   story_file_path?: string | null
   full_content?: string | null
+  // Story 5.2b: Story file status for create_story phase
+  story_file_status?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
   created_at?: Date

@@ -44,6 +44,7 @@ function createTestDb(): TestDb {
       story_number INTEGER,
       story_file_path TEXT,
       full_content TEXT,
+      story_file_status TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())

@@ -1,15 +1,18 @@
 import { useDroppable } from '@dnd-kit/core'
-import { Plus } from 'lucide-react'
+import { FileText, Info, Plus } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import type { TaskStatus } from '@shared/types/task.types'
 
 // Column configuration mapping status to display names
+// Story 5.2b: Added create_story column between Backlog and In Progress
 export const COLUMN_CONFIG: Record<TaskStatus, { title: string; order: number }> = {
   backlog: { title: 'Backlog', order: 1 },
-  in_progress: { title: 'In Progress', order: 2 },
-  review: { title: 'Review', order: 3 },
-  done: { title: 'Done', order: 4 }
+  create_story: { title: 'Create Story', order: 2 },
+  in_progress: { title: 'In Progress', order: 3 },
+  review: { title: 'Review', order: 4 },
+  done: { title: 'Done', order: 5 }
 }
 
 interface KanbanColumnProps {
@@ -63,6 +66,25 @@ export function KanbanColumn({
       <div className="kanban-column-header flex items-center justify-between rounded-t-xl px-4 py-3">
         <div className="flex items-center gap-2.5">
           <h2 className="text-sm font-semibold tracking-wide text-foreground/95">{config.title}</h2>
+          {/* Story 5.2b: Show icon and tooltip for Create Story column */}
+          {status === 'create_story' && (
+            <>
+              <FileText className="h-3.5 w-3.5 text-muted-foreground" data-testid="create-story-icon" />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info
+                      className="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground"
+                      data-testid="create-story-tooltip-trigger"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Story Tasks generate full story files here before development</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>
+          )}
           <span
             className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/10 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground"
             data-testid={`count-${status}`}

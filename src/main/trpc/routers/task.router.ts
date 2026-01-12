@@ -8,10 +8,12 @@ import { StorySyncService } from '../../services/story-sync.service'
 /**
  * Map database status to file status format.
  * DB uses snake_case, files use kebab-case.
+ * Story 5.2b: Added create_story status mapping
  */
 function mapDbStatusToFileStatus(dbStatus: string): string {
   const statusMap: Record<string, string> = {
     backlog: 'ready-for-dev',
+    create_story: 'create-story', // Story 5.2b
     in_progress: 'in-progress',
     review: 'review',
     done: 'done'

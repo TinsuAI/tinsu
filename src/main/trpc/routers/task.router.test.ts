@@ -26,7 +26,7 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content)
+  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content, Story 5.2b story_file_status)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -46,6 +46,7 @@ function createTestDb(): TestDb {
       story_number INTEGER,
       story_file_path TEXT,
       full_content TEXT,
+      story_file_status TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -248,6 +249,39 @@ describe('taskRouter', () => {
       await expect(
         caller.updateStatus({ id: 'task-1', status: 'invalid' as any })
       ).rejects.toThrow()
+    })
+
+    // Story 5.2b: Create Story status support
+    it('should update task status to create_story', async () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-create-story',
+          title: 'Create Story Task',
+          status: 'backlog',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const result = await caller.updateStatus({ id: 'task-create-story', status: 'create_story' })
+      expect(result.status).toBe('create_story')
+    })
+
+    it('should update task from create_story to in_progress', async () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-in-create-story',
+          title: 'Task in Create Story',
+          status: 'create_story',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const result = await caller.updateStatus({ id: 'task-in-create-story', status: 'in_progress' })
+      expect(result.status).toBe('in_progress')
     })
   })
 

@@ -31,7 +31,8 @@ export const settings = sqliteTable('settings', {
 })
 
 // Task status enum values
-export const TASK_STATUS = ['backlog', 'in_progress', 'review', 'done'] as const
+// Story 5.2b: Added 'create_story' column between backlog and in_progress
+export const TASK_STATUS = ['backlog', 'create_story', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
 // Task type enum values (Story 3.1 - AC1)
@@ -117,6 +118,8 @@ export const tasks = sqliteTable(
     // Story 3.7: Full content from detailed story file in implementation-artifacts
     story_file_path: text('story_file_path'), // Path to detailed story .md file
     full_content: text('full_content'), // Full markdown content from detailed story file
+    // Story 5.2b: Story file status for create_story phase
+    story_file_status: text('story_file_status'), // 'summary_only' | 'story_ready' | null
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })

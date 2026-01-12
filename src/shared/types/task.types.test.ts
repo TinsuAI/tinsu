@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { isPlanningTask, isStoryTask, TASK_TYPE, type Task } from './task.types'
+import { isPlanningTask, isStoryTask, TASK_TYPE, TASK_STATUS, type Task, type TaskStatus } from './task.types'
+
+describe('TASK_STATUS enum (Story 5.2b)', () => {
+  it('includes create_story status', () => {
+    expect(TASK_STATUS).toContain('create_story')
+  })
+
+  it('has correct order: backlog, create_story, in_progress, review, done', () => {
+    expect(TASK_STATUS).toEqual(['backlog', 'create_story', 'in_progress', 'review', 'done'])
+  })
+
+  it('has 5 statuses', () => {
+    expect(TASK_STATUS).toHaveLength(5)
+  })
+
+  it('TaskStatus type includes create_story', () => {
+    const status: TaskStatus = 'create_story'
+    expect(status).toBe('create_story')
+  })
+})
 
 describe('Task Types (Story 3.1)', () => {
   describe('TASK_TYPE enum', () => {

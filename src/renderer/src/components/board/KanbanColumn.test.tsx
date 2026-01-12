@@ -72,17 +72,18 @@ describe('KanbanColumn', () => {
       </DndWrapper>
     )
     const column = screen.getByTestId('column-backlog')
-    expect(column).toHaveClass('bg-card')
+    // Component uses kanban-column class which provides styling via CSS
+    expect(column).toHaveClass('kanban-column')
   })
 
-  it('should have border for visual separation', () => {
+  it('should have rounded corners for visual separation', () => {
     render(
       <DndWrapper>
         <KanbanColumn status="backlog" taskCount={0} />
       </DndWrapper>
     )
     const column = screen.getByTestId('column-backlog')
-    expect(column).toHaveClass('border', 'border-border')
+    expect(column).toHaveClass('rounded-xl')
   })
 
   it('should have overflow-y-auto for vertical scroll', () => {
@@ -98,18 +99,96 @@ describe('KanbanColumn', () => {
 })
 
 describe('COLUMN_CONFIG', () => {
-  it('should have correct order for all statuses', () => {
+  it('should have correct order for all 5 statuses (Story 5.2b)', () => {
     expect(COLUMN_CONFIG.backlog.order).toBe(1)
-    expect(COLUMN_CONFIG.in_progress.order).toBe(2)
-    expect(COLUMN_CONFIG.review.order).toBe(3)
-    expect(COLUMN_CONFIG.done.order).toBe(4)
+    expect(COLUMN_CONFIG.create_story.order).toBe(2)
+    expect(COLUMN_CONFIG.in_progress.order).toBe(3)
+    expect(COLUMN_CONFIG.review.order).toBe(4)
+    expect(COLUMN_CONFIG.done.order).toBe(5)
   })
 
-  it('should have correct display titles', () => {
+  it('should have correct display titles for all 5 columns (Story 5.2b)', () => {
     expect(COLUMN_CONFIG.backlog.title).toBe('Backlog')
+    expect(COLUMN_CONFIG.create_story.title).toBe('Create Story')
     expect(COLUMN_CONFIG.in_progress.title).toBe('In Progress')
     expect(COLUMN_CONFIG.review.title).toBe('Review')
     expect(COLUMN_CONFIG.done.title).toBe('Done')
+  })
+
+  it('should have 5 columns total (Story 5.2b)', () => {
+    expect(Object.keys(COLUMN_CONFIG)).toHaveLength(5)
+  })
+})
+
+describe('KanbanColumn - Create Story column (Story 5.2b)', () => {
+  it('should render Create Story column with correct title', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={0} />
+      </DndWrapper>
+    )
+    expect(screen.getByText('Create Story')).toBeInTheDocument()
+  })
+
+  it('should display task count for Create Story column', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={3} />
+      </DndWrapper>
+    )
+    expect(screen.getByTestId('count-create_story')).toHaveTextContent('3')
+  })
+
+  it('should have correct aria-label for Create Story column', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={2} />
+      </DndWrapper>
+    )
+    const column = screen.getByTestId('column-create_story')
+    expect(column).toHaveAttribute('aria-label', 'Create Story column with 2 tasks')
+  })
+
+  it('should render add task button for Create Story column', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={0} />
+      </DndWrapper>
+    )
+    const addButton = screen.getByTestId('add-task-create_story')
+    expect(addButton).toBeInTheDocument()
+    expect(addButton).toHaveAttribute('aria-label', 'Add task to Create Story')
+  })
+
+  it('should show FileText icon for Create Story column', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={0} />
+      </DndWrapper>
+    )
+    // FileText icon should be present for Create Story column
+    expect(screen.getByTestId('create-story-icon')).toBeInTheDocument()
+  })
+
+  it('should not show FileText icon for other columns', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="backlog" taskCount={0} />
+      </DndWrapper>
+    )
+    // FileText icon should NOT be present for other columns
+    expect(screen.queryByTestId('create-story-icon')).not.toBeInTheDocument()
+  })
+
+  it('should have tooltip with explanation text for Create Story column', () => {
+    render(
+      <DndWrapper>
+        <KanbanColumn status="create_story" taskCount={0} />
+      </DndWrapper>
+    )
+    // Tooltip trigger should be present (info icon)
+    const infoIcon = screen.getByTestId('create-story-tooltip-trigger')
+    expect(infoIcon).toBeInTheDocument()
   })
 })
 
@@ -160,7 +239,8 @@ describe('KanbanColumn droppable', () => {
       </DndWrapper>
     )
     const column = screen.getByTestId('column-backlog')
-    expect(column).toHaveClass('border-primary/50', 'bg-primary/5')
+    // Component uses kanban-column-over class which provides highlighting via CSS
+    expect(column).toHaveClass('kanban-column-over')
   })
 
   it('should not have highlight when isOver is false', () => {
@@ -170,8 +250,7 @@ describe('KanbanColumn droppable', () => {
       </DndWrapper>
     )
     const column = screen.getByTestId('column-backlog')
-    expect(column).not.toHaveClass('border-primary/50')
-    expect(column).not.toHaveClass('bg-primary/5')
+    expect(column).not.toHaveClass('kanban-column-over')
   })
 
   it('should have transition for smooth hover effects', () => {
@@ -181,7 +260,7 @@ describe('KanbanColumn droppable', () => {
       </DndWrapper>
     )
     const column = screen.getByTestId('column-backlog')
-    expect(column).toHaveClass('transition-colors')
+    expect(column).toHaveClass('transition-all')
   })
 })
 

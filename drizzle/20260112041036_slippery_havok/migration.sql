@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `story_file_status` text;
