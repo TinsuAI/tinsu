@@ -4,6 +4,8 @@ import { tasks, epics, sprints, TASK_STATUS } from '../../db/schema'
 import { eq, asc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { StorySyncService } from '../../services/story-sync.service'
+import { TaskTerminalService } from '../../services/task-terminal.service'
+import { ConfigService } from '../../services/config.service'
 
 /**
  * Map database status to file status format.
@@ -183,6 +185,7 @@ export const taskRouter = router({
 
   // Update task status
   // Story 3.9: Sync status change to story file (AC: 1)
+  // Story TES-1.3: Create tmux session when moving to in_progress (AC: 1)
   updateStatus: publicProcedure
     .input(
       z.object({
@@ -200,6 +203,44 @@ export const taskRouter = router({
 
       if (!result) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story TES-1.3: Create tmux session when moving to in_progress (AC: 1)
+      if (input.status === 'in_progress') {
+        try {
+          // Get project name from config (or use folder name as fallback)
+          const configService = new ConfigService(ctx.projectRoot)
+          let projectName: string
+          try {
+            const config = configService.loadConfig()
+            projectName = config.projectName
+          } catch {
+            // Fallback to folder name if config doesn't exist
+            projectName = ctx.projectRoot.split('/').pop() || 'project'
+          }
+
+          // Create tmux session (reuses existing if present - AC: 2)
+          const sessionName = await TaskTerminalService.createSession(input.id, projectName)
+          console.log(`Created tmux session: ${sessionName}`)
+        } catch (error) {
+          // AC: 3 - Log error and propagate meaningful message for frontend toast
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          console.error('Failed to create terminal session:', errorMessage)
+
+          // Provide user-friendly error message based on error type
+          let userMessage = 'Failed to create terminal session'
+          if (errorMessage.includes('tmux is not installed')) {
+            userMessage = 'tmux is not installed. Please install tmux to use terminal sessions.'
+          } else if (errorMessage.includes('Invalid taskId')) {
+            userMessage = 'Invalid task ID format'
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: userMessage,
+            cause: error
+          })
+        }
       }
 
       // Story 3.9: Sync status to story file if path exists (AC: 1)
