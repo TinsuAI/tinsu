@@ -69,6 +69,8 @@ export interface Task {
   full_content: string | null // Full markdown content from detailed story file
   // Story 5.2b: Story file status for create_story phase
   story_file_status: string | null // 'summary_only' | 'story_ready' | null
+  // Story 5.5: Context notes for DEV agent (Story 5.11 adds UI for editing)
+  context_notes: string | null // Optional notes to provide additional context to DEV agent
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
@@ -101,6 +103,8 @@ export interface NewTask {
   full_content?: string | null
   // Story 5.2b: Story file status for create_story phase
   story_file_status?: string | null
+  // Story 5.5: Context notes for DEV agent
+  context_notes?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
   created_at?: Date

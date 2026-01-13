@@ -22,6 +22,7 @@ function createMockTask(overrides: Partial<Task>): Task {
     story_number: null,
     story_file_path: null,
     story_file_status: null,
+    context_notes: null, // Story 5.5
     full_content: null,
     project_id: null,
     created_at: new Date(),

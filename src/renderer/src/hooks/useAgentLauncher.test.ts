@@ -30,7 +30,9 @@ let mockBasicTaskOnSuccess: ((result: { processId: string; command: string; args
 let mockBasicTaskOnError: ((error: Error) => void) | undefined
 let mockHandleCompleteOnSuccess: ((result: { success: boolean; storyFilePath: string | null; error?: string }) => void) | undefined
 let mockHandleBasicTaskCompleteOnSuccess: ((result: { success: boolean; newStatus?: string; error?: string }) => void) | undefined
+let mockHandleDevStoryCompleteOnSuccess: ((result: { success: boolean; newStatus?: string; error?: string }) => void) | undefined
 let mockExitSubscriptionOnData: ((event: { processId: string; exitCode: number; signal?: number }) => void) | undefined
+const mockHandleDevStoryCompleteMutate = vi.fn()
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -114,6 +116,18 @@ vi.mock('@renderer/lib/trpc', () => ({
           mockHandleBasicTaskCompleteOnSuccess = options?.onSuccess
           return {
             mutate: mockHandleBasicTaskCompleteMutate,
+            isPending: false
+          }
+        }
+      },
+      handleDevStoryComplete: {
+        useMutation: (options?: {
+          onSuccess?: (result: { success: boolean; newStatus?: string; error?: string }) => void
+          onError?: (error: Error) => void
+        }) => {
+          mockHandleDevStoryCompleteOnSuccess = options?.onSuccess
+          return {
+            mutate: mockHandleDevStoryCompleteMutate,
             isPending: false
           }
         }
@@ -598,6 +612,45 @@ describe('useAgentLauncher', () => {
 
       // Should not show success toast for errors
       expect(toast.success).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('handleDevStoryComplete (Story 5.5 - AC: 5)', () => {
+    it('should show success toast when dev-story completes successfully', () => {
+      renderHook(() => useAgentLauncher())
+
+      act(() => {
+        mockHandleDevStoryCompleteOnSuccess?.({
+          success: true,
+          newStatus: 'review'
+        })
+      })
+
+      expect(toast.success).toHaveBeenCalledWith('DEV implementation complete', {
+        description: 'Starting code review...'
+      })
+    })
+
+    it('should call handleDevStoryComplete mutation on dev_story exit with code 0', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching dev-story to set up refs
+      act(() => {
+        mockDevStoryOnSuccess?.(
+          { processId: 'dev-123', command: 'claude', args: ['--dev-story'] },
+          { taskId: 'task-dev' }
+        )
+      })
+
+      // Simulate PTY exit
+      act(() => {
+        mockExitSubscriptionOnData?.({
+          processId: 'dev-123',
+          exitCode: 0
+        })
+      })
+
+      expect(mockHandleDevStoryCompleteMutate).toHaveBeenCalledWith({ taskId: 'task-dev' })
     })
   })
 })

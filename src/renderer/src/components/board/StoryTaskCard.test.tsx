@@ -34,6 +34,8 @@ const mockStoryTask: StoryTask = {
   bmad_workflow: null,
   is_start_here: null,
   artifact_path: null,
+  // Story 5.5: Context notes for DEV agent
+  context_notes: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }
@@ -79,19 +81,19 @@ describe('StoryTaskCard', () => {
     render(<StoryTaskCard task={mockStoryTask} />)
 
     const card = screen.getByTestId(`story-task-card-${mockStoryTask.id}`)
-    expect(card).toHaveClass('rounded-lg')
-    expect(card).toHaveClass('border')
-    expect(card).toHaveClass('bg-card')
-    expect(card).toHaveClass('p-3')
+    // Uses kanban card styling from CSS
+    expect(card).toHaveClass('kanban-card')
+    expect(card).toHaveClass('kanban-card-story')
+    expect(card).toHaveClass('rounded-xl')
+    expect(card).toHaveClass('p-3.5')
   })
 
-  it('has distinct border color for story tasks', () => {
+  it('has distinct styling for story tasks via kanban-card-story class', () => {
     render(<StoryTaskCard task={mockStoryTask} />)
 
     const card = screen.getByTestId(`story-task-card-${mockStoryTask.id}`)
-    // Story tasks have a cyan/teal left border to distinguish from planning tasks
-    expect(card).toHaveClass('border-l-2')
-    expect(card).toHaveClass('border-l-cyan-500')
+    // Story tasks use kanban-card-story class for distinct styling (cyan left border in CSS)
+    expect(card).toHaveClass('kanban-card-story')
   })
 
   it('has data-testid for testing', () => {
@@ -130,12 +132,12 @@ describe('StoryTaskCard accessibility', () => {
     expect(card).toHaveAttribute('tabIndex', '0')
   })
 
-  it('has visible focus ring styles', () => {
+  it('has focus visible styling', () => {
     render(<StoryTaskCard task={mockStoryTask} />)
 
     const card = screen.getByTestId(`story-task-card-${mockStoryTask.id}`)
-    expect(card).toHaveClass('focus-visible:ring-2')
-    expect(card).toHaveClass('focus-visible:ring-primary')
+    // Focus styles handled by CSS (focus-visible:outline-none with kanban-card styles)
+    expect(card).toHaveClass('focus-visible:outline-none')
   })
 })
 
@@ -224,5 +226,44 @@ describe('StoryTaskCard sync indicator', () => {
       'aria-label',
       expect.stringContaining('Syncing')
     )
+  })
+})
+
+// Story 5.5: DEV Agent Progress Indicator tests
+describe('StoryTaskCard DEV progress indicator', () => {
+  it('shows progress indicator when agent is running and task is in_progress', () => {
+    const inProgressTask = { ...mockStoryTask, status: 'in_progress' as const }
+    render(<StoryTaskCard task={inProgressTask} isAgentRunning={true} agentProgressStep="dev" />)
+
+    expect(screen.getByTestId('task-dev-progress')).toBeInTheDocument()
+  })
+
+  it('does not show progress indicator when agent is not running', () => {
+    const inProgressTask = { ...mockStoryTask, status: 'in_progress' as const }
+    render(<StoryTaskCard task={inProgressTask} isAgentRunning={false} />)
+
+    expect(screen.queryByTestId('task-dev-progress')).not.toBeInTheDocument()
+  })
+
+  it('does not show progress indicator when task is not in_progress', () => {
+    render(<StoryTaskCard task={mockStoryTask} isAgentRunning={true} agentProgressStep="dev" />)
+
+    expect(screen.queryByTestId('task-dev-progress')).not.toBeInTheDocument()
+  })
+
+  it('shows summary text when task status is review and agent not running', () => {
+    const reviewTask = { ...mockStoryTask, status: 'review' as const }
+    render(<StoryTaskCard task={reviewTask} isAgentRunning={false} />)
+
+    expect(screen.getByTestId('task-review-summary')).toBeInTheDocument()
+    expect(screen.getByText('Ready for human review')).toBeInTheDocument()
+  })
+
+  it('does not show summary when agent is running', () => {
+    const reviewTask = { ...mockStoryTask, status: 'review' as const }
+    render(<StoryTaskCard task={reviewTask} isAgentRunning={true} agentProgressStep="review" />)
+
+    // Should show progress indicator instead of summary
+    expect(screen.queryByTestId('task-review-summary')).not.toBeInTheDocument()
   })
 })

@@ -120,6 +120,8 @@ export const tasks = sqliteTable(
     full_content: text('full_content'), // Full markdown content from detailed story file
     // Story 5.2b: Story file status for create_story phase
     story_file_status: text('story_file_status'), // 'summary_only' | 'story_ready' | null
+    // Story 5.5: Context notes for DEV agent (Story 5.11 adds UI for editing)
+    context_notes: text('context_notes'), // Optional notes to provide additional context to DEV agent
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })

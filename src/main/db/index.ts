@@ -81,6 +81,8 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       story_number TEXT,
       story_file_path TEXT,
       full_content TEXT,
+      story_file_status TEXT,
+      context_notes TEXT,
       project_id TEXT,
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
       updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
@@ -201,6 +203,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   // Migration: Add story_file_status column to tasks (Story 5.2c)
   if (!existingColumns.has('story_file_status')) {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN story_file_status TEXT')
+  }
+
+  // Migration: Add context_notes column to tasks (Story 5.5)
+  if (!existingColumns.has('context_notes')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN context_notes TEXT')
   }
 
   // Migration: Add epic_number and goal columns to epics (Story 3.7)

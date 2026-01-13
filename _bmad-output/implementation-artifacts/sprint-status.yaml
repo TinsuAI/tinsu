@@ -96,7 +96,7 @@ development_status:
   5-3-story-task-execution-path-bmad-workflow: done
   5-3b-basic-task-execution-path-direct-execution: done
   # 5-4-sm-agent-draft-story-file: removed (merged into 5-3)
-  5-5-dev-agent-implement-story: backlog
+  5-5-dev-agent-implement-story: in-progress
   5-6-dev-agent-automated-code-review: backlog
   5-7-code-review-retry-loop: backlog
   5-8-real-time-output-streaming: backlog

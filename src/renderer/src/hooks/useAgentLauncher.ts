@@ -192,6 +192,26 @@ export function useAgentLauncher() {
     }
   })
 
+  // Story 5.5 - AC: 5: Mutation for handling dev-story workflow completion
+  // Auto-transition to code review on successful completion
+  const handleDevStoryCompleteMutation = trpc.agent.handleDevStoryComplete.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('DEV implementation complete', {
+          description: 'Starting code review...'
+        })
+        // Invalidate tasks query to refresh UI
+        utils.tasks.getAll.invalidate()
+        // TODO: Story 5.6 will add automatic code review workflow trigger here
+      } else if (result.error) {
+        console.warn(`[useAgentLauncher] Dev story completion: ${result.error}`)
+      }
+    },
+    onError: (error) => {
+      console.warn(`[useAgentLauncher] Failed to handle dev-story completion: ${error.message}`)
+    }
+  })
+
   // Story 5.3 - AC: 2: Subscribe to PTY exit events for completion handling
   // Story 5.3b - AC: 3: Extended to handle basic_task completion
   // Story 5.3b fix: Use processIdRef for subscription stability - useTerminal clears
@@ -224,6 +244,13 @@ export function useAgentLauncher() {
           if (currentWorkflowType === 'basic_task' && currentTaskId) {
             // Call completion handler to update task status to 'review'
             handleBasicTaskCompleteMutation.mutate({ taskId: currentTaskId })
+          }
+
+          // Story 5.5 - AC: 5: Handle dev-story workflow completion
+          // Auto-transition to code review on successful completion
+          if (currentWorkflowType === 'dev_story' && currentTaskId) {
+            // Call completion handler to update task status to 'review'
+            handleDevStoryCompleteMutation.mutate({ taskId: currentTaskId })
           }
         }
       }

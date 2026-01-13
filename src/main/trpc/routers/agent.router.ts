@@ -1,11 +1,16 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
+import { observable } from '@trpc/server/observable'
 import { tasks, epics } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { ConfigService } from '../../services/config.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
+import {
+  devAgentProgressService,
+  type DevAgentProgressInfo
+} from '../../services/dev-agent-progress.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
 
 /**
@@ -252,6 +257,9 @@ export const agentRouter = router({
       const configService = new ConfigService(ctx.projectRoot)
       const devAgentModel = configService.getDevAgentModel()
 
+      // Story 5.5 - AC: 2: Set progress state to dev_implementing
+      devAgentProgressService.setState('dev_implementing')
+
       // Launch the dev-story workflow with story file path
       const result = BmadAgentLauncherService.launchDevStory(
         ctx.projectRoot,
@@ -389,5 +397,79 @@ export const agentRouter = router({
       ctx.db.update(tasks).set({ status: 'review', updated_at: new Date() }).where(eq(tasks.id, input.taskId)).run()
 
       return { success: true, newStatus: 'review' }
+    }),
+
+  /**
+   * Handle dev-story workflow completion.
+   *
+   * Story 5.5 - AC: 5
+   *
+   * Called when the dev-story process exits successfully.
+   * Updates the task status to 'review' and resets progress state.
+   *
+   * @param taskId - ID of the story task that completed
+   * @returns Result indicating whether the task was updated
+   */
+  handleDevStoryComplete: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Reset progress state to idle
+      devAgentProgressService.setState('idle')
+
+      // Get task from database
+      const task = ctx.db.select().from(tasks).where(eq(tasks.id, input.taskId)).get()
+
+      if (!task) {
+        return { success: false, error: 'Task not found' }
+      }
+
+      // Update task status to 'review'
+      ctx.db.update(tasks).set({ status: 'review', updated_at: new Date() }).where(eq(tasks.id, input.taskId)).run()
+
+      return { success: true, newStatus: 'review' }
+    }),
+
+  /**
+   * Get current DEV agent progress information.
+   *
+   * Story 5.5 - AC: 2
+   *
+   * Returns the current step and label for the DEV agent workflow.
+   * Used by the progress indicator component to show current state.
+   *
+   * @returns Progress info with step, total, and label
+   */
+  getDevAgentProgress: publicProcedure.query(() => {
+    return devAgentProgressService.getCurrentStep()
+  }),
+
+  /**
+   * Subscribe to DEV agent progress events.
+   *
+   * Story 5.5 - AC: 2
+   *
+   * Emits progress updates when the DEV agent workflow state changes.
+   * Used by the progress indicator component to update in real-time.
+   *
+   * @returns Observable stream of progress updates
+   */
+  onDevAgentProgress: publicProcedure.subscription(() => {
+    return observable<DevAgentProgressInfo>((emit) => {
+      // Emit current state immediately
+      emit.next(devAgentProgressService.getCurrentStep())
+
+      // Subscribe to state changes
+      const unsubscribe = devAgentProgressService.onProgress((progress) => {
+        emit.next(progress)
+      })
+
+      return () => {
+        unsubscribe()
+      }
     })
+  })
 })

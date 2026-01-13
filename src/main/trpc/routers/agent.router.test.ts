@@ -3,6 +3,7 @@ import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
+import { devAgentProgressService, DevAgentProgressInfo } from '../../services/dev-agent-progress.service'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
@@ -711,6 +712,75 @@ describe('agentRouter', () => {
       const { eq } = await import('drizzle-orm')
       const updatedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, task.id)).get()
       expect(updatedTask?.status).toBe('review')
+    })
+  })
+
+  describe('onDevAgentProgress subscription (Story 5.5 - AC: 2)', () => {
+    it('emits progress when state changes', async () => {
+      // Test that the subscription returns the correct initial progress
+      // Note: Full subscription testing requires more setup, so we test the service directly
+      // The router just wraps the service's onProgress method
+      const progressUpdates: DevAgentProgressInfo[] = []
+      const unsubscribe = devAgentProgressService.onProgress((progress) => {
+        progressUpdates.push(progress)
+      })
+
+      devAgentProgressService.setState('dev_implementing')
+
+      expect(progressUpdates).toHaveLength(1)
+      expect(progressUpdates[0]).toEqual({
+        step: 2,
+        total: 3,
+        label: 'Step 2/3: DEV Implementing'
+      })
+
+      unsubscribe()
+      devAgentProgressService.setState('idle')
+    })
+
+    it('emits correct progress for code_reviewing state', async () => {
+      const progressUpdates: DevAgentProgressInfo[] = []
+      const unsubscribe = devAgentProgressService.onProgress((progress) => {
+        progressUpdates.push(progress)
+      })
+
+      devAgentProgressService.setState('code_reviewing')
+
+      expect(progressUpdates).toHaveLength(1)
+      expect(progressUpdates[0]).toEqual({
+        step: 3,
+        total: 3,
+        label: 'Step 3/3: Code Review'
+      })
+
+      unsubscribe()
+      devAgentProgressService.setState('idle')
+    })
+
+    it('getDevAgentProgress returns current step info', async () => {
+      devAgentProgressService.setState('dev_implementing')
+
+      const result = await caller.getDevAgentProgress()
+
+      expect(result).toEqual({
+        step: 2,
+        total: 3,
+        label: 'Step 2/3: DEV Implementing'
+      })
+
+      devAgentProgressService.setState('idle')
+    })
+
+    it('getDevAgentProgress returns idle state when not running', async () => {
+      devAgentProgressService.setState('idle')
+
+      const result = await caller.getDevAgentProgress()
+
+      expect(result).toEqual({
+        step: 0,
+        total: 3,
+        label: 'Ready'
+      })
     })
   })
 })

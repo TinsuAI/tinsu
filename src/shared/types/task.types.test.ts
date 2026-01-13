@@ -47,6 +47,7 @@ describe('Task Types (Story 3.1)', () => {
       story_number: null,
       story_file_path: null,
       story_file_status: null,
+      context_notes: null, // Story 5.5
       full_content: null,
       created_at: new Date(),
       updated_at: new Date()
@@ -176,6 +177,7 @@ describe('Task Types (Story 3.1)', () => {
       story_number: null,
       story_file_path: null,
       story_file_status: null,
+      context_notes: null, // Story 5.5
       full_content: null,
       created_at: new Date(),
       updated_at: new Date()
@@ -248,6 +250,7 @@ describe('isImportedStoryTask helper (Story 5.2c)', () => {
     project_id: null,
     artifact_path: null,
     story_file_path: null,
+    context_notes: null, // Story 5.5
     full_content: null,
     created_at: new Date(),
     updated_at: new Date()
