@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -7,7 +7,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
-import { ptyService } from './services'
+import { ptyService, TmuxService } from './services'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -50,6 +50,33 @@ function createWindow(): void {
   }
 }
 
+// Check if tmux is installed (required for per-task terminal sessions)
+async function checkTmuxDependency(): Promise<boolean> {
+  console.log('[TMUX] Checking tmux installation...')
+
+  try {
+    const isInstalled = await TmuxService.checkTmuxInstalled()
+
+    if (!isInstalled) {
+      console.log('[TMUX] tmux not found - showing error dialog')
+      const message = TmuxService.getInstallInstructions()
+      dialog.showErrorBox('tmux Required', message)
+      return false
+    }
+
+    const version = await TmuxService.getTmuxVersion()
+    console.log(`[TMUX] tmux installed, version: ${version}`)
+    return true
+  } catch (error) {
+    console.error('[TMUX] Error checking tmux:', error)
+    dialog.showErrorBox(
+      'tmux Check Failed',
+      `TinSu could not verify tmux installation.\n\nError: ${error instanceof Error ? error.message : String(error)}\n\nPlease ensure tmux is installed and try again.`
+    )
+    return false
+  }
+}
+
 // Initialize database and verify connectivity
 function initializeDatabase(): boolean {
   console.log('[DB] Initializing database...')
@@ -88,7 +115,14 @@ function initializeDatabase(): boolean {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Check tmux dependency before proceeding
+  const tmuxAvailable = await checkTmuxDependency()
+  if (!tmuxAvailable) {
+    app.quit()
+    return
+  }
+
   // Initialize database on app ready
   initializeDatabase()
 

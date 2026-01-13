@@ -92,7 +92,7 @@ development_status:
   # Epic 5: Task Execution Workflow (Updated 2026-01-12)
   # NOTE: Stories 5.6-5.13 SUPERSEDED by Task Execution Sandbox feature
   # Two-path execution: Story Tasks (BMAD) vs Basic Tasks (Direct)
-  epic-5: in-progress
+  epic-5: superseded
   5-1-agent-model-configuration: done
   # 5-2-sprint-planning-agent-step: removed (not needed for MVP)
   5-2b-add-create-story-column-to-kanban-board: done
@@ -163,8 +163,8 @@ development_status:
 
   # TES Epic 1: Per-Task Terminal Sessions
   # Users can view a dedicated, persistent terminal for each task
-  tes-epic-1: backlog
-  tes-1-1-tmux-dependency-check-and-installation-prompt: backlog
+  tes-epic-1: in-progress
+  tes-1-1-tmux-dependency-check-and-installation-prompt: done
   tes-1-2-task-session-database-schema: backlog
   tes-1-3-tmux-session-creation-service: backlog
   tes-1-4-xterm-js-terminal-attachment: backlog

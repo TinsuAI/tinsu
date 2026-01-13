@@ -23,3 +23,6 @@ export {
   type PtyExitEvent,
   type PtyErrorEvent
 } from './pty.service'
+
+// tmux dependency detection service
+export { TmuxService } from './tmux.service'
