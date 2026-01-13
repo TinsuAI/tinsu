@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm'
 
 // Projects table (Story 3.1.5 - Multi-project support)
@@ -205,3 +205,33 @@ export const task_artifacts = sqliteTable(
 // Story 3.10: Task artifact type exports
 export type TaskArtifact = InferSelectModel<typeof task_artifacts>
 export type NewTaskArtifact = InferInsertModel<typeof task_artifacts>
+
+// Story TES-1.2: Session phase enum for workflow tracking
+export const SESSION_PHASE = ['dev-story', 'code-review', 'user-feedback'] as const
+export type SessionPhase = (typeof SESSION_PHASE)[number]
+
+// Story TES-1.2: Task sessions table for terminal session tracking
+export const task_sessions = sqliteTable(
+  'task_sessions',
+  {
+    id: text('id').primaryKey(),
+    task_id: text('task_id')
+      .notNull()
+      .unique()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    session_id: text('session_id'), // Nullable - set when Claude Code session starts
+    tmux_session: text('tmux_session').notNull(), // tinsu-{projectName}-{taskId}
+    current_phase: text('current_phase'), // Nullable - set when workflow starts
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [
+    index('idx_task_sessions_session_id').on(table.session_id),
+    uniqueIndex('idx_task_sessions_task_id_unique').on(table.task_id)
+  ]
+)
+
+// Story TES-1.2: Task session type exports
+export type TaskSession = InferSelectModel<typeof task_sessions>
+export type NewTaskSession = InferInsertModel<typeof task_sessions>

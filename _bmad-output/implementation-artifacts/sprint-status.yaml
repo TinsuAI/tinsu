@@ -165,7 +165,7 @@ development_status:
   # Users can view a dedicated, persistent terminal for each task
   tes-epic-1: in-progress
   tes-1-1-tmux-dependency-check-and-installation-prompt: done
-  tes-1-2-task-session-database-schema: backlog
+  tes-1-2-task-session-database-schema: done
   tes-1-3-tmux-session-creation-service: backlog
   tes-1-4-xterm-js-terminal-attachment: backlog
   tes-1-5-user-command-input: backlog

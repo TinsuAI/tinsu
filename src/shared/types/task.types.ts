@@ -258,3 +258,27 @@ export function isImportedStoryTask(task: Task): boolean {
 export function isBasicTask(task: Task): boolean {
   return task.task_type === 'story' && task.story_number === null
 }
+
+// Story TES-1.2: Session phase enum for workflow tracking
+export const SESSION_PHASE = ['dev-story', 'code-review', 'user-feedback'] as const
+export type SessionPhase = (typeof SESSION_PHASE)[number]
+
+// Story TES-1.2: Task session entity type (matches Drizzle schema)
+export interface TaskSession {
+  id: string
+  task_id: string
+  session_id: string | null // Claude Code session ID from hooks (set when agent starts)
+  tmux_session: string // tmux session name: tinsu-{projectName}-{taskId}
+  current_phase: SessionPhase | null // Workflow phase: 'dev-story' | 'code-review' | 'user-feedback'
+  created_at: Date
+}
+
+// Story TES-1.2: Input type for creating a new task session
+export interface NewTaskSession {
+  id: string
+  task_id: string
+  session_id?: string | null
+  tmux_session: string
+  current_phase?: SessionPhase | null
+  created_at?: Date
+}
