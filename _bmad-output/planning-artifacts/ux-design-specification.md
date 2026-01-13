@@ -5,11 +5,17 @@ status: complete
 inputDocuments:
   - _bmad-output/planning-artifacts/product-brief-TinSu-2026-01-02.md
   - _bmad-output/planning-artifacts/prd.md
+  - _bmad-output/planning-artifacts/prd-task-execution-sandbox.md
   - docs/research.md
   - docs/bmad-taskmaster-integration.md
 date: 2026-01-03
+lastUpdated: 2026-01-12
 author: Tinxu
 project: TinSu
+revisions:
+  - date: 2026-01-12
+    section: Task Execution Sandbox UX
+    description: Added 4-tab task detail interface, activity log, diff viewer, and workflow automation patterns
 ---
 
 # UX Design Specification: TinSu
@@ -1321,3 +1327,579 @@ Arrow keys: ← → between columns, ↑ ↓ within column
   }
 }
 ```
+
+---
+
+## Task Execution Sandbox UX
+
+_Added: 2026-01-12 — Feature extension for per-task execution workspaces_
+
+### Feature Overview
+
+The Task Execution Sandbox transforms the task detail view from a simple information panel into a **full execution workspace**. Each task becomes an isolated runtime environment with persistent terminal sessions, real-time activity logging, integrated diff viewing, and task-type-aware workflow automation.
+
+**Core Innovation:** A Kanban card is no longer just a record — it's a **workspace where work happens**. Users can run 10+ tasks in parallel, switch between them freely, and never lose context.
+
+### The 4-Tab Task Detail Interface
+
+The task detail panel evolves from a single-pane slide-over to a **tabbed workspace**:
+
+| Tab | Purpose | Primary Action |
+|-----|---------|----------------|
+| **Terminal** | Watch agent work, type commands | Observe + Intervene |
+| **Activities** | Event timeline with filtering | Debug + Audit |
+| **Diff** | Git changes made by agent | Review + Validate |
+| **Content** | Task description, acceptance criteria | Reference |
+
+**Layout Specifications:**
+
+| Element | Specification |
+|---------|---------------|
+| Tab bar height | 44px (touch-friendly) |
+| Tab indicator | 2px bottom border, `--primary` color |
+| Active tab | Bold text, indicator visible |
+| Inactive tab | `--text-muted` color |
+| Panel width | 50% viewport on desktop, full-width on mobile |
+| Panel position | Right side slide-over (replaces 400px ReviewPanel) |
+
+**Tab Navigation:**
+
+| Shortcut | Action |
+|----------|--------|
+| `1` | Switch to Terminal tab |
+| `2` | Switch to Activities tab |
+| `3` | Switch to Diff tab |
+| `4` | Switch to Content tab |
+| `Tab` | Cycle through tabs |
+| `Shift+Tab` | Reverse cycle |
+
+### Terminal Tab
+
+**Purpose:** Real-time view of agent execution with full interactivity
+
+**Visual Design:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Terminal    Activities    Diff    Content           │
+├─────────────────────────────────────────────────────┤
+│ ┌─ Task: Implement login flow ──────────────────┐   │
+│ │ ● Running · 3m 42s · dev-story phase          │   │
+│ └───────────────────────────────────────────────┘   │
+│                                                     │
+│ $ claude --print "Implement the login..."           │
+│ ▶ Reading src/components/Login.tsx...              │
+│ ▶ Creating src/hooks/useAuth.ts...                 │
+│ ▶ Writing authentication logic...                  │
+│ █                                                   │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────┐ │
+│ │ Type a message...                          Send │ │
+│ └─────────────────────────────────────────────────┘ │
+│                        [⏸ Pause]  [↻ Retry]         │
+└─────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Component | Description |
+|-----------|-------------|
+| **Status Bar** | Task title, status indicator, elapsed time, current phase |
+| **Terminal Output** | xterm.js with scrollback, monospace font (JetBrains Mono) |
+| **Input Field** | Text input for user commands/feedback to agent |
+| **Action Buttons** | Pause/Resume, Retry, Copy Output |
+
+**Status Bar States:**
+
+| State | Icon | Color | Text |
+|-------|------|-------|------|
+| Running | ● (pulse) | `--status-running` | "Running · {time} · {phase}" |
+| Paused | ⏸ | `--warning` | "Paused · {time}" |
+| Stalled | ⚠ | `--warning` | "Stalled · No output for {time}" |
+| Complete | ✓ | `--status-done` | "Complete · {duration}" |
+| Error | ✕ | `--destructive` | "Error · {message}" |
+
+**Scrollback Persistence:**
+
+- Terminal history survives navigation between tasks
+- Survives app restart (backed up to filesystem)
+- Survives system reboot (restored from backup)
+- Lazy loading for large scrollback (>10,000 lines)
+
+**Accessibility:**
+
+- `role="log"` with `aria-live="polite"` for new output
+- Focus trap when input field active
+- Screen reader announces status changes
+
+### Activities Tab
+
+**Purpose:** Real-time, filterable event log for debugging and audit
+
+**Visual Design:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Terminal    Activities    Diff    Content           │
+├─────────────────────────────────────────────────────┤
+│ Filter: [All ▼] [Status] [Agent] [User] [Error]     │
+├─────────────────────────────────────────────────────┤
+│ ┌─ 14:32:18 ─────────────────────────────────────┐  │
+│ │ ● Status Changed                               │  │
+│ │   Moved to In Progress                         │  │
+│ └────────────────────────────────────────────────┘  │
+│ ┌─ 14:32:19 ─────────────────────────────────────┐  │
+│ │ ▶ Agent Started                                │  │
+│ │   Phase: dev-story                             │  │
+│ └────────────────────────────────────────────────┘  │
+│ ┌─ 14:33:45 ─────────────────────────────────────┐  │
+│ │ 🔧 Tool Used                                   │  │
+│ │   Edit: src/components/Login.tsx (+45, -12)   │  │
+│ └────────────────────────────────────────────────┘  │
+│ ┌─ 14:35:02 ─────────────────────────────────────┐  │
+│ │ 💬 User Command                                │  │
+│ │   "Add error handling for invalid credentials" │  │
+│ └────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+**Event Types & Visual Treatment:**
+
+| Event Type | Icon | Color | Description |
+|------------|------|-------|-------------|
+| `status_change` | ● | `--primary` | Task moved between columns |
+| `agent_start` | ▶ | `--status-running` | Claude Code started working |
+| `agent_complete` | ✓ | `--status-done` | Agent finished responding |
+| `tool_used` | 🔧 | `--text-muted` | File edit, bash command, git operation |
+| `user_command` | 💬 | `--primary` | User typed in terminal |
+| `automation_trigger` | ⚡ | `--status-review` | Auto code-review triggered |
+| `error` | ✕ | `--destructive` | Agent or hook failure |
+
+**Filter Controls:**
+
+| Filter | Behavior |
+|--------|----------|
+| All | Show all event types |
+| Status | `status_change` events only |
+| Agent | `agent_start`, `agent_complete`, `tool_used` |
+| User | `user_command` events only |
+| Error | `error` events only (highlighted) |
+
+**Filter UX:**
+
+- Chip-style toggle buttons (multi-select)
+- Active filters highlighted with `--primary` background
+- Filter state persists during session
+- Keyboard: `F` focuses filter bar, number keys toggle filters
+
+**Real-time Streaming:**
+
+- New events animate in from top (slide + fade)
+- Auto-scroll to newest event (unless user scrolled up)
+- "New events" indicator when scrolled up
+- Click indicator to jump to latest
+
+**Accessibility:**
+
+- `role="log"` with `aria-live="polite"`
+- Events are `role="article"` with timestamp
+- Filter buttons are `role="checkbox"` with `aria-pressed`
+
+### Diff Tab
+
+**Purpose:** Show all git changes made by agent for review
+
+**Visual Design:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Terminal    Activities    Diff    Content           │
+├─────────────────────────────────────────────────────┤
+│ 4 files changed · +127 lines · -34 lines            │
+│ [Unified ▼]                              [Refresh]  │
+├─────────────────────────────────────────────────────┤
+│ ▼ src/components/Login.tsx         +45 -12         │
+│ ├─────────────────────────────────────────────────┤ │
+│ │  12 │ - import { useState } from 'react';       │ │
+│ │  12 │ + import { useState, useCallback } from...│ │
+│ │  13 │ + import { useAuth } from '../hooks/...   │ │
+│ │ ... │                                           │ │
+│ │  28 │ + const handleSubmit = useCallback(async │ │
+│ │  29 │ +   (e: FormEvent) => {                   │ │
+│ └─────────────────────────────────────────────────┘ │
+│ ▶ src/hooks/useAuth.ts (new)        +62 -0         │
+│ ▶ src/types/auth.ts (new)           +18 -0         │
+│ ▶ src/components/Login.test.tsx     +2 -22         │
+└─────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Component | Description |
+|-----------|-------------|
+| **Summary Bar** | File count, lines added/removed |
+| **View Toggle** | Unified / Split (side-by-side) |
+| **File Tree** | Collapsible list with change indicators |
+| **Diff Viewer** | Monaco Editor diff component |
+
+**File Status Indicators:**
+
+| Status | Icon | Color |
+|--------|------|-------|
+| Modified | ● | `--warning` |
+| Added (new) | + | `--success` |
+| Deleted | - | `--destructive` |
+| Renamed | → | `--primary` |
+
+**Diff Colors:**
+
+| Change | Background | Text |
+|--------|------------|------|
+| Added line | `rgba(34, 197, 94, 0.15)` | `--success` for + prefix |
+| Removed line | `rgba(239, 68, 68, 0.15)` | `--destructive` for - prefix |
+| Unchanged | Transparent | `--text-muted` |
+
+**Interactions:**
+
+| Action | Behavior |
+|--------|----------|
+| Click file | Expand/collapse diff section |
+| Click line number | Copy line reference |
+| `Refresh` button | Re-fetch diff from git worktree |
+| Keyboard `[` / `]` | Previous / next file |
+
+**Empty State:**
+
+"No changes yet. The agent is still working..."
+(Shown when task is In Progress with no commits)
+
+**Accessibility:**
+
+- File tree is `role="tree"` with `role="treeitem"` children
+- Diff content has line-by-line navigation
+- Color + prefix (+ / -) for change type (not color alone)
+
+### Content Tab
+
+**Purpose:** Reference task description and acceptance criteria
+
+**Visual Design:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Terminal    Activities    Diff    Content           │
+├─────────────────────────────────────────────────────┤
+│ ┌─ Task ───────────────────────────────────────────┐│
+│ │ Implement user login flow                        ││
+│ │ Epic: Authentication · Sprint 3                  ││
+│ └──────────────────────────────────────────────────┘│
+│                                                     │
+│ ## Description                                      │
+│ Create a login form with email/password fields...  │
+│                                                     │
+│ ## Acceptance Criteria                              │
+│ ✓ Form validates email format                      │
+│ ✓ Password field has show/hide toggle             │
+│ ○ Error toast on invalid credentials               │
+│ ○ Redirect to dashboard on success                 │
+│                                                     │
+│ ## Technical Notes                                  │
+│ Use existing useAuth hook pattern from signup...   │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│                                         [Edit Task] │
+└─────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Component | Description |
+|-----------|-------------|
+| **Task Header** | Title, epic label, sprint |
+| **Description** | Markdown-rendered task description |
+| **Acceptance Criteria** | Checklist with completion status |
+| **Technical Notes** | Additional context for agent |
+| **Edit Button** | Opens task edit modal |
+
+**Acceptance Criteria States:**
+
+| State | Icon | Meaning |
+|-------|------|---------|
+| Complete | ✓ (green) | Criteria verified by code-review |
+| Pending | ○ (gray) | Not yet verified |
+| Failed | ✕ (red) | Criteria not met |
+
+### Task-Type Visual Differentiation
+
+Tasks behave differently based on type. The UI must make this distinction clear:
+
+**Story Tasks (BMAD-generated):**
+
+| Visual Element | Treatment |
+|----------------|-----------|
+| Card badge | "Story" label with `--status-review` background |
+| Workflow indicator | Shows current phase (dev-story → code-review) |
+| Automation status | "Auto" icon indicating automated workflow |
+| Review behavior | Auto-triggers `/code-review` on Review entry |
+
+**Basic Tasks (user-created):**
+
+| Visual Element | Treatment |
+|----------------|-----------|
+| Card badge | "Task" label with `--text-muted` background |
+| Workflow indicator | None (manual workflow) |
+| Automation status | No automation icon |
+| Review behavior | Manual review only (no auto code-review) |
+
+**Card Visual Comparison:**
+
+```
+┌─────────────────────┐    ┌─────────────────────┐
+│ Story  Auto         │    │ Task               │
+│ ──────────────────  │    │ ──────────────────  │
+│ Implement login     │    │ Fix button align   │
+│ Epic: Auth          │    │                    │
+│ ● Running · dev-... │    │ ● Running          │
+└─────────────────────┘    └─────────────────────┘
+     Story Task                 Basic Task
+```
+
+### Workflow Phase Indicators
+
+Story tasks progress through distinct phases with visual feedback:
+
+**Phase Progression:**
+
+```
+In Progress ──→ dev-story ──→ Review ──→ code-review ──→ Ready
+    │              │            │            │             │
+    ▼              ▼            ▼            ▼             ▼
+ [Create]      [Agent]      [Auto-move]  [Auto-run]   [User review]
+```
+
+**Phase Status in UI:**
+
+| Phase | Status Bar Text | Card Badge |
+|-------|-----------------|------------|
+| Initializing | "Starting..." | ● gray pulse |
+| dev-story | "dev-story phase" | ● green pulse |
+| Awaiting Review | "Moving to Review..." | ● purple |
+| code-review | "code-review phase" | ● purple pulse |
+| Ready for User | "Ready for review" | ✓ purple solid |
+
+**Automation Trigger Toast:**
+
+When code-review auto-triggers:
+```
+⚡ Code review started automatically
+   Task: Implement login flow
+```
+Toast type: Info, 3 seconds, bottom-right
+
+### Manual Trigger Buttons
+
+Fallback controls when automation fails or for Basic tasks:
+
+**Placement:** Action bar at bottom of Terminal tab
+
+**Buttons:**
+
+| Button | Icon | Visibility | Action |
+|--------|------|------------|--------|
+| Run dev-story | ▶ | Story tasks in In Progress | Manually trigger dev-story |
+| Run code-review | 🔍 | Tasks in Review | Manually trigger code-review |
+| Retry | ↻ | After error | Re-run last command |
+| Pause | ⏸ | While running | Freeze agent execution |
+| Resume | ▶ | While paused | Continue execution |
+
+**Button States:**
+
+| State | Style |
+|-------|-------|
+| Available | Ghost button, `--text-muted` |
+| Hover | Ghost button, `--text` |
+| Active/Running | Disabled, `--primary` background |
+| Disabled | 50% opacity, not clickable |
+
+**Keyboard Shortcuts:**
+
+| Shortcut | Action |
+|----------|--------|
+| `D` | Run dev-story (if available) |
+| `C` | Run code-review (if available) |
+| `Space` | Pause/Resume toggle |
+| `R` | Retry last command |
+
+### Parallel Task Execution UX
+
+Supporting 10+ concurrent tasks requires careful state management:
+
+**Active vs Inactive Tasks:**
+
+| State | Terminal Behavior | Memory Usage |
+|-------|-------------------|--------------|
+| Active (viewed) | Live streaming via WebSocket | Full xterm.js instance |
+| Inactive (background) | tmux session continues | Minimal (no renderer) |
+| Returning | Attach to tmux, load scrollback | Full instance restored |
+
+**Task Switching Feel:**
+
+| Transition | Target | Animation |
+|------------|--------|-----------|
+| Click different task | <200ms | Fade out/in content |
+| Load scrollback | <2 seconds | Skeleton → content |
+| Terminal attach | <500ms | Cursor appears, live |
+
+**Visual Indicators for Background Tasks:**
+
+On the Kanban board, cards with active agents show:
+- Pulse animation on status badge
+- Elapsed time updating in real-time
+- Subtle glow effect on card border
+
+### Error States & Recovery
+
+**Agent Error:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Terminal    Activities    Diff    Content           │
+├─────────────────────────────────────────────────────┤
+│ ┌─ Task: Implement login flow ──────────────────┐   │
+│ │ ✕ Error · Agent stopped unexpectedly          │   │
+│ └───────────────────────────────────────────────┘   │
+│                                                     │
+│ ┌─ Error Details ───────────────────────────────┐   │
+│ │ ECONNREFUSED: Connection refused at localhost │   │
+│ │                                               │   │
+│ │ The dev server may not be running.            │   │
+│ │                                               │   │
+│ │ [View Logs]  [Retry]  [Cancel Task]           │   │
+│ └───────────────────────────────────────────────┘   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+**Recovery Actions:**
+
+| Button | Action |
+|--------|--------|
+| View Logs | Switch to Activities tab, filter by Error |
+| Retry | Re-run the failed command |
+| Cancel Task | Move task back to Backlog, kill tmux session |
+
+**Stall Detection:**
+
+After 5 minutes of no output:
+- Status changes to "Stalled" (yellow)
+- Card shows attention indicator
+- Toast notification: "Task may be stalled. No output for 5 minutes."
+
+### Component Implementation
+
+**New Components for Task Execution Sandbox:**
+
+| Component | Purpose | Priority |
+|-----------|---------|----------|
+| `TaskDetailTabs` | Tab container with keyboard nav | Critical |
+| `TerminalTab` | xterm.js + tmux attach + input | Critical |
+| `ActivitiesTab` | Filterable event log | Critical |
+| `DiffTab` | Monaco diff viewer | Critical |
+| `ContentTab` | Task description display | Critical |
+| `TaskStatusBar` | Phase + time + status | Critical |
+| `ActivityEvent` | Single event card | High |
+| `ActivityFilter` | Filter chip bar | High |
+| `ManualTriggerBar` | Action buttons | High |
+| `TaskTypeBadge` | Story/Task indicator | Medium |
+| `PhaseIndicator` | Workflow phase display | Medium |
+
+**Component Hierarchy:**
+
+```
+TaskDetailPanel
+├── TaskDetailTabs
+│   ├── Tab (Terminal)
+│   ├── Tab (Activities)
+│   ├── Tab (Diff)
+│   └── Tab (Content)
+├── TaskStatusBar
+└── TabContent
+    ├── TerminalTab
+    │   ├── XTermWrapper
+    │   ├── CommandInput
+    │   └── ManualTriggerBar
+    ├── ActivitiesTab
+    │   ├── ActivityFilter
+    │   └── ActivityList
+    │       └── ActivityEvent[]
+    ├── DiffTab
+    │   ├── DiffSummary
+    │   ├── FileTree
+    │   └── MonacoDiffViewer
+    └── ContentTab
+        ├── TaskHeader
+        ├── Description
+        └── AcceptanceCriteria
+```
+
+### Responsive Considerations
+
+**Desktop (1024px+):**
+- Task detail panel: 50% viewport width
+- All 4 tabs visible in tab bar
+- Full activity log and diff views
+
+**Tablet (768-1023px):**
+- Task detail panel: 70% viewport width
+- Tab bar scrolls horizontally if needed
+- Activity events stack vertically
+
+**Mobile (320-767px):**
+- Task detail panel: Full screen overlay
+- Tab bar as icon-only with labels below
+- Terminal input at bottom (thumb-friendly)
+- Swipe left/right to change tabs
+
+### Accessibility Additions
+
+**ARIA Roles:**
+
+| Component | Role | Live Region |
+|-----------|------|-------------|
+| Tab container | `tablist` | — |
+| Individual tab | `tab` | — |
+| Tab panel | `tabpanel` | — |
+| Terminal output | `log` | `polite` |
+| Activity list | `log` | `polite` |
+| Status bar | `status` | `polite` |
+| Error messages | `alert` | `assertive` |
+
+**Focus Management:**
+
+- Tab key cycles through tab buttons, then into active panel
+- `Escape` from panel returns focus to selected card
+- Focus ring on all interactive elements within tabs
+
+**Screen Reader Announcements:**
+
+| Event | Announcement |
+|-------|--------------|
+| Tab switch | "Terminal tab, selected" |
+| New activity | "New event: Agent started dev-story phase" |
+| Status change | "Task status changed to Running" |
+| Error | "Error: Agent stopped unexpectedly" |
+
+### Success Metrics
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| Tab switch time | <200ms | Time from click to content visible |
+| Terminal attach | <500ms | Time from tab switch to live output |
+| Activity filter | <100ms | Time from click to filtered view |
+| Scrollback load | <2 seconds | Time to load 50,000+ lines |
+| Parallel task UX | No jank | Smooth board with 10+ active tasks |
+
+---
+
+_End of Task Execution Sandbox UX section_

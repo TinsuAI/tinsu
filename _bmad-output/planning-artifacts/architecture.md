@@ -3,6 +3,7 @@ stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
   - _bmad-output/planning-artifacts/product-brief-TinSu-2026-01-02.md
   - _bmad-output/planning-artifacts/prd.md
+  - _bmad-output/planning-artifacts/prd-task-execution-sandbox.md
   - docs/research.md
   - docs/bmad-taskmaster-integration.md
 workflowType: 'architecture'
@@ -12,6 +13,11 @@ date: '2026-01-03'
 status: 'complete'
 completedAt: '2026-01-03'
 lastStep: 8
+lastUpdated: '2026-01-12'
+featureExtensions:
+  - name: 'Task Execution Sandbox'
+    prd: 'prd-task-execution-sandbox.md'
+    addedAt: '2026-01-12'
 ---
 
 # Architecture Decision Document
@@ -984,6 +990,541 @@ All project requirements are architecturally supported, with clear mapping from 
 
 **Solid Foundation**
 The chosen starter template and architectural patterns provide a production-ready foundation following current best practices.
+
+---
+
+## Task Execution Sandbox Architecture (Feature Extension)
+
+_Added: 2026-01-12 | PRD: prd-task-execution-sandbox.md_
+
+This section extends the core architecture with infrastructure for per-task execution environments, activity logging, and workflow automation.
+
+### Feature Overview
+
+The Task Execution Sandbox transforms task detail views into isolated execution workspaces:
+
+- **Per-Task Terminal** — Persistent tmux session per task, survives app restart and reboot
+- **Activity Log** — Real-time, append-only event stream for complete audit trail
+- **Workflow Automation** — Task-type-aware triggers (Story vs Basic)
+- **4-Tab Task Detail** — Terminal, Activities, Diff, Content
+
+### New Technology Decisions
+
+| Component | Technology | Rationale |
+|-----------|------------|-----------|
+| Terminal Persistence | **tmux** | Native session management, survives app restart, `send-keys` for automation |
+| Event Detection | **Claude Code Hooks** | Stop + PostToolUse hooks for completion and activity tracking |
+| Hook IPC | **HTTP localhost** | Reliable delivery, debuggable, no race conditions |
+| Activity Storage | **SQLite** | Consistent with existing data layer, supports real-time streaming |
+| Scrollback Backup | **Filesystem (gzip)** | Survives system reboot, lazy loading |
+
+### New Database Schema
+
+```sql
+-- Task Activities (append-only event log)
+CREATE TABLE task_activities (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  payload TEXT,                    -- JSON
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_task_activities_task_id ON task_activities(task_id);
+CREATE INDEX idx_task_activities_event_type ON task_activities(event_type);
+CREATE INDEX idx_task_activities_created_at ON task_activities(created_at);
+
+-- Task Sessions (tmux + Claude Code session mapping)
+CREATE TABLE task_sessions (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL UNIQUE,
+  session_id TEXT,                 -- Claude Code session ID (from hooks)
+  tmux_session TEXT NOT NULL,      -- tinsu-{projectName}-{taskId}
+  current_phase TEXT,              -- dev-story | code-review | user-feedback
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_task_sessions_session_id ON task_sessions(session_id);
+
+-- Activity Retention Settings
+CREATE TABLE app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+-- Default: activity_retention_days = -1 (unlimited)
+```
+
+**Event Types:**
+| Type | Description | Payload Example |
+|------|-------------|-----------------|
+| `status_change` | Task moved between columns | `{ from: 'backlog', to: 'in_progress' }` |
+| `agent_start` | Claude Code started | `{ phase: 'dev-story' }` |
+| `agent_complete` | Stop hook fired | `{ phase: 'dev-story', duration_ms: 45000 }` |
+| `tool_used` | PostToolUse hook | `{ tool: 'Edit', file: 'src/foo.ts' }` |
+| `user_command` | User typed in terminal | `{ command: '/code-review' }` |
+| `automation_trigger` | Auto code-review | `{ command: 'code-review', trigger: 'dev-story-complete' }` |
+| `error` | Agent or hook failure | `{ message: 'ECONNREFUSED', code: 'HOOK_FAILED' }` |
+
+### New Services Architecture
+
+```
+src/main/services/
+├── task-terminal.service.ts       # tmux session lifecycle
+├── hook-listener.service.ts       # HTTP server for hook events
+├── activity-log.service.ts        # Event logging + streaming
+├── automation.service.ts          # Story/Basic state machine
+└── scrollback-backup.service.ts   # Filesystem persistence
+```
+
+#### TaskTerminalService
+
+```typescript
+interface TaskTerminalService {
+  // Session lifecycle
+  createSession(taskId: string, projectName: string): Promise<string>  // Returns tmux session name
+  killSession(taskId: string): Promise<void>
+  hasSession(taskId: string): Promise<boolean>
+
+  // Command execution
+  sendCommand(taskId: string, command: string): Promise<void>  // tmux send-keys
+
+  // Attachment (for xterm.js)
+  getAttachCommand(taskId: string): string  // Returns: tmux attach-session -t {name}
+
+  // Scrollback
+  captureScrollback(taskId: string, lines?: number): Promise<string>
+}
+```
+
+**tmux Session Naming:** `tinsu-{projectName}-{taskId}`
+- Multi-project safe
+- Easy to identify in `tmux list-sessions`
+- Example: `tinsu-myapp-task-abc123`
+
+#### HookListenerService
+
+```typescript
+interface HookListenerService {
+  // Lifecycle
+  start(port: number): Promise<void>
+  stop(): Promise<void>
+
+  // Event handlers (internal)
+  onStopHook(payload: StopHookPayload): Promise<void>
+  onToolUseHook(payload: ToolUseHookPayload): Promise<void>
+}
+
+interface StopHookPayload {
+  session_id: string
+  transcript_path: string
+  cwd: string
+  hook_event_name: 'Stop'
+}
+
+interface ToolUseHookPayload {
+  session_id: string
+  tool_name: string
+  tool_input: Record<string, unknown>
+  hook_event_name: 'PostToolUse'
+}
+```
+
+**HTTP Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/hooks/stop` | POST | Receives Stop hook events |
+| `/api/hooks/tool-use` | POST | Receives PostToolUse hook events |
+| `/api/hooks/health` | GET | Health check for hook scripts |
+
+**Port Selection:** Use `TINSU_HOOK_PORT` env var, default to dynamic port stored in temp file for hook scripts to read.
+
+#### ActivityLogService
+
+```typescript
+interface ActivityLogService {
+  // Write
+  logActivity(taskId: string, eventType: EventType, payload?: object): Promise<Activity>
+
+  // Read
+  getActivities(taskId: string, options?: ActivityQueryOptions): Promise<Activity[]>
+
+  // Stream (for real-time UI)
+  subscribeToTask(taskId: string): Observable<Activity>
+
+  // Retention
+  cleanupOldActivities(retentionDays: number): Promise<number>  // Returns deleted count
+}
+
+interface ActivityQueryOptions {
+  eventTypes?: EventType[]
+  limit?: number
+  offset?: number
+  since?: Date
+}
+```
+
+#### AutomationService
+
+```typescript
+interface AutomationService {
+  // Status change triggers
+  onStatusChange(taskId: string, newStatus: TaskStatus): Promise<void>
+
+  // Hook event triggers
+  onAgentComplete(sessionId: string): Promise<void>
+
+  // Manual triggers (fallback UI)
+  triggerDevStory(taskId: string): Promise<void>
+  triggerCodeReview(taskId: string): Promise<void>
+}
+```
+
+**State Machine:**
+```
+Story Task:
+  In Progress → createSession → sendCommand(dev-story prompt)
+  dev-story complete (Stop hook) → updateStatus(review) → sendCommand('/code-review')
+  code-review complete (Stop hook) → notifyUser('Ready for review')
+
+Basic Task:
+  In Progress → createSession → sendCommand(task.description)
+  agent complete (Stop hook) → updateStatus(review)
+  [No auto code-review - user reviews manually]
+```
+
+#### ScrollbackBackupService
+
+```typescript
+interface ScrollbackBackupService {
+  // Backup triggers
+  backupOnStatusChange(taskId: string): Promise<void>
+  startPeriodicBackup(taskId: string, intervalMs: number): void
+  stopPeriodicBackup(taskId: string): void
+  backupOnShutdown(): Promise<void>
+
+  // Restore
+  restoreScrollback(taskId: string): Promise<string | null>
+
+  // Cleanup
+  deleteBackup(taskId: string): Promise<void>
+}
+```
+
+**Storage Location:** `{app.getPath('userData')}/terminal-history/{taskId}/`
+```
+terminal-history/
+└── {taskId}/
+    ├── scrollback.txt.gz     # Compressed scrollback
+    ├── metadata.json         # { lines: 5000, lastBackup: '...', tmuxSession: '...' }
+    └── transcript.json       # Claude Code transcript (from hook)
+```
+
+### New tRPC Router
+
+**`activity.router.ts`**
+
+```typescript
+export const activityRouter = router({
+  // Queries
+  listActivities: t.procedure
+    .input(z.object({
+      taskId: z.string(),
+      eventTypes: z.array(z.enum([...])).optional(),
+      limit: z.number().default(100),
+      offset: z.number().default(0)
+    }))
+    .query(({ input, ctx }) => {
+      return ctx.activityLogService.getActivities(input.taskId, input)
+    }),
+
+  // Subscriptions (real-time streaming)
+  onActivityCreated: t.procedure
+    .input(z.object({ taskId: z.string() }))
+    .subscription(({ input, ctx }) => {
+      return observable<Activity>((emit) => {
+        const sub = ctx.activityLogService.subscribeToTask(input.taskId)
+        sub.subscribe((activity) => emit.next(activity))
+        return () => sub.unsubscribe()
+      })
+    }),
+
+  // Retention settings
+  getRetentionDays: t.procedure.query(({ ctx }) => {
+    return ctx.settingsService.get('activity_retention_days') ?? -1
+  }),
+
+  setRetentionDays: t.procedure
+    .input(z.object({ days: z.number().min(-1) }))  // -1 = unlimited
+    .mutation(({ input, ctx }) => {
+      return ctx.settingsService.set('activity_retention_days', input.days)
+    })
+})
+```
+
+**Updates to `agent.router.ts`**
+
+```typescript
+// Add to existing agent.router.ts
+createTaskSession: t.procedure
+  .input(z.object({ taskId: z.string() }))
+  .mutation(async ({ input, ctx }) => {
+    const task = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, input.taskId) })
+    if (!task) throw new TRPCError({ code: 'NOT_FOUND' })
+
+    const projectName = ctx.configService.getProjectName()
+    const tmuxSession = await ctx.taskTerminalService.createSession(input.taskId, projectName)
+
+    await ctx.db.insert(taskSessions).values({
+      id: generateId(),
+      taskId: input.taskId,
+      tmuxSession,
+      createdAt: Date.now()
+    })
+
+    return { tmuxSession }
+  }),
+
+sendTerminalCommand: t.procedure
+  .input(z.object({ taskId: z.string(), command: z.string() }))
+  .mutation(async ({ input, ctx }) => {
+    await ctx.taskTerminalService.sendCommand(input.taskId, input.command)
+    await ctx.activityLogService.logActivity(input.taskId, 'user_command', { command: input.command })
+  }),
+
+getTaskSession: t.procedure
+  .input(z.object({ taskId: z.string() }))
+  .query(({ input, ctx }) => {
+    return ctx.db.query.taskSessions.findFirst({ where: eq(taskSessions.taskId, input.taskId) })
+  })
+```
+
+### New UI Components
+
+```
+src/renderer/components/
+├── task/
+│   ├── TaskDetailTabs.tsx          # 4-tab container
+│   ├── ActivitiesTab.tsx           # Activity log with filters
+│   ├── ActivitiesFilter.tsx        # Event type filter chips
+│   ├── ActivityItem.tsx            # Single activity row
+│   ├── ContentTab.tsx              # Task description display
+│   ├── TaskAutomationStatus.tsx    # Current phase indicator
+│   └── ManualTriggerButtons.tsx    # Fallback trigger UI
+```
+
+**TaskDetailTabs.tsx Structure:**
+```typescript
+<Tabs defaultValue="terminal">
+  <TabsList>
+    <TabsTrigger value="terminal">Terminal</TabsTrigger>
+    <TabsTrigger value="activities">Activities</TabsTrigger>
+    <TabsTrigger value="diff">Diff</TabsTrigger>
+    <TabsTrigger value="content">Content</TabsTrigger>
+  </TabsList>
+
+  <TabsContent value="terminal">
+    <TerminalOutput taskId={taskId} />
+    <TerminalControls taskId={taskId} />
+  </TabsContent>
+
+  <TabsContent value="activities">
+    <ActivitiesTab taskId={taskId} />
+  </TabsContent>
+
+  <TabsContent value="diff">
+    <DiffViewer taskId={taskId} />
+  </TabsContent>
+
+  <TabsContent value="content">
+    <ContentTab task={task} />
+  </TabsContent>
+</Tabs>
+```
+
+### Claude Code Hook Configuration
+
+**`.claude/settings.json` (project-level)**
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "bash .claude/hooks/task-completion.sh"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "bash .claude/hooks/log-tool-use.sh"
+      }]
+    }]
+  }
+}
+```
+
+**`.claude/hooks/task-completion.sh`**
+```bash
+#!/bin/bash
+# Read JSON from stdin
+INPUT=$(cat)
+
+# Get TinSu hook port from temp file
+TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
+
+# Send to TinSu
+curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/stop" \
+  -H "Content-Type: application/json" \
+  -d "$INPUT" || true  # Don't fail if TinSu not running
+```
+
+**`.claude/hooks/log-tool-use.sh`**
+```bash
+#!/bin/bash
+INPUT=$(cat)
+TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
+
+curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/tool-use" \
+  -H "Content-Type: application/json" \
+  -d "$INPUT" || true
+```
+
+### Integration Patterns
+
+**Terminal Attachment (xterm.js → tmux):**
+```typescript
+// In TerminalOutput.tsx
+const { data: session } = trpc.agent.getTaskSession.useQuery({ taskId })
+
+useEffect(() => {
+  if (session?.tmuxSession) {
+    // Spawn PTY that attaches to tmux
+    const attachCmd = `tmux attach-session -t ${session.tmuxSession}`
+    ptyService.spawn('bash', ['-c', attachCmd])
+  }
+}, [session?.tmuxSession])
+```
+
+**Activity Streaming (real-time updates):**
+```typescript
+// In ActivitiesTab.tsx
+const [activities, setActivities] = useState<Activity[]>([])
+
+// Initial load
+const { data } = trpc.activity.listActivities.useQuery({ taskId })
+
+// Real-time subscription
+trpc.activity.onActivityCreated.useSubscription(
+  { taskId },
+  { onData: (activity) => setActivities(prev => [activity, ...prev]) }
+)
+```
+
+**Automation Trigger Flow:**
+```typescript
+// In task.router.ts - updateStatus mutation
+updateStatus: t.procedure
+  .input(z.object({ id: z.string(), status: z.enum([...]) }))
+  .mutation(async ({ input, ctx }) => {
+    const oldTask = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, input.id) })
+
+    // Update status
+    const [updated] = await ctx.db.update(tasks)
+      .set({ status: input.status, updatedAt: Date.now() })
+      .where(eq(tasks.id, input.id))
+      .returning()
+
+    // Log activity
+    await ctx.activityLogService.logActivity(input.id, 'status_change', {
+      from: oldTask?.status,
+      to: input.status
+    })
+
+    // Trigger automation
+    await ctx.automationService.onStatusChange(input.id, input.status)
+
+    return updated
+  })
+```
+
+### Platform Requirements
+
+| Platform | tmux Support | Notes |
+|----------|--------------|-------|
+| **macOS** | ✅ Native | `brew install tmux` |
+| **Linux** | ✅ Native | `apt install tmux` / `yum install tmux` |
+| **Windows** | ⚠️ WSL only | Deferred to post-MVP |
+
+**Startup Check:**
+```typescript
+// In main/index.ts
+async function checkDependencies() {
+  try {
+    await execAsync('tmux -V')
+  } catch {
+    dialog.showErrorBox(
+      'tmux Required',
+      'TinSu requires tmux for terminal persistence.\n\n' +
+      'Install with:\n' +
+      '  macOS: brew install tmux\n' +
+      '  Linux: apt install tmux'
+    )
+    app.quit()
+  }
+}
+```
+
+### Updated Project Structure
+
+```
+src/main/
+├── services/
+│   ├── pty.service.ts              # Existing
+│   ├── git.service.ts              # Existing
+│   ├── stall-detector.service.ts   # Existing
+│   ├── context-builder.service.ts  # Existing
+│   ├── task-terminal.service.ts    # NEW: tmux management
+│   ├── hook-listener.service.ts    # NEW: HTTP hook server
+│   ├── activity-log.service.ts     # NEW: Event logging
+│   ├── automation.service.ts       # NEW: State machine
+│   └── scrollback-backup.service.ts# NEW: Filesystem persistence
+├── trpc/routers/
+│   ├── task.router.ts              # Existing
+│   ├── agent.router.ts             # UPDATED: Session management
+│   ├── activity.router.ts          # NEW: Activity CRUD + streaming
+│   └── ...
+└── db/
+    └── schema.ts                   # UPDATED: task_activities, task_sessions, app_settings
+
+src/renderer/components/
+├── task/
+│   ├── TaskPanel.tsx               # UPDATED: Uses TaskDetailTabs
+│   ├── TaskDetailTabs.tsx          # NEW: 4-tab container
+│   ├── ActivitiesTab.tsx           # NEW: Activity log UI
+│   ├── ContentTab.tsx              # NEW: Description display
+│   └── ...
+└── ...
+
+.claude/
+├── settings.json                   # NEW: Hook configuration
+└── hooks/
+    ├── task-completion.sh          # NEW: Stop hook
+    └── log-tool-use.sh             # NEW: PostToolUse hook
+```
+
+### Task Execution Sandbox NFRs
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Activity event latency | <1s | Events appear in UI within 1 second |
+| Terminal streaming | <500ms | Active terminal output lag |
+| Scrollback load | <2s | On-demand loading for inactive tasks |
+| Automation trigger | <5s | Story task auto-triggers |
+| Concurrent tasks | 10+ | System responsive with many terminals |
+| Terminal persistence | 100% | Survives app restart + reboot |
+| Activity integrity | Zero loss | No events dropped |
 
 ---
 

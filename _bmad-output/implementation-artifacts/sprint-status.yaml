@@ -1,4 +1,5 @@
 # generated: 2026-01-04
+# updated: 2026-01-12
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -21,6 +22,8 @@
 #   - in-progress: Developer actively working on implementation
 #   - review: Ready for code review (via Dev's code-review workflow)
 #   - done: Story completed
+#   - superseded: Story replaced by newer implementation (course correction)
+#   - deferred: Story postponed to future sprint
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -55,7 +58,7 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Kanban Board & Task Management
-  epic-2: in-progress
+  epic-2: done
   2-1-render-kanban-board-with-4-columns: done
   2-2-display-task-cards-in-columns: done
   2-3-implement-drag-and-drop-between-columns: done
@@ -86,7 +89,8 @@ development_status:
   # epic-4: deferred
   # epic-4-retrospective: optional
 
-  # Epic 5: Task Execution Workflow (Updated 2026-01-10)
+  # Epic 5: Task Execution Workflow (Updated 2026-01-12)
+  # NOTE: Stories 5.6-5.13 SUPERSEDED by Task Execution Sandbox feature
   # Two-path execution: Story Tasks (BMAD) vs Basic Tasks (Direct)
   epic-5: in-progress
   5-1-agent-model-configuration: done
@@ -96,15 +100,16 @@ development_status:
   5-3-story-task-execution-path-bmad-workflow: done
   5-3b-basic-task-execution-path-direct-execution: done
   # 5-4-sm-agent-draft-story-file: removed (merged into 5-3)
-  5-5-dev-agent-implement-story: in-progress
-  5-6-dev-agent-automated-code-review: backlog
-  5-7-code-review-retry-loop: backlog
-  5-8-real-time-output-streaming: backlog
-  5-9-multi-agent-progress-indicator: backlog
-  5-10-auto-transition-to-human-review: backlog
-  5-11-context-notes-for-stories: backlog
-  5-12-agent-run-history: backlog
-  5-13-sm-agent-epic-retrospective: backlog
+  5-5-dev-agent-implement-story: done
+  # Stories below superseded by Task Execution Sandbox (tes-*) on 2026-01-12
+  5-6-dev-agent-automated-code-review: superseded
+  5-7-code-review-retry-loop: superseded
+  5-8-real-time-output-streaming: superseded
+  5-9-multi-agent-progress-indicator: superseded
+  5-10-auto-transition-to-human-review: superseded
+  5-11-context-notes-for-stories: superseded
+  5-12-agent-run-history: superseded
+  5-13-sm-agent-epic-retrospective: superseded
   # 5-14-basic-claude-code-mode-fallback: removed (covered by 5-3b)
   epic-5-retrospective: optional
 
@@ -146,3 +151,90 @@ development_status:
   8-9-branch-status-indicators: backlog
   8-10-git-operations-error-recovery: backlog
   epic-8-retrospective: optional
+
+  # ============================================================================
+  # TASK EXECUTION SANDBOX (Course Correction - 2026-01-12)
+  # ============================================================================
+  # Source: _bmad-output/planning-artifacts/epics-task-execution-sandbox.md
+  # This feature supersedes Epic 5 stories 5.6-5.13 with a comprehensive
+  # rearchitecture of task execution: per-task terminals, activity logging,
+  # quad-pane workspace, diff viewer, and workflow automation.
+  # ============================================================================
+
+  # TES Epic 1: Per-Task Terminal Sessions
+  # Users can view a dedicated, persistent terminal for each task
+  tes-epic-1: backlog
+  tes-1-1-tmux-dependency-check-and-installation-prompt: backlog
+  tes-1-2-task-session-database-schema: backlog
+  tes-1-3-tmux-session-creation-service: backlog
+  tes-1-4-xterm-js-terminal-attachment: backlog
+  tes-1-5-user-command-input: backlog
+  tes-1-6-terminal-persistence-across-navigation: backlog
+  tes-1-7-session-task-mapping-and-event-routing: backlog
+  tes-1-8-scrollback-backup-service: backlog
+  tes-1-9-scrollback-restoration-after-app-restart: backlog
+  tes-1-10-scrollback-survival-after-system-reboot: backlog
+  tes-1-11-session-end-and-unresponsive-detection: backlog
+  tes-epic-1-retrospective: optional
+
+  # TES Epic 2: Activity Log & Event Tracking
+  # Users can view a real-time, filterable timeline of task events
+  tes-epic-2: backlog
+  tes-2-1-task-activities-database-schema: backlog
+  tes-2-2-activity-log-service-core: backlog
+  tes-2-3-hook-listener-http-server: backlog
+  tes-2-4-claude-code-hook-scripts: backlog
+  tes-2-5-status-change-event-capture: backlog
+  tes-2-6-agent-start-complete-event-capture: backlog
+  tes-2-7-tool-usage-event-capture: backlog
+  tes-2-8-user-command-event-capture: backlog
+  tes-2-9-automation-trigger-event-capture: backlog
+  tes-2-10-error-event-capture: backlog
+  tes-2-11-activity-log-ui-display: backlog
+  tes-2-12-activity-log-filtering: backlog
+  tes-2-13-real-time-activity-streaming: backlog
+  tes-epic-2-retrospective: optional
+
+  # TES Epic 3: Quad-Pane Task Workspace
+  # Users can view Terminal, Activities, Diff, and Content simultaneously
+  tes-epic-3: backlog
+  tes-3-1-task-detail-panel-container: backlog
+  tes-3-2-quad-pane-layout: backlog
+  tes-3-3-section-expand-collapse: backlog
+  tes-3-4-terminal-section-integration: backlog
+  tes-3-5-activities-section-integration: backlog
+  tes-3-6-content-section-display: backlog
+  tes-3-7-task-state-preservation: backlog
+  tes-3-8-concurrent-task-support-10-plus: backlog
+  tes-3-9-task-type-visual-differentiation: backlog
+  tes-3-10-workflow-phase-indicator: backlog
+  tes-3-11-keyboard-navigation: backlog
+  tes-3-12-responsive-layout: backlog
+  tes-3-13-accessibility: backlog
+  tes-epic-3-retrospective: optional
+
+  # TES Epic 4: Git Diff Viewer
+  # Users can review code changes with file tree and unified/split views
+  tes-epic-4: backlog
+  tes-4-1-git-diff-data-fetching: backlog
+  tes-4-2-diff-summary-bar: backlog
+  tes-4-3-file-tree-component: backlog
+  tes-4-4-monaco-diff-viewer-integration: backlog
+  tes-4-5-unified-vs-split-view-toggle: backlog
+  tes-4-6-diff-section-in-quad-pane: backlog
+  tes-epic-4-retrospective: optional
+
+  # TES Epic 5: Workflow Automation Engine
+  # Story tasks auto-flow through dev-story → Review → code-review
+  tes-epic-5: backlog
+  tes-5-1-task-type-field-and-differentiation: backlog
+  tes-5-2-automation-service-core: backlog
+  tes-5-3-story-task-auto-execute-dev-story: backlog
+  tes-5-4-story-task-auto-move-to-review: backlog
+  tes-5-5-story-task-auto-execute-code-review: backlog
+  tes-5-6-basic-task-auto-execute-with-description: backlog
+  tes-5-7-code-review-complete-notification: backlog
+  tes-5-8-workflow-phase-tracking: backlog
+  tes-5-9-manual-trigger-buttons: backlog
+  tes-5-10-automation-keyboard-shortcuts: backlog
+  tes-epic-5-retrospective: optional

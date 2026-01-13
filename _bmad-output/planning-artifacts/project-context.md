@@ -249,7 +249,94 @@ afterEach(() => {
 
 ---
 
+## Task Execution Sandbox Patterns (Feature Extension)
+
+_Added: 2026-01-12_
+
+### tmux Session Pattern
+
+Each task gets an isolated tmux session:
+
+- **Naming:** `tinsu-{projectName}-{taskId}`
+- Created when task moves to In Progress
+- Survives app restart (tmux server independent)
+- Commands sent via `tmux send-keys`
+
+```bash
+# Create session
+tmux new-session -d -s tinsu-myapp-task-abc123
+
+# Send command
+tmux send-keys -t tinsu-myapp-task-abc123 "claude --print ..." Enter
+
+# Attach (for xterm.js)
+tmux attach-session -t tinsu-myapp-task-abc123
+
+# Capture scrollback
+tmux capture-pane -t tinsu-myapp-task-abc123 -p -S -50000
+```
+
+### Claude Code Hooks Pattern
+
+Hook events received via HTTP localhost:
+
+| Endpoint | Hook | Purpose |
+|----------|------|---------|
+| `POST /api/hooks/stop` | Stop | Task completion detection |
+| `POST /api/hooks/tool-use` | PostToolUse | Activity logging |
+
+**Port Discovery:** Hook scripts read port from `/tmp/tinsu-hook-port`
+
+### Activity Log Event Types
+
+| Type | When Logged |
+|------|-------------|
+| `status_change` | Task moved between columns |
+| `agent_start` | Claude Code started in tmux |
+| `agent_complete` | Stop hook received |
+| `tool_used` | PostToolUse hook received |
+| `user_command` | User typed in terminal |
+| `automation_trigger` | Auto code-review triggered |
+| `error` | Agent or hook failure |
+
+### Workflow Automation Rules
+
+**Story Tasks (BMAD-generated):**
+```
+In Progress → create tmux → send dev-story prompt
+dev-story complete → move to Review → send /code-review
+code-review complete → notify user
+```
+
+**Basic Tasks (user-created):**
+```
+In Progress → create tmux → send task.description
+agent complete → move to Review
+[No auto code-review - manual only]
+```
+
+### New Services (Main Process)
+
+| Service | Responsibility |
+|---------|---------------|
+| `task-terminal.service.ts` | tmux session lifecycle |
+| `hook-listener.service.ts` | HTTP server for hooks |
+| `activity-log.service.ts` | Event logging + streaming |
+| `automation.service.ts` | Story/Basic state machine |
+| `scrollback-backup.service.ts` | Filesystem persistence |
+
+### New Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `task_activities` | Append-only activity log |
+| `task_sessions` | tmux + Claude Code session mapping |
+| `app_settings` | User preferences (retention, etc.) |
+
+---
+
 ## Reference Documents
 
 - **Full Architecture:** `_bmad-output/planning-artifacts/architecture.md`
 - **PRD:** `_bmad-output/planning-artifacts/prd.md`
+- **Task Execution Sandbox PRD:** `_bmad-output/planning-artifacts/prd-task-execution-sandbox.md`
