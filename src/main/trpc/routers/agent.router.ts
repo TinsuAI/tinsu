@@ -12,6 +12,7 @@ import {
   type DevAgentProgressInfo
 } from '../../services/dev-agent-progress.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
+import { ScrollbackBackupService, type BackupMetadata } from '../../services/scrollback-backup.service'
 import { TaskSessionService } from '../../services/task-session.service'
 import { ptyService } from '../../services/pty.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
@@ -669,5 +670,72 @@ export const agentRouter = router({
 
       await TaskSessionService.updateSessionId(input.taskId, input.sessionId)
       return { success: true }
+    }),
+
+  // ===== TES-1.9: Scrollback Restoration After App Restart =====
+
+  /**
+   * Get scrollback backup content for restoration.
+   *
+   * Story TES-1.9 - AC: #1, #3
+   *
+   * Returns null content if no backup exists (not an error).
+   * This is called when opening a task after app restart to restore
+   * terminal history from the persisted backup.
+   *
+   * Edge cases handled (TES-1.9 Task 6):
+   * - Corrupted gzip: returns null content (handled by service)
+   * - Missing metadata: returns content anyway with null metadata
+   * - Timeout: fails gracefully after 5 seconds
+   *
+   * @param taskId - ID of the task to get scrollback backup for
+   * @returns Object with content (decompressed string or null) and metadata (or null)
+   */
+  getScrollbackBackup: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .query(async ({ input }): Promise<{ content: string | null; metadata: BackupMetadata | null }> => {
+      // TES-1.9 Task 6: Add timeout for restoration (5 seconds)
+      const RESTORATION_TIMEOUT = 5000
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Scrollback restoration timed out')), RESTORATION_TIMEOUT)
+      })
+
+      try {
+        // Race between restoration and timeout
+        const [content, metadata] = await Promise.race([
+          Promise.all([
+            ScrollbackBackupService.restoreScrollback(input.taskId),
+            ScrollbackBackupService.getBackupMetadata(input.taskId)
+          ]),
+          timeoutPromise
+        ])
+
+        return { content, metadata }
+      } catch (error) {
+        // On timeout or other errors, return null content gracefully
+        console.warn(
+          `[agent.getScrollbackBackup] Restoration failed for ${input.taskId}:`,
+          error instanceof Error ? error.message : error
+        )
+        return { content: null, metadata: null }
+      }
+    }),
+
+  /**
+   * Get backup metadata only (without content).
+   *
+   * Story TES-1.9 - AC: #1
+   *
+   * Used by UI to show "Last backup: X minutes ago" in terminal header
+   * without loading the full scrollback content.
+   *
+   * @param taskId - ID of the task to get backup info for
+   * @returns BackupMetadata or null if no backup exists
+   */
+  getBackupInfo: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .query(async ({ input }): Promise<BackupMetadata | null> => {
+      return ScrollbackBackupService.getBackupMetadata(input.taskId)
     })
 })

@@ -5,6 +5,7 @@ import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.ser
 import { StoryCompletionService } from '../../services/story-completion.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
 import { TaskSessionService } from '../../services/task-session.service'
+import { ScrollbackBackupService } from '../../services/scrollback-backup.service'
 import { ptyService } from '../../services/pty.service'
 import { devAgentProgressService, DevAgentProgressInfo } from '../../services/dev-agent-progress.service'
 import Database from 'better-sqlite3'
@@ -70,6 +71,23 @@ vi.mock('../../services/task-session.service', () => ({
     clearSession: vi.fn(),
     clearCache: vi.fn(),
     getCacheSize: vi.fn()
+  }
+}))
+
+// Mock ScrollbackBackupService for TES-1.9
+vi.mock('../../services/scrollback-backup.service', () => ({
+  ScrollbackBackupService: {
+    restoreScrollback: vi.fn(),
+    getBackupMetadata: vi.fn(),
+    getScrollbackGap: vi.fn(),
+    backupScrollback: vi.fn(),
+    captureScrollback: vi.fn(),
+    startPeriodicBackup: vi.fn(),
+    stopPeriodicBackup: vi.fn(),
+    backupOnShutdown: vi.fn(),
+    deleteBackup: vi.fn(),
+    listBackups: vi.fn(),
+    clearTimers: vi.fn()
   }
 }))
 
@@ -1091,6 +1109,152 @@ describe('agentRouter', () => {
         sessionId: 'session123'
       })
       expect(result2.success).toBe(true)
+    })
+  })
+
+  // ===== TES-1.9: Scrollback Restoration Tests =====
+
+  describe('getScrollbackBackup (TES-1.9 - AC: #1, #3)', () => {
+    it('returns content and metadata when backup exists', async () => {
+      const mockContent = 'Line 1\nLine 2\nLine 3'
+      const mockMetadata = {
+        lines: 3,
+        bytes: 100,
+        lastBackup: '2026-01-13T10:00:00.000Z',
+        tmuxSession: 'tinsu-test-task-123'
+      }
+
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockResolvedValue(mockContent)
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(mockMetadata)
+
+      const result = await caller.getScrollbackBackup({ taskId: 'task-123' })
+
+      expect(result.content).toBe(mockContent)
+      expect(result.metadata).toEqual(mockMetadata)
+      expect(ScrollbackBackupService.restoreScrollback).toHaveBeenCalledWith('task-123')
+      expect(ScrollbackBackupService.getBackupMetadata).toHaveBeenCalledWith('task-123')
+    })
+
+    it('returns null content and metadata when no backup exists', async () => {
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockResolvedValue(null)
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(null)
+
+      const result = await caller.getScrollbackBackup({ taskId: 'task-456' })
+
+      expect(result.content).toBeNull()
+      expect(result.metadata).toBeNull()
+    })
+
+    it('handles content without metadata gracefully', async () => {
+      const mockContent = 'Some old scrollback content'
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockResolvedValue(mockContent)
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(null)
+
+      const result = await caller.getScrollbackBackup({ taskId: 'task-789' })
+
+      expect(result.content).toBe(mockContent)
+      expect(result.metadata).toBeNull()
+    })
+
+    it('handles large scrollback content', async () => {
+      // Simulate 50,000 lines of content
+      const mockContent = Array.from({ length: 50000 }, (_, i) => `Line ${i + 1}`).join('\n')
+      const mockMetadata = {
+        lines: 50000,
+        bytes: mockContent.length,
+        lastBackup: '2026-01-13T10:00:00.000Z',
+        tmuxSession: 'tinsu-test-task-large'
+      }
+
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockResolvedValue(mockContent)
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(mockMetadata)
+
+      const result = await caller.getScrollbackBackup({ taskId: 'task-large' })
+
+      expect(result.content).toBe(mockContent)
+      expect(result.metadata?.lines).toBe(50000)
+    })
+
+    it('returns null on timeout (TES-1.9 Task 6)', async () => {
+      // Simulate a slow restoration that exceeds timeout
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve('content'), 10000))
+      )
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(null)
+
+      // Use fake timers for this test
+      vi.useFakeTimers()
+
+      const resultPromise = caller.getScrollbackBackup({ taskId: 'task-timeout' })
+
+      // Advance past the 5 second timeout
+      await vi.advanceTimersByTimeAsync(6000)
+
+      const result = await resultPromise
+
+      expect(result.content).toBeNull()
+      expect(result.metadata).toBeNull()
+
+      vi.useRealTimers()
+    })
+
+    it('handles corrupted backup gracefully (TES-1.9 Task 6)', async () => {
+      // Service already returns null for corrupted files
+      vi.mocked(ScrollbackBackupService.restoreScrollback).mockResolvedValue(null)
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue({
+        lines: 100,
+        bytes: 5000,
+        lastBackup: '2026-01-13T10:00:00.000Z',
+        tmuxSession: 'tinsu-test-corrupted'
+      })
+
+      const result = await caller.getScrollbackBackup({ taskId: 'task-corrupted' })
+
+      // Content is null but metadata still returned (metadata.json was fine)
+      expect(result.content).toBeNull()
+      expect(result.metadata).not.toBeNull()
+    })
+  })
+
+  describe('getBackupInfo (TES-1.9 - AC: #1)', () => {
+    it('returns metadata when backup exists', async () => {
+      const mockMetadata = {
+        lines: 1500,
+        bytes: 45000,
+        lastBackup: '2026-01-13T12:30:00.000Z',
+        tmuxSession: 'tinsu-test-task-info'
+      }
+
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(mockMetadata)
+
+      const result = await caller.getBackupInfo({ taskId: 'task-info' })
+
+      expect(result).toEqual(mockMetadata)
+      expect(ScrollbackBackupService.getBackupMetadata).toHaveBeenCalledWith('task-info')
+    })
+
+    it('returns null when no backup exists', async () => {
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(null)
+
+      const result = await caller.getBackupInfo({ taskId: 'task-no-backup' })
+
+      expect(result).toBeNull()
+    })
+
+    it('only calls getBackupMetadata, not restoreScrollback', async () => {
+      const mockMetadata = {
+        lines: 100,
+        bytes: 3000,
+        lastBackup: '2026-01-13T08:00:00.000Z',
+        tmuxSession: 'tinsu-test-task-meta'
+      }
+
+      vi.mocked(ScrollbackBackupService.getBackupMetadata).mockResolvedValue(mockMetadata)
+
+      await caller.getBackupInfo({ taskId: 'task-meta' })
+
+      expect(ScrollbackBackupService.getBackupMetadata).toHaveBeenCalledWith('task-meta')
+      expect(ScrollbackBackupService.restoreScrollback).not.toHaveBeenCalled()
     })
   })
 })

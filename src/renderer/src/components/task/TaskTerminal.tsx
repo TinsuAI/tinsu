@@ -24,6 +24,7 @@ export interface TaskTerminalRef {
  * Automatically attaches to the task's tmux session when mounted and
  * detaches when unmounted. Shows appropriate states for:
  * - Loading: "Connecting to terminal..."
+ * - Restoring: "Restoring terminal history..." (TES-1.9)
  * - No session: "No active session"
  * - Error: Error message
  * - Attached: Live terminal output + command input
@@ -33,6 +34,7 @@ export interface TaskTerminalRef {
  *
  * @see TES-1.4: xterm.js Terminal Attachment
  * @see TES-1.5: User Command Input
+ * @see TES-1.9: Scrollback Restoration After App Restart
  */
 export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(function TaskTerminal(
   { taskId },
@@ -50,7 +52,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
     []
   )
 
-  const { isAttached, isLoading, error, write, resize } = useTaskTerminal({
+  const { isAttached, isLoading, isRestoringScrollback, error, write, resize } = useTaskTerminal({
     taskId,
     terminalRef
   })
@@ -59,7 +61,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">
-        Connecting to terminal...
+        {isRestoringScrollback ? 'Restoring terminal history...' : 'Connecting to terminal...'}
       </div>
     )
   }

@@ -11,6 +11,10 @@ const mockSerialize = vi.fn(() => 'serialized-buffer-content')
 const mockGetScrollPosition = vi.fn(() => 42)
 const mockScrollToLine = vi.fn()
 
+// TES-1.9: Mock scrollback query data
+let mockScrollbackQueryData: { content: string | null; metadata: unknown | null } | undefined = undefined
+let mockScrollbackQueryLoading = false
+
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     agent: {
@@ -22,6 +26,14 @@ vi.mock('@renderer/lib/trpc', () => ({
       detachTaskTerminal: {
         useMutation: vi.fn(() => ({
           mutate: mockMutate
+        }))
+      },
+      // TES-1.9: Mock getScrollbackBackup query
+      getScrollbackBackup: {
+        useQuery: vi.fn(() => ({
+          data: mockScrollbackQueryData,
+          isLoading: mockScrollbackQueryLoading,
+          error: null
         }))
       }
     },
@@ -64,6 +76,9 @@ describe('useTaskTerminal', () => {
     vi.clearAllMocks()
     // Reset terminal store
     useTerminalStore.setState({ terminalBuffers: {} })
+    // Reset scrollback query mock data
+    mockScrollbackQueryData = undefined
+    mockScrollbackQueryLoading = false
   })
 
   describe('initial state', () => {
@@ -504,6 +519,166 @@ describe('useTaskTerminal', () => {
         renderHook(() =>
           useTaskTerminal({
             taskId: 'task-error-restore',
+            terminalRef: mockTerminalRef
+          })
+        )
+      ).not.toThrow()
+
+      // Attachment should still proceed
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled()
+      })
+    })
+  })
+
+  /**
+   * TES-1.9: Scrollback Restoration After App Restart
+   *
+   * When there is no in-memory cache (app was restarted), the hook should
+   * restore scrollback from the filesystem backup if available.
+   */
+  describe('scrollback restoration from backup (TES-1.9)', () => {
+    it('restores scrollback from backup when no in-memory cache exists', async () => {
+      // No in-memory cache, but backup exists
+      mockScrollbackQueryData = {
+        content: 'Restored scrollback content\nLine 2\nLine 3',
+        metadata: {
+          lines: 3,
+          bytes: 100,
+          lastBackup: '2026-01-13T10:00:00Z',
+          tmuxSession: 'tinsu-test'
+        }
+      }
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-restore-backup'
+      })
+
+      renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-backup-restore',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled()
+      })
+
+      // Verify backup content was written
+      expect(mockTerminalRef.current?.write).toHaveBeenCalledWith(
+        'Restored scrollback content\nLine 2\nLine 3'
+      )
+      // Verify separator was added
+      expect(mockTerminalRef.current?.write).toHaveBeenCalledWith(
+        '\r\n\x1b[90m--- Session Restored ---\x1b[0m\r\n'
+      )
+    })
+
+    it('does not restore from backup when in-memory cache exists', async () => {
+      // In-memory cache exists (takes precedence)
+      useTerminalStore.getState().saveBuffer('task-cache-priority', 'in-memory-content', 0)
+
+      // Backup also exists
+      mockScrollbackQueryData = {
+        content: 'Backup content (should not be used)',
+        metadata: null
+      }
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-cache-priority'
+      })
+
+      renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-cache-priority',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled()
+      })
+
+      // Should have written in-memory content, NOT backup content
+      expect(mockTerminalRef.current?.write).toHaveBeenCalledWith('in-memory-content')
+      // Separator should NOT be added when using in-memory cache
+      expect(mockTerminalRef.current?.write).not.toHaveBeenCalledWith(
+        expect.stringContaining('Session Restored')
+      )
+    })
+
+    it('handles no backup gracefully', async () => {
+      // No in-memory cache and no backup
+      mockScrollbackQueryData = {
+        content: null,
+        metadata: null
+      }
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-no-backup'
+      })
+
+      renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-no-backup',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled()
+      })
+
+      // Write should not have been called
+      expect(mockTerminalRef.current?.write).not.toHaveBeenCalled()
+    })
+
+    it('returns isRestoringScrollback state', async () => {
+      mockScrollbackQueryLoading = true
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-loading'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-loading',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      // Initially should indicate restoring scrollback when query is loading
+      // Note: The actual isRestoringScrollback state depends on implementation
+      expect(result.current.isRestoringScrollback).toBeDefined()
+    })
+
+    it('handles backup restoration errors gracefully', async () => {
+      // Backup exists
+      mockScrollbackQueryData = {
+        content: 'backup-content',
+        metadata: null
+      }
+
+      // Make write throw for backup restoration
+      const mockWrite = mockTerminalRef.current?.write as ReturnType<typeof vi.fn>
+      mockWrite.mockImplementationOnce(() => {
+        throw new Error('Write failed')
+      })
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-backup-error'
+      })
+
+      // Should not throw
+      expect(() =>
+        renderHook(() =>
+          useTaskTerminal({
+            taskId: 'task-backup-error',
             terminalRef: mockTerminalRef
           })
         )

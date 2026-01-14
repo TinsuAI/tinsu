@@ -17,6 +17,8 @@ interface UseTaskTerminalReturn {
   isLoading: boolean
   /** Error message if attachment failed */
   error: string | null
+  /** Whether scrollback is being restored from backup */
+  isRestoringScrollback: boolean
   /** Write data to terminal (user input) */
   write: (data: string) => void
   /** Resize terminal dimensions */
@@ -27,6 +29,8 @@ interface UseTaskTerminalReturn {
  * Hook to connect XTerminal to a task's tmux session via tRPC.
  *
  * Handles:
+ * - Restoring scrollback from filesystem backup after app restart (TES-1.9)
+ * - Restoring in-memory buffer for navigation within session (TES-1.6)
  * - Spawning PTY process that attaches to tmux session
  * - Writing user input to PTY
  * - Subscribing to PTY output and writing to xterm
@@ -34,6 +38,8 @@ interface UseTaskTerminalReturn {
  * - Cleanup on unmount (detaches from tmux but leaves session running)
  *
  * @see TES-1.4: xterm.js Terminal Attachment
+ * @see TES-1.6: Terminal Persistence Across Navigation
+ * @see TES-1.9: Scrollback Restoration After App Restart
  */
 export function useTaskTerminal({
   taskId,
@@ -42,13 +48,29 @@ export function useTaskTerminal({
   const [isAttached, setIsAttached] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRestoringScrollback, setIsRestoringScrollback] = useState(false)
   // Use state for processId so subscriptions re-subscribe when it changes
   const [processId, setProcessId] = useState<string | null>(null)
   const lastDimensionsRef = useRef<{ cols: number; rows: number } | null>(null)
+  // Track if backup scrollback was restored to avoid duplicate restoration
+  const backupRestoredRef = useRef(false)
 
   // tRPC mutations for terminal attachment
   const attachMutation = trpc.agent.attachTaskTerminal.useMutation()
   const detachMutation = trpc.agent.detachTaskTerminal.useMutation()
+
+  // TES-1.9: Query for scrollback backup restoration
+  // Note: This query is integrated here rather than using a separate useScrollbackRestore hook
+  // because we need to coordinate with the in-memory cache check (TES-1.6) and attachment flow.
+  const scrollbackQuery = trpc.agent.getScrollbackBackup.useQuery(
+    { taskId },
+    {
+      enabled: !!taskId,
+      staleTime: Infinity, // Backup is static - no refetch
+      retry: false,
+      refetchOnWindowFocus: false
+    }
+  )
 
   // tRPC mutations for PTY interaction (reuse existing pty router)
   const writeMutation = trpc.pty.write.useMutation({
@@ -107,10 +129,43 @@ export function useTaskTerminal({
         setIsLoading(true)
         setError(null)
 
-        // TES-1.6: Restore cached buffer before attaching
-        // This shows previous output immediately for seamless navigation
+        // Check for cached buffer first (TES-1.6: in-memory cache for navigation)
         const cachedBuffer = useTerminalStore.getState().getBuffer(taskId)
-        if (cachedBuffer && terminalRef.current) {
+        const hasInMemoryCache = !!cachedBuffer
+
+        // TES-1.9: Restore from filesystem backup if:
+        // 1. No in-memory cache exists (app was restarted)
+        // 2. Backup content exists
+        // Only restore once per mount to avoid duplicates
+        //
+        // Gap Detection (AC #2): When a tmux session survives app restart, we need to
+        // prepend the backup scrollback. This is implicitly handled here - if there's
+        // no in-memory cache (app restarted) but backup exists, we restore it before
+        // attaching to the live session. The "gap" is the period between our last
+        // backup and the current session state.
+        if (!hasInMemoryCache && !backupRestoredRef.current && terminalRef.current) {
+          // Only proceed with restoration if query has completed loading
+          if (!scrollbackQuery.isLoading) {
+            const backupContent = scrollbackQuery.data?.content
+            if (backupContent) {
+              setIsRestoringScrollback(true)
+              try {
+                // Write restored scrollback to terminal
+                terminalRef.current.write(backupContent)
+                // Add separator to indicate restored content
+                terminalRef.current.write('\r\n\x1b[90m--- Session Restored ---\x1b[0m\r\n')
+                backupRestoredRef.current = true
+              } catch {
+                console.warn('[useTaskTerminal] Failed to write restored scrollback')
+              }
+              setIsRestoringScrollback(false)
+            }
+          }
+        }
+
+        // TES-1.6: Restore cached buffer if available (takes precedence over backup
+        // since it's more recent - from within the current session)
+        if (hasInMemoryCache && terminalRef.current) {
           try {
             terminalRef.current.write(cachedBuffer.serializedBuffer)
             // Restore scroll position after buffer is written
@@ -210,6 +265,7 @@ export function useTaskTerminal({
     isAttached,
     isLoading,
     error,
+    isRestoringScrollback,
     write,
     resize
   }

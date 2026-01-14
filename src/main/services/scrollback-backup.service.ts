@@ -287,6 +287,40 @@ export class ScrollbackBackupService {
   }
 
   /**
+   * Detects if there's a gap between backup and live session.
+   *
+   * Used for TES-1.9 AC: #2 - when a tmux session survived restart,
+   * we need to determine if backup content should be prepended.
+   *
+   * @param taskId - The task's unique identifier
+   * @returns Object indicating if gap exists and backup timestamp
+   */
+  static async getScrollbackGap(
+    taskId: string
+  ): Promise<{ hasGap: boolean; backupTimestamp: number | null }> {
+    const metadata = await this.getBackupMetadata(taskId)
+
+    if (!metadata) {
+      return { hasGap: false, backupTimestamp: null }
+    }
+
+    const backupTime = new Date(metadata.lastBackup).getTime()
+
+    // Check if tmux session exists
+    const hasSession = await TaskTerminalService.hasSession(taskId)
+    if (!hasSession) {
+      // No live session, so no gap detection needed
+      return { hasGap: false, backupTimestamp: backupTime }
+    }
+
+    // If session exists but backup is older, there may be a gap
+    // (content between backup and current session state)
+    // For now, we assume there's a gap if both exist
+    // TODO: Get session start time from tmux for more accurate comparison
+    return { hasGap: true, backupTimestamp: backupTime }
+  }
+
+  /**
    * Deletes backup for a task.
    */
   static async deleteBackup(taskId: string): Promise<void> {
