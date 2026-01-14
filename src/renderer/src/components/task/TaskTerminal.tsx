@@ -77,7 +77,8 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
     )
   }
 
-  // No active session AND no restored content (AC: #3 from TES-1.4)
+  // No active session AND no restored content AND not ended (AC: #3 from TES-1.4)
+  // TES-1.11: Show terminal for ended sessions to display historical content
   if (!isAttached && sessionState === 'none') {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">No active session</div>
@@ -87,12 +88,27 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   // TES-1.10: Determine if terminal should be interactive
   const isInteractive = sessionState === 'live'
 
-  // TES-1.10: Render session state badge
+  // TES-1.10 + TES-1.11: Render session state badge
   const renderSessionBadge = () => {
     if (sessionState === 'live') {
       return (
         <Badge variant="default" className="bg-green-600 hover:bg-green-700">
           Live
+        </Badge>
+      )
+    }
+    if (sessionState === 'stalled') {
+      return (
+        <Badge variant="secondary" className="bg-amber-600/20 text-amber-500 border-amber-600/30">
+          Stalled
+          <span className="ml-1 text-amber-400/70">(No output for 5 min)</span>
+        </Badge>
+      )
+    }
+    if (sessionState === 'ended') {
+      return (
+        <Badge variant="secondary" className="bg-zinc-600/20 text-zinc-400 border-zinc-600/30">
+          Session ended
         </Badge>
       )
     }
@@ -122,9 +138,13 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
       <div className="flex-1 min-h-0">
         <XTerminal ref={terminalRef} onData={isInteractive ? write : undefined} onResize={resize} />
       </div>
-      {/* TES-1.10: Only show input for live sessions */}
-      {isInteractive ? (
+      {/* TES-1.10 + TES-1.11: Show appropriate footer based on session state */}
+      {isInteractive || sessionState === 'stalled' ? (
         <TerminalInput ref={inputRef} taskId={taskId} />
+      ) : sessionState === 'ended' ? (
+        <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500">
+          Session ended — Move task to In Progress to start a new session
+        </div>
       ) : (
         <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500">
           Session inactive — Move task to In Progress to start a new session

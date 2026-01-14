@@ -174,7 +174,7 @@ development_status:
   tes-1-8-scrollback-backup-service: done
   tes-1-9-scrollback-restoration-after-app-restart: done
   tes-1-10-scrollback-survival-after-system-reboot: done
-  tes-1-11-session-end-and-unresponsive-detection: backlog
+  tes-1-11-session-end-and-unresponsive-detection: done
   tes-epic-1-retrospective: optional
 
   # TES Epic 2: Activity Log & Event Tracking

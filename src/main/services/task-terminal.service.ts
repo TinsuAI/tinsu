@@ -5,6 +5,8 @@ import { db } from '../db'
 import { task_sessions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { TmuxService } from './tmux.service'
+import { sessionEventEmitter } from '../lib/session-events'
+import { ActivityLogService } from './activity-log.service'
 
 const execAsync = promisify(exec)
 
@@ -35,12 +37,21 @@ interface ExecError extends Error {
  *
  * @see TES-1.3: tmux Session Creation Service
  */
+/** Polling interval for session exit detection (ms) */
+const SESSION_MONITOR_INTERVAL = 2000
+
 export class TaskTerminalService {
   /**
    * In-memory cache for session name lookups to avoid repeated DB queries.
    * Maps taskId -> tmux session name
    */
   private static sessionCache: Map<string, string> = new Map()
+
+  /**
+   * TES-1.11: Session monitors for detecting session exit.
+   * Maps taskId -> interval timer ID
+   */
+  private static sessionMonitors: Map<string, NodeJS.Timeout> = new Map()
 
   /**
    * Creates a new tmux session for a task.
@@ -162,6 +173,9 @@ export class TaskTerminalService {
     if (!sessionName) {
       return // No session to kill
     }
+
+    // TES-1.11: Stop monitoring before killing session
+    this.stopSessionMonitor(taskId)
 
     // Clear cache first to prevent stale reads during cleanup
     this.sessionCache.delete(taskId)
@@ -407,5 +421,140 @@ export class TaskTerminalService {
     } catch {
       return false // Exit code 1 = session doesn't exist
     }
+  }
+
+  // ===== TES-1.11: Session Exit Detection =====
+
+  /**
+   * Start monitoring a task's tmux session for exit.
+   *
+   * Uses periodic polling with `tmux has-session` to detect when the session ends.
+   * When exit is detected:
+   * 1. Updates task_sessions.current_phase to 'ended'
+   * 2. Clears session cache
+   * 3. Emits session:ended event for UI updates
+   *
+   * @param taskId - The task ID to monitor
+   *
+   * @see TES-1.11: Session End & Unresponsive Detection (AC: #1, #2)
+   */
+  static async startSessionMonitor(taskId: string): Promise<void> {
+    // Avoid duplicate monitors
+    if (this.sessionMonitors.has(taskId)) {
+      return
+    }
+
+    const sessionName = await this.getSessionName(taskId)
+    if (!sessionName) {
+      console.warn(`[TaskTerminalService] Cannot monitor task ${taskId}: no session record`)
+      return
+    }
+
+    // Verify session actually exists before starting monitor
+    const exists = await this.tmuxSessionExists(sessionName)
+    if (!exists) {
+      console.warn(`[TaskTerminalService] Cannot monitor task ${taskId}: tmux session ${sessionName} doesn't exist`)
+      return
+    }
+
+    console.log(`[TaskTerminalService] Starting session monitor for task ${taskId}`)
+
+    // Poll every 2 seconds to detect session exit
+    const interval = setInterval(async () => {
+      try {
+        const sessionExists = await this.tmuxSessionExists(sessionName)
+        if (!sessionExists) {
+          // Session ended - clean up and notify
+          console.log(`[TaskTerminalService] Session ended for task ${taskId} (session: ${sessionName})`)
+          this.stopSessionMonitor(taskId)
+          await this.handleSessionEnded(taskId, sessionName, 'process_exit')
+        }
+      } catch (error) {
+        // Log but don't stop monitor - transient errors are possible
+        console.warn(`[TaskTerminalService] Monitor check failed for task ${taskId}:`, error)
+      }
+    }, SESSION_MONITOR_INTERVAL)
+
+    this.sessionMonitors.set(taskId, interval)
+  }
+
+  /**
+   * Stop monitoring a task's session.
+   *
+   * Called when:
+   * - Session exit is detected (by monitor itself)
+   * - Session is explicitly killed via killSession()
+   * - App is shutting down
+   *
+   * @param taskId - The task ID to stop monitoring
+   */
+  static stopSessionMonitor(taskId: string): void {
+    const interval = this.sessionMonitors.get(taskId)
+    if (interval) {
+      clearInterval(interval)
+      this.sessionMonitors.delete(taskId)
+      console.log(`[TaskTerminalService] Stopped session monitor for task ${taskId}`)
+    }
+  }
+
+  /**
+   * Stop all session monitors.
+   *
+   * Called during app shutdown to clean up resources.
+   */
+  static stopAllSessionMonitors(): void {
+    for (const [taskId, interval] of this.sessionMonitors) {
+      clearInterval(interval)
+      console.log(`[TaskTerminalService] Stopped session monitor for task ${taskId} (shutdown)`)
+    }
+    this.sessionMonitors.clear()
+  }
+
+  /**
+   * Check if a session monitor is running for a task.
+   *
+   * @param taskId - The task ID to check
+   * @returns true if monitor is active
+   */
+  static isMonitoring(taskId: string): boolean {
+    return this.sessionMonitors.has(taskId)
+  }
+
+  /**
+   * Handle session ended event.
+   *
+   * Updates database, clears cache, logs activity, and emits event for UI notification.
+   *
+   * @param taskId - The task ID whose session ended
+   * @param sessionName - The tmux session name
+   * @param reason - Why the session ended
+   *
+   * @see TES-1.11 Task 2: Session end activity logging
+   */
+  private static async handleSessionEnded(
+    taskId: string,
+    sessionName: string,
+    reason: 'process_exit' | 'session_killed' | 'detected_stale'
+  ): Promise<void> {
+    // Update database to mark session as ended
+    await db.update(task_sessions)
+      .set({ current_phase: 'ended' })
+      .where(eq(task_sessions.task_id, taskId))
+
+    // Clear cache
+    this.sessionCache.delete(taskId)
+
+    // TES-1.11 Task 2: Log activity event for session end
+    await ActivityLogService.logActivity(taskId, 'session_ended', {
+      reason,
+      sessionName
+    })
+
+    // Emit event for UI subscription
+    sessionEventEmitter.emitSessionEnded({
+      taskId,
+      sessionName,
+      reason
+    })
   }
 }

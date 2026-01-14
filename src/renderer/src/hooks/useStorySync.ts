@@ -257,8 +257,8 @@ export function useStorySync() {
 
   // Sync all stories from their files (and import new ones)
   const syncAllFromFiles = useCallback(
-    async (projectPath?: string) => {
-      await syncAllMutation.mutateAsync({ projectPath })
+    async (projectPath?: string, sprintId?: string) => {
+      await syncAllMutation.mutateAsync({ projectPath, sprintId })
     },
     [syncAllMutation]
   )

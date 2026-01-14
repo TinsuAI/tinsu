@@ -16,6 +16,38 @@ import { ScrollbackBackupService, type BackupMetadata } from '../../services/scr
 import { TaskSessionService } from '../../services/task-session.service'
 import { ptyService } from '../../services/pty.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
+import { sessionEventEmitter, type SessionEndedEventData, type SessionStalledEventData, type SessionEventData } from '../../lib/session-events'
+import { StallDetectorService } from '../../services/stall-detector.service'
+
+/**
+ * TES-1.11: Maps processId to taskId for stall detection.
+ * Needed because PTY events only have processId, but stall detection needs taskId.
+ */
+const processToTaskMap = new Map<string, string>()
+
+/**
+ * TES-1.11: Listen to PTY output events for stall detection.
+ * Records output timing to detect when sessions go stale.
+ */
+ptyService.on('output', (event) => {
+  const taskId = processToTaskMap.get(event.processId)
+  if (taskId) {
+    StallDetectorService.recordOutput(taskId)
+  }
+})
+
+/**
+ * TES-1.11: Cleanup processToTaskMap on PTY exit to prevent memory leaks.
+ * This handles cases where PTY exits unexpectedly (crash, etc.) without
+ * going through the normal detachTaskTerminal cleanup path.
+ */
+ptyService.on('exit', (event) => {
+  const taskId = processToTaskMap.get(event.processId)
+  if (taskId) {
+    StallDetectorService.stopTracking(taskId)
+    processToTaskMap.delete(event.processId)
+  }
+})
 
 /**
  * tRPC router for BMAD agent operations.
@@ -545,6 +577,10 @@ export const agentRouter = router({
         rows: input.rows ?? 24
       })
 
+      // TES-1.11: Track processId -> taskId mapping for stall detection
+      processToTaskMap.set(processId, input.taskId)
+      StallDetectorService.startTracking(input.taskId)
+
       return { attached: true, processId }
     }),
 
@@ -566,6 +602,13 @@ export const agentRouter = router({
       })
     )
     .mutation(({ input }) => {
+      // TES-1.11: Clean up stall tracking
+      const taskId = processToTaskMap.get(input.processId)
+      if (taskId) {
+        StallDetectorService.stopTracking(taskId)
+        processToTaskMap.delete(input.processId)
+      }
+
       ptyService.kill(input.processId)
       return { detached: true }
     }),
@@ -737,5 +780,88 @@ export const agentRouter = router({
     .input(z.object({ taskId: z.string() }))
     .query(async ({ input }): Promise<BackupMetadata | null> => {
       return ScrollbackBackupService.getBackupMetadata(input.taskId)
+    }),
+
+  // ===== TES-1.11: Session Status Changes Subscription =====
+
+  /**
+   * Subscribe to session status change events for a task.
+   *
+   * Story TES-1.11 - AC: #1
+   *
+   * Emits events when a task's terminal session:
+   * - Ends (process exits, session killed, or detected as stale)
+   * - Stalls (no output for 5 minutes)
+   * - Recovers (output received after stall)
+   *
+   * @param taskId - ID of the task to subscribe to
+   * @returns Observable stream of session status updates
+   */
+  onSessionStatusChange: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .subscription(({ input }) => {
+      return observable<{ status: 'ended' | 'stalled' | 'recovered'; reason?: string }>((emit) => {
+        const onEnded = (data: SessionEndedEventData) => {
+          if (data.taskId === input.taskId) {
+            emit.next({ status: 'ended', reason: data.reason })
+          }
+        }
+
+        const onStalled = (data: SessionStalledEventData) => {
+          if (data.taskId === input.taskId) {
+            emit.next({ status: 'stalled' })
+          }
+        }
+
+        const onRecovered = (data: SessionEventData) => {
+          if (data.taskId === input.taskId) {
+            emit.next({ status: 'recovered' })
+          }
+        }
+
+        sessionEventEmitter.onSessionEnded(onEnded)
+        sessionEventEmitter.onSessionStalled(onStalled)
+        sessionEventEmitter.onSessionRecovered(onRecovered)
+
+        return () => {
+          sessionEventEmitter.offSessionEnded(onEnded)
+          sessionEventEmitter.offSessionStalled(onStalled)
+          sessionEventEmitter.offSessionRecovered(onRecovered)
+        }
+      })
+    }),
+
+  /**
+   * Start monitoring a task's terminal session for exit/stall events.
+   *
+   * Story TES-1.11 - AC: #1
+   *
+   * Call this after attaching to a task terminal to enable session monitoring.
+   * The monitor will detect when the tmux session exits and emit events.
+   *
+   * @param taskId - ID of the task to start monitoring
+   */
+  startSessionMonitor: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .mutation(async ({ input }) => {
+      await TaskTerminalService.startSessionMonitor(input.taskId)
+      return { success: true }
+    }),
+
+  /**
+   * Stop monitoring a task's terminal session.
+   *
+   * Story TES-1.11 - AC: #1
+   *
+   * Call this when detaching from a task terminal or when no longer
+   * interested in session events.
+   *
+   * @param taskId - ID of the task to stop monitoring
+   */
+  stopSessionMonitor: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .mutation(({ input }) => {
+      TaskTerminalService.stopSessionMonitor(input.taskId)
+      return { success: true }
     })
 })

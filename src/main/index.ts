@@ -169,6 +169,14 @@ app.on('window-all-closed', () => {
 // Clean up PTY processes before the app quits
 // This prevents zombie processes from lingering after the app closes
 app.on('before-quit', () => {
+  // TES-1.11: Stop all session monitors and stall detection
+  const { TaskTerminalService } = require('./services/task-terminal.service')
+  const { StallDetectorService } = require('./services/stall-detector.service')
+
+  console.log('[TES-1.11] Stopping session monitors and stall detection...')
+  TaskTerminalService.stopAllSessionMonitors()
+  StallDetectorService.clearAll()
+
   const processCount = ptyService.getProcessCount()
   if (processCount > 0) {
     console.log(`[PTY] Cleaning up ${processCount} active PTY process(es)...`)

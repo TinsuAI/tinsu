@@ -39,6 +39,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: true,
         error: null,
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -56,6 +58,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: false,
         error: 'Connection failed',
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -73,6 +77,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: false,
         error: null,
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -90,6 +96,8 @@ describe('TaskTerminal', () => {
         isAttached: true,
         isLoading: false,
         error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -109,6 +117,8 @@ describe('TaskTerminal', () => {
         isAttached: true,
         isLoading: false,
         error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
         write: mockWrite,
         resize: mockResize
       })
@@ -127,6 +137,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: true,
         error: null,
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -149,6 +161,8 @@ describe('TaskTerminal', () => {
         isAttached: true,
         isLoading: false,
         error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -163,6 +177,8 @@ describe('TaskTerminal', () => {
         isAttached: true,
         isLoading: false,
         error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -178,6 +194,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: true,
         error: null,
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -192,6 +210,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: false,
         error: null,
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -206,6 +226,8 @@ describe('TaskTerminal', () => {
         isAttached: false,
         isLoading: false,
         error: 'Connection failed',
+        sessionState: 'none',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -222,6 +244,8 @@ describe('TaskTerminal', () => {
         isAttached: true,
         isLoading: false,
         error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
         write: vi.fn(),
         resize: vi.fn()
       })
@@ -231,6 +255,138 @@ describe('TaskTerminal', () => {
 
       expect(ref.current).not.toBeNull()
       expect(typeof ref.current?.focusInput).toBe('function')
+    })
+  })
+
+  // ===== TES-1.11: Session End & Unresponsive Detection UI =====
+
+  describe('session state badges (TES-1.11)', () => {
+    it('shows "Live" badge when sessionState is live (AC: #1)', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-live" />)
+
+      expect(screen.getByText('Live')).toBeInTheDocument()
+      expect(screen.getByTestId('xterminal')).toBeInTheDocument()
+      expect(screen.getByTestId('terminal-input')).toBeInTheDocument()
+    })
+
+    it('shows "Stalled" badge with warning when sessionState is stalled (AC: #3)', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        sessionState: 'stalled',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-stalled" />)
+
+      expect(screen.getByText('Stalled')).toBeInTheDocument()
+      expect(screen.getByText('(No output for 5 min)')).toBeInTheDocument()
+      expect(screen.getByTestId('xterminal')).toBeInTheDocument()
+      // Stalled sessions should still show TerminalInput (user can try input)
+      expect(screen.getByTestId('terminal-input')).toBeInTheDocument()
+    })
+
+    it('shows "Session ended" badge when sessionState is ended (AC: #1)', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: null,
+        sessionState: 'ended',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-ended" />)
+
+      expect(screen.getByText('Session ended')).toBeInTheDocument()
+      expect(screen.getByTestId('xterminal')).toBeInTheDocument()
+      // Ended sessions should NOT show TerminalInput
+      expect(screen.queryByTestId('terminal-input')).not.toBeInTheDocument()
+    })
+
+    it('shows guidance message for ended sessions (AC: #1)', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: null,
+        sessionState: 'ended',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-ended" />)
+
+      expect(
+        screen.getByText('Session ended — Move task to In Progress to start a new session')
+      ).toBeInTheDocument()
+    })
+
+    it('shows "History restored" badge when sessionState is restored (TES-1.10)', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: null,
+        sessionState: 'restored',
+        lastBackupTime: Date.now() - 3600000, // 1 hour ago
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-restored" />)
+
+      expect(screen.getByText('History restored')).toBeInTheDocument()
+      // Should show time since backup
+      expect(screen.getByText(/ago/)).toBeInTheDocument()
+    })
+
+    it('disables onData for non-live sessions', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: null,
+        sessionState: 'ended',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-ended" />)
+
+      const terminal = screen.getByTestId('xterminal')
+      // onData should be undefined for non-live sessions (data-ondata="false")
+      expect(terminal.getAttribute('data-ondata')).toBe('false')
+    })
+
+    it('enables onData for live sessions', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        sessionState: 'live',
+        lastBackupTime: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-live" />)
+
+      const terminal = screen.getByTestId('xterminal')
+      expect(terminal.getAttribute('data-ondata')).toBe('true')
     })
   })
 })

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { TaskTerminalService } from './task-terminal.service'
 import { exec, type ExecException } from 'child_process'
+import { sessionEventEmitter } from '../lib/session-events'
 
 // Mock child_process.exec
 vi.mock('child_process', () => ({
@@ -17,6 +18,23 @@ const mockCheckTmuxInstalled = vi.fn()
 vi.mock('./tmux.service', () => ({
   TmuxService: {
     checkTmuxInstalled: () => mockCheckTmuxInstalled()
+  }
+}))
+
+// Mock session event emitter
+vi.mock('../lib/session-events', () => ({
+  sessionEventEmitter: {
+    emitSessionEnded: vi.fn(),
+    emitSessionStalled: vi.fn(),
+    emitSessionRecovered: vi.fn()
+  }
+}))
+
+// Mock ActivityLogService
+const mockLogActivity = vi.fn()
+vi.mock('./activity-log.service', () => ({
+  ActivityLogService: {
+    logActivity: (...args: unknown[]) => mockLogActivity(...args)
   }
 }))
 
@@ -71,6 +89,7 @@ describe('TaskTerminalService', () => {
     mockUpdate.mockReset()
     mockUpdateSet.mockReset()
     mockCheckTmuxInstalled.mockReset()
+    mockLogActivity.mockReset()
     // Default: tmux is installed
     mockCheckTmuxInstalled.mockResolvedValue(true)
     // Default: findMany returns empty array
@@ -1037,6 +1056,314 @@ describe('TaskTerminalService', () => {
 
       // If cache was properly cleared, DB would be queried again
       // (We can't fully test this with current mock setup, but the code path is verified)
+    })
+  })
+
+  // ===== TES-1.11: Session End & Unresponsive Detection =====
+
+  describe('startSessionMonitor (TES-1.11)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      // Clean up any running monitors
+      TaskTerminalService.stopAllSessionMonitors()
+      vi.useRealTimers()
+    })
+
+    it('starts monitoring when session exists (AC: #1)', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-monitor',
+        tmux_session: 'tinsu-project-task-monitor',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux session exists
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-monitor')
+
+      expect(TaskTerminalService.isMonitoring('task-monitor')).toBe(true)
+    })
+
+    it('does not start duplicate monitors', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-monitor',
+        tmux_session: 'tinsu-project-task-monitor',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-monitor')
+      await TaskTerminalService.startSessionMonitor('task-monitor') // Should be no-op
+
+      expect(TaskTerminalService.isMonitoring('task-monitor')).toBe(true)
+      // Only one check should have been made per call (not multiple due to duplicates)
+    })
+
+    it('does not monitor when no session record exists', async () => {
+      mockFindFirst.mockResolvedValue(undefined)
+
+      await TaskTerminalService.startSessionMonitor('task-no-session')
+
+      expect(TaskTerminalService.isMonitoring('task-no-session')).toBe(false)
+    })
+
+    it('does not monitor when tmux session is gone', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-gone',
+        tmux_session: 'tinsu-project-task-gone',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux session doesn't exist
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('session not found') as ExecException
+          error.code = 1
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-gone')
+
+      expect(TaskTerminalService.isMonitoring('task-gone')).toBe(false)
+    })
+
+    it('detects session exit and emits event (AC: #1)', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-exit',
+        tmux_session: 'tinsu-project-task-exit',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      let callCount = 0
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          callCount++
+
+          if (cmd.includes('has-session')) {
+            if (callCount <= 2) {
+              // First 2 calls: session exists (initial check + first poll)
+              cb?.(null, '', '')
+            } else {
+              // Subsequent calls: session gone
+              const error = new Error('session not found') as ExecException
+              error.code = 1
+              cb?.(error, '', '')
+            }
+          }
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-exit')
+      expect(TaskTerminalService.isMonitoring('task-exit')).toBe(true)
+
+      // Advance timers to trigger polling
+      await vi.advanceTimersByTimeAsync(2000)
+      await vi.advanceTimersByTimeAsync(2000)
+
+      // Should have detected exit and stopped monitoring
+      expect(TaskTerminalService.isMonitoring('task-exit')).toBe(false)
+
+      // Should have emitted session ended event
+      expect(sessionEventEmitter.emitSessionEnded).toHaveBeenCalledWith({
+        taskId: 'task-exit',
+        sessionName: 'tinsu-project-task-exit',
+        reason: 'process_exit'
+      })
+    })
+
+    it('updates database when session ends (AC: #2)', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-db-update',
+        tmux_session: 'tinsu-project-task-db-update',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      let sessionExists = true
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          if (cmd.includes('has-session')) {
+            if (sessionExists) {
+              cb?.(null, '', '')
+              sessionExists = false // Session will be gone on next check
+            } else {
+              const error = new Error('session not found') as ExecException
+              error.code = 1
+              cb?.(error, '', '')
+            }
+          }
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-db-update')
+
+      // Advance timers to trigger exit detection
+      await vi.advanceTimersByTimeAsync(2000)
+
+      // Should have updated database with 'ended' phase
+      expect(mockUpdate).toHaveBeenCalled()
+      expect(mockUpdateSet).toHaveBeenCalledWith({ current_phase: 'ended' })
+    })
+
+    it('logs activity when session ends (TES-1.11 Task 2)', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-activity-log',
+        tmux_session: 'tinsu-project-task-activity-log',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      let sessionExists = true
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          if (cmd.includes('has-session')) {
+            if (sessionExists) {
+              cb?.(null, '', '')
+              sessionExists = false // Session will be gone on next check
+            } else {
+              const error = new Error('session not found') as ExecException
+              error.code = 1
+              cb?.(error, '', '')
+            }
+          }
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-activity-log')
+
+      // Advance timers to trigger exit detection
+      await vi.advanceTimersByTimeAsync(2000)
+
+      // Should have logged activity with correct payload
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-activity-log',
+        'session_ended',
+        {
+          reason: 'process_exit',
+          sessionName: 'tinsu-project-task-activity-log'
+        }
+      )
+    })
+  })
+
+  describe('stopSessionMonitor (TES-1.11)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      TaskTerminalService.stopAllSessionMonitors()
+      vi.useRealTimers()
+    })
+
+    it('stops monitoring and clears interval', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-stop',
+        tmux_session: 'tinsu-project-task-stop',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.startSessionMonitor('task-stop')
+      expect(TaskTerminalService.isMonitoring('task-stop')).toBe(true)
+
+      TaskTerminalService.stopSessionMonitor('task-stop')
+      expect(TaskTerminalService.isMonitoring('task-stop')).toBe(false)
+    })
+
+    it('handles stopping non-existent monitor gracefully', () => {
+      // Should not throw
+      TaskTerminalService.stopSessionMonitor('task-nonexistent')
+      expect(TaskTerminalService.isMonitoring('task-nonexistent')).toBe(false)
+    })
+  })
+
+  describe('killSession stops monitor (TES-1.11)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      TaskTerminalService.stopAllSessionMonitors()
+      vi.useRealTimers()
+    })
+
+    it('stops monitor when killing session', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'session-1',
+        task_id: 'task-kill',
+        tmux_session: 'tinsu-project-task-kill',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      // Start monitoring
+      await TaskTerminalService.startSessionMonitor('task-kill')
+      expect(TaskTerminalService.isMonitoring('task-kill')).toBe(true)
+
+      // Kill session should stop monitor
+      await TaskTerminalService.killSession('task-kill')
+      expect(TaskTerminalService.isMonitoring('task-kill')).toBe(false)
     })
   })
 })

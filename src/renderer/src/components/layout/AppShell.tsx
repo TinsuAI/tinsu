@@ -47,9 +47,10 @@ export function AppShell({ children }: AppShellProps) {
   }, [])
 
   // Story 3.9: Handle Sync All button click (syncs existing + imports new)
+  // Respects selected sprint - only syncs tasks in current sprint
   const handleSyncAll = useCallback(() => {
-    syncAllFromFiles(projectPath || undefined)
-  }, [syncAllFromFiles, projectPath])
+    syncAllFromFiles(projectPath || undefined, selectedSprintId || undefined)
+  }, [syncAllFromFiles, projectPath, selectedSprintId])
 
   // Story 2.6: Sync filter state with project - clear filters when project changes
   useEffect(() => {

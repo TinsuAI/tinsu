@@ -107,6 +107,35 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     )
   `)
 
+  // TES-1.2: Task sessions table for terminal session tracking
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_sessions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL UNIQUE,
+      session_id TEXT,
+      tmux_session TEXT NOT NULL,
+      current_phase TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_sessions_session_id ON task_sessions(session_id)')
+  sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_task_sessions_task_id_unique ON task_sessions(task_id)')
+
+  // Story 3.10: Task artifacts table for linking artifacts to tasks
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_artifacts (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      artifact_type TEXT NOT NULL,
+      artifact_path TEXT NOT NULL,
+      section_ref TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_artifacts_task_id ON task_artifacts(task_id)')
+
   // Create indexes
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)')
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_epic_id ON tasks(epic_id)')

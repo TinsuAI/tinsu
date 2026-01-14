@@ -307,18 +307,30 @@ export const syncRouter = router({
    * This does two things:
    * 1. Syncs existing stories from their files (update content/status)
    * 2. Imports new story files that don't exist in the database yet
+   *
+   * When sprintId is provided, only syncs tasks in that sprint and assigns
+   * new imported stories to that sprint.
    */
   syncAllFromFiles: publicProcedure
-    .input(z.object({ projectPath: z.string().optional() }).optional())
+    .input(z.object({
+      projectPath: z.string().optional(),
+      sprintId: z.string().optional()
+    }).optional())
     .mutation(async ({ ctx, input }) => {
       const results: { taskId: string; synced: boolean; error?: string; isNew?: boolean }[] = []
 
-      // Get all story tasks with file paths
-      const storyTasks = ctx.db
+      // Get all story tasks with file paths, optionally filtered by sprint
+      let storyTasksQuery = ctx.db
         .select()
         .from(tasks)
         .where(isNotNull(tasks.story_file_path))
-        .all()
+
+      const allStoryTasks = storyTasksQuery.all()
+
+      // Filter by sprint if provided
+      const storyTasks = input?.sprintId
+        ? allStoryTasks.filter(t => t.sprint_id === input.sprintId)
+        : allStoryTasks
 
       // Build a set of existing file paths for quick lookup
       const existingFilePaths = new Set(
@@ -392,17 +404,23 @@ export const syncRouter = router({
 
                 console.log(`[SyncAll] Processing unlinked file: ${storyKey} -> epicNum=${epicNum}, storyNum="${storyNum}"`)
 
-                // Look up epic by epic_number column
-                const existingEpic = ctx.db
+                // Look up epic by epic_number column, optionally filtered by sprint
+                const matchingEpics = ctx.db
                   .select()
                   .from(epics)
                   .where(eq(epics.epic_number, epicNum))
-                  .get()
+                  .all()
+
+                // If sprint is specified, filter to only epics in that sprint
+                const existingEpic = input?.sprintId
+                  ? matchingEpics.find(e => e.sprint_id === input.sprintId)
+                  : matchingEpics[0]
 
                 if (!existingEpic) {
-                  console.log(
-                    `[SyncAll] Skipping story ${storyKey} - Epic ${epicNum} not found in database`
-                  )
+                  const reason = input?.sprintId
+                    ? `Epic ${epicNum} not found in selected sprint`
+                    : `Epic ${epicNum} not found in database`
+                  console.log(`[SyncAll] Skipping story ${storyKey} - ${reason}`)
                   continue
                 }
 
@@ -472,7 +490,7 @@ export const syncRouter = router({
                     status: mapFileStatusToDbStatus(fileContent.status),
                     sort_order: maxSortOrder + 1,
                     epic_id: existingEpic.id,
-                    sprint_id: null,
+                    sprint_id: input?.sprintId || existingEpic.sprint_id || null,
                     project_id: existingEpic.project_id,
                     task_type: 'story',
                     story_number: storyNum,

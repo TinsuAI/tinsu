@@ -837,4 +837,153 @@ describe('useTaskTerminal', () => {
       expect(result.current.lastBackupTime).toBeNull()
     })
   })
+
+  /**
+   * TES-1.11: Session End & Unresponsive Detection
+   *
+   * Session state detection for ended and stalled states:
+   * - 'ended': Session process has exited
+   * - 'stalled': No output received for 5 minutes (warning state)
+   */
+  describe('session end/stall detection (TES-1.11)', () => {
+    it('returns sessionState "ended" when session has ended', async () => {
+      // Simulate session ended via subscription
+      let onSessionStatusCallback: ((data: { status: string; reason?: string }) => void) | undefined
+
+      // Mock the subscription to capture the callback
+      vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
+        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+          onSessionStatusCallback = options.onData
+        })
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-ended'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-ended',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isAttached).toBe(true)
+      })
+
+      // Trigger session ended event
+      act(() => {
+        onSessionStatusCallback?.({ status: 'ended', reason: 'process_exit' })
+      })
+
+      expect(result.current.sessionState).toBe('ended')
+    })
+
+    it('returns sessionState "stalled" when session has stalled', async () => {
+      let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
+
+      vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
+        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+          onSessionStatusCallback = options.onData
+        })
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-stalled'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-stalled',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isAttached).toBe(true)
+      })
+
+      // Trigger stall event
+      act(() => {
+        onSessionStatusCallback?.({ status: 'stalled' })
+      })
+
+      expect(result.current.sessionState).toBe('stalled')
+    })
+
+    it('recovers from stalled state when output is received', async () => {
+      let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
+
+      vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
+        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+          onSessionStatusCallback = options.onData
+        })
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-recover'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-recover',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isAttached).toBe(true)
+      })
+
+      // First stall
+      act(() => {
+        onSessionStatusCallback?.({ status: 'stalled' })
+      })
+      expect(result.current.sessionState).toBe('stalled')
+
+      // Then recover
+      act(() => {
+        onSessionStatusCallback?.({ status: 'recovered' })
+      })
+      expect(result.current.sessionState).toBe('live')
+    })
+
+    it('ended state takes precedence over stalled state', async () => {
+      let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
+
+      vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
+        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+          onSessionStatusCallback = options.onData
+        })
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-precedence'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-precedence',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isAttached).toBe(true)
+      })
+
+      // First stall
+      act(() => {
+        onSessionStatusCallback?.({ status: 'stalled' })
+      })
+      expect(result.current.sessionState).toBe('stalled')
+
+      // Then end (should take precedence)
+      act(() => {
+        onSessionStatusCallback?.({ status: 'ended' })
+      })
+      expect(result.current.sessionState).toBe('ended')
+    })
+  })
 })

@@ -222,7 +222,15 @@ export class StoryImportService {
         const kanbanStatus = this.mapSprintStatusToKanban(sprintStatus)
 
         // Look up detailed story content from implementation-artifacts
-        const detailedStoryKey: StoryKey = `${story.epicNumber}-${story.storyNumber}`
+        // Extract prefix from taskId if present (e.g., "tes-1-1-..." -> prefix "tes")
+        const prefix = story.taskId
+          ? DetailedStoryParserService.extractPrefixFromTaskId(story.taskId)
+          : undefined
+        const detailedStoryKey: StoryKey = DetailedStoryParserService.generateKey(
+          story.epicNumber,
+          story.storyNumber,
+          prefix
+        )
         const detailedStory = detailedStoriesMap?.get(detailedStoryKey)
         const storyFilePath = detailedStory?.filePath ?? null
         const fullContent = detailedStory?.fullContent ?? null

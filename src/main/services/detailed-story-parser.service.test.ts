@@ -20,6 +20,9 @@ describe('DetailedStoryParserService', () => {
       expect(DetailedStoryParserService.isStoryFile('1-1-some-story.md')).toBe(true)
       expect(DetailedStoryParserService.isStoryFile('3-4-bmad-agent-launcher.md')).toBe(true)
       expect(DetailedStoryParserService.isStoryFile('10-15-long-story-name.md')).toBe(true)
+      // With prefix
+      expect(DetailedStoryParserService.isStoryFile('tes-1-1-tmux-check.md')).toBe(true)
+      expect(DetailedStoryParserService.isStoryFile('tes-1-11-session-end-detection.md')).toBe(true)
     })
 
     it('returns false for non-story files', () => {
@@ -35,17 +38,26 @@ describe('DetailedStoryParserService', () => {
   describe('parseFileName', () => {
     it('extracts epic and story numbers from valid filenames', () => {
       const result = DetailedStoryParserService.parseFileName('3-4-bmad-agent-launcher.md')
-      expect(result).toEqual({ epicNumber: 3, storyNumber: 4 })
+      expect(result).toEqual({ epicNumber: 3, storyNumber: '4' })
     })
 
     it('handles double-digit numbers', () => {
       const result = DetailedStoryParserService.parseFileName('10-15-some-feature.md')
-      expect(result).toEqual({ epicNumber: 10, storyNumber: 15 })
+      expect(result).toEqual({ epicNumber: 10, storyNumber: '15' })
+    })
+
+    it('handles prefixed filenames', () => {
+      const result = DetailedStoryParserService.parseFileName('tes-1-1-tmux-check.md')
+      expect(result).toEqual({ prefix: 'tes', epicNumber: 1, storyNumber: '1' })
+
+      const result2 = DetailedStoryParserService.parseFileName('tes-1-11-session-end.md')
+      expect(result2).toEqual({ prefix: 'tes', epicNumber: 1, storyNumber: '11' })
     })
 
     it('returns null for invalid filenames', () => {
       expect(DetailedStoryParserService.parseFileName('sprint-status.yaml')).toBeNull()
       expect(DetailedStoryParserService.parseFileName('README.md')).toBeNull()
+      expect(DetailedStoryParserService.parseFileName('1-some-file.md')).toBeNull()
     })
   })
 
@@ -61,6 +73,29 @@ describe('DetailedStoryParserService', () => {
 
     it('handles sub-story numbers', () => {
       expect(DetailedStoryParserService.generateKey(3, '1-5')).toBe('3-1-5')
+    })
+
+    it('includes prefix when provided', () => {
+      expect(DetailedStoryParserService.generateKey(1, '1', 'tes')).toBe('tes-1-1')
+      expect(DetailedStoryParserService.generateKey(1, '11', 'tes')).toBe('tes-1-11')
+    })
+  })
+
+  describe('extractPrefixFromTaskId', () => {
+    it('extracts prefix from task IDs with prefix', () => {
+      expect(
+        DetailedStoryParserService.extractPrefixFromTaskId('tes-1-1-tmux-dependency-check')
+      ).toBe('tes')
+      expect(DetailedStoryParserService.extractPrefixFromTaskId('abc-2-3-some-story')).toBe('abc')
+    })
+
+    it('returns undefined for task IDs without prefix', () => {
+      expect(
+        DetailedStoryParserService.extractPrefixFromTaskId('1-1-initialize-electron-project')
+      ).toBeUndefined()
+      expect(
+        DetailedStoryParserService.extractPrefixFromTaskId('3-4-bmad-agent-launcher')
+      ).toBeUndefined()
     })
   })
 
@@ -118,6 +153,29 @@ describe('DetailedStoryParserService', () => {
       const story = result.get('2-3')
       expect(story?.filePath).toBe(storyPath)
     })
+
+    it('scans prefixed story files', async () => {
+      // Create prefixed story files (like TES sprint)
+      writeFileSync(join(tempDir, 'tes-1-1-tmux-check.md'), '# Story TES-1.1\n\nTmux check content')
+      writeFileSync(join(tempDir, 'tes-1-11-session-end.md'), '# Story TES-1.11\n\nSession end content')
+      // Create regular story file
+      writeFileSync(join(tempDir, '1-1-initialize.md'), '# Story 1.1\n\nInitialize content')
+
+      const result = await DetailedStoryParserService.scanDetailedStories(tempDir)
+
+      expect(result.size).toBe(3)
+      // Prefixed stories use prefixed keys
+      expect(result.has('tes-1-1')).toBe(true)
+      expect(result.has('tes-1-11')).toBe(true)
+      // Non-prefixed story uses non-prefixed key
+      expect(result.has('1-1')).toBe(true)
+
+      const tesStory = result.get('tes-1-1')
+      expect(tesStory?.prefix).toBe('tes')
+      expect(tesStory?.epicNumber).toBe(1)
+      expect(tesStory?.storyNumber).toBe('1')
+      expect(tesStory?.fullContent).toContain('Tmux check content')
+    })
   })
 
   describe('findStoryFile', () => {
@@ -153,6 +211,30 @@ describe('DetailedStoryParserService', () => {
 
       expect(result).not.toBeNull()
       expect(result?.storyNumber).toBe('2b')
+    })
+
+    it('finds prefixed story file', async () => {
+      const content = '# Story TES-1.1\n\nPrefixed story content.'
+      writeFileSync(join(tempDir, 'tes-1-1-tmux-check.md'), content)
+      // Also create a non-prefixed 1-1 file to ensure we get the right one
+      writeFileSync(join(tempDir, '1-1-other-story.md'), 'Other content')
+
+      const result = await DetailedStoryParserService.findStoryFile(tempDir, 1, '1', 'tes')
+
+      expect(result).not.toBeNull()
+      expect(result?.prefix).toBe('tes')
+      expect(result?.epicNumber).toBe(1)
+      expect(result?.storyNumber).toBe('1')
+      expect(result?.fullContent).toContain('Prefixed story content')
+    })
+
+    it('does not find prefixed file when no prefix specified', async () => {
+      // Only create prefixed file
+      writeFileSync(join(tempDir, 'tes-1-1-tmux-check.md'), 'Prefixed content')
+
+      // Search without prefix should not find it
+      const result = await DetailedStoryParserService.findStoryFile(tempDir, 1, '1')
+      expect(result).toBeNull()
     })
   })
 })

@@ -10,8 +10,18 @@ interface UseTaskTerminalOptions {
   terminalRef: React.RefObject<XTerminalRef | null>
 }
 
-/** Session state for terminal display */
-export type SessionState = 'live' | 'restored' | 'none'
+/**
+ * Session state for terminal display.
+ *
+ * TES-1.11: Added 'ended' and 'stalled' states for session lifecycle tracking.
+ *
+ * - 'live': Actively connected to tmux session
+ * - 'restored': Viewing historical backup (no live session)
+ * - 'ended': Session process has exited
+ * - 'stalled': No output received for 5 minutes (warning state)
+ * - 'none': No session and no backup
+ */
+export type SessionState = 'live' | 'restored' | 'ended' | 'stalled' | 'none'
 
 interface UseTaskTerminalReturn {
   /** Whether terminal is successfully attached to tmux session */
@@ -129,6 +139,10 @@ export function useTaskTerminal({
 
   // Track if backup was successfully restored (TES-1.10)
   const [hasRestoredBackup, setHasRestoredBackup] = useState(false)
+
+  // TES-1.11: Track session end/stall status
+  const [sessionEnded, setSessionEnded] = useState(false)
+  const [sessionStalled, setSessionStalled] = useState(false)
 
   // Track processId for cleanup - need ref to avoid stale closure in cleanup
   const processIdForCleanupRef = useRef<string | null>(null)
@@ -259,6 +273,39 @@ export function useTaskTerminal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId])
 
+  // TES-1.11: Subscribe to session status changes
+  trpc.agent.onSessionStatusChange.useSubscription(
+    { taskId },
+    {
+      enabled: !!taskId,
+      onData: (event) => {
+        if (event.status === 'ended') {
+          setSessionEnded(true)
+          setSessionStalled(false)
+          setIsAttached(false)
+          // Write session ended message to terminal
+          terminalRef.current?.write(
+            '\r\n\x1b[90m[Session ended]\x1b[0m\r\n'
+          )
+        } else if (event.status === 'stalled') {
+          setSessionStalled(true)
+        } else if (event.status === 'recovered') {
+          setSessionStalled(false)
+        }
+      }
+    }
+  )
+
+  // TES-1.11: Start session monitor when attached
+  const startMonitorMutation = trpc.agent.startSessionMonitor.useMutation()
+
+  useEffect(() => {
+    if (isAttached && taskId) {
+      startMonitorMutation.mutate({ taskId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAttached, taskId])
+
   // Write data to PTY
   const write = useCallback((data: string) => {
     if (!processId) return
@@ -280,12 +327,18 @@ export function useTaskTerminal({
     [processId, resizeMutation]
   )
 
-  // TES-1.10: Compute session state for UI rendering
+  // TES-1.10 + TES-1.11: Compute session state for UI rendering
   const sessionState: SessionState = useMemo(() => {
+    // TES-1.11: Session ended takes precedence
+    if (sessionEnded) return 'ended'
+    // TES-1.11: Stalled is a warning state for live sessions
+    if (sessionStalled && isAttached && processId) return 'stalled'
+    // Live session
     if (isAttached && processId) return 'live'
+    // Restored from backup
     if (hasRestoredBackup) return 'restored'
     return 'none'
-  }, [isAttached, processId, hasRestoredBackup])
+  }, [isAttached, processId, hasRestoredBackup, sessionEnded, sessionStalled])
 
   // TES-1.10: Get last backup timestamp for UI display
   const lastBackupTime = useMemo(() => {
