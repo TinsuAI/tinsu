@@ -2,10 +2,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { nanoid } from 'nanoid'
 import { eq } from 'drizzle-orm'
+import { randomUUID } from 'crypto'
 import { ConfigService } from './config.service'
 import { PlanningInitService } from './planning-init.service'
 import { db } from '../db'
-import { projects } from '../db/schema'
+import { projects, sprints } from '../db/schema'
 import type { ProjectConfig } from '../../shared/types/config.types'
 
 /**
@@ -144,6 +145,9 @@ export class ProjectService {
     // Story 3.1.5: Register or lookup project in database
     const projectId = await this.registerOrUpdateProject(projectPath, config.projectName)
 
+    // Ensure project has at least one sprint (create default Backlog if none exist)
+    this.ensureDefaultSprint(projectId)
+
     // Initialize planning tasks if not already done (Story 3.2)
     if (!config.planningTasksInitialized) {
       await PlanningInitService.initializePlanningTasks(projectPath, projectId)
@@ -205,6 +209,37 @@ export class ProjectService {
       .run()
 
     return projectId
+  }
+
+  /**
+   * Ensures a project has at least one sprint.
+   * Creates a default "Backlog" sprint if no sprints exist for the project.
+   *
+   * @param projectId - The ID of the project to check
+   */
+  private static ensureDefaultSprint(projectId: string): void {
+    // Check if project has any sprints
+    const existingSprints = db
+      .select()
+      .from(sprints)
+      .where(eq(sprints.project_id, projectId))
+      .all()
+
+    if (existingSprints.length === 0) {
+      // Create default Backlog sprint
+      const sprintId = randomUUID()
+
+      db.insert(sprints)
+        .values({
+          id: sprintId,
+          name: 'Backlog',
+          status: 'active',
+          goal: 'Default sprint for organizing unscheduled work',
+          project_id: projectId,
+          created_at: new Date()
+        })
+        .run()
+    }
   }
 
   /**

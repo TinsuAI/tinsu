@@ -1,11 +1,14 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { sprints } from '../../db/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { sprints, epics, tasks, SPRINT_STATUS } from '../../db/schema'
+import { eq, desc, and, ne, isNull } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 
+// Sprint status enum for validation
+const sprintStatusSchema = z.enum(SPRINT_STATUS)
+
 export const sprintRouter = router({
-  // List all sprints (ordered by start_date descending)
+  // List all sprints (ordered by status priority: active first, then planning, then completed)
   // Story 3.1.5: Filter by current project
   getAll: publicProcedure.query(({ ctx }) => {
     // AC12: Return empty array if no project open
@@ -20,7 +23,7 @@ export const sprintRouter = router({
       .all()
   }),
 
-  // Get active sprint
+  // Get active sprint (status = 'active')
   // Story 3.1.5: Filter by current project
   getActive: publicProcedure.query(({ ctx }) => {
     // AC12: Return null if no project open
@@ -31,7 +34,7 @@ export const sprintRouter = router({
       ctx.db
         .select()
         .from(sprints)
-        .where(and(eq(sprints.is_active, true), eq(sprints.project_id, ctx.projectId)))
+        .where(and(eq(sprints.status, 'active'), eq(sprints.project_id, ctx.projectId)))
         .get() ?? null
     )
   }),
@@ -55,14 +58,15 @@ export const sprintRouter = router({
   }),
 
   // Create new sprint
-  // Story 3.1.5: Set project_id from context
+  // Architecture Addendum: Uses status field, supports goal
   create: publicProcedure
     .input(
       z.object({
         name: z.string().min(1, 'Name is required'),
         start_date: z.date().optional(),
         end_date: z.date().optional(),
-        is_active: z.boolean().default(false)
+        status: sprintStatusSchema.default('planning'),
+        goal: z.string().optional()
       })
     )
     .mutation(({ ctx, input }) => {
@@ -84,8 +88,9 @@ export const sprintRouter = router({
           name: input.name,
           start_date: input.start_date,
           end_date: input.end_date,
-          is_active: input.is_active,
-          project_id: ctx.projectId, // AC9: Set project_id from context
+          status: input.status,
+          goal: input.goal,
+          project_id: ctx.projectId,
           created_at: now
         })
         .returning()
@@ -93,7 +98,7 @@ export const sprintRouter = router({
     }),
 
   // Update sprint
-  // Story 3.1.5: Verify sprint belongs to current project
+  // Architecture Addendum: Includes goal, velocity, capacity; enforces completed sprint guard
   update: publicProcedure
     .input(
       z.object({
@@ -101,11 +106,27 @@ export const sprintRouter = router({
         name: z.string().min(1, 'Name is required').optional(),
         start_date: z.date().nullable().optional(),
         end_date: z.date().nullable().optional(),
-        is_active: z.boolean().optional()
+        goal: z.string().nullable().optional(),
+        velocity: z.number().nullable().optional(),
+        capacity: z.number().nullable().optional()
       })
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input
+
+      // Check if sprint is completed (read-only guard)
+      const existingSprint = ctx.db.select().from(sprints).where(eq(sprints.id, id)).get()
+
+      if (!existingSprint) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
+      }
+
+      if (existingSprint.status === 'completed') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot modify completed sprint'
+        })
+      }
 
       // Update with project ownership check
       const result = ctx.projectId
@@ -123,8 +144,81 @@ export const sprintRouter = router({
       return result
     }),
 
-  // Set sprint as active (deactivates all others in the same project)
-  // Story 3.1.5: Scope to current project
+  // Update sprint status
+  // Architecture Addendum: Enforces single-active constraint
+  updateStatus: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        status: sprintStatusSchema
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      // AC12: Throw error if no project open
+      if (!ctx.projectId) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'No project open'
+        })
+      }
+
+      // Check existing sprint
+      const existingSprint = ctx.db
+        .select()
+        .from(sprints)
+        .where(and(eq(sprints.id, input.id), eq(sprints.project_id, ctx.projectId)))
+        .get()
+
+      if (!existingSprint) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
+      }
+
+      // Cannot revert completed sprint (Architecture Addendum: Read-only guard)
+      if (existingSprint.status === 'completed' && input.status !== 'completed') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot revert completed sprint status'
+        })
+      }
+
+      // Enforce single-active constraint
+      if (input.status === 'active') {
+        const activeSprint = ctx.db
+          .select()
+          .from(sprints)
+          .where(
+            and(
+              eq(sprints.project_id, ctx.projectId),
+              eq(sprints.status, 'active'),
+              ne(sprints.id, input.id)
+            )
+          )
+          .get()
+
+        if (activeSprint) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Sprint "${activeSprint.name}" is already active. Complete or deactivate it first.`
+          })
+        }
+      }
+
+      // Update status
+      const result = ctx.db
+        .update(sprints)
+        .set({ status: input.status })
+        .where(eq(sprints.id, input.id))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
+      }
+      return result
+    }),
+
+  // Set sprint as active (convenience method - sets status to 'active')
+  // Maintains backwards compatibility with existing UI
   setActive: publicProcedure.input(z.object({ id: z.string() })).mutation(({ ctx, input }) => {
     // AC12: Throw error if no project open
     if (!ctx.projectId) {
@@ -134,17 +228,17 @@ export const sprintRouter = router({
       })
     }
 
-    // Deactivate all sprints in current project first
+    // Enforce single-active constraint - deactivate any currently active sprint
     ctx.db
       .update(sprints)
-      .set({ is_active: false })
-      .where(eq(sprints.project_id, ctx.projectId))
+      .set({ status: 'planning' })
+      .where(and(eq(sprints.project_id, ctx.projectId), eq(sprints.status, 'active')))
       .run()
 
     // Activate the selected sprint
     const result = ctx.db
       .update(sprints)
-      .set({ is_active: true })
+      .set({ status: 'active' })
       .where(eq(sprints.id, input.id))
       .returning()
       .get()
@@ -155,21 +249,112 @@ export const sprintRouter = router({
     return result
   }),
 
-  // Delete sprint
-  // Story 3.1.5: Verify sprint belongs to current project
+  // Delete sprint with cascade
+  // Architecture Addendum: Application-level cascade delete
   delete: publicProcedure.input(z.object({ id: z.string() })).mutation(({ ctx, input }) => {
-    // Delete with project ownership check
-    const result = ctx.projectId
+    // Check if sprint exists and belongs to current project
+    const sprint = ctx.projectId
       ? ctx.db
-          .delete(sprints)
+          .select()
+          .from(sprints)
           .where(and(eq(sprints.id, input.id), eq(sprints.project_id, ctx.projectId)))
-          .returning()
           .get()
-      : ctx.db.delete(sprints).where(eq(sprints.id, input.id)).returning().get()
+      : ctx.db.select().from(sprints).where(eq(sprints.id, input.id)).get()
+
+    if (!sprint) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
+    }
+
+    // Get all epic IDs for this sprint
+    const sprintEpics = ctx.db
+      .select({ id: epics.id })
+      .from(epics)
+      .where(eq(epics.sprint_id, input.id))
+      .all()
+
+    // Delete tasks for each epic
+    for (const epic of sprintEpics) {
+      ctx.db.delete(tasks).where(eq(tasks.epic_id, epic.id)).run()
+    }
+
+    // Delete epics
+    ctx.db.delete(epics).where(eq(epics.sprint_id, input.id)).run()
+
+    // Delete sprint
+    const result = ctx.db.delete(sprints).where(eq(sprints.id, input.id)).returning().get()
 
     if (!result) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
     }
     return result
+  }),
+
+  // Link epic to sprint
+  // Architecture Addendum: Epic linking
+  linkEpicToSprint: publicProcedure
+    .input(z.object({ epicId: z.string(), sprintId: z.string() }))
+    .mutation(({ ctx, input }) => {
+      // Verify sprint exists
+      const sprint = ctx.db.select().from(sprints).where(eq(sprints.id, input.sprintId)).get()
+      if (!sprint) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sprint not found' })
+      }
+
+      // Cannot link to completed sprint
+      if (sprint.status === 'completed') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot add epics to completed sprint'
+        })
+      }
+
+      // Update epic with sprint assignment
+      const result = ctx.db
+        .update(epics)
+        .set({ sprint_id: input.sprintId })
+        .where(eq(epics.id, input.epicId))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Epic not found' })
+      }
+      return result
+    }),
+
+  // Unlink epic from sprint (set sprint_id to null)
+  unlinkEpicFromSprint: publicProcedure
+    .input(z.object({ epicId: z.string() }))
+    .mutation(({ ctx, input }) => {
+      const result = ctx.db
+        .update(epics)
+        .set({ sprint_id: null })
+        .where(eq(epics.id, input.epicId))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Epic not found' })
+      }
+      return result
+    }),
+
+  // Get epics for a sprint
+  getSprintEpics: publicProcedure
+    .input(z.object({ sprintId: z.string() }))
+    .query(({ ctx, input }) => {
+      return ctx.db.select().from(epics).where(eq(epics.sprint_id, input.sprintId)).all()
+    }),
+
+  // Get orphaned epics (no sprint assigned)
+  getOrphanedEpics: publicProcedure.query(({ ctx }) => {
+    if (!ctx.projectId) {
+      return []
+    }
+    return ctx.db
+      .select()
+      .from(epics)
+      .where(and(eq(epics.project_id, ctx.projectId), isNull(epics.sprint_id)))
+      .all()
   })
 })

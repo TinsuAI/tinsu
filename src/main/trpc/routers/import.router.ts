@@ -32,7 +32,8 @@ export const importRouter = router({
       z.object({
         projectId: z.string(),
         epicsFilePath: z.string(),
-        statusFilePath: z.string().optional()
+        statusFilePath: z.string().optional(),
+        sprintId: z.string().optional() // Sprint to assign imported epics to
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -58,7 +59,8 @@ export const importRouter = router({
           ctx.db,
           ctx.projectId,
           input.epicsFilePath,
-          input.statusFilePath
+          input.statusFilePath,
+          input.sprintId
         )
 
         return result

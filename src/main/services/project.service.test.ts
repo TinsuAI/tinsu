@@ -5,18 +5,27 @@ import { ProjectService, ProjectError } from './project.service'
 import { PlanningInitService } from './planning-init.service'
 
 // Mock the database module to avoid Electron/sqlite dependencies (Story 3.1.5)
-vi.mock('../db', () => ({
-  db: {
+// Track all insert values to verify default sprint creation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const insertValues: any[] = []
+
+vi.mock('../db', () => {
+  const mockDb = {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          get: vi.fn().mockReturnValue(null) // No existing project found
-        })
+          get: vi.fn().mockReturnValue(null), // No existing record found
+          all: vi.fn().mockReturnValue([]) // No sprints found
+        }),
+        all: vi.fn().mockReturnValue([]) // No sprints found
       })
     }),
     insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        run: vi.fn()
+      values: vi.fn().mockImplementation((vals) => {
+        insertValues.push(vals)
+        return {
+          run: vi.fn()
+        }
       })
     }),
     update: vi.fn().mockReturnValue({
@@ -27,7 +36,8 @@ vi.mock('../db', () => ({
       })
     })
   }
-}))
+  return { db: mockDb }
+})
 
 // Mock PlanningInitService to avoid database/electron dependencies
 vi.mock('./planning-init.service', () => ({
@@ -70,6 +80,8 @@ version: "1.0.0"
     ProjectService.reset()
     // Clear mocks
     vi.clearAllMocks()
+    // Clear insert values tracking
+    insertValues.length = 0
   })
 
   describe('isGitRepository()', () => {
@@ -318,6 +330,39 @@ planningTasksInitialized: true
       // Second open - should not re-initialize because config now has planningTasksInitialized: true
       await ProjectService.openProject(TEST_GIT_REPO)
       expect(PlanningInitService.initializePlanningTasks).not.toHaveBeenCalled()
+    })
+  })
+
+  // Default sprint creation tests
+  describe('default sprint creation', () => {
+    it('should create a default Backlog sprint when opening a new project', async () => {
+      await ProjectService.openProject(TEST_GIT_REPO)
+
+      // Verify a sprint was inserted with correct values (find by name field)
+      const sprintInsert = insertValues.find((val) => val.name === 'Backlog')
+      expect(sprintInsert).toBeDefined()
+      expect(sprintInsert.status).toBe('active')
+      expect(sprintInsert.goal).toBe('Default sprint for organizing unscheduled work')
+    })
+
+    it('should create default sprint for existing project without sprints', async () => {
+      await ProjectService.openProject(TEST_EXISTING_TINSU)
+
+      // Verify a sprint was inserted (db mock returns empty array for sprints)
+      const sprintInsert = insertValues.find((val) => val.name === 'Backlog')
+      expect(sprintInsert).toBeDefined()
+    })
+
+    it('should link default sprint to the project', async () => {
+      await ProjectService.openProject(TEST_GIT_REPO)
+
+      // Find the project insert (has 'path' field) and sprint insert (has 'name: Backlog')
+      const projectInsert = insertValues.find((val) => val.path !== undefined)
+      const sprintInsert = insertValues.find((val) => val.name === 'Backlog')
+
+      expect(projectInsert).toBeDefined()
+      expect(sprintInsert).toBeDefined()
+      expect(sprintInsert.project_id).toBe(projectInsert.id)
     })
   })
 })

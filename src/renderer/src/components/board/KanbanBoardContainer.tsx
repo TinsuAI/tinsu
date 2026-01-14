@@ -392,12 +392,14 @@ export function KanbanBoardContainer() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initialStatus={dialogInitialStatus}
+        initialSprintId={selectedSprintId}
       />
       <ImportStoriesDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
         projectId={projectId}
         defaultPath={importDefaultPath}
+        sprintId={selectedSprintId}
         onSuccess={(result) => {
           toast.success('Import completed', {
             description: `Imported ${result.storiesCreated} stories from ${result.epicsCreated} epics`

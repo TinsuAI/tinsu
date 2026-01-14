@@ -26,6 +26,8 @@ interface ImportStoriesDialogProps {
   projectId: string
   /** Default path for the epics.md file (usually from planning artifacts) */
   defaultPath?: string
+  /** Sprint ID to assign imported epics to (from current filter) */
+  sprintId?: string | null
   /** Callback when import succeeds */
   onSuccess?: (result: { epicsCreated: number; storiesCreated: number }) => void
 }
@@ -54,6 +56,7 @@ export function ImportStoriesDialog({
   onOpenChange,
   projectId,
   defaultPath = '',
+  sprintId,
   onSuccess
 }: ImportStoriesDialogProps) {
   const [filePath, setFilePath] = useState(defaultPath)
@@ -125,7 +128,8 @@ export function ImportStoriesDialog({
       const result = await importStoriesAsync(
         projectId,
         filePath,
-        statusFilePath.trim() || undefined
+        statusFilePath.trim() || undefined,
+        sprintId ?? undefined // Pass current sprint filter
       )
       onSuccess?.(result)
       onOpenChange(false)

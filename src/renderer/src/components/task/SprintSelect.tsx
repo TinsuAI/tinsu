@@ -35,7 +35,7 @@ export function SprintSelect({
         {sprints?.map((sprint) => (
           <SelectItem key={sprint.id} value={sprint.id}>
             <span className="flex items-center gap-2">
-              {sprint.is_active && (
+              {sprint.status === 'active' && (
                 <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
               )}
               <span>{sprint.name}</span>

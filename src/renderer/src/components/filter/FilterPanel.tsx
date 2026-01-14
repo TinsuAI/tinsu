@@ -75,7 +75,7 @@ export function FilterPanel({ open, onOpenChange, trigger }: FilterPanelProps) {
                     <RadioGroupItem value={sprint.id} />
                     <span className="text-sm">
                       {sprint.name}
-                      {sprint.is_active && (
+                      {sprint.status === 'active' && (
                         <span className="ml-1 text-xs text-green-500">(Active)</span>
                       )}
                     </span>
