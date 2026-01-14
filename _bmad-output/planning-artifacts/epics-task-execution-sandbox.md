@@ -211,6 +211,7 @@ Story tasks automatically flow through dev-story → Review → code-review with
 Users can view a dedicated, persistent terminal for each task — surviving navigation, app restart, and system reboot.
 
 ### Story 1.1: tmux Dependency Check & Installation Prompt
+**Task ID:** `tes-1-1-tmux-dependency-check-and-installation-prompt`
 
 As a user,
 I want TinSu to check for tmux on startup and guide me to install it if missing,
@@ -234,6 +235,7 @@ So that I can use the terminal features without cryptic errors.
 ---
 
 ### Story 1.2: Task Session Database Schema
+**Task ID:** `tes-1-2-task-session-database-schema`
 
 As a developer,
 I want a task_sessions table to store terminal session mappings,
@@ -256,6 +258,7 @@ So that the system can track which tmux session belongs to which task.
 ---
 
 ### Story 1.3: tmux Session Creation Service
+**Task ID:** `tes-1-3-tmux-session-creation-service`
 
 As a user,
 I want a tmux session created automatically when I move a task to In Progress,
@@ -283,6 +286,7 @@ So that the agent has an isolated terminal environment to work in.
 ---
 
 ### Story 1.4: xterm.js Terminal Attachment
+**Task ID:** `tes-1-4-xterm-js-terminal-attachment`
 
 As a user,
 I want to see real-time terminal output when viewing a task,
@@ -310,6 +314,7 @@ So that I can watch the agent work and see command results.
 ---
 
 ### Story 1.5: User Command Input
+**Task ID:** `tes-1-5-user-command-input`
 
 As a user,
 I want to type commands directly into the task terminal,
@@ -336,6 +341,7 @@ So that I can interact with the agent or run manual commands.
 ---
 
 ### Story 1.6: Terminal Persistence Across Navigation
+**Task ID:** `tes-1-6-terminal-persistence-across-navigation`
 
 As a user,
 I want my terminal session to keep running when I navigate to other tasks,
@@ -359,6 +365,7 @@ So that I don't lose work in progress when switching context.
 ---
 
 ### Story 1.7: Session-Task Mapping & Event Routing
+**Task ID:** `tes-1-7-session-task-mapping-and-event-routing`
 
 As a system,
 I want to associate Claude Code session IDs with task IDs,
@@ -385,6 +392,7 @@ So that hook events can be routed to the correct task.
 ---
 
 ### Story 1.8: Scrollback Backup Service
+**Task ID:** `tes-1-8-scrollback-backup-service`
 
 As a user,
 I want my terminal history backed up automatically,
@@ -411,6 +419,7 @@ So that I don't lose important output if something goes wrong.
 ---
 
 ### Story 1.9: Scrollback Restoration After App Restart
+**Task ID:** `tes-1-9-scrollback-restoration-after-app-restart`
 
 As a user,
 I want to see my terminal history after restarting TinSu,
@@ -438,6 +447,7 @@ So that I can review what happened before the restart.
 ---
 
 ### Story 1.10: Scrollback Survival After System Reboot
+**Task ID:** `tes-1-10-scrollback-survival-after-system-reboot`
 
 As a user,
 I want my terminal history to survive a system reboot,
@@ -460,6 +470,7 @@ So that I can review past work even after restarting my computer.
 ---
 
 ### Story 1.11: Session End & Unresponsive Detection
+**Task ID:** `tes-1-11-session-end-and-unresponsive-detection`
 
 As a user,
 I want to know when a terminal session ends or becomes unresponsive,
@@ -492,6 +503,7 @@ So that I can take appropriate action.
 Users can view a real-time, filterable timeline of everything happening on a task.
 
 ### Story 2.1: Task Activities Database Schema
+**Task ID:** `tes-2-1-task-activities-database-schema`
 
 As a developer,
 I want a task_activities table to store all task events,
@@ -514,6 +526,7 @@ So that the system can maintain a complete audit trail.
 ---
 
 ### Story 2.2: Activity Log Service (Core)
+**Task ID:** `tes-2-2-activity-log-service-core`
 
 As a system,
 I want an ActivityLogService to write and read activity events,
@@ -542,6 +555,7 @@ So that all task events are captured reliably.
 ---
 
 ### Story 2.3: Hook Listener HTTP Server
+**Task ID:** `tes-2-3-hook-listener-http-server`
 
 As a system,
 I want an HTTP server to receive Claude Code hook events,
@@ -577,6 +591,7 @@ So that hook scripts can communicate with TinSu reliably.
 ---
 
 ### Story 2.4: Claude Code Hook Scripts
+**Task ID:** `tes-2-4-claude-code-hook-scripts`
 
 As a developer,
 I want hook scripts that send events to TinSu,
@@ -610,6 +625,7 @@ So that Claude Code activities are captured automatically.
 ---
 
 ### Story 2.5: Status Change Event Capture
+**Task ID:** `tes-2-5-status-change-event-capture`
 
 As a user,
 I want status changes logged automatically,
@@ -632,6 +648,7 @@ So that I can see when tasks moved between columns.
 ---
 
 ### Story 2.6: Agent Start/Complete Event Capture
+**Task ID:** `tes-2-6-agent-start-complete-event-capture`
 
 As a user,
 I want to see when agents start and finish working,
@@ -658,6 +675,7 @@ So that I can track execution phases.
 ---
 
 ### Story 2.7: Tool Usage Event Capture
+**Task ID:** `tes-2-7-tool-usage-event-capture`
 
 As a user,
 I want to see what tools the agent used,
@@ -683,6 +701,7 @@ So that I can understand what actions were taken.
 ---
 
 ### Story 2.8: User Command Event Capture
+**Task ID:** `tes-2-8-user-command-event-capture`
 
 As a user,
 I want my terminal commands logged,
@@ -704,6 +723,7 @@ So that I have a record of my interactions.
 ---
 
 ### Story 2.9: Automation Trigger Event Capture
+**Task ID:** `tes-2-9-automation-trigger-event-capture`
 
 As a user,
 I want to see when automation triggers fire,
@@ -726,6 +746,7 @@ So that I understand what happened automatically.
 ---
 
 ### Story 2.10: Error Event Capture
+**Task ID:** `tes-2-10-error-event-capture`
 
 As a user,
 I want errors logged prominently,
@@ -751,6 +772,7 @@ So that I can quickly identify what went wrong.
 ---
 
 ### Story 2.11: Activity Log UI Display
+**Task ID:** `tes-2-11-activity-log-ui-display`
 
 As a user,
 I want to see the activity log for a task,
@@ -777,6 +799,7 @@ So that I can review what happened.
 ---
 
 ### Story 2.12: Activity Log Filtering
+**Task ID:** `tes-2-12-activity-log-filtering`
 
 As a user,
 I want to filter the activity log by event type,
@@ -808,6 +831,7 @@ So that I can focus on specific events.
 ---
 
 ### Story 2.13: Real-Time Activity Streaming
+**Task ID:** `tes-2-13-real-time-activity-streaming`
 
 As a user,
 I want to see new activities appear in real-time,
@@ -843,6 +867,7 @@ So that I can monitor task progress live.
 Users can view Terminal, Activities, Diff, and Content simultaneously with expand-to-full options.
 
 ### Story 3.1: Task Detail Panel Container
+**Task ID:** `tes-3-1-task-detail-panel-container`
 
 As a user,
 I want a task detail panel that slides in when I select a task,
@@ -871,6 +896,7 @@ So that I can view task information without losing board context.
 ---
 
 ### Story 3.2: Quad-Pane Layout
+**Task ID:** `tes-3-2-quad-pane-layout`
 
 As a user,
 I want to see Terminal, Activities, Diff, and Content all at once,
@@ -899,6 +925,7 @@ So that I have complete visibility without switching tabs.
 ---
 
 ### Story 3.3: Section Expand/Collapse
+**Task ID:** `tes-3-3-section-expand-collapse`
 
 As a user,
 I want to expand any section to full view,
@@ -927,6 +954,7 @@ So that I can focus on one aspect when needed.
 ---
 
 ### Story 3.4: Terminal Section Integration
+**Task ID:** `tes-3-4-terminal-section-integration`
 
 As a user,
 I want the Terminal section to show my task's terminal,
@@ -954,6 +982,7 @@ So that I can watch agent work within the quad-pane.
 ---
 
 ### Story 3.5: Activities Section Integration
+**Task ID:** `tes-3-5-activities-section-integration`
 
 As a user,
 I want the Activities section to show the event log,
@@ -981,6 +1010,7 @@ So that I can monitor task events in the quad-pane.
 ---
 
 ### Story 3.6: Content Section Display
+**Task ID:** `tes-3-6-content-section-display`
 
 As a user,
 I want to see the task description and acceptance criteria,
@@ -1010,6 +1040,7 @@ So that I can reference what needs to be done.
 ---
 
 ### Story 3.7: Task State Preservation
+**Task ID:** `tes-3-7-task-state-preservation`
 
 As a user,
 I want my panel state preserved when switching tasks,
@@ -1034,6 +1065,7 @@ So that I don't lose my place when multitasking.
 ---
 
 ### Story 3.8: Concurrent Task Support (10+)
+**Task ID:** `tes-3-8-concurrent-task-support-10-plus`
 
 As a user,
 I want the system to handle many tasks smoothly,
@@ -1061,6 +1093,7 @@ So that I can work on multiple tasks in parallel.
 ---
 
 ### Story 3.9: Task Type Visual Differentiation
+**Task ID:** `tes-3-9-task-type-visual-differentiation`
 
 As a user,
 I want to see whether a task is a Story or Basic task,
@@ -1087,6 +1120,7 @@ So that I know what automation to expect.
 ---
 
 ### Story 3.10: Workflow Phase Indicator
+**Task ID:** `tes-3-10-workflow-phase-indicator`
 
 As a user,
 I want to see the current workflow phase,
@@ -1118,6 +1152,7 @@ So that I know where the task is in the automation pipeline.
 ---
 
 ### Story 3.11: Keyboard Navigation
+**Task ID:** `tes-3-11-keyboard-navigation`
 
 As a user,
 I want to navigate the quad-pane with keyboard,
@@ -1151,6 +1186,7 @@ So that I can work efficiently without a mouse.
 ---
 
 ### Story 3.12: Responsive Layout
+**Task ID:** `tes-3-12-responsive-layout`
 
 As a user,
 I want the layout to adapt to smaller screens,
@@ -1179,6 +1215,7 @@ So that I can use TinSu on tablet or mobile for intervention.
 ---
 
 ### Story 3.13: Accessibility
+**Task ID:** `tes-3-13-accessibility`
 
 As a user with accessibility needs,
 I want the quad-pane to be fully accessible,
@@ -1215,6 +1252,7 @@ So that I can use screen readers and keyboard navigation.
 Users can review all code changes made by the agent with file tree and unified/split views.
 
 ### Story 4.1: Git Diff Data Fetching
+**Task ID:** `tes-4-1-git-diff-data-fetching`
 
 As a user,
 I want to fetch the git diff for a task's changes,
@@ -1246,6 +1284,7 @@ So that I can see what the agent modified.
 ---
 
 ### Story 4.2: Diff Summary Bar
+**Task ID:** `tes-4-2-diff-summary-bar`
 
 As a user,
 I want to see a summary of changes at a glance,
@@ -1277,6 +1316,7 @@ So that I can quickly assess the scope of work.
 ---
 
 ### Story 4.3: File Tree Component
+**Task ID:** `tes-4-3-file-tree-component`
 
 As a user,
 I want to see a list of changed files,
@@ -1315,6 +1355,7 @@ So that I can navigate to specific changes.
 ---
 
 ### Story 4.4: Monaco Diff Viewer Integration
+**Task ID:** `tes-4-4-monaco-diff-viewer-integration`
 
 As a user,
 I want to see syntax-highlighted diffs,
@@ -1352,6 +1393,7 @@ So that I can easily read and understand code changes.
 ---
 
 ### Story 4.5: Unified vs Split View Toggle
+**Task ID:** `tes-4-5-unified-vs-split-view-toggle`
 
 As a user,
 I want to switch between unified and split diff views,
@@ -1384,6 +1426,7 @@ So that I can choose my preferred review style.
 ---
 
 ### Story 4.6: Diff Section in Quad-Pane
+**Task ID:** `tes-4-6-diff-section-in-quad-pane`
 
 As a user,
 I want the diff viewer integrated into the quad-pane,
@@ -1420,6 +1463,7 @@ So that I can review changes alongside other task info.
 Story tasks automatically flow through dev-story → Review → code-review with manual fallbacks.
 
 ### Story 5.1: Task Type Field & Differentiation
+**Task ID:** `tes-5-1-task-type-field-and-differentiation`
 
 As a system,
 I want to differentiate between Story and Basic tasks,
@@ -1449,6 +1493,7 @@ So that automation rules can be applied appropriately.
 ---
 
 ### Story 5.2: Automation Service Core
+**Task ID:** `tes-5-2-automation-service-core`
 
 As a system,
 I want an AutomationService that responds to task events,
@@ -1479,6 +1524,7 @@ So that workflow rules are applied consistently.
 ---
 
 ### Story 5.3: Story Task Auto-Execute dev-story
+**Task ID:** `tes-5-3-story-task-auto-execute-dev-story`
 
 As a user,
 I want my Story tasks to automatically start dev-story when moved to In Progress,
@@ -1508,6 +1554,7 @@ So that work begins without manual intervention.
 ---
 
 ### Story 5.4: Story Task Auto-Move to Review
+**Task ID:** `tes-5-4-story-task-auto-move-to-review`
 
 As a user,
 I want my Story tasks to automatically move to Review when dev-story completes,
@@ -1536,6 +1583,7 @@ So that the workflow progresses without manual column dragging.
 ---
 
 ### Story 5.5: Story Task Auto-Execute code-review
+**Task ID:** `tes-5-5-story-task-auto-execute-code-review`
 
 As a user,
 I want code-review to automatically run when my Story task enters Review,
@@ -1564,6 +1612,7 @@ So that review happens without manual triggering.
 ---
 
 ### Story 5.6: Basic Task Auto-Execute with Description
+**Task ID:** `tes-5-6-basic-task-auto-execute-with-description`
 
 As a user,
 I want my Basic tasks to automatically start Claude Code when moved to In Progress,
@@ -1591,6 +1640,7 @@ So that ad-hoc tasks also get agent assistance.
 ---
 
 ### Story 5.7: Code-Review Complete Notification
+**Task ID:** `tes-5-7-code-review-complete-notification`
 
 As a user,
 I want to be notified when code-review completes,
@@ -1618,6 +1668,7 @@ So that I know a task is ready for my review.
 ---
 
 ### Story 5.8: Workflow Phase Tracking
+**Task ID:** `tes-5-8-workflow-phase-tracking`
 
 As a system,
 I want to track the current workflow phase for each task,
@@ -1648,6 +1699,7 @@ So that automation decisions are based on accurate state.
 ---
 
 ### Story 5.9: Manual Trigger Buttons
+**Task ID:** `tes-5-9-manual-trigger-buttons`
 
 As a user,
 I want manual buttons to trigger workflow commands,
@@ -1684,6 +1736,7 @@ So that I have fallback control when automation fails.
 ---
 
 ### Story 5.10: Automation Keyboard Shortcuts
+**Task ID:** `tes-5-10-automation-keyboard-shortcuts`
 
 As a user,
 I want keyboard shortcuts for workflow commands,

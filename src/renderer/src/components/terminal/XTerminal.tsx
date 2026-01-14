@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SerializeAddon } from '@xterm/addon-serialize'
 
 interface ContextMenuState {
   visible: boolean
@@ -26,6 +27,21 @@ export interface XTerminalRef {
   getDimensions: () => { cols: number; rows: number } | null
   /** Fit terminal to container */
   fit: () => void
+  /**
+   * TES-1.6: Serialize terminal buffer for persistence.
+   * Returns the serialized buffer string that can be restored with write().
+   */
+  serialize: () => string
+  /**
+   * TES-1.6: Get current scroll position (viewport.ybase).
+   * Returns the approximate scroll position for restoration.
+   */
+  getScrollPosition: () => number
+  /**
+   * TES-1.6: Scroll to a specific line in the terminal buffer.
+   * Used to restore scroll position after buffer restoration.
+   */
+  scrollToLine: (line: number) => void
 }
 
 /**
@@ -50,6 +66,7 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const serializeAddonRef = useRef<SerializeAddon | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0 })
 
   // Handle right-click to show context menu
@@ -113,6 +130,31 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
       },
       fit: () => {
         fitAddonRef.current?.fit()
+      },
+      // TES-1.6: Serialize terminal buffer for persistence
+      serialize: () => {
+        if (!serializeAddonRef.current) return ''
+        try {
+          return serializeAddonRef.current.serialize()
+        } catch {
+          return ''
+        }
+      },
+      // TES-1.6: Get scroll position for restoration
+      getScrollPosition: () => {
+        const terminal = terminalRef.current
+        if (!terminal || !terminal.buffer?.active) return 0
+        return terminal.buffer.active.viewportY
+      },
+      // TES-1.6: Scroll to line for position restoration
+      scrollToLine: (line: number) => {
+        const terminal = terminalRef.current
+        if (!terminal) return
+        try {
+          terminal.scrollToLine(line)
+        } catch {
+          // Ignore scroll errors (e.g., line out of range)
+        }
       }
     }),
     []
@@ -156,6 +198,10 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
 
+    // TES-1.6: Create and attach SerializeAddon for buffer persistence
+    const serializeAddon = new SerializeAddon()
+    terminal.loadAddon(serializeAddon)
+
     // Open terminal in container
     terminal.open(containerRef.current)
 
@@ -175,6 +221,7 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
     // Store refs
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
+    serializeAddonRef.current = serializeAddon
 
     // Observe container resize and refit terminal
     const resizeObserver = new ResizeObserver(() => {
@@ -193,6 +240,7 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
       terminal.dispose()
       terminalRef.current = null
       fitAddonRef.current = null
+      serializeAddonRef.current = null
     }
   }, []) // Empty deps - terminal created once, callbacks accessed via refs
 

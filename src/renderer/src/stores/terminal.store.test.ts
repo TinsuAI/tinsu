@@ -8,7 +8,9 @@ describe('useTerminalStore', () => {
       isExpanded: true,
       height: window.innerHeight * 0.35,
       activeProcessId: null,
-      agentTaskId: null
+      agentTaskId: null,
+      agentWorkflowType: null,
+      terminalBuffers: {}
     })
   })
 
@@ -149,6 +151,142 @@ describe('useTerminalStore', () => {
       expect(state).toHaveProperty('setActiveProcess')
       expect(state).toHaveProperty('setAgentTask')
       expect(state).toHaveProperty('clearAgent')
+    })
+  })
+
+  // TES-1.6: Terminal Buffer Management Tests
+  describe('terminal buffer management (TES-1.6)', () => {
+    describe('saveBuffer', () => {
+      it('should save a buffer with taskId', () => {
+        useTerminalStore.getState().saveBuffer('task-123', 'serialized-content', 100)
+
+        const buffer = useTerminalStore.getState().getBuffer('task-123')
+        expect(buffer).toBeDefined()
+        expect(buffer?.serializedBuffer).toBe('serialized-content')
+        expect(buffer?.scrollPosition).toBe(100)
+        expect(buffer?.lastUpdated).toBeGreaterThan(0)
+      })
+
+      it('should update existing buffer', () => {
+        useTerminalStore.getState().saveBuffer('task-123', 'content-1', 50)
+        const firstTimestamp = useTerminalStore.getState().getBuffer('task-123')?.lastUpdated
+
+        // Small delay to ensure different timestamp
+        useTerminalStore.getState().saveBuffer('task-123', 'content-2', 75)
+        const buffer = useTerminalStore.getState().getBuffer('task-123')
+
+        expect(buffer?.serializedBuffer).toBe('content-2')
+        expect(buffer?.scrollPosition).toBe(75)
+        expect(buffer?.lastUpdated).toBeGreaterThanOrEqual(firstTimestamp!)
+      })
+
+      it('should store multiple buffers for different tasks', () => {
+        useTerminalStore.getState().saveBuffer('task-1', 'content-1', 10)
+        useTerminalStore.getState().saveBuffer('task-2', 'content-2', 20)
+        useTerminalStore.getState().saveBuffer('task-3', 'content-3', 30)
+
+        expect(useTerminalStore.getState().getBuffer('task-1')?.serializedBuffer).toBe('content-1')
+        expect(useTerminalStore.getState().getBuffer('task-2')?.serializedBuffer).toBe('content-2')
+        expect(useTerminalStore.getState().getBuffer('task-3')?.serializedBuffer).toBe('content-3')
+      })
+    })
+
+    describe('getBuffer', () => {
+      it('should return undefined for non-existent taskId', () => {
+        expect(useTerminalStore.getState().getBuffer('non-existent')).toBeUndefined()
+      })
+
+      it('should return saved buffer', () => {
+        useTerminalStore.getState().saveBuffer('task-abc', 'test-content', 42)
+
+        const buffer = useTerminalStore.getState().getBuffer('task-abc')
+        expect(buffer).toBeDefined()
+        expect(buffer?.serializedBuffer).toBe('test-content')
+        expect(buffer?.scrollPosition).toBe(42)
+      })
+    })
+
+    describe('clearBuffer', () => {
+      it('should remove specific buffer', () => {
+        useTerminalStore.getState().saveBuffer('task-1', 'content-1', 10)
+        useTerminalStore.getState().saveBuffer('task-2', 'content-2', 20)
+
+        useTerminalStore.getState().clearBuffer('task-1')
+
+        expect(useTerminalStore.getState().getBuffer('task-1')).toBeUndefined()
+        expect(useTerminalStore.getState().getBuffer('task-2')).toBeDefined()
+      })
+
+      it('should do nothing if buffer does not exist', () => {
+        useTerminalStore.getState().saveBuffer('task-1', 'content-1', 10)
+
+        // Should not throw
+        useTerminalStore.getState().clearBuffer('non-existent')
+
+        expect(useTerminalStore.getState().getBuffer('task-1')).toBeDefined()
+      })
+    })
+
+    describe('pruneOldBuffers (LRU eviction)', () => {
+      it('should keep buffers under MAX_BUFFERS limit', () => {
+        // MAX_BUFFERS is 20, save 25 buffers
+        for (let i = 0; i < 25; i++) {
+          useTerminalStore.getState().saveBuffer(`task-${i}`, `content-${i}`, i)
+        }
+
+        const state = useTerminalStore.getState()
+        const bufferCount = Object.keys(state.terminalBuffers).length
+
+        expect(bufferCount).toBeLessThanOrEqual(20)
+      })
+
+      it('should evict oldest buffers first', () => {
+        // Create buffers with explicit timestamps to ensure correct ordering
+        // Directly set state to control timestamps precisely
+        const buffers: Record<string, { serializedBuffer: string; scrollPosition: number; lastUpdated: number }> = {}
+        for (let i = 0; i < 25; i++) {
+          buffers[`task-${i}`] = {
+            serializedBuffer: `content-${i}`,
+            scrollPosition: i,
+            lastUpdated: 1000 + i // Oldest = task-0 (1000), Newest = task-24 (1024)
+          }
+        }
+        useTerminalStore.setState({ terminalBuffers: buffers })
+
+        // Now manually prune
+        useTerminalStore.getState().pruneOldBuffers()
+
+        // The newest 20 buffers should be kept (task-5 through task-24)
+        // The oldest 5 buffers should be evicted (task-0 through task-4)
+        expect(useTerminalStore.getState().getBuffer('task-0')).toBeUndefined()
+        expect(useTerminalStore.getState().getBuffer('task-4')).toBeUndefined()
+        expect(useTerminalStore.getState().getBuffer('task-5')).toBeDefined()
+        expect(useTerminalStore.getState().getBuffer('task-24')).toBeDefined()
+      })
+
+      it('should not prune if under limit', () => {
+        useTerminalStore.getState().saveBuffer('task-1', 'content-1', 10)
+        useTerminalStore.getState().saveBuffer('task-2', 'content-2', 20)
+
+        useTerminalStore.getState().pruneOldBuffers()
+
+        expect(useTerminalStore.getState().getBuffer('task-1')).toBeDefined()
+        expect(useTerminalStore.getState().getBuffer('task-2')).toBeDefined()
+      })
+    })
+
+    describe('terminalBuffers initial state', () => {
+      it('should have empty terminalBuffers by default', () => {
+        expect(useTerminalStore.getState().terminalBuffers).toEqual({})
+      })
+
+      it('should have buffer management methods', () => {
+        const state = useTerminalStore.getState()
+        expect(typeof state.saveBuffer).toBe('function')
+        expect(typeof state.getBuffer).toBe('function')
+        expect(typeof state.clearBuffer).toBe('function')
+        expect(typeof state.pruneOldBuffers).toBe('function')
+      })
     })
   })
 })

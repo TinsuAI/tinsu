@@ -55,7 +55,11 @@ describe('useTerminal', () => {
       clear: vi.fn(),
       focus: vi.fn(),
       getDimensions: vi.fn(() => ({ cols: 80, rows: 24 })),
-      fit: vi.fn()
+      fit: vi.fn(),
+      // TES-1.6: Added serialize/getScrollPosition/scrollToLine for buffer persistence
+      serialize: vi.fn(() => ''),
+      getScrollPosition: vi.fn(() => 0),
+      scrollToLine: vi.fn()
     }
   }
 

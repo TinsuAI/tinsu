@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { trpc } from '@renderer/lib/trpc'
 import type { XTerminalRef } from '@renderer/components/terminal/XTerminal'
+import { useTerminalStore } from '@renderer/stores/terminal.store'
 
 interface UseTaskTerminalOptions {
   /** Task ID to attach terminal for */
@@ -106,6 +107,21 @@ export function useTaskTerminal({
         setIsLoading(true)
         setError(null)
 
+        // TES-1.6: Restore cached buffer before attaching
+        // This shows previous output immediately for seamless navigation
+        const cachedBuffer = useTerminalStore.getState().getBuffer(taskId)
+        if (cachedBuffer && terminalRef.current) {
+          try {
+            terminalRef.current.write(cachedBuffer.serializedBuffer)
+            // Restore scroll position after buffer is written
+            if (cachedBuffer.scrollPosition > 0) {
+              terminalRef.current.scrollToLine(cachedBuffer.scrollPosition)
+            }
+          } catch {
+            // Ignore restoration errors
+          }
+        }
+
         // Get terminal dimensions
         const dimensions = terminalRef.current?.getDimensions()
 
@@ -143,9 +159,23 @@ export function useTaskTerminal({
 
     attach()
 
-    // Cleanup: detach from tmux on unmount (but don't kill the tmux session)
+    // Cleanup: save buffer and detach from tmux on unmount (but don't kill the tmux session)
     return () => {
       cancelled = true
+
+      // TES-1.6: Save terminal buffer before detaching for seamless navigation
+      if (terminalRef.current) {
+        try {
+          const serialized = terminalRef.current.serialize()
+          const scrollPos = terminalRef.current.getScrollPosition()
+          if (serialized) {
+            useTerminalStore.getState().saveBuffer(taskId, serialized, scrollPos)
+          }
+        } catch {
+          // Ignore serialization errors during cleanup
+        }
+      }
+
       if (processIdForCleanupRef.current) {
         detachMutation.mutate({ processId: processIdForCleanupRef.current })
         processIdForCleanupRef.current = null

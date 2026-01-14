@@ -8,7 +8,7 @@ import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
 import { CreateStoryConfirmDialog } from '../dialogs/CreateStoryConfirmDialog'
 import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
 import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
-import { useUIStore, useStoryViewStore } from '@renderer/stores'
+import { useUIStore, useStoryViewStore, useTerminalStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 import type { Task, TaskStatus } from '@shared/types/task.types'
@@ -183,6 +183,9 @@ export function KanbanBoardContainer() {
         if (!old) return old
         return old.filter((task) => task.id !== id)
       })
+
+      // TES-1.6: Clear terminal buffer when task is deleted
+      useTerminalStore.getState().clearBuffer(id)
 
       return { previousTasks }
     },

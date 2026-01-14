@@ -169,7 +169,7 @@ development_status:
   tes-1-3-tmux-session-creation-service: done
   tes-1-4-xterm-js-terminal-attachment: done
   tes-1-5-user-command-input: done
-  tes-1-6-terminal-persistence-across-navigation: backlog
+  tes-1-6-terminal-persistence-across-navigation: done
   tes-1-7-session-task-mapping-and-event-routing: backlog
   tes-1-8-scrollback-backup-service: backlog
   tes-1-9-scrollback-restoration-after-app-restart: backlog

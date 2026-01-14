@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   mockOnResize: vi.fn(() => ({ dispose: vi.fn() })),
   mockLoadAddon: vi.fn(),
   mockFit: vi.fn(),
+  mockSerialize: vi.fn(() => 'serialized-buffer-content'),
+  mockScrollToLine: vi.fn(),
   mockResizeObserverDisconnect: vi.fn(),
   mockGetSelection: vi.fn(() => 'selected text')
 }))
@@ -21,6 +23,7 @@ vi.mock('@xterm/xterm', () => ({
   Terminal: class MockTerminal {
     cols = 80
     rows = 24
+    buffer = { active: { viewportY: 42 } }
     dispose = mocks.mockDispose
     open = mocks.mockOpen
     write = mocks.mockWrite
@@ -30,12 +33,20 @@ vi.mock('@xterm/xterm', () => ({
     onResize = mocks.mockOnResize
     loadAddon = mocks.mockLoadAddon
     getSelection = mocks.mockGetSelection
+    scrollToLine = mocks.mockScrollToLine
   }
 }))
 
 vi.mock('@xterm/addon-fit', () => ({
   FitAddon: class MockFitAddon {
     fit = mocks.mockFit
+  }
+}))
+
+// TES-1.6: Mock SerializeAddon
+vi.mock('@xterm/addon-serialize', () => ({
+  SerializeAddon: class MockSerializeAddon {
+    serialize = mocks.mockSerialize
   }
 }))
 
@@ -87,6 +98,13 @@ describe('XTerminal', () => {
   it('should load FitAddon', () => {
     render(<XTerminal />)
     expect(mocks.mockLoadAddon).toHaveBeenCalled()
+  })
+
+  // TES-1.6: SerializeAddon for buffer persistence
+  it('should load SerializeAddon', () => {
+    render(<XTerminal />)
+    // loadAddon is called twice: once for FitAddon, once for SerializeAddon
+    expect(mocks.mockLoadAddon).toHaveBeenCalledTimes(2)
   })
 
   it('should call fit on mount', () => {
@@ -185,6 +203,57 @@ describe('XTerminal', () => {
       vi.clearAllMocks() // Clear the fit call from mount
       ref.current?.fit()
       expect(mocks.mockFit).toHaveBeenCalled()
+    })
+
+    // TES-1.6: Serialization tests for buffer persistence
+    it('should expose serialize method via ref', () => {
+      const ref = { current: null as XTerminalRef | null }
+      render(<XTerminal ref={ref} />)
+
+      const serialized = ref.current?.serialize()
+      expect(serialized).toBe('serialized-buffer-content')
+      expect(mocks.mockSerialize).toHaveBeenCalled()
+    })
+
+    it('should expose getScrollPosition method via ref', () => {
+      const ref = { current: null as XTerminalRef | null }
+      render(<XTerminal ref={ref} />)
+
+      const scrollPos = ref.current?.getScrollPosition()
+      expect(scrollPos).toBe(42) // Mock buffer.active.viewportY
+    })
+
+    it('should return empty string if serialize fails', () => {
+      mocks.mockSerialize.mockImplementationOnce(() => {
+        throw new Error('Serialize error')
+      })
+
+      const ref = { current: null as XTerminalRef | null }
+      render(<XTerminal ref={ref} />)
+
+      const serialized = ref.current?.serialize()
+      expect(serialized).toBe('')
+    })
+
+    // TES-1.6: Scroll position restoration
+    it('should expose scrollToLine method via ref', () => {
+      const ref = { current: null as XTerminalRef | null }
+      render(<XTerminal ref={ref} />)
+
+      ref.current?.scrollToLine(100)
+      expect(mocks.mockScrollToLine).toHaveBeenCalledWith(100)
+    })
+
+    it('should handle scrollToLine errors gracefully', () => {
+      mocks.mockScrollToLine.mockImplementationOnce(() => {
+        throw new Error('Scroll error')
+      })
+
+      const ref = { current: null as XTerminalRef | null }
+      render(<XTerminal ref={ref} />)
+
+      // Should not throw
+      expect(() => ref.current?.scrollToLine(100)).not.toThrow()
     })
   })
 
