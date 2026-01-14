@@ -566,5 +566,56 @@ export const agentRouter = router({
     .mutation(({ input }) => {
       ptyService.kill(input.processId)
       return { detached: true }
+    }),
+
+  // ===== TES-1.5: User Command Input =====
+
+  /**
+   * Send a command to a task's tmux session.
+   *
+   * Story TES-1.5 - AC: #1
+   *
+   * Sends user input to the task's terminal via `tmux send-keys`.
+   * The command is executed in the tmux session and the output
+   * appears in the attached xterm.js terminal.
+   *
+   * @param taskId - ID of the task to send command to
+   * @param command - The command string to send (trimmed, non-empty)
+   * @returns Success status
+   *
+   * @throws TRPCError NOT_FOUND if no terminal session exists for the task
+   * @throws TRPCError INTERNAL_SERVER_ERROR if tmux send-keys fails
+   */
+  sendTerminalCommand: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+        command: z.string().min(1)
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        await TaskTerminalService.sendCommand(input.taskId, input.command)
+
+        // TODO (TES-2.x): Log activity event
+        // await activityLogService.logActivity(input.taskId, 'user_command', { command: input.command })
+
+        return { success: true }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to send command'
+
+        // Check if it's a "no session" error
+        if (message.includes('No terminal session')) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message
+          })
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message
+        })
+      }
     })
 })

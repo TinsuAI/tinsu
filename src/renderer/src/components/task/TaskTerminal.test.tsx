@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { TaskTerminal } from './TaskTerminal'
+import { TaskTerminal, type TaskTerminalRef } from './TaskTerminal'
+import { createRef } from 'react'
 
 // Mock useTaskTerminal hook
 const mockUseTaskTerminal = vi.fn()
@@ -14,6 +15,15 @@ vi.mock('@renderer/components/terminal/XTerminal', () => ({
   XTerminal: vi.fn(({ onData, onResize }) => (
     <div data-testid="xterminal" data-ondata={!!onData} data-onresize={!!onResize}>
       Mock XTerminal
+    </div>
+  ))
+}))
+
+// Mock TerminalInput component
+vi.mock('./TerminalInput', () => ({
+  TerminalInput: vi.fn(({ taskId }) => (
+    <div data-testid="terminal-input" data-taskid={taskId}>
+      Mock TerminalInput
     </div>
   ))
 }))
@@ -128,6 +138,99 @@ describe('TaskTerminal', () => {
           taskId: 'task-abc-123'
         })
       )
+    })
+  })
+
+  // ===== TES-1.5: User Command Input Integration =====
+
+  describe('TerminalInput integration (TES-1.5)', () => {
+    it('renders TerminalInput when attached', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-123" />)
+
+      expect(screen.getByTestId('terminal-input')).toBeInTheDocument()
+    })
+
+    it('passes taskId to TerminalInput', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-xyz-789" />)
+
+      const terminalInput = screen.getByTestId('terminal-input')
+      expect(terminalInput.getAttribute('data-taskid')).toBe('task-xyz-789')
+    })
+
+    it('does not render TerminalInput when loading', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: true,
+        error: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-123" />)
+
+      expect(screen.queryByTestId('terminal-input')).not.toBeInTheDocument()
+    })
+
+    it('does not render TerminalInput when not attached', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-123" />)
+
+      expect(screen.queryByTestId('terminal-input')).not.toBeInTheDocument()
+    })
+
+    it('does not render TerminalInput on error', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: false,
+        isLoading: false,
+        error: 'Connection failed',
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      render(<TaskTerminal taskId="task-123" />)
+
+      expect(screen.queryByTestId('terminal-input')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('ref forwarding (TES-1.5 - AC: #3)', () => {
+    it('exposes focusInput method via ref', () => {
+      mockUseTaskTerminal.mockReturnValue({
+        isAttached: true,
+        isLoading: false,
+        error: null,
+        write: vi.fn(),
+        resize: vi.fn()
+      })
+
+      const ref = createRef<TaskTerminalRef>()
+      render(<TaskTerminal taskId="task-123" ref={ref} />)
+
+      expect(ref.current).not.toBeNull()
+      expect(typeof ref.current?.focusInput).toBe('function')
     })
   })
 })

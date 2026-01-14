@@ -16,13 +16,24 @@ vi.mock('@renderer/lib/trpc', () => ({
   }
 }))
 
-// Mock TaskTerminal component
+// Mock TaskTerminal component with ref support for TES-1.5
+const mockFocusInput = vi.fn()
 vi.mock('@renderer/components/task/TaskTerminal', () => ({
-  TaskTerminal: vi.fn(({ taskId }: { taskId: string }) => (
-    <div data-testid="task-terminal" data-task-id={taskId}>
-      Mock TaskTerminal
-    </div>
-  ))
+  TaskTerminal: vi.fn(
+    ({ taskId, ref }: { taskId: string; ref?: React.Ref<{ focusInput: () => void }> }) => {
+      // Support ref forwarding for focus tests
+      if (ref && typeof ref === 'object' && ref !== null) {
+        ;(ref as React.MutableRefObject<{ focusInput: () => void }>).current = {
+          focusInput: mockFocusInput
+        }
+      }
+      return (
+        <div data-testid="task-terminal" data-task-id={taskId}>
+          Mock TaskTerminal
+        </div>
+      )
+    }
+  )
 }))
 
 // Mock story task data for testing
@@ -70,18 +81,14 @@ describe('StoryDetailDialog', () => {
   })
 
   it('renders story title in dialog header', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('1.1: Initialize Project')).toBeInTheDocument()
   })
 
   it('displays story number', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByText('Story #1')).toBeInTheDocument()
   })
@@ -102,17 +109,13 @@ describe('StoryDetailDialog', () => {
   })
 
   it('does not display epic badge when epicName is not provided', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.queryByTestId('epic-badge')).not.toBeInTheDocument()
   })
 
   it('displays full description with user story and acceptance criteria', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByText(/As a developer/)).toBeInTheDocument()
     expect(screen.getByText(/Acceptance Criteria/)).toBeInTheDocument()
@@ -120,17 +123,13 @@ describe('StoryDetailDialog', () => {
 
   it('shows placeholder when description is empty', () => {
     const taskWithoutDescription = { ...mockStoryTask, description: null }
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskWithoutDescription} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskWithoutDescription} />)
 
     expect(screen.getByText('No description available.')).toBeInTheDocument()
   })
 
   it('displays task status', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByText('Status')).toBeInTheDocument()
     expect(screen.getByText('backlog')).toBeInTheDocument()
@@ -138,9 +137,7 @@ describe('StoryDetailDialog', () => {
 
   it('formats status with underscores replaced by spaces', () => {
     const taskInProgress = { ...mockStoryTask, status: 'in_progress' as const }
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskInProgress} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskInProgress} />)
 
     expect(screen.getByText('in progress')).toBeInTheDocument()
   })
@@ -149,9 +146,7 @@ describe('StoryDetailDialog', () => {
     const onOpenChange = vi.fn()
     const user = userEvent.setup()
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={onOpenChange} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={onOpenChange} task={mockStoryTask} />)
 
     // Click the close button (X)
     const closeButton = screen.getByRole('button', { name: /close/i })
@@ -161,9 +156,7 @@ describe('StoryDetailDialog', () => {
   })
 
   it('does not render when open is false', () => {
-    render(
-      <StoryDetailDialog open={false} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={false} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -189,9 +182,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.queryByRole('button', { name: /content/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /terminal/i })).not.toBeInTheDocument()
@@ -203,9 +194,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByRole('button', { name: /content/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /terminal/i })).toBeInTheDocument()
@@ -217,9 +206,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     // Content tab should be active (has different styling)
     const contentTab = screen.getByRole('button', { name: /content/i })
@@ -240,9 +227,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     // Click terminal tab
     await user.click(screen.getByRole('button', { name: /terminal/i }))
@@ -262,9 +247,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     // Switch to terminal tab
     await user.click(screen.getByRole('button', { name: /terminal/i }))
@@ -282,9 +265,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     // Switch to terminal tab
     await user.click(screen.getByRole('button', { name: /terminal/i }))
@@ -306,9 +287,7 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
       isLoading: false
     } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
 
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskInReview} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskInReview} />)
 
     // Verify query was called (enabled)
     expect(trpc.agent.getTaskSession.useQuery).toHaveBeenCalledWith(
@@ -323,19 +302,96 @@ describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
 
 describe('StoryDetailDialog accessibility', () => {
   it('has proper dialog role', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('has accessible title', () => {
-    render(
-      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
-    )
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
 
     // The dialog title should be accessible
     expect(screen.getByRole('heading', { name: '1.1: Initialize Project' })).toBeInTheDocument()
+  })
+})
+
+// ===== TES-1.5: "/" Keyboard Shortcut Tests =====
+
+describe('StoryDetailDialog "/" keyboard shortcut (TES-1.5 - AC: #3)', () => {
+  const mockSessionData = {
+    id: 'session-1',
+    task_id: 'story-1',
+    tmux_session: 'tinsu-test-story-1',
+    session_id: null,
+    current_phase: null,
+    created_at: new Date()
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+  })
+
+  it('focuses terminal input when "/" is pressed on terminal tab', async () => {
+    const user = userEvent.setup()
+
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
+
+    // Switch to terminal tab
+    await user.click(screen.getByRole('button', { name: /terminal/i }))
+    expect(screen.getByTestId('task-terminal')).toBeInTheDocument()
+
+    // Press "/" key
+    await user.keyboard('/')
+
+    // focusInput should have been called
+    expect(mockFocusInput).toHaveBeenCalled()
+  })
+
+  it('does not focus input when "/" is pressed on content tab', async () => {
+    const user = userEvent.setup()
+
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
+
+    // Stay on content tab (default)
+    expect(screen.getByText(/As a developer/)).toBeInTheDocument()
+
+    // Press "/" key
+    await user.keyboard('/')
+
+    // focusInput should NOT have been called
+    expect(mockFocusInput).not.toHaveBeenCalled()
+  })
+
+  it('does not focus input when dialog is closed', async () => {
+    const user = userEvent.setup()
+
+    render(<StoryDetailDialog open={false} onOpenChange={vi.fn()} task={mockStoryTask} />)
+
+    // Press "/" key
+    await user.keyboard('/')
+
+    // focusInput should NOT have been called
+    expect(mockFocusInput).not.toHaveBeenCalled()
+  })
+
+  it('does not focus input when no session exists', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: null,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(<StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />)
+
+    // Press "/" key
+    await user.keyboard('/')
+
+    // focusInput should NOT have been called
+    expect(mockFocusInput).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
   DialogTitle
 } from '@renderer/components/ui/dialog'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
-import { TaskTerminal } from '@renderer/components/task/TaskTerminal'
+import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
 import { trpc } from '@renderer/lib/trpc'
 import { cn } from '@renderer/lib/utils'
 import type { StoryTask } from '@shared/types/task.types'
@@ -29,6 +29,7 @@ interface StoryDetailDialogProps {
  * Dialog for viewing full story details including user story and acceptance criteria.
  *
  * Story 3.7: Story Import After Epics Phase (AC: 4)
+ * TES-1.5: Includes "/" keyboard shortcut to focus terminal input
  */
 export function StoryDetailDialog({
   open,
@@ -36,9 +37,12 @@ export function StoryDetailDialog({
   task,
   epicName,
   epicColor = 'blue'
-}: StoryDetailDialogProps) {
+}: StoryDetailDialogProps): React.ReactNode {
   // TES-1.4: Tab state for switching between content and terminal
   const [activeTab, setActiveTab] = useState<'content' | 'terminal'>('content')
+
+  // TES-1.5: Ref for TaskTerminal to enable focus control
+  const terminalRef = useRef<TaskTerminalRef>(null)
 
   // TES-1.4: Check if task has an active terminal session
   // Query for any task with an id - sessions may persist after task status changes
@@ -48,6 +52,28 @@ export function StoryDetailDialog({
   )
 
   const hasActiveSession = !!taskSession
+
+  // TES-1.5: "/" keyboard shortcut to focus terminal input (AC: #3)
+  useEffect(() => {
+    if (!open || activeTab !== 'terminal' || !hasActiveSession) return
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // "/" key without modifiers
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Don't trigger if already typing in an input field
+        const activeElement = document.activeElement
+        if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+          return
+        }
+
+        e.preventDefault()
+        terminalRef.current?.focusInput()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, activeTab, hasActiveSession])
 
   if (!task) return null
 
@@ -123,10 +149,10 @@ export function StoryDetailDialog({
           </div>
         )}
 
-        {/* TES-1.4: Terminal tab */}
+        {/* TES-1.4: Terminal tab, TES-1.5: Added ref for "/" shortcut */}
         {activeTab === 'terminal' && hasActiveSession && (
           <div className="h-[500px] pt-4">
-            <TaskTerminal taskId={task.id} />
+            <TaskTerminal ref={terminalRef} taskId={task.id} />
           </div>
         )}
       </DialogContent>

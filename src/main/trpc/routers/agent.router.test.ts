@@ -919,4 +919,68 @@ describe('agentRouter', () => {
       expect(ptyService.kill).toHaveBeenCalledWith('pty-process-123')
     })
   })
+
+  // ===== TES-1.5: User Command Input Tests =====
+
+  describe('sendTerminalCommand (TES-1.5 - AC: #1)', () => {
+    it('sends command via TaskTerminalService and returns success', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+
+      const result = await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: 'ls -la'
+      })
+
+      expect(result.success).toBe(true)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith('task-123', 'ls -la')
+    })
+
+    it('throws NOT_FOUND when no terminal session exists', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(
+        new Error('No terminal session for task task-456')
+      )
+
+      await expect(
+        caller.sendTerminalCommand({ taskId: 'task-456', command: 'pwd' })
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('No terminal session')
+      })
+    })
+
+    it('throws INTERNAL_SERVER_ERROR for other tmux errors', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(
+        new Error('tmux send-keys failed: permission denied')
+      )
+
+      await expect(
+        caller.sendTerminalCommand({ taskId: 'task-123', command: 'test' })
+      ).rejects.toMatchObject({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: expect.stringContaining('permission denied')
+      })
+    })
+
+    it('validates command is non-empty', async () => {
+      // Zod validation should reject empty command
+      await expect(
+        caller.sendTerminalCommand({ taskId: 'task-123', command: '' })
+      ).rejects.toThrow()
+    })
+
+    it('handles commands with special characters', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+
+      const result = await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: 'echo "hello world" && npm run test'
+      })
+
+      expect(result.success).toBe(true)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        'task-123',
+        'echo "hello world" && npm run test'
+      )
+    })
+  })
 })
