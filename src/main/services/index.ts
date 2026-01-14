@@ -29,3 +29,6 @@ export { TmuxService } from './tmux.service'
 
 // Per-task terminal session management (TES-1.3)
 export { TaskTerminalService } from './task-terminal.service'
+
+// Stall detection service (TES-1.11)
+export { StallDetectorService } from './stall-detector.service'

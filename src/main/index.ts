@@ -7,7 +7,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
-import { ptyService, TmuxService, TaskTerminalService } from './services'
+import { ptyService, TmuxService, TaskTerminalService, StallDetectorService } from './services'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -170,9 +170,6 @@ app.on('window-all-closed', () => {
 // This prevents zombie processes from lingering after the app closes
 app.on('before-quit', () => {
   // TES-1.11: Stop all session monitors and stall detection
-  const { TaskTerminalService } = require('./services/task-terminal.service')
-  const { StallDetectorService } = require('./services/stall-detector.service')
-
   console.log('[TES-1.11] Stopping session monitors and stall detection...')
   TaskTerminalService.stopAllSessionMonitors()
   StallDetectorService.clearAll()
