@@ -1,7 +1,9 @@
 import { forwardRef, useRef, useImperativeHandle } from 'react'
-import { useTaskTerminal } from '@renderer/hooks/useTaskTerminal'
+import { formatDistanceToNow } from 'date-fns'
+import { useTaskTerminal, type SessionState } from '@renderer/hooks/useTaskTerminal'
 import { XTerminal, type XTerminalRef } from '@renderer/components/terminal/XTerminal'
 import { TerminalInput } from './TerminalInput'
+import { Badge } from '@renderer/components/ui/badge'
 
 interface TaskTerminalProps {
   /** Task ID to show terminal for */
@@ -52,7 +54,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
     []
   )
 
-  const { isAttached, isLoading, isRestoringScrollback, error, write, resize } = useTaskTerminal({
+  const { isAttached, isLoading, isRestoringScrollback, error, sessionState, lastBackupTime, write, resize } = useTaskTerminal({
     taskId,
     terminalRef
   })
@@ -75,20 +77,59 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
     )
   }
 
-  // No active session state (AC: #3 from TES-1.4)
-  if (!isAttached) {
+  // No active session AND no restored content (AC: #3 from TES-1.4)
+  if (!isAttached && sessionState === 'none') {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">No active session</div>
     )
   }
 
-  // Attached state - show live terminal with input field
+  // TES-1.10: Determine if terminal should be interactive
+  const isInteractive = sessionState === 'live'
+
+  // TES-1.10: Render session state badge
+  const renderSessionBadge = () => {
+    if (sessionState === 'live') {
+      return (
+        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+          Live
+        </Badge>
+      )
+    }
+    if (sessionState === 'restored') {
+      return (
+        <Badge variant="secondary" className="bg-amber-600/20 text-amber-500 border-amber-600/30">
+          History restored
+          {lastBackupTime && (
+            <span className="ml-1 text-amber-400/70">
+              ({formatDistanceToNow(new Date(lastBackupTime))} ago)
+            </span>
+          )}
+        </Badge>
+      )
+    }
+    return null
+  }
+
+  // Attached state OR restored state - show terminal with appropriate header
   return (
     <div className="flex flex-col w-full h-full">
-      <div className="flex-1 min-h-0">
-        <XTerminal ref={terminalRef} onData={write} onResize={resize} />
+      {/* TES-1.10: Terminal header with session state indicator */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800 bg-zinc-900/50">
+        <span className="text-xs text-zinc-500">Terminal</span>
+        {renderSessionBadge()}
       </div>
-      <TerminalInput ref={inputRef} taskId={taskId} />
+      <div className="flex-1 min-h-0">
+        <XTerminal ref={terminalRef} onData={isInteractive ? write : undefined} onResize={resize} />
+      </div>
+      {/* TES-1.10: Only show input for live sessions */}
+      {isInteractive ? (
+        <TerminalInput ref={inputRef} taskId={taskId} />
+      ) : (
+        <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500">
+          Session inactive — Move task to In Progress to start a new session
+        </div>
+      )}
     </div>
   )
 })

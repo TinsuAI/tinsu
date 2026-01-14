@@ -7,7 +7,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
-import { ptyService, TmuxService } from './services'
+import { ptyService, TmuxService, TaskTerminalService } from './services'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -125,6 +125,15 @@ app.whenReady().then(async () => {
 
   // Initialize database on app ready
   initializeDatabase()
+
+  // TES-1.10: Validate stale sessions on startup
+  // Must run AFTER database is initialized, BEFORE tRPC handlers process requests
+  try {
+    await TaskTerminalService.validateSessionsOnStartup()
+  } catch (error) {
+    console.warn('[main] Session validation failed:', error)
+    // Don't block startup - continue with potentially stale records
+  }
 
   // Initialize tRPC IPC handler before window creation
   createIPCHandler({ router: appRouter, createContext })

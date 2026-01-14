@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { trpc } from '@renderer/lib/trpc'
 import type { XTerminalRef } from '@renderer/components/terminal/XTerminal'
 import { useTerminalStore } from '@renderer/stores/terminal.store'
@@ -10,6 +10,9 @@ interface UseTaskTerminalOptions {
   terminalRef: React.RefObject<XTerminalRef | null>
 }
 
+/** Session state for terminal display */
+export type SessionState = 'live' | 'restored' | 'none'
+
 interface UseTaskTerminalReturn {
   /** Whether terminal is successfully attached to tmux session */
   isAttached: boolean
@@ -19,6 +22,18 @@ interface UseTaskTerminalReturn {
   error: string | null
   /** Whether scrollback is being restored from backup */
   isRestoringScrollback: boolean
+  /**
+   * Session state for UI rendering (TES-1.10)
+   * - 'live': Actively connected to tmux session
+   * - 'restored': Viewing historical backup (no live session)
+   * - 'none': No session and no backup
+   */
+  sessionState: SessionState
+  /**
+   * Last backup timestamp for UI display (TES-1.10)
+   * Shows "Last active: X hours ago" in restored state
+   */
+  lastBackupTime: number | null
   /** Write data to terminal (user input) */
   write: (data: string) => void
   /** Resize terminal dimensions */
@@ -112,6 +127,9 @@ export function useTaskTerminal({
     }
   )
 
+  // Track if backup was successfully restored (TES-1.10)
+  const [hasRestoredBackup, setHasRestoredBackup] = useState(false)
+
   // Track processId for cleanup - need ref to avoid stale closure in cleanup
   const processIdForCleanupRef = useRef<string | null>(null)
 
@@ -155,6 +173,7 @@ export function useTaskTerminal({
                 // Add separator to indicate restored content
                 terminalRef.current.write('\r\n\x1b[90m--- Session Restored ---\x1b[0m\r\n')
                 backupRestoredRef.current = true
+                setHasRestoredBackup(true) // TES-1.10: Track successful restoration
               } catch {
                 console.warn('[useTaskTerminal] Failed to write restored scrollback')
               }
@@ -261,11 +280,25 @@ export function useTaskTerminal({
     [processId, resizeMutation]
   )
 
+  // TES-1.10: Compute session state for UI rendering
+  const sessionState: SessionState = useMemo(() => {
+    if (isAttached && processId) return 'live'
+    if (hasRestoredBackup) return 'restored'
+    return 'none'
+  }, [isAttached, processId, hasRestoredBackup])
+
+  // TES-1.10: Get last backup timestamp for UI display
+  const lastBackupTime = useMemo(() => {
+    return scrollbackQuery.data?.metadata?.lastBackup ?? null
+  }, [scrollbackQuery.data?.metadata?.lastBackup])
+
   return {
     isAttached,
     isLoading,
     error,
     isRestoringScrollback,
+    sessionState,
+    lastBackupTime,
     write,
     resize
   }

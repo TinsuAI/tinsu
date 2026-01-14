@@ -540,12 +540,13 @@ describe('useTaskTerminal', () => {
   describe('scrollback restoration from backup (TES-1.9)', () => {
     it('restores scrollback from backup when no in-memory cache exists', async () => {
       // No in-memory cache, but backup exists
+      // Note: lastBackup should be a number (Unix timestamp) to match the type definition
       mockScrollbackQueryData = {
         content: 'Restored scrollback content\nLine 2\nLine 3',
         metadata: {
           lines: 3,
           bytes: 100,
-          lastBackup: '2026-01-13T10:00:00Z',
+          lastBackup: Date.now() - 7200000, // 2 hours ago (number format)
           tmuxSession: 'tinsu-test'
         }
       }
@@ -688,6 +689,152 @@ describe('useTaskTerminal', () => {
       await waitFor(() => {
         expect(mockMutateAsync).toHaveBeenCalled()
       })
+    })
+  })
+
+  /**
+   * TES-1.10: Scrollback Survival After System Reboot
+   *
+   * Session state detection for proper UI rendering:
+   * - 'live': Actively connected to tmux session
+   * - 'restored': Viewing historical backup (no live session)
+   * - 'none': No session and no backup
+   */
+  describe('session state detection (TES-1.10)', () => {
+    it('returns sessionState "live" when attached to tmux session', async () => {
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-live'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-live',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isAttached).toBe(true)
+      })
+
+      expect(result.current.sessionState).toBe('live')
+    })
+
+    it('returns sessionState "restored" when backup exists but no live session', async () => {
+      // Backup exists
+      mockScrollbackQueryData = {
+        content: 'Historical scrollback content',
+        metadata: {
+          lines: 10,
+          bytes: 200,
+          lastBackup: Date.now(),
+          tmuxSession: 'tinsu-historical'
+        }
+      }
+
+      // No live session
+      mockMutateAsync.mockResolvedValue({
+        attached: false,
+        processId: null
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-historical',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      // Should be restored state (backup was written, no live session)
+      expect(result.current.sessionState).toBe('restored')
+    })
+
+    it('returns sessionState "none" when no backup and no live session', async () => {
+      // No backup
+      mockScrollbackQueryData = {
+        content: null,
+        metadata: null
+      }
+
+      // No live session
+      mockMutateAsync.mockResolvedValue({
+        attached: false,
+        processId: null
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-empty',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      expect(result.current.sessionState).toBe('none')
+    })
+
+    it('returns lastBackupTime from backup metadata', async () => {
+      const backupTime = Date.now() - 3600000 // 1 hour ago
+      mockScrollbackQueryData = {
+        content: 'Backup content',
+        metadata: {
+          lines: 5,
+          bytes: 50,
+          lastBackup: backupTime,
+          tmuxSession: 'tinsu-test'
+        }
+      }
+
+      mockMutateAsync.mockResolvedValue({
+        attached: false,
+        processId: null
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-timestamp',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      expect(result.current.lastBackupTime).toBe(backupTime)
+    })
+
+    it('returns null lastBackupTime when no backup metadata', async () => {
+      mockScrollbackQueryData = {
+        content: null,
+        metadata: null
+      }
+
+      mockMutateAsync.mockResolvedValue({
+        attached: true,
+        processId: 'pty-no-metadata'
+      })
+
+      const { result } = renderHook(() =>
+        useTaskTerminal({
+          taskId: 'task-no-metadata',
+          terminalRef: mockTerminalRef
+        })
+      )
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      expect(result.current.lastBackupTime).toBeNull()
     })
   })
 })

@@ -82,7 +82,18 @@ export class TaskTerminalService {
         return existingSession
       }
       // Session record exists but tmux session is gone - recreate tmux session
+      // This happens after system reboot when old session is marked as 'ended' (TES-1.10)
       await this.createTmuxSession(existingSession)
+
+      // TES-1.10: Reset session state since we're starting fresh
+      // Clear session_id and current_phase to indicate new active session
+      await db.update(task_sessions)
+        .set({
+          session_id: null,
+          current_phase: null  // Reset from 'ended' to active (null = active)
+        })
+        .where(eq(task_sessions.task_id, taskId))
+
       return existingSession
     }
 
@@ -202,6 +213,88 @@ export class TaskTerminalService {
    */
   static clearCache(): void {
     this.sessionCache.clear()
+  }
+
+  /**
+   * Validates all task sessions on app startup.
+   * Detects and handles stale sessions (DB record exists but tmux gone after reboot).
+   *
+   * Call this AFTER db connection established, BEFORE handling tRPC requests.
+   *
+   * For each task_sessions record:
+   * - Check if tmux session actually exists via `tmux has-session -t {name}`
+   * - If tmux session missing, mark record as historical (current_phase='ended')
+   * - Clear session_id since Claude Code session is also gone after reboot
+   * - Clear session cache to prevent stale reads
+   *
+   * @see TES-1.10: Scrollback Survival After System Reboot
+   */
+  static async validateSessionsOnStartup(): Promise<void> {
+    try {
+      const sessions = await db.query.task_sessions.findMany()
+      console.log(`[TaskTerminalService] Validating ${sessions.length} session(s) on startup...`)
+
+      // Filter to only active sessions (skip already ended ones)
+      const activeSessions = sessions.filter(s => s.current_phase !== 'ended')
+
+      if (activeSessions.length === 0) {
+        console.log(`[TaskTerminalService] Startup validation complete: 0 valid, 0 stale (marked as ended)`)
+        return
+      }
+
+      // TES-1.10 Performance: Parallelize tmux session checks
+      // With 50+ sessions, sequential checks could exceed <5s NFR target
+      const validationResults = await Promise.allSettled(
+        activeSessions.map(async (session) => {
+          const tmuxExists = await this.tmuxSessionExists(session.tmux_session)
+          return { session, tmuxExists }
+        })
+      )
+
+      let staleCount = 0
+      let validCount = 0
+
+      // Process results and update stale sessions
+      for (const result of validationResults) {
+        if (result.status === 'rejected') {
+          // Treat check failures as stale (conservative approach)
+          continue
+        }
+
+        const { session, tmuxExists } = result.value
+
+        if (!tmuxExists) {
+          // Stale session detected - tmux gone after reboot
+          console.log(
+            `[TaskTerminalService] Stale session detected for task ${session.task_id}, ` +
+            `tmux session ${session.tmux_session} no longer exists`
+          )
+
+          // Clear session state but keep record for history tracking
+          await db.update(task_sessions)
+            .set({
+              session_id: null,
+              current_phase: 'ended'  // Mark as historical
+            })
+            .where(eq(task_sessions.task_id, session.task_id))
+
+          // Clear cache for this task
+          this.sessionCache.delete(session.task_id)
+
+          staleCount++
+        } else {
+          validCount++
+        }
+      }
+
+      console.log(
+        `[TaskTerminalService] Startup validation complete: ` +
+        `${validCount} valid, ${staleCount} stale (marked as ended)`
+      )
+    } catch (error) {
+      console.warn('[TaskTerminalService] Startup validation error:', error)
+      // Don't throw - startup should continue even if validation fails
+    }
   }
 
   /**
