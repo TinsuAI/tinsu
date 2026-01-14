@@ -215,8 +215,9 @@ export class StoryImportService {
           )
           .get()
 
-        // Generate story key for status lookup (uses string storyNumber for "2b", "1.5" etc)
-        const storyKey = this.generateStoryKey(story.epicNumber, story.storyNumber, story.title)
+        // Use explicit taskId if present (for prefixed keys like "tes-1-1-..."),
+        // otherwise generate key from epic/story/title
+        const storyKey = story.taskId ?? this.generateStoryKey(story.epicNumber, story.storyNumber, story.title)
         const sprintStatus = statusMap?.get(storyKey)
         const kanbanStatus = this.mapSprintStatusToKanban(sprintStatus)
 
@@ -233,16 +234,21 @@ export class StoryImportService {
         if (existingStory) {
           // Update existing story (preserving status and other user-modified fields)
           // Story 5.2c: Update story_file_status based on whether detailed story file exists
+          const updateData: Record<string, unknown> = {
+            title,
+            description,
+            story_file_path: storyFilePath,
+            full_content: fullContent,
+            story_file_status: storyFileStatus,
+            updated_at: now
+            // Note: status is intentionally NOT updated to preserve user progress
+          }
+          // Update sprint_id if provided (allows re-importing to a different sprint)
+          if (sprintId) {
+            updateData.sprint_id = sprintId
+          }
           db.update(schema.tasks)
-            .set({
-              title,
-              description,
-              story_file_path: storyFilePath,
-              full_content: fullContent,
-              story_file_status: storyFileStatus,
-              updated_at: now
-              // Note: status is intentionally NOT updated to preserve user progress
-            })
+            .set(updateData)
             .where(eq(schema.tasks.id, existingStory.id))
             .run()
           storyIds.push(existingStory.id)

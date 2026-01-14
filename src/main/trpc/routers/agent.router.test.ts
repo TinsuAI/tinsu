@@ -4,6 +4,7 @@ import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.ser
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
+import { TaskSessionService } from '../../services/task-session.service'
 import { ptyService } from '../../services/pty.service'
 import { devAgentProgressService, DevAgentProgressInfo } from '../../services/dev-agent-progress.service'
 import Database from 'better-sqlite3'
@@ -60,6 +61,18 @@ vi.mock('../../services/task-terminal.service', () => ({
   }
 }))
 
+// Mock TaskSessionService for TES-1.7
+vi.mock('../../services/task-session.service', () => ({
+  TaskSessionService: {
+    updateSessionId: vi.fn(),
+    getTaskBySessionId: vi.fn(),
+    routeHookEvent: vi.fn(),
+    clearSession: vi.fn(),
+    clearCache: vi.fn(),
+    getCacheSize: vi.fn()
+  }
+}))
+
 // Mock ptyService for TES-1.4
 vi.mock('../../services/pty.service', () => ({
   ptyService: {
@@ -92,7 +105,7 @@ function createTestDb(): TestDb {
     );
   `)
 
-  // Create the epics table
+  // Create the epics table (must match schema.ts including sprint_id)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS epics (
       id TEXT PRIMARY KEY NOT NULL,
@@ -101,6 +114,7 @@ function createTestDb(): TestDb {
       color TEXT NOT NULL DEFAULT 'blue',
       epic_number INTEGER,
       goal TEXT,
+      sprint_id TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -355,7 +369,7 @@ describe('agentRouter', () => {
     it('throws PRECONDITION_FAILED when CLI not installed', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(false)
       const epic = createEpic({ epic_number: 5 })
-      const task = createStoryTask({ story_number: 3, epic_id: epic.id })
+      const task = createStoryTask({ story_number: '3', epic_id: epic.id })
 
       await expect(caller.startCreateStory({ taskId: task.id })).rejects.toMatchObject({
         code: 'PRECONDITION_FAILED',
@@ -402,7 +416,7 @@ describe('agentRouter', () => {
       })
 
       const epic = createEpic({ epic_number: 5 })
-      const task = createStoryTask({ story_number: 3, epic_id: epic.id })
+      const task = createStoryTask({ story_number: '3', epic_id: epic.id })
 
       const result = await caller.startCreateStory({ taskId: task.id })
 
@@ -424,7 +438,7 @@ describe('agentRouter', () => {
         args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story', '7']
       })
 
-      const task = createStoryTask({ story_number: 7, epic_id: null })
+      const task = createStoryTask({ story_number: '7', epic_id: null })
 
       const result = await caller.startCreateStory({ taskId: task.id })
 
@@ -443,7 +457,7 @@ describe('agentRouter', () => {
     it('throws PRECONDITION_FAILED when CLI not installed', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(false)
       const task = createStoryTask({
-        story_number: 3,
+        story_number: '3',
         story_file_status: 'story_ready',
         story_file_path: mockStoryFilePath
       })
@@ -476,7 +490,7 @@ describe('agentRouter', () => {
     it('throws BAD_REQUEST when story file is not ready', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
       const task = createStoryTask({
-        story_number: 3,
+        story_number: '3',
         story_file_status: 'summary_only'
       })
 
@@ -489,7 +503,7 @@ describe('agentRouter', () => {
     it('throws BAD_REQUEST when story file path is missing', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
       const task = createStoryTask({
-        story_number: 3,
+        story_number: '3',
         story_file_status: 'story_ready',
         story_file_path: null
       })
@@ -510,7 +524,7 @@ describe('agentRouter', () => {
       })
 
       const task = createStoryTask({
-        story_number: 3,
+        story_number: '3',
         story_file_status: 'story_ready',
         story_file_path: mockStoryFilePath
       })
@@ -981,6 +995,102 @@ describe('agentRouter', () => {
         'task-123',
         'echo "hello world" && npm run test'
       )
+    })
+  })
+
+  // ===== TES-1.7: Session-Task Mapping & Event Routing Tests =====
+
+  describe('registerSessionId (TES-1.7 - AC: #3)', () => {
+    // Helper to create a task session record for testing
+    const createTaskSessionForTest = (taskId: string, tmuxSession: string) => {
+      const id = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      return db
+        .insert(schema.task_sessions)
+        .values({
+          id,
+          task_id: taskId,
+          tmux_session: tmuxSession,
+          session_id: null,
+          current_phase: null,
+          created_at: new Date()
+        })
+        .returning()
+        .get()
+    }
+
+    it('calls TaskSessionService.updateSessionId with correct arguments', async () => {
+      vi.mocked(TaskSessionService.updateSessionId).mockResolvedValue()
+
+      // Create a task and its session first
+      const task = createStoryTask()
+      createTaskSessionForTest(task.id, `tinsu-test-${task.id}`)
+
+      const result = await caller.registerSessionId({
+        taskId: task.id,
+        sessionId: 'claude-session-abc-def'
+      })
+
+      expect(result.success).toBe(true)
+      expect(TaskSessionService.updateSessionId).toHaveBeenCalledWith(
+        task.id,
+        'claude-session-abc-def'
+      )
+    })
+
+    it('returns success true when update succeeds', async () => {
+      vi.mocked(TaskSessionService.updateSessionId).mockResolvedValue()
+
+      // Create a task and its session first
+      const task = createStoryTask()
+      createTaskSessionForTest(task.id, `tinsu-test-${task.id}`)
+
+      const result = await caller.registerSessionId({
+        taskId: task.id,
+        sessionId: 'claude-session-xyz'
+      })
+
+      expect(result).toEqual({ success: true })
+    })
+
+    it('throws NOT_FOUND when no task_sessions record exists', async () => {
+      // Don't create a task_session record - should fail validation
+      await expect(
+        caller.registerSessionId({
+          taskId: 'non-existent-task',
+          sessionId: 'claude-session-123'
+        })
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('No task session found')
+      })
+
+      // TaskSessionService should NOT be called
+      expect(TaskSessionService.updateSessionId).not.toHaveBeenCalled()
+    })
+
+    it('handles various sessionId formats', async () => {
+      vi.mocked(TaskSessionService.updateSessionId).mockResolvedValue()
+
+      // Create tasks with sessions
+      const task1 = createStoryTask()
+      createTaskSessionForTest(task1.id, `tinsu-test-${task1.id}`)
+
+      const task2 = createStoryTask()
+      createTaskSessionForTest(task2.id, `tinsu-test-${task2.id}`)
+
+      // Test with UUID-like session ID
+      const result1 = await caller.registerSessionId({
+        taskId: task1.id,
+        sessionId: '550e8400-e29b-41d4-a716-446655440000'
+      })
+      expect(result1.success).toBe(true)
+
+      // Test with simple alphanumeric
+      const result2 = await caller.registerSessionId({
+        taskId: task2.id,
+        sessionId: 'session123'
+      })
+      expect(result2.success).toBe(true)
     })
   })
 })

@@ -12,6 +12,7 @@ import {
   type DevAgentProgressInfo
 } from '../../services/dev-agent-progress.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
+import { TaskSessionService } from '../../services/task-session.service'
 import { ptyService } from '../../services/pty.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
 
@@ -617,5 +618,56 @@ export const agentRouter = router({
           message
         })
       }
+    }),
+
+  // ===== TES-1.7: Session-Task Mapping & Event Routing =====
+
+  /**
+   * Register a Claude Code session ID with a task.
+   *
+   * Story TES-1.7 - AC: #3
+   *
+   * Called when the first hook fires and session_id becomes known.
+   * Updates task_sessions table and in-memory cache for fast lookups.
+   *
+   * @param taskId - ID of the task to register session for
+   * @param sessionId - The Claude Code session ID from hook payload
+   * @returns Success status
+   *
+   * @throws NOT_FOUND - If no task_sessions record exists for the taskId
+   *
+   * @example
+   * ```typescript
+   * // Called from hook handler when first event received
+   * await trpc.agent.registerSessionId.mutate({
+   *   taskId: 'task-123',
+   *   sessionId: 'claude-abc-def'
+   * })
+   * ```
+   */
+  registerSessionId: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+        sessionId: z.string()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify task_sessions record exists before updating
+      const existingSession = ctx.db
+        .select()
+        .from(task_sessions)
+        .where(eq(task_sessions.task_id, input.taskId))
+        .get()
+
+      if (!existingSession) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `No task session found for task ${input.taskId}. Task must have an active terminal session.`
+        })
+      }
+
+      await TaskSessionService.updateSessionId(input.taskId, input.sessionId)
+      return { success: true }
     })
 })

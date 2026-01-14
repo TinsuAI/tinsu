@@ -413,5 +413,93 @@ So that tenth.
         cleanup(filePath)
       }
     })
+
+    it('extracts Task ID from story content', async () => {
+      const content = `## Epic 1: Per-Task Terminal Sessions
+
+**Goal:** Users can view a dedicated terminal for each task.
+
+### Story 1.1: tmux Dependency Check & Installation Prompt
+**Task ID:** \`tes-1-1-tmux-dependency-check-and-installation-prompt\`
+
+As a user,
+I want TinSu to check for tmux on startup,
+So that I can use terminal features without errors.
+
+**Acceptance Criteria:**
+
+**Given** TinSu is starting up
+**When** the app initializes
+**Then** it checks if tmux is installed
+`
+      const filePath = createTempFile(content)
+
+      try {
+        const result = await EpicsParserService.parseEpicsFile(filePath)
+
+        expect(result).toHaveLength(1)
+        expect(result[0].stories).toHaveLength(1)
+        expect(result[0].stories[0].taskId).toBe('tes-1-1-tmux-dependency-check-and-installation-prompt')
+      } finally {
+        cleanup(filePath)
+      }
+    })
+
+    it('returns undefined taskId when not present', async () => {
+      const content = `## Epic 1: Foundation
+
+**Goal:** Set up base.
+
+### Story 1.1: Initialize
+
+As a developer,
+I want to initialize,
+So that it works.
+
+**Acceptance Criteria:**
+
+**Given** start
+**When** I do
+**Then** done
+`
+      const filePath = createTempFile(content)
+
+      try {
+        const result = await EpicsParserService.parseEpicsFile(filePath)
+
+        expect(result[0].stories[0].taskId).toBeUndefined()
+      } finally {
+        cleanup(filePath)
+      }
+    })
+
+    it('extracts Task ID without backticks', async () => {
+      const content = `## Epic 1: Foundation
+
+**Goal:** Set up base.
+
+### Story 1.1: Initialize
+**Task ID:** my-custom-task-id
+
+As a developer,
+I want to initialize,
+So that it works.
+
+**Acceptance Criteria:**
+
+**Given** start
+**When** I do
+**Then** done
+`
+      const filePath = createTempFile(content)
+
+      try {
+        const result = await EpicsParserService.parseEpicsFile(filePath)
+
+        expect(result[0].stories[0].taskId).toBe('my-custom-task-id')
+      } finally {
+        cleanup(filePath)
+      }
+    })
   })
 })

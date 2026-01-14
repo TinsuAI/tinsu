@@ -25,6 +25,11 @@ export interface ParsedStory {
   userStory: UserStory
   /** Full acceptance criteria text for storage */
   acceptanceCriteria: string
+  /**
+   * Explicit Task ID from **Task ID:** field in story content.
+   * Used for sprint-status.yaml lookup when stories have custom prefixes (e.g., "tes-1-1-...")
+   */
+  taskId?: string
 }
 
 /**
@@ -154,6 +159,9 @@ export class EpicsParserService {
       const endIndex = storyMatches[i + 1]?.index ?? epicContent.length
       const storyContent = epicContent.slice(startIndex, endIndex)
 
+      // Extract Task ID if present (e.g., **Task ID:** `tes-1-1-...`)
+      const taskId = this.extractTaskId(storyContent)
+
       // Extract user story
       const userStory = this.extractUserStory(storyContent)
 
@@ -166,7 +174,8 @@ export class EpicsParserService {
         storyNumberInt,
         title,
         userStory,
-        acceptanceCriteria
+        acceptanceCriteria,
+        taskId
       })
     }
 
@@ -222,5 +231,23 @@ export class EpicsParserService {
     }
 
     return ''
+  }
+
+  /**
+   * Extracts explicit Task ID from story content.
+   * Looks for pattern: **Task ID:** `task-id-here`
+   *
+   * @param storyContent - Story section content
+   * @returns Task ID string if found, undefined otherwise
+   */
+  private static extractTaskId(storyContent: string): string | undefined {
+    // Match: **Task ID:** `some-task-id` or **Task ID:** some-task-id
+    const taskIdMatch = storyContent.match(/\*\*Task\s+ID:\*\*\s*`?([a-z0-9-]+)`?/i)
+
+    if (taskIdMatch) {
+      return taskIdMatch[1].trim()
+    }
+
+    return undefined
   }
 }

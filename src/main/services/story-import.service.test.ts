@@ -43,6 +43,7 @@ function createTestDb(): TestDb {
       epic_number INTEGER,
       goal TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      sprint_id TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_epics_project_id ON epics(project_id);
@@ -71,7 +72,8 @@ function createTestDb(): TestDb {
       story_file_status TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      context_notes TEXT
     );
   `)
 
@@ -474,6 +476,42 @@ describe('StoryImportService', () => {
       const updatedTask = db.select().from(schema.tasks).get()
       expect(updatedTask?.status).toBe('in_progress')
       expect(updatedTask?.title).toBe('1.1: Updated Story')
+    })
+
+    it('updates sprint_id when re-importing with a different sprint', async () => {
+      const SPRINT_1_ID = 'sprint-1'
+      const SPRINT_2_ID = 'sprint-2'
+
+      const parsedEpics: ParsedEpic[] = [
+        {
+          epicNumber: 1,
+          title: 'Epic',
+          goal: 'Goal',
+          stories: [
+            { epicNumber: 1, storyNumber: "1", storyNumberInt: 1, title: 'Story 1', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' },
+            { epicNumber: 1, storyNumber: "2", storyNumberInt: 2, title: 'Story 2', userStory: { role: 'u', action: 'a', benefit: 'b' }, acceptanceCriteria: '' }
+          ]
+        }
+      ]
+
+      // First import to sprint 1
+      await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, undefined, SPRINT_1_ID)
+
+      let tasks = db.select().from(schema.tasks).all()
+      expect(tasks).toHaveLength(2)
+      expect(tasks[0].sprint_id).toBe(SPRINT_1_ID)
+      expect(tasks[1].sprint_id).toBe(SPRINT_1_ID)
+
+      // Re-import to sprint 2 - should update sprint_id
+      const result = await StoryImportService.importFromParsedEpics(db, TEST_PROJECT_ID, parsedEpics, undefined, undefined, SPRINT_2_ID)
+
+      expect(result.storiesUpdated).toBe(2)
+      expect(result.storiesCreated).toBe(0)
+
+      tasks = db.select().from(schema.tasks).all()
+      expect(tasks).toHaveLength(2)
+      expect(tasks[0].sprint_id).toBe(SPRINT_2_ID)
+      expect(tasks[1].sprint_id).toBe(SPRINT_2_ID)
     })
 
     it('creates new stories while updating existing ones', async () => {
