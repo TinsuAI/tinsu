@@ -1,6 +1,6 @@
 # Story TES-1.8: Scrollback Backup Service
 
-Status: in-progress
+Status: done
 
 ---
 

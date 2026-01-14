@@ -1,7 +1,39 @@
 import { z } from 'zod'
+import path from 'path'
+import { eq } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { StoryImportService } from '../../services/story-import.service'
 import { existsSync } from 'fs'
+import { sprints } from '../../db/schema'
+
+/**
+ * Extracts a story prefix from an epics file name.
+ * - "epics.md" -> null (no prefix)
+ * - "epics-task-execution-sandbox.md" -> "tes"
+ * - "epics-feature-name.md" -> "fn"
+ *
+ * The prefix is derived by taking the first letter of each word after "epics-".
+ */
+function extractPrefixFromEpicsFileName(epicsFilePath: string): string | null {
+  const fileName = path.basename(epicsFilePath, '.md')
+
+  // Base case: just "epics" -> no prefix
+  if (fileName === 'epics') {
+    return null
+  }
+
+  // Pattern: "epics-{words...}" -> extract words and create abbreviation
+  if (fileName.startsWith('epics-')) {
+    const suffix = fileName.slice('epics-'.length)
+    const words = suffix.split('-')
+    // Take first letter of each word to create prefix
+    const prefix = words.map(w => w[0]).join('')
+    return prefix.toLowerCase()
+  }
+
+  // Unknown pattern - no prefix
+  return null
+}
 
 /**
  * tRPC router for story import operations.
@@ -62,6 +94,21 @@ export const importRouter = router({
           input.statusFilePath,
           input.sprintId
         )
+
+        // Update the sprint with the story prefix and epics file path if a sprint was specified
+        // This enables the sync feature to filter stories by prefix for this sprint
+        if (input.sprintId) {
+          const storyPrefix = extractPrefixFromEpicsFileName(input.epicsFilePath)
+          ctx.db
+            .update(sprints)
+            .set({
+              story_prefix: storyPrefix,
+              epics_file_path: input.epicsFilePath
+            })
+            .where(eq(sprints.id, input.sprintId))
+            .run()
+          console.log(`[Import] Updated sprint ${input.sprintId} with story_prefix="${storyPrefix ?? '(none)'}" and epics_file_path="${input.epicsFilePath}"`)
+        }
 
         return result
       } catch (error) {

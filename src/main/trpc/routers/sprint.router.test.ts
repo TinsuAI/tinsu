@@ -38,6 +38,8 @@ function createTestDb(): TestDb {
       velocity INTEGER,
       capacity INTEGER,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      story_prefix TEXT,
+      epics_file_path TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id);

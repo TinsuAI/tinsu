@@ -99,6 +99,10 @@ export const sprints = sqliteTable(
     capacity: integer('capacity'), // Team capacity
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    // Sync fix: Track story prefix for multi-epics-file support (e.g., "tes" for task-execution-sandbox stories)
+    story_prefix: text('story_prefix'), // Optional prefix for story file matching (e.g., "tes")
+    // Sync fix: Track source epics file path for debugging/reference
+    epics_file_path: text('epics_file_path'), // Path to the epics.md file this sprint was imported from
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`)

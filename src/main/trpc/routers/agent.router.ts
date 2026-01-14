@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { observable } from '@trpc/server/observable'
-import { tasks, epics, task_sessions } from '../../db/schema'
+import { tasks, epics, task_sessions, sprints } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
@@ -187,18 +187,30 @@ export const agentRouter = router({
         })
       }
 
-      // Get epic to form story identifier (e.g., "5.3")
+      // Get sprint's story_prefix for prefixed story identifiers (e.g., "tes-1.1")
+      let storyPrefix: string | null = null
+      if (typedTask.sprint_id) {
+        const sprint = ctx.db.select().from(sprints).where(eq(sprints.id, typedTask.sprint_id)).get()
+        if (sprint && sprint.story_prefix) {
+          storyPrefix = sprint.story_prefix
+        }
+      }
+
+      // Get epic to form story identifier (e.g., "5.3" or "tes-1.1")
       let storyIdentifier = ''
       if (typedTask.epic_id && typedTask.story_number !== null) {
         const epic = ctx.db.select().from(epics).where(eq(epics.id, typedTask.epic_id)).get()
         if (epic && epic.epic_number !== null) {
-          storyIdentifier = `${epic.epic_number}.${typedTask.story_number}`
+          // Include prefix if available (e.g., "tes-1.1" vs "5.3")
+          const baseIdentifier = `${epic.epic_number}.${typedTask.story_number}`
+          storyIdentifier = storyPrefix ? `${storyPrefix}-${baseIdentifier}` : baseIdentifier
         }
       }
 
       // Fallback to story number only if no epic
       if (!storyIdentifier && typedTask.story_number !== null) {
-        storyIdentifier = String(typedTask.story_number)
+        const baseIdentifier = String(typedTask.story_number)
+        storyIdentifier = storyPrefix ? `${storyPrefix}-${baseIdentifier}` : baseIdentifier
       }
 
       // Validate we have a story identifier

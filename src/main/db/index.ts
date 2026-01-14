@@ -295,6 +295,16 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE sprints ADD COLUMN capacity INTEGER')
   }
 
+  // Migration: Add story_prefix column to sprints (for multi-epics-file support)
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('story_prefix')) {
+    sqlite.exec('ALTER TABLE sprints ADD COLUMN story_prefix TEXT')
+  }
+
+  // Migration: Add epics_file_path column to sprints (tracks source epics file)
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('epics_file_path')) {
+    sqlite.exec('ALTER TABLE sprints ADD COLUMN epics_file_path TEXT')
+  }
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

@@ -3,7 +3,7 @@ import { BrowserWindow } from 'electron'
 import path from 'path'
 import { existsSync } from 'fs'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { tasks, epics } from '../../db/schema'
+import { tasks, epics, sprints } from '../../db/schema'
 import { eq, isNotNull } from 'drizzle-orm'
 import { StorySyncService } from '../../services/story-sync.service'
 import { FileWatcherService } from '../../services/file-watcher.service'
@@ -319,6 +319,21 @@ export const syncRouter = router({
     .mutation(async ({ ctx, input }) => {
       const results: { taskId: string; synced: boolean; error?: string; isNew?: boolean }[] = []
 
+      // Get the sprint's story_prefix if a sprint is selected
+      // This determines which story files should be synced (e.g., "tes" for task-execution-sandbox)
+      let expectedPrefix: string | null | undefined = undefined // undefined = no filtering
+      if (input?.sprintId) {
+        const sprint = ctx.db
+          .select()
+          .from(sprints)
+          .where(eq(sprints.id, input.sprintId))
+          .get()
+        if (sprint) {
+          expectedPrefix = sprint.story_prefix // null = no prefix, "tes" = prefixed stories
+          console.log(`[SyncAll] Sprint "${sprint.name}" has story_prefix: ${expectedPrefix ?? '(none)'}`)
+        }
+      }
+
       // Get all story tasks with file paths, optionally filtered by sprint
       let storyTasksQuery = ctx.db
         .select()
@@ -382,10 +397,27 @@ export const syncRouter = router({
 
           console.log(`[SyncAll] Found ${allStoryFiles.size} story files in ${artifactsDir}`)
           console.log(`[SyncAll] Existing file paths in DB: ${existingFilePaths.size}`, [...existingFilePaths])
+          console.log(`[SyncAll] Expected prefix filter: ${expectedPrefix === undefined ? 'none (all files)' : expectedPrefix ?? '(no prefix)'}`)
 
           // Find new files that aren't in the database yet
           for (const [storyKey, detailedStory] of allStoryFiles) {
             const normalizedFilePath = path.normalize(detailedStory.filePath)
+
+            // Filter by prefix if sprint is selected
+            // - If expectedPrefix is undefined (no sprint selected), process all files
+            // - If expectedPrefix is null (sprint with no prefix), only process non-prefixed files
+            // - If expectedPrefix is "tes", only process files with prefix "tes"
+            if (expectedPrefix !== undefined) {
+              const filePrefix = detailedStory.prefix // from DetailedStoryParserService
+              if (expectedPrefix === null && filePrefix !== undefined) {
+                console.log(`[SyncAll] Skipping ${storyKey} - has prefix "${filePrefix}" but sprint expects no prefix`)
+                continue
+              }
+              if (expectedPrefix !== null && filePrefix !== expectedPrefix) {
+                console.log(`[SyncAll] Skipping ${storyKey} - has prefix "${filePrefix ?? '(none)'}" but sprint expects "${expectedPrefix}"`)
+                continue
+              }
+            }
 
             // Check if this file is already in the database
             const isExisting = [...existingFilePaths].some(
@@ -397,12 +429,11 @@ export const syncRouter = router({
             if (!isExisting) {
               // This file isn't linked to a task yet - check if task exists by epic+story_number
               try {
-                // Parse story key - storyNum may have letters like "3b" so keep as string
-                const keyParts = storyKey.split('-')
-                const epicNum = parseInt(keyParts[0], 10)
-                const storyNum = keyParts.slice(1).join('-') // Keep as string: "3", "3b", "1-5"
+                // Use the pre-parsed values from DetailedStoryParserService
+                const epicNum = detailedStory.epicNumber
+                const storyNum = detailedStory.storyNumber
 
-                console.log(`[SyncAll] Processing unlinked file: ${storyKey} -> epicNum=${epicNum}, storyNum="${storyNum}"`)
+                console.log(`[SyncAll] Processing unlinked file: ${storyKey} -> epicNum=${epicNum}, storyNum="${storyNum}", prefix="${detailedStory.prefix ?? '(none)'}"`)
 
                 // Look up epic by epic_number column, optionally filtered by sprint
                 const matchingEpics = ctx.db

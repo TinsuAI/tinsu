@@ -235,11 +235,12 @@ export function KanbanBoardContainer() {
   }, [])
 
   // Story 5.3 - AC: 1: Handle create-story confirmation
-  const handleCreateStoryConfirm = useCallback(() => {
+  const handleCreateStoryConfirm = useCallback(async () => {
     if (!createStoryTask) return
 
-    // Move task to create_story status
-    updateStatusMutation.mutate({ id: createStoryTask.id, status: 'create_story' })
+    // Move task to create_story status (this creates the tmux session)
+    // Must await to ensure session is created before launching workflow
+    await updateStatusMutation.mutateAsync({ id: createStoryTask.id, status: 'create_story' })
 
     // Launch the create-story workflow
     launchCreateStory(createStoryTask.id)
@@ -255,11 +256,12 @@ export function KanbanBoardContainer() {
   }, [])
 
   // Story 5.3 - AC: 3: Handle dev-story confirmation
-  const handleDevStoryConfirm = useCallback(() => {
+  const handleDevStoryConfirm = useCallback(async () => {
     if (!devStoryTask) return
 
-    // Move task to in_progress status
-    updateStatusMutation.mutate({ id: devStoryTask.id, status: 'in_progress' })
+    // Move task to in_progress status (this creates the tmux session if needed)
+    // Must await to ensure session is created before launching workflow
+    await updateStatusMutation.mutateAsync({ id: devStoryTask.id, status: 'in_progress' })
 
     // Launch the dev-story workflow
     launchDevStory(devStoryTask.id)
@@ -275,11 +277,12 @@ export function KanbanBoardContainer() {
   }, [])
 
   // Story 5.3b - AC: 1: Handle basic task confirmation
-  const handleBasicTaskConfirm = useCallback(() => {
+  const handleBasicTaskConfirm = useCallback(async () => {
     if (!basicTask) return
 
-    // Move task to in_progress status
-    updateStatusMutation.mutate({ id: basicTask.id, status: 'in_progress' })
+    // Move task to in_progress status (this creates the tmux session)
+    // Must await to ensure session is created before launching workflow
+    await updateStatusMutation.mutateAsync({ id: basicTask.id, status: 'in_progress' })
 
     // Launch the basic task directly
     launchBasicTask(basicTask.id)

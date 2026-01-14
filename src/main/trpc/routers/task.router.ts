@@ -205,8 +205,9 @@ export const taskRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
       }
 
-      // Story TES-1.3: Create tmux session when moving to in_progress (AC: 1)
-      if (input.status === 'in_progress') {
+      // Story TES-1.3: Create tmux session when moving to in_progress or create_story (AC: 1)
+      // Story tasks need session created at create_story phase for the create-story workflow
+      if (input.status === 'in_progress' || input.status === 'create_story') {
         try {
           // Get project name from config (or use folder name as fallback)
           const configService = new ConfigService(ctx.projectRoot)
