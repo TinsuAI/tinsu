@@ -205,6 +205,79 @@ export class TaskTerminalService {
   }
 
   /**
+   * Gets the tmux attach command for a task's terminal session.
+   *
+   * Used to attach xterm.js to an existing tmux session via node-pty.
+   * Returns the full command string that can be executed in a PTY.
+   *
+   * @param taskId - The task's unique identifier
+   * @returns The attach command string, or null if no session exists
+   *
+   * @example
+   * ```typescript
+   * const cmd = await TaskTerminalService.getAttachCommand('task-123')
+   * if (cmd) {
+   *   // cmd = "tmux attach-session -t tinsu-myproject-task-123"
+   *   ptyService.spawn('bash', ['-c', cmd])
+   * }
+   * ```
+   *
+   * @see TES-1.4: xterm.js Terminal Attachment
+   */
+  static async getAttachCommand(taskId: string): Promise<string | null> {
+    const sessionName = await this.getSessionName(taskId)
+    if (!sessionName) {
+      return null
+    }
+
+    // Verify tmux session actually exists
+    const exists = await this.tmuxSessionExists(sessionName)
+    if (!exists) {
+      return null
+    }
+
+    return `tmux attach-session -t ${sessionName}`
+  }
+
+  /**
+   * Sends a command to a task's tmux session.
+   *
+   * Uses tmux send-keys to inject a command into the session.
+   * The command is automatically followed by Enter to execute it.
+   *
+   * @param taskId - The task's unique identifier
+   * @param command - The command to send (will have Enter appended)
+   * @throws Error if session doesn't exist or send-keys fails
+   *
+   * @example
+   * ```typescript
+   * await TaskTerminalService.sendCommand('task-123', 'npm run test')
+   * // Executes "npm run test" in the task's tmux session
+   * ```
+   *
+   * @see TES-1.4: xterm.js Terminal Attachment
+   */
+  static async sendCommand(taskId: string, command: string): Promise<void> {
+    const sessionName = await this.getSessionName(taskId)
+    if (!sessionName) {
+      throw new Error(`No terminal session for task ${taskId}`)
+    }
+
+    // Verify tmux session exists
+    const exists = await this.tmuxSessionExists(sessionName)
+    if (!exists) {
+      throw new Error(`tmux session ${sessionName} no longer exists`)
+    }
+
+    // Use tmux send-keys with Enter to execute the command
+    // JSON.stringify handles escaping special characters in the command
+    await execAsync(
+      `tmux send-keys -t ${sessionName} ${JSON.stringify(command)} Enter`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+  }
+
+  /**
    * Creates a new tmux detached session.
    *
    * @param sessionName - The name for the tmux session

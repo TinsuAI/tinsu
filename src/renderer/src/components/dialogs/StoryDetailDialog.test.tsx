@@ -1,8 +1,29 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StoryDetailDialog } from './StoryDetailDialog'
 import type { StoryTask } from '@shared/types/task.types'
+import { trpc } from '@renderer/lib/trpc'
+
+// Mock the tRPC hook used for task session check
+vi.mock('@renderer/lib/trpc', () => ({
+  trpc: {
+    agent: {
+      getTaskSession: {
+        useQuery: vi.fn().mockReturnValue({ data: null, isLoading: false })
+      }
+    }
+  }
+}))
+
+// Mock TaskTerminal component
+vi.mock('@renderer/components/task/TaskTerminal', () => ({
+  TaskTerminal: vi.fn(({ taskId }: { taskId: string }) => (
+    <div data-testid="task-terminal" data-task-id={taskId}>
+      Mock TaskTerminal
+    </div>
+  ))
+}))
 
 // Mock story task data for testing
 const mockStoryTask: StoryTask = {
@@ -31,6 +52,15 @@ const mockStoryTask: StoryTask = {
 }
 
 describe('StoryDetailDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Default: no session
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: null,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+  })
+
   it('renders nothing when task is null', () => {
     const { container } = render(
       <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={null} />
@@ -136,6 +166,158 @@ describe('StoryDetailDialog', () => {
     )
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('StoryDetailDialog terminal tab (TES-1.4)', () => {
+  const mockSessionData = {
+    id: 'session-1',
+    task_id: 'story-1',
+    tmux_session: 'tinsu-test-story-1',
+    session_id: null,
+    current_phase: null,
+    created_at: new Date()
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('does not show tab buttons when no session exists', () => {
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: null,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    expect(screen.queryByRole('button', { name: /content/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /terminal/i })).not.toBeInTheDocument()
+  })
+
+  it('shows tab buttons when session exists', () => {
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    expect(screen.getByRole('button', { name: /content/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /terminal/i })).toBeInTheDocument()
+  })
+
+  it('defaults to content tab when session exists', () => {
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    // Content tab should be active (has different styling)
+    const contentTab = screen.getByRole('button', { name: /content/i })
+    expect(contentTab).toHaveClass('bg-zinc-700')
+
+    // Content should be visible
+    expect(screen.getByText(/As a developer/)).toBeInTheDocument()
+
+    // Terminal should not be visible
+    expect(screen.queryByTestId('task-terminal')).not.toBeInTheDocument()
+  })
+
+  it('switches to terminal tab when clicked', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    // Click terminal tab
+    await user.click(screen.getByRole('button', { name: /terminal/i }))
+
+    // Terminal should now be visible
+    expect(screen.getByTestId('task-terminal')).toBeInTheDocument()
+
+    // Content should not be visible
+    expect(screen.queryByText(/As a developer/)).not.toBeInTheDocument()
+  })
+
+  it('passes correct taskId to TaskTerminal', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    // Switch to terminal tab
+    await user.click(screen.getByRole('button', { name: /terminal/i }))
+
+    // Verify TaskTerminal received correct taskId
+    const terminal = screen.getByTestId('task-terminal')
+    expect(terminal.getAttribute('data-task-id')).toBe(mockStoryTask.id)
+  })
+
+  it('switches back to content tab when clicked', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={mockStoryTask} />
+    )
+
+    // Switch to terminal tab
+    await user.click(screen.getByRole('button', { name: /terminal/i }))
+    expect(screen.getByTestId('task-terminal')).toBeInTheDocument()
+
+    // Switch back to content tab
+    await user.click(screen.getByRole('button', { name: /content/i }))
+
+    // Content should be visible again
+    expect(screen.getByText(/As a developer/)).toBeInTheDocument()
+    expect(screen.queryByTestId('task-terminal')).not.toBeInTheDocument()
+  })
+
+  it('queries session for any task status, not just in_progress', () => {
+    const taskInReview = { ...mockStoryTask, status: 'review' as const }
+
+    vi.mocked(trpc.agent.getTaskSession.useQuery).mockReturnValue({
+      data: mockSessionData,
+      isLoading: false
+    } as ReturnType<typeof trpc.agent.getTaskSession.useQuery>)
+
+    render(
+      <StoryDetailDialog open={true} onOpenChange={vi.fn()} task={taskInReview} />
+    )
+
+    // Verify query was called (enabled)
+    expect(trpc.agent.getTaskSession.useQuery).toHaveBeenCalledWith(
+      { taskId: taskInReview.id },
+      { enabled: true }
+    )
+
+    // Tab buttons should appear since session exists
+    expect(screen.getByRole('button', { name: /terminal/i })).toBeInTheDocument()
   })
 })
 

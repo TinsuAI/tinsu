@@ -3,6 +3,8 @@ import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
+import { TaskTerminalService } from '../../services/task-terminal.service'
+import { ptyService } from '../../services/pty.service'
 import { devAgentProgressService, DevAgentProgressInfo } from '../../services/dev-agent-progress.service'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
@@ -42,6 +44,31 @@ vi.mock('../../services/config.service', () => ({
 vi.mock('../../services/story-completion.service', () => ({
   StoryCompletionService: {
     handleCreateStoryComplete: vi.fn()
+  }
+}))
+
+// Mock TaskTerminalService for TES-1.4
+vi.mock('../../services/task-terminal.service', () => ({
+  TaskTerminalService: {
+    getAttachCommand: vi.fn(),
+    sendCommand: vi.fn(),
+    createSession: vi.fn(),
+    hasSession: vi.fn(),
+    killSession: vi.fn(),
+    getSessionName: vi.fn(),
+    clearCache: vi.fn()
+  }
+}))
+
+// Mock ptyService for TES-1.4
+vi.mock('../../services/pty.service', () => ({
+  ptyService: {
+    spawn: vi.fn(),
+    kill: vi.fn(),
+    write: vi.fn(),
+    resize: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn()
   }
 }))
 
@@ -100,9 +127,22 @@ function createTestDb(): TestDb {
       story_file_path TEXT,
       full_content TEXT,
       story_file_status TEXT,
+      context_notes TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `)
+
+  // TES-1.4: Create the task_sessions table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_sessions (
+      id TEXT PRIMARY KEY NOT NULL,
+      task_id TEXT NOT NULL UNIQUE,
+      tmux_session TEXT NOT NULL,
+      session_id TEXT,
+      current_phase TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `)
 
@@ -781,6 +821,102 @@ describe('agentRouter', () => {
         total: 3,
         label: 'Ready'
       })
+    })
+  })
+
+  // ===== TES-1.4: Task Terminal Attachment Tests =====
+
+  describe('getTaskSession (TES-1.4 - AC: #1, #3)', () => {
+    // Helper to create a task session
+    const createTaskSession = (taskId: string, sessionName: string) => {
+      const id = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      return db
+        .insert(schema.task_sessions)
+        .values({
+          id,
+          task_id: taskId,
+          tmux_session: sessionName,
+          session_id: null,
+          current_phase: null,
+          created_at: new Date()
+        })
+        .returning()
+        .get()
+    }
+
+    it('returns task session when it exists', async () => {
+      const task = createStoryTask()
+      const sessionName = `tinsu-test-${task.id}`
+      createTaskSession(task.id, sessionName)
+
+      const result = await caller.getTaskSession({ taskId: task.id })
+
+      expect(result).not.toBeNull()
+      expect(result?.task_id).toBe(task.id)
+      expect(result?.tmux_session).toBe(sessionName)
+    })
+
+    it('returns null when no session exists', async () => {
+      const result = await caller.getTaskSession({ taskId: 'non-existent-task' })
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('attachTaskTerminal (TES-1.4 - AC: #1)', () => {
+    it('returns attached=false when no tmux session exists', async () => {
+      vi.mocked(TaskTerminalService.getAttachCommand).mockResolvedValue(null)
+
+      const result = await caller.attachTaskTerminal({ taskId: 'task-123' })
+
+      expect(result.attached).toBe(false)
+      expect(result.processId).toBeNull()
+      expect(ptyService.spawn).not.toHaveBeenCalled()
+    })
+
+    it('spawns PTY and returns processId when session exists', async () => {
+      vi.mocked(TaskTerminalService.getAttachCommand).mockResolvedValue(
+        'tmux attach-session -t tinsu-test-task-123'
+      )
+      vi.mocked(ptyService.spawn).mockReturnValue('pty-process-uuid-123')
+
+      const result = await caller.attachTaskTerminal({ taskId: 'task-123' })
+
+      expect(result.attached).toBe(true)
+      expect(result.processId).toBe('pty-process-uuid-123')
+      expect(ptyService.spawn).toHaveBeenCalledWith(
+        'bash',
+        ['-c', 'tmux attach-session -t tinsu-test-task-123'],
+        expect.objectContaining({ cols: 80, rows: 24 })
+      )
+    })
+
+    it('uses custom dimensions when provided', async () => {
+      vi.mocked(TaskTerminalService.getAttachCommand).mockResolvedValue(
+        'tmux attach-session -t tinsu-test-task-123'
+      )
+      vi.mocked(ptyService.spawn).mockReturnValue('pty-process-uuid-124')
+
+      await caller.attachTaskTerminal({
+        taskId: 'task-123',
+        cols: 120,
+        rows: 40
+      })
+
+      expect(ptyService.spawn).toHaveBeenCalledWith(
+        'bash',
+        ['-c', 'tmux attach-session -t tinsu-test-task-123'],
+        expect.objectContaining({ cols: 120, rows: 40 })
+      )
+    })
+  })
+
+  describe('detachTaskTerminal (TES-1.4 - AC: #1)', () => {
+    it('kills the PTY process and returns detached=true', async () => {
+      const result = await caller.detachTaskTerminal({ processId: 'pty-process-123' })
+
+      expect(result.detached).toBe(true)
+      expect(ptyService.kill).toHaveBeenCalledWith('pty-process-123')
     })
   })
 })

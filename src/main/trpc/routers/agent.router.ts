@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { observable } from '@trpc/server/observable'
-import { tasks, epics } from '../../db/schema'
+import { tasks, epics, task_sessions } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
@@ -11,6 +11,8 @@ import {
   devAgentProgressService,
   type DevAgentProgressInfo
 } from '../../services/dev-agent-progress.service'
+import { TaskTerminalService } from '../../services/task-terminal.service'
+import { ptyService } from '../../services/pty.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
 
 /**
@@ -471,5 +473,98 @@ export const agentRouter = router({
         unsubscribe()
       }
     })
-  })
+  }),
+
+  // ===== TES-1.4: Task Terminal Attachment =====
+
+  /**
+   * Get the task session record for a task.
+   *
+   * Story TES-1.4 - AC: #1, #3
+   *
+   * Returns the task_sessions record if one exists, including
+   * tmux session name, Claude Code session ID, and current phase.
+   *
+   * @param taskId - ID of the task to get session for
+   * @returns The task session record, or null if no session exists
+   */
+  getTaskSession: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string()
+      })
+    )
+    .query(({ ctx, input }) => {
+      return ctx.db
+        .select()
+        .from(task_sessions)
+        .where(eq(task_sessions.task_id, input.taskId))
+        .get() ?? null
+    }),
+
+  /**
+   * Attach xterm.js to a task's tmux session via PTY.
+   *
+   * Story TES-1.4 - AC: #1
+   *
+   * Spawns a PTY process that runs `tmux attach-session -t {sessionName}`.
+   * This connects xterm.js in the renderer to the existing tmux session.
+   *
+   * The PTY output can be streamed via the existing `pty.onOutput` subscription.
+   *
+   * @param taskId - ID of the task to attach terminal for
+   * @returns Object with attached status and processId (if successful)
+   *
+   * Flow:
+   * 1. Get tmux session name from TaskTerminalService
+   * 2. Verify session exists
+   * 3. Spawn PTY with tmux attach command
+   * 4. Return processId for output subscription
+   */
+  attachTaskTerminal: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+        cols: z.number().int().positive().optional(),
+        rows: z.number().int().positive().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Get the attach command (returns null if no session)
+      const attachCmd = await TaskTerminalService.getAttachCommand(input.taskId)
+      if (!attachCmd) {
+        return { attached: false, processId: null }
+      }
+
+      // Spawn PTY that attaches to tmux
+      // Use bash -c wrapper to ensure proper shell environment
+      const processId = ptyService.spawn('bash', ['-c', attachCmd], {
+        cols: input.cols ?? 80,
+        rows: input.rows ?? 24
+      })
+
+      return { attached: true, processId }
+    }),
+
+  /**
+   * Detach from a task terminal (kill the PTY process).
+   *
+   * Story TES-1.4 - AC: #1
+   *
+   * Cleans up the PTY process when the user navigates away or
+   * the terminal component unmounts. This is a soft detach - the
+   * underlying tmux session continues running.
+   *
+   * @param processId - ID of the PTY process to kill
+   */
+  detachTaskTerminal: publicProcedure
+    .input(
+      z.object({
+        processId: z.string()
+      })
+    )
+    .mutation(({ input }) => {
+      ptyService.kill(input.processId)
+      return { detached: true }
+    })
 })

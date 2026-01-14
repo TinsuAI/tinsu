@@ -495,6 +495,159 @@ describe('TaskTerminalService', () => {
     })
   })
 
+  describe('getAttachCommand', () => {
+    it('returns attach command when session exists in DB and tmux (AC: 1)', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'existing-id',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux has-session succeeds (session exists)
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      const result = await TaskTerminalService.getAttachCommand('task-123')
+
+      expect(result).toBe('tmux attach-session -t tinsu-project-task-123')
+    })
+
+    it('returns null when no session in DB', async () => {
+      mockFindFirst.mockResolvedValue(undefined)
+
+      const result = await TaskTerminalService.getAttachCommand('task-999')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when DB record exists but tmux session is gone', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'existing-id',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux has-session fails (session doesn't exist)
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('session not found') as ExecException
+          error.code = 1
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      const result = await TaskTerminalService.getAttachCommand('task-123')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('sendCommand', () => {
+    it('sends command to tmux session when session exists', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'existing-id',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      const commandsCalled: string[] = []
+
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          commandsCalled.push(cmd)
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.sendCommand('task-123', 'npm run test')
+
+      // Should have called has-session first, then send-keys
+      expect(commandsCalled).toContain('tmux has-session -t tinsu-project-task-123')
+      expect(commandsCalled.some(cmd => cmd.includes('send-keys'))).toBe(true)
+      expect(commandsCalled.some(cmd => cmd.includes('"npm run test"'))).toBe(true)
+    })
+
+    it('throws error when no session exists in DB', async () => {
+      mockFindFirst.mockResolvedValue(undefined)
+
+      await expect(
+        TaskTerminalService.sendCommand('task-999', 'echo hello')
+      ).rejects.toThrow('No terminal session for task task-999')
+    })
+
+    it('throws error when tmux session is gone', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'existing-id',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux has-session fails
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('session not found') as ExecException
+          error.code = 1
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(
+        TaskTerminalService.sendCommand('task-123', 'echo hello')
+      ).rejects.toThrow('tmux session tinsu-project-task-123 no longer exists')
+    })
+
+    it('escapes special characters in command', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'existing-id',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      const commandsCalled: string[] = []
+
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          commandsCalled.push(cmd)
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.sendCommand('task-123', 'echo "hello world"')
+
+      // Should have used JSON.stringify to escape the command
+      const sendKeysCmd = commandsCalled.find(cmd => cmd.includes('send-keys'))
+      expect(sendKeysCmd).toContain('"echo \\"hello world\\""')
+    })
+  })
+
   describe('session naming convention', () => {
     beforeEach(() => {
       mockFindFirst.mockResolvedValue(undefined)
