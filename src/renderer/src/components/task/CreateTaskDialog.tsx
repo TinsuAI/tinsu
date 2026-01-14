@@ -22,15 +22,17 @@ interface CreateTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialStatus: TaskStatus
+  /** Optional sprint ID to pre-select (from current filter) */
+  initialSprintId?: string | null
 }
 
-export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ open, onOpenChange, initialStatus, initialSprintId }: CreateTaskDialogProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [acceptanceCriteria, setAcceptanceCriteria] = useState('')
   const [titleError, setTitleError] = useState('')
   const [selectedEpicId, setSelectedEpicId] = useState<string | undefined>()
-  const [selectedSprintId, setSelectedSprintId] = useState<string | undefined>()
+  const [selectedSprintId, setSelectedSprintId] = useState<string | undefined>(initialSprintId ?? undefined)
 
   const queryClient = useQueryClient()
   const utils = trpc.useUtils()
@@ -103,14 +105,17 @@ export function CreateTaskDialog({ open, onOpenChange, initialStatus }: CreateTa
     setAcceptanceCriteria('')
     setTitleError('')
     setSelectedEpicId(undefined)
-    setSelectedSprintId(undefined)
+    setSelectedSprintId(initialSprintId ?? undefined)
   }
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      // Set initial sprint when dialog opens
+      setSelectedSprintId(initialSprintId ?? undefined)
+    } else {
       resetForm()
     }
-  }, [open])
+  }, [open, initialSprintId])
 
   const handleSubmit = () => {
     if (!title.trim()) {

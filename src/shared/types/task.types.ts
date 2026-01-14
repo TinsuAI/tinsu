@@ -135,7 +135,7 @@ export interface NewAgentRun {
   log_path?: string | null
 }
 
-// Epic entity type (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
+// Epic entity type (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal, Architecture Addendum: sprint_id)
 export interface Epic {
   id: string
   title: string
@@ -144,12 +144,14 @@ export interface Epic {
   // Story 3.7: Epic number and goal for imported epics from epics.md
   epic_number: number | null
   goal: string | null
+  // Architecture Addendum: Sprint assignment (epic belongs to exactly 1 sprint)
+  sprint_id: string | null
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
 }
 
-// Input type for creating a new epic (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
+// Input type for creating a new epic (Story 2.5, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal, Architecture Addendum: sprint_id)
 export interface NewEpic {
   title: string
   description?: string | null
@@ -157,28 +159,42 @@ export interface NewEpic {
   // Story 3.7: Epic number and goal for imported epics
   epic_number?: number | null
   goal?: string | null
+  // Architecture Addendum: Sprint assignment
+  sprint_id?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
 }
 
-// Sprint entity type (Story 2.5, Story 3.1.5 - project_id)
+// Sprint status enum values (Architecture Addendum: Sprint Management)
+export const SPRINT_STATUS = ['planning', 'active', 'completed'] as const
+export type SprintStatus = (typeof SPRINT_STATUS)[number]
+
+// Sprint entity type (Story 2.5, Story 3.1.5 - project_id, Architecture Addendum: Sprint Management)
 export interface Sprint {
   id: string
   name: string
   start_date: Date | null
   end_date: Date | null
-  is_active: boolean
+  // Architecture Addendum: Status replaces is_active
+  status: SprintStatus
+  // Architecture Addendum: Sprint goal, velocity, capacity
+  goal: string | null
+  velocity: number | null
+  capacity: number | null
   // Story 3.1.5: Project scoping
   project_id: string | null
   created_at: Date
 }
 
-// Input type for creating a new sprint (Story 2.5, Story 3.1.5 - project_id)
+// Input type for creating a new sprint (Story 2.5, Story 3.1.5 - project_id, Architecture Addendum)
 export interface NewSprint {
   name: string
   start_date?: Date | null
   end_date?: Date | null
-  is_active?: boolean
+  status?: SprintStatus
+  goal?: string | null
+  velocity?: number | null
+  capacity?: number | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
 }

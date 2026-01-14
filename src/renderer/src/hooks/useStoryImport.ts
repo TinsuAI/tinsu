@@ -79,8 +79,8 @@ export function useStoryImport() {
   })
 
   const importStories = useCallback(
-    (projectId: string, epicsFilePath: string, statusFilePath?: string) => {
-      importMutation.mutate({ projectId, epicsFilePath, statusFilePath })
+    (projectId: string, epicsFilePath: string, statusFilePath?: string, sprintId?: string) => {
+      importMutation.mutate({ projectId, epicsFilePath, statusFilePath, sprintId })
     },
     [importMutation]
   )
@@ -89,9 +89,10 @@ export function useStoryImport() {
     async (
       projectId: string,
       epicsFilePath: string,
-      statusFilePath?: string
+      statusFilePath?: string,
+      sprintId?: string
     ): Promise<ImportResult> => {
-      return importMutation.mutateAsync({ projectId, epicsFilePath, statusFilePath })
+      return importMutation.mutateAsync({ projectId, epicsFilePath, statusFilePath, sprintId })
     },
     [importMutation]
   )

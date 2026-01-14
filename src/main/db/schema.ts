@@ -54,7 +54,7 @@ export const EPIC_COLORS = [
 ] as const
 export type EpicColor = (typeof EPIC_COLORS)[number]
 
-// Epics table (Story 2.5 - AC1, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal)
+// Epics table (Story 2.5 - AC1, Story 3.1.5 - project_id, Story 3.7 - epic_number, goal, Architecture Addendum: sprint_id)
 export const epics = sqliteTable(
   'epics',
   {
@@ -65,16 +65,25 @@ export const epics = sqliteTable(
     // Story 3.7: Epic number and goal for imported epics from epics.md
     epic_number: integer('epic_number'), // 1, 2, 3... from epics.md
     goal: text('goal'), // Goal description from epics.md
+    // Architecture Addendum: Sprint assignment (epic belongs to exactly 1 sprint)
+    sprint_id: text('sprint_id'),
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`)
   },
-  (table) => [index('idx_epics_project_id').on(table.project_id)]
+  (table) => [
+    index('idx_epics_project_id').on(table.project_id),
+    index('idx_epics_sprint_id').on(table.sprint_id)
+  ]
 )
 
-// Sprints table (Story 2.5 - AC1, Story 3.1.5 - project_id)
+// Sprint status enum values (Architecture Addendum: Sprint Management)
+export const SPRINT_STATUS = ['planning', 'active', 'completed'] as const
+export type SprintStatus = (typeof SPRINT_STATUS)[number]
+
+// Sprints table (Story 2.5 - AC1, Story 3.1.5 - project_id, Architecture Addendum: Sprint Management)
 export const sprints = sqliteTable(
   'sprints',
   {
@@ -82,14 +91,22 @@ export const sprints = sqliteTable(
     name: text('name').notNull(),
     start_date: integer('start_date', { mode: 'timestamp' }),
     end_date: integer('end_date', { mode: 'timestamp' }),
-    is_active: integer('is_active', { mode: 'boolean' }).notNull().default(false),
+    // Architecture Addendum: Replace is_active with status enum
+    status: text('status').notNull().default('planning'), // 'planning' | 'active' | 'completed'
+    // Architecture Addendum: Sprint goal, velocity, capacity
+    goal: text('goal'), // Optional sprint goal
+    velocity: integer('velocity'), // Story points completed
+    capacity: integer('capacity'), // Team capacity
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`)
   },
-  (table) => [index('idx_sprints_project_id').on(table.project_id)]
+  (table) => [
+    index('idx_sprints_project_id').on(table.project_id),
+    index('idx_sprints_status').on(table.status)
+  ]
 )
 
 // Tasks table (Story 1.4 - AC1, Story 3.1 - planning task fields, Story 3.2 - is_start_here, Story 3.1.5 - project_id, Story 3.7 - story_number)

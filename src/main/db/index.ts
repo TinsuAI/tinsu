@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import * as schema from './schema'
 import { app } from 'electron'
 import path from 'path'
+import crypto from 'crypto'
 import { mkdirSync, existsSync } from 'fs'
 
 function getDbPath(): string {
@@ -45,6 +46,7 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       color TEXT NOT NULL DEFAULT 'blue',
       epic_number INTEGER,
       goal TEXT,
+      sprint_id TEXT,
       project_id TEXT,
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL
     )
@@ -56,7 +58,10 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       name TEXT NOT NULL,
       start_date INTEGER,
       end_date INTEGER,
-      is_active INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'planning',
+      goal TEXT,
+      velocity INTEGER,
+      capacity INTEGER,
       project_id TEXT,
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL
     )
@@ -220,6 +225,92 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   }
   if (epicColumnsCheck.length > 0 && !epicColNames.has('goal')) {
     sqlite.exec('ALTER TABLE epics ADD COLUMN goal TEXT')
+  }
+
+  // === Architecture Addendum: Sprint Management Migrations ===
+
+  // Migration: Add sprint_id column to epics
+  if (epicColumnsCheck.length > 0 && !epicColNames.has('sprint_id')) {
+    sqlite.exec('ALTER TABLE epics ADD COLUMN sprint_id TEXT')
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_epics_sprint_id ON epics(sprint_id)')
+  }
+
+  // Migration: Add new sprint columns and migrate is_active to status
+  const sprintColumnsCheck = sqlite
+    .prepare("PRAGMA table_info(sprints)")
+    .all() as Array<{ name: string }>
+  const sprintColNames = new Set(sprintColumnsCheck.map((c) => c.name))
+
+  // Add status column if missing (replacing is_active)
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('status')) {
+    sqlite.exec("ALTER TABLE sprints ADD COLUMN status TEXT NOT NULL DEFAULT 'planning'")
+    // Migrate is_active = 1 to status = 'active'
+    if (sprintColNames.has('is_active')) {
+      sqlite.exec("UPDATE sprints SET status = 'active' WHERE is_active = 1")
+    }
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status)')
+  }
+
+  // Add goal column to sprints
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('goal')) {
+    sqlite.exec('ALTER TABLE sprints ADD COLUMN goal TEXT')
+  }
+
+  // Add velocity column to sprints
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('velocity')) {
+    sqlite.exec('ALTER TABLE sprints ADD COLUMN velocity INTEGER')
+  }
+
+  // Add capacity column to sprints
+  if (sprintColumnsCheck.length > 0 && !sprintColNames.has('capacity')) {
+    sqlite.exec('ALTER TABLE sprints ADD COLUMN capacity INTEGER')
+  }
+
+  // === Migration: Create default sprints for projects without any sprints ===
+  // This ensures every project has at least one sprint (Backlog)
+
+  // Get all projects that have no sprints
+  const projectsWithoutSprints = sqlite
+    .prepare(`
+      SELECT p.id FROM projects p
+      LEFT JOIN sprints s ON s.project_id = p.id
+      WHERE s.id IS NULL
+    `)
+    .all() as Array<{ id: string }>
+
+  // Create default Backlog sprint for each project without sprints
+  for (const project of projectsWithoutSprints) {
+    const sprintId = crypto.randomUUID()
+    sqlite
+      .prepare(`
+        INSERT INTO sprints (id, name, status, goal, project_id, created_at)
+        VALUES (?, 'Backlog', 'active', 'Default sprint for organizing unscheduled work', ?, unixepoch())
+      `)
+      .run(sprintId, project.id)
+  }
+
+  // === Migration: Assign orphaned epics to their project's first sprint ===
+  // Get all orphaned epics (those with project_id but no sprint_id)
+  const orphanedEpics = sqlite
+    .prepare(`
+      SELECT e.id, e.project_id FROM epics e
+      WHERE e.sprint_id IS NULL AND e.project_id IS NOT NULL
+    `)
+    .all() as Array<{ id: string; project_id: string }>
+
+  // For each orphaned epic, assign it to the first sprint of its project
+  for (const epic of orphanedEpics) {
+    const firstSprint = sqlite
+      .prepare(`
+        SELECT id FROM sprints WHERE project_id = ? ORDER BY created_at ASC LIMIT 1
+      `)
+      .get(epic.project_id) as { id: string } | undefined
+
+    if (firstSprint) {
+      sqlite
+        .prepare('UPDATE epics SET sprint_id = ? WHERE id = ?')
+        .run(firstSprint.id, epic.id)
+    }
   }
 }
 

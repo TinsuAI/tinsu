@@ -66,6 +66,7 @@ export class StoryImportService {
    * @param projectId - ID of the project to import stories into
    * @param epicsPath - Absolute path to the epics.md file
    * @param statusFilePath - Optional explicit path to sprint-status.yaml (auto-detected if not provided)
+   * @param sprintId - Optional sprint ID to assign imported epics to
    * @returns Import result with counts and created IDs
    *
    * @example
@@ -73,7 +74,9 @@ export class StoryImportService {
    * const result = await StoryImportService.importFromEpicsFile(
    *   db,
    *   'project-123',
-   *   '/path/to/epics.md'
+   *   '/path/to/epics.md',
+   *   undefined,
+   *   'sprint-456' // Assign epics to this sprint
    * )
    * console.log(`Imported ${result.storiesCreated} stories`)
    * ```
@@ -82,7 +85,8 @@ export class StoryImportService {
     db: BetterSQLite3Database<typeof schema>,
     projectId: string,
     epicsPath: string,
-    statusFilePath?: string
+    statusFilePath?: string,
+    sprintId?: string
   ): Promise<ImportResult> {
     const parsedEpics = await EpicsParserService.parseEpicsFile(epicsPath)
 
@@ -102,7 +106,7 @@ export class StoryImportService {
       implementationArtifactsDir
     )
 
-    return this.importFromParsedEpics(db, projectId, parsedEpics, statusMap, detailedStoriesMap)
+    return this.importFromParsedEpics(db, projectId, parsedEpics, statusMap, detailedStoriesMap, sprintId)
   }
 
   /**
@@ -114,6 +118,7 @@ export class StoryImportService {
    * @param parsedEpics - Array of parsed epics from EpicsParserService
    * @param statusMap - Optional map of story keys to their status from sprint-status.yaml
    * @param detailedStoriesMap - Optional map of story keys to their detailed content from implementation-artifacts
+   * @param sprintId - Optional sprint ID to assign imported epics to
    * @returns Import result with counts and created IDs
    */
   static async importFromParsedEpics(
@@ -121,7 +126,8 @@ export class StoryImportService {
     projectId: string,
     parsedEpics: ParsedEpic[],
     statusMap?: SprintStatusMap,
-    detailedStoriesMap?: Map<StoryKey, { filePath: string; fullContent: string }>
+    detailedStoriesMap?: Map<StoryKey, { filePath: string; fullContent: string }>,
+    sprintId?: string
   ): Promise<ImportResult> {
     const epicIds: string[] = []
     const storyIds: string[] = []
@@ -155,12 +161,17 @@ export class StoryImportService {
       if (existingEpic) {
         // Update existing epic
         epicId = existingEpic.id
+        const updateData: Record<string, unknown> = {
+          title: epic.title,
+          goal: epic.goal,
+          description: epic.goal // Keep backwards compatibility
+        }
+        // Only update sprint_id if provided (don't overwrite with null)
+        if (sprintId) {
+          updateData.sprint_id = sprintId
+        }
         db.update(schema.epics)
-          .set({
-            title: epic.title,
-            goal: epic.goal,
-            description: epic.goal // Keep backwards compatibility
-          })
+          .set(updateData)
           .where(eq(schema.epics.id, epicId))
           .run()
         epicsUpdated++
@@ -176,6 +187,7 @@ export class StoryImportService {
             goal: epic.goal,
             description: epic.goal, // Use goal as description for backwards compatibility
             color,
+            sprint_id: sprintId ?? null, // Assign to selected sprint if provided
             created_at: now
           })
           .run()
@@ -245,6 +257,7 @@ export class StoryImportService {
               project_id: projectId,
               task_type: 'story',
               epic_id: epicId,
+              sprint_id: sprintId ?? null, // Assign to selected sprint if provided
               story_number: story.storyNumber, // Use full string ("2b", "3", etc.)
               title,
               description,

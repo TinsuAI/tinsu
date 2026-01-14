@@ -1,7 +1,11 @@
 import { z } from 'zod'
+import fs from 'fs'
 import { dialog, BrowserWindow } from 'electron'
+import { desc, eq } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { ProjectService, ProjectError, ProjectInfo } from '../../services/project.service'
+import { db } from '../../db'
+import { projects } from '../../db/schema'
 
 /**
  * Dialog result type matching Electron's showOpenDialog return type.
@@ -138,5 +142,55 @@ export const projectRouter = router({
    */
   close: publicProcedure.mutation((): void => {
     ProjectService.closeProject()
-  })
+  }),
+
+  /**
+   * Gets recent projects sorted by last opened date.
+   * Returns up to 10 most recently opened projects.
+   */
+  getRecent: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(20).default(10)
+        })
+        .optional()
+    )
+    .query(({ input }) => {
+      const limit = input?.limit ?? 10
+      return db.select().from(projects).orderBy(desc(projects.last_opened_at)).limit(limit).all()
+    }),
+
+  /**
+   * Removes a project from the recent projects list (database).
+   * Does not delete any files - only removes from TinSu's tracking.
+   */
+  remove: publicProcedure
+    .input(
+      z.object({
+        id: z.string().min(1, 'Project ID is required')
+      })
+    )
+    .mutation(({ input }) => {
+      db.delete(projects).where(eq(projects.id, input.id)).run()
+      return { success: true }
+    }),
+
+  /**
+   * Validates if a project path still exists on the filesystem.
+   * Used to show warning indicators for moved/deleted projects.
+   */
+  validatePath: publicProcedure
+    .input(
+      z.object({
+        path: z.string()
+      })
+    )
+    .query(({ input }) => {
+      try {
+        return fs.existsSync(input.path) && fs.statSync(input.path).isDirectory()
+      } catch {
+        return false
+      }
+    })
 })

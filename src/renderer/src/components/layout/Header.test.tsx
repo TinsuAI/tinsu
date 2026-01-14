@@ -108,31 +108,7 @@ describe('Header', () => {
     expect(screen.queryByText(/-/)).not.toBeInTheDocument()
   })
 
-  it('should render Open Project button when onOpenProject is provided', () => {
-    const onOpenProject = vi.fn()
-
-    render(<Header onOpenProject={onOpenProject} />)
-
-    const button = screen.getByText('Open Project...')
-    expect(button).toBeInTheDocument()
-  })
-
-  it('should call onOpenProject when button is clicked', () => {
-    const onOpenProject = vi.fn()
-
-    render(<Header onOpenProject={onOpenProject} />)
-
-    const button = screen.getByText('Open Project...')
-    fireEvent.click(button)
-
-    expect(onOpenProject).toHaveBeenCalled()
-  })
-
-  it('should not render Open Project button when onOpenProject is not provided', () => {
-    render(<Header />)
-
-    expect(screen.queryByText('Open Project...')).not.toBeInTheDocument()
-  })
+  // Note: "Open Project" functionality has moved to ProjectSwitcher component
 
   // Story 2.6: Filter button tests
   describe('filter controls (Story 2.6)', () => {

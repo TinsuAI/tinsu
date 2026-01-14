@@ -13,6 +13,10 @@ date: '2026-01-03'
 status: 'complete'
 completedAt: '2026-01-03'
 lastStep: 8
+addenda:
+  - name: 'Sprint Management Feature'
+    date: '2026-01-13'
+    status: 'ready'
 lastUpdated: '2026-01-12'
 featureExtensions:
   - name: 'Task Execution Sandbox'
@@ -1533,3 +1537,374 @@ src/renderer/components/
 **Next Phase:** Begin implementation using the architectural decisions and patterns documented herein.
 
 **Document Maintenance:** Update this architecture when major technical decisions are made during implementation.
+
+---
+
+## Architecture Addendum: Sprint Management Feature
+
+**Date Added:** 2026-01-13
+**Feature:** Sprint Management with per-sprint Kanban boards
+
+### Overview
+
+This addendum extends the core architecture to support Sprint Management — a feature that organizes epics into time-boxed sprints, each with its own dedicated Kanban board view.
+
+### Data Model Changes
+
+#### Sprint Table (Extended Schema)
+
+```sql
+CREATE TABLE IF NOT EXISTS sprints (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  start_date INTEGER,              -- Unix timestamp (nullable for backlog sprint)
+  end_date INTEGER,                -- Unix timestamp (nullable for backlog sprint)
+  status TEXT DEFAULT 'planning',  -- 'planning' | 'active' | 'completed'
+  goal TEXT,                       -- Optional sprint goal
+  velocity INTEGER,                -- Optional: story points completed
+  capacity INTEGER,                -- Optional: team capacity
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  created_at INTEGER DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id);
+CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status);
+```
+
+**Status Enum Values:**
+| Status | Description |
+|--------|-------------|
+| `planning` | Sprint being prepared, not yet started |
+| `active` | Currently executing sprint (max 1 per project) |
+| `completed` | Sprint finished, read-only |
+
+#### Epic Table (Addition)
+
+```sql
+ALTER TABLE epics ADD COLUMN IF NOT EXISTS sprint_id TEXT REFERENCES sprints(id);
+CREATE INDEX IF NOT EXISTS idx_epics_sprint_id ON epics(sprint_id);
+```
+
+**Note:** `sprint_id` is nullable for migration compatibility. New epics must have a sprint assigned via UI validation.
+
+### Entity Relationships
+
+```
+Project (1) ──────► Sprint (many)
+                        │
+                        ▼
+                   Epic (many) ──────► Task/Story (many)
+```
+
+**Cardinality Rules:**
+- Project has many Sprints
+- Sprint has many Epics (1:many, epic belongs to exactly 1 sprint)
+- Epic has many Tasks/Stories (unchanged from core architecture)
+
+### Business Constraints
+
+#### 1. Single Active Sprint Constraint
+
+**Rule:** Only one sprint per project can have `status = 'active'` at any time.
+
+**Implementation:** Application-level validation in `sprint.router.ts`:
+
+```typescript
+// In updateSprintStatus mutation
+const activeSprint = await db.query.sprints.findFirst({
+  where: and(
+    eq(sprints.projectId, input.projectId),
+    eq(sprints.status, 'active'),
+    ne(sprints.id, input.sprintId)  // Exclude current sprint
+  )
+});
+
+if (activeSprint && input.status === 'active') {
+  throw new TRPCError({
+    code: 'CONFLICT',
+    message: `Sprint "${activeSprint.name}" is already active. Complete or deactivate it first.`
+  });
+}
+```
+
+#### 2. Cascade Delete Behavior
+
+**Rule:** Deleting a sprint removes all child epics and their stories.
+
+**Implementation:** Application-level cascade in transaction:
+
+```typescript
+// In deleteSprint mutation
+await db.transaction(async (tx) => {
+  // Get all epic IDs for this sprint
+  const epicIds = await tx.query.epics.findMany({
+    where: eq(epics.sprintId, input.sprintId),
+    columns: { id: true }
+  });
+
+  // Delete tasks for each epic
+  for (const epic of epicIds) {
+    await tx.delete(tasks).where(eq(tasks.epicId, epic.id));
+  }
+
+  // Delete epics
+  await tx.delete(epics).where(eq(epics.sprintId, input.sprintId));
+
+  // Delete sprint
+  await tx.delete(sprints).where(eq(sprints.id, input.sprintId));
+});
+```
+
+#### 3. Completed Sprint Read-Only
+
+**Rule:** Sprints with `status = 'completed'` cannot be modified.
+
+**Implementation:** Guard in all sprint/epic/task mutations:
+
+```typescript
+// Helper function
+async function assertSprintNotCompleted(sprintId: string) {
+  const sprint = await db.query.sprints.findFirst({
+    where: eq(sprints.id, sprintId)
+  });
+
+  if (sprint?.status === 'completed') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Cannot modify completed sprint'
+    });
+  }
+}
+```
+
+### tRPC Router Additions
+
+#### sprint.router.ts
+
+```typescript
+export const sprintRouter = router({
+  // Queries
+  listSprints: t.procedure
+    .input(z.object({ projectId: z.string() }))
+    .query(({ input }) => { /* ... */ }),
+
+  getSprint: t.procedure
+    .input(z.object({ id: z.string() }))
+    .query(({ input }) => { /* ... */ }),
+
+  // Mutations
+  createSprint: t.procedure
+    .input(z.object({
+      projectId: z.string(),
+      name: z.string(),
+      startDate: z.number().optional(),
+      endDate: z.number().optional(),
+      goal: z.string().optional()
+    }))
+    .mutation(({ input }) => { /* ... */ }),
+
+  updateSprint: t.procedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      startDate: z.number().optional(),
+      endDate: z.number().optional(),
+      goal: z.string().optional(),
+      velocity: z.number().optional(),
+      capacity: z.number().optional()
+    }))
+    .mutation(({ input }) => { /* ... */ }),
+
+  updateSprintStatus: t.procedure
+    .input(z.object({
+      id: z.string(),
+      projectId: z.string(),
+      status: z.enum(['planning', 'active', 'completed'])
+    }))
+    .mutation(({ input }) => { /* ... */ }),  // Enforces single-active constraint
+
+  deleteSprint: t.procedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => { /* ... */ }),  // Cascade deletes epics/tasks
+
+  // Epic linking
+  linkEpicToSprint: t.procedure
+    .input(z.object({ epicId: z.string(), sprintId: z.string() }))
+    .mutation(({ input }) => { /* ... */ }),
+});
+```
+
+### Migration Strategy
+
+**On App Startup (in `db/index.ts`):**
+
+```typescript
+// Migration: Create default sprint for orphaned epics
+async function migrateOrphanedEpics(projectId: string) {
+  const orphanedEpics = await db.query.epics.findMany({
+    where: and(
+      eq(epics.projectId, projectId),
+      isNull(epics.sprintId)
+    )
+  });
+
+  if (orphanedEpics.length === 0) return;
+
+  // Check if Backlog sprint exists
+  let backlogSprint = await db.query.sprints.findFirst({
+    where: and(
+      eq(sprints.projectId, projectId),
+      eq(sprints.name, 'Backlog')
+    )
+  });
+
+  // Create if not exists
+  if (!backlogSprint) {
+    const [created] = await db.insert(sprints).values({
+      id: crypto.randomUUID(),
+      name: 'Backlog',
+      status: 'planning',
+      projectId: projectId
+    }).returning();
+    backlogSprint = created;
+  }
+
+  // Assign orphaned epics
+  await db.update(epics)
+    .set({ sprintId: backlogSprint.id })
+    .where(and(
+      eq(epics.projectId, projectId),
+      isNull(epics.sprintId)
+    ));
+}
+```
+
+### UI Architecture
+
+#### Sidebar (Sprint List)
+
+```
+src/renderer/components/layout/Sidebar.tsx
+├── Project selector (existing)
+├── Sprint list                    ← NEW
+│   ├── SprintListItem.tsx         ← NEW (shows name + status badge)
+│   └── NewSprintButton.tsx        ← NEW
+└── Navigation (existing)
+```
+
+**SprintListItem Component:**
+- Display: Sprint name + status indicator (planning/active/completed)
+- Active sprint: visually emphasized (bold, accent color)
+- Click: Loads sprint's Kanban board
+- No tree structure (flat list per user requirement)
+
+#### Kanban Board (Sprint-Scoped)
+
+```typescript
+// KanbanBoard.tsx receives sprintId prop
+interface KanbanBoardProps {
+  sprintId: string;  // Filters epics/tasks to this sprint
+}
+```
+
+**Board behavior:**
+- Fetches epics where `epic.sprintId === sprintId`
+- Task cards show epic badge (existing)
+- Completed sprint: disable drag-drop, show read-only indicator
+
+#### Epic Import Dialog
+
+**Existing file picker** (per user confirmation) handles importing story `.md` files. When linking existing epics:
+
+```typescript
+// Dialog shows file picker for _bmad-output/implementation-artifacts/*.md
+// On selection: creates epic record and links to current sprint
+```
+
+### File Structure Additions
+
+```
+src/main/
+├── trpc/routers/
+│   └── sprint.router.ts           ← NEW
+├── db/
+│   └── migrations/
+│       └── XXXX_add_sprint_management.ts  ← Generated by Drizzle
+
+src/renderer/components/
+├── layout/
+│   └── Sidebar.tsx                ← MODIFIED (add sprint list)
+├── sprint/                        ← NEW directory
+│   ├── SprintListItem.tsx
+│   ├── NewSprintButton.tsx
+│   ├── SprintForm.tsx             ← Create/edit sprint dialog
+│   └── SprintStatusBadge.tsx
+```
+
+### Type Definitions
+
+```typescript
+// src/shared/types/sprint.types.ts
+
+export type SprintStatus = 'planning' | 'active' | 'completed';
+
+export interface Sprint {
+  id: string;
+  name: string;
+  startDate: number | null;
+  endDate: number | null;
+  status: SprintStatus;
+  goal: string | null;
+  velocity: number | null;
+  capacity: number | null;
+  projectId: string;
+  createdAt: number;
+}
+
+export interface CreateSprintInput {
+  projectId: string;
+  name: string;
+  startDate?: number;
+  endDate?: number;
+  goal?: string;
+}
+
+export interface UpdateSprintInput {
+  id: string;
+  name?: string;
+  startDate?: number;
+  endDate?: number;
+  goal?: string;
+  velocity?: number;
+  capacity?: number;
+}
+```
+
+### Implementation Checklist
+
+**Database Layer:**
+- [ ] Add `status`, `goal`, `velocity`, `capacity` columns to sprints table
+- [ ] Add `sprint_id` column to epics table
+- [ ] Create indexes for new columns
+- [ ] Run migration on existing databases
+
+**tRPC Layer:**
+- [ ] Implement `sprint.router.ts` with all CRUD operations
+- [ ] Add single-active constraint validation
+- [ ] Add completed sprint guards
+- [ ] Implement cascade delete transaction
+
+**UI Layer:**
+- [ ] Add sprint list to Sidebar
+- [ ] Create SprintListItem, SprintStatusBadge components
+- [ ] Create SprintForm dialog for create/edit
+- [ ] Modify KanbanBoard to accept sprintId prop
+- [ ] Add epic import dialog with sprint assignment
+
+**Migration:**
+- [ ] Implement orphaned epic migration on startup
+- [ ] Create default "Backlog" sprint if needed
+
+---
+
+**Addendum Status:** READY FOR IMPLEMENTATION ✅

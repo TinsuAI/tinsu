@@ -5,11 +5,11 @@ import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
 import { FilterButton, FilterPanel, FilterSummary } from '@renderer/components/filter'
 import { VelocityWidget } from '@renderer/components/velocity'
+import { ProjectSwitcher } from '@renderer/components/project'
 import { Button } from '@renderer/components/ui/button'
 
 interface HeaderProps {
   className?: string
-  onOpenProject?: () => void
   /** Story 3.7: Callback to open the Import Stories dialog */
   onImportStories?: () => void
   /** Callback to open the Delete All Tasks dialog */
@@ -22,7 +22,7 @@ interface HeaderProps {
   onOpenSettings?: () => void
 }
 
-export function Header({ className, onOpenProject, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false, onOpenSettings }: HeaderProps) {
+export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false, onOpenSettings }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
@@ -32,9 +32,15 @@ export function Header({ className, onOpenProject, onImportStories, onDeleteAllT
   return (
     <div className={cn('sticky top-0 z-50 flex flex-col border-b border-border bg-background', className)}>
       <header className="flex h-12 w-full items-center px-4">
-        <h1 className="text-lg font-semibold text-foreground">
-          TinSu{projectName && <span className="text-muted-foreground"> - {projectName}</span>}
-        </h1>
+        <div className="flex items-center gap-1">
+          <h1 className="text-lg font-semibold text-foreground">TinSu</h1>
+          {projectName && (
+            <>
+              <span className="text-muted-foreground">-</span>
+              <ProjectSwitcher />
+            </>
+          )}
+        </div>
         {/* File menu with Open Project option and filter controls */}
         <div className="ml-auto flex items-center gap-2">
           {/* Velocity widget - shows task completion metrics (Story 2.7) */}
@@ -116,14 +122,6 @@ export function Header({ className, onOpenProject, onImportStories, onDeleteAllT
             </Button>
           )}
 
-          {onOpenProject && (
-            <button
-              onClick={onOpenProject}
-              className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              Open Project...
-            </button>
-          )}
         </div>
       </header>
 
