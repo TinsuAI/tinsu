@@ -21,7 +21,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const { isExpanded, height, width, dockPosition } = useTerminalStore()
   const projectPath = useProjectStore((state) => state.projectPath)
-  const syncProjectPath = useUIStore((state) => state.syncProjectPath)
+  const { syncProjectPath, selectedSprintId } = useUIStore()
 
   // Story 3.9: Story sync hook for Sync All button
   const { syncAllFromFiles, isSyncingAll } = useStorySync()
@@ -92,6 +92,7 @@ export function AppShell({ children }: AppShellProps) {
         onOpenChange={setImportDialogOpen}
         projectId=""
         defaultPath=""
+        sprintId={selectedSprintId}
         onSuccess={(result) => {
           toast.success('Import completed', {
             description: `Imported ${result.storiesCreated} stories from ${result.epicsCreated} epics`

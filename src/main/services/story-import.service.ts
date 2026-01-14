@@ -257,6 +257,7 @@ export class StoryImportService {
               project_id: projectId,
               task_type: 'story',
               epic_id: epicId,
+              sprint_id: sprintId ?? null, // Assign to selected sprint if provided
               story_number: story.storyNumber, // Use full string ("2b", "3", etc.)
               title,
               description,
