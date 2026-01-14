@@ -305,6 +305,24 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE sprints ADD COLUMN epics_file_path TEXT')
   }
 
+  // TES-2.1: Task activities table for event/activity logging
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_activities (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      payload TEXT,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_task_id ON task_activities(task_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_task_activities_task_id_created_at ON task_activities(task_id, created_at)'
+  )
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

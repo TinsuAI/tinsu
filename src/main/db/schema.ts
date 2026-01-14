@@ -256,3 +256,45 @@ export const task_sessions = sqliteTable(
 // Story TES-1.2: Task session type exports
 export type TaskSession = InferSelectModel<typeof task_sessions>
 export type NewTaskSession = InferInsertModel<typeof task_sessions>
+
+// Story TES-2.1: Activity event type enum for task event tracking
+export const ACTIVITY_EVENT_TYPE = [
+  'status_change',
+  'agent_start',
+  'agent_complete',
+  'tool_used',
+  'user_command',
+  'automation_trigger',
+  'error',
+  'session_ended',
+  'stall_detected',
+  'stall_recovered'
+] as const
+export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPE)[number]
+
+// Story TES-2.1: Task activities table for event/activity logging
+// Note: Uses raw INTEGER for created_at (not timestamp mode) for performance in append-heavy audit log
+// Note: No default on created_at - callers must explicitly provide timestamp for audit accuracy
+export const taskActivities = sqliteTable(
+  'task_activities',
+  {
+    id: text('id').primaryKey(),
+    task_id: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    // Validated against ACTIVITY_EVENT_TYPE at application layer (SQLite has no enum constraint)
+    event_type: text('event_type').notNull(),
+    payload: text('payload'), // JSON string, nullable
+    created_at: integer('created_at').notNull()
+  },
+  (table) => [
+    index('idx_task_activities_task_id').on(table.task_id),
+    index('idx_task_activities_event_type').on(table.event_type),
+    index('idx_task_activities_created_at').on(table.created_at),
+    index('idx_task_activities_task_id_created_at').on(table.task_id, table.created_at)
+  ]
+)
+
+// Story TES-2.1: Task activity type exports
+export type TaskActivity = InferSelectModel<typeof taskActivities>
+export type NewTaskActivity = InferInsertModel<typeof taskActivities>

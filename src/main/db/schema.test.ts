@@ -71,6 +71,21 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_task_artifacts_task_id ON task_artifacts(task_id);
   `)
 
+  // TES-2.1: Create task_activities table for event/activity logging
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_activities (
+      id TEXT PRIMARY KEY NOT NULL,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      payload TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_activities_task_id ON task_activities(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type);
+    CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at);
+    CREATE INDEX IF NOT EXISTS idx_task_activities_task_id_created_at ON task_activities(task_id, created_at);
+  `)
+
   return drizzle({ client: sqlite, schema })
 }
 
@@ -426,6 +441,327 @@ describe('BMAD Planning Phases (AC: 3)', () => {
       expect(getPhaseConfig(1).name).toBe('Product Brief')
       expect(getPhaseConfig(3).agent).toBe('bmad:bmm:agents:architect')
       expect(getPhaseConfig(5).workflow).toContain('create-epics-and-stories')
+    })
+  })
+})
+
+// TES-2.1: Task Activities Schema Tests
+describe('Task Activities Schema (TES-2.1)', () => {
+  let db: TestDb
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  describe('table creation (AC: #1)', () => {
+    it('creates task_activities table with correct columns', () => {
+      // Insert a task first (required for foreign key)
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Insert an activity
+      const now = Math.floor(Date.now() / 1000)
+      db.insert(schema.taskActivities)
+        .values({
+          id: 'activity-1',
+          task_id: 'task-1',
+          event_type: 'status_change',
+          payload: JSON.stringify({ from: 'backlog', to: 'in_progress' }),
+          created_at: now
+        })
+        .run()
+
+      const activity = db
+        .select()
+        .from(schema.taskActivities)
+        .where(eq(schema.taskActivities.id, 'activity-1'))
+        .get()
+
+      expect(activity).toBeDefined()
+      expect(activity?.id).toBe('activity-1')
+      expect(activity?.task_id).toBe('task-1')
+      expect(activity?.event_type).toBe('status_change')
+      expect(activity?.payload).toBe('{"from":"backlog","to":"in_progress"}')
+      expect(activity?.created_at).toBe(now)
+    })
+
+    it('allows null payload', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      db.insert(schema.taskActivities)
+        .values({
+          id: 'activity-1',
+          task_id: 'task-1',
+          event_type: 'session_ended',
+          payload: null,
+          created_at: Math.floor(Date.now() / 1000)
+        })
+        .run()
+
+      const activity = db
+        .select()
+        .from(schema.taskActivities)
+        .where(eq(schema.taskActivities.id, 'activity-1'))
+        .get()
+
+      expect(activity?.payload).toBeNull()
+    })
+
+    it('supports all expected event types', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const eventTypes = [
+        'status_change',
+        'agent_start',
+        'agent_complete',
+        'tool_used',
+        'user_command',
+        'automation_trigger',
+        'error',
+        'session_ended',
+        'stall_detected',
+        'stall_recovered'
+      ]
+
+      const now = Math.floor(Date.now() / 1000)
+      eventTypes.forEach((eventType, idx) => {
+        db.insert(schema.taskActivities)
+          .values({
+            id: `activity-${idx}`,
+            task_id: 'task-1',
+            event_type: eventType,
+            created_at: now + idx
+          })
+          .run()
+      })
+
+      const activities = db.select().from(schema.taskActivities).all()
+      expect(activities).toHaveLength(eventTypes.length)
+      expect(activities.map((a) => a.event_type).sort()).toEqual(eventTypes.sort())
+    })
+  })
+
+  describe('cascade delete behavior (AC: #2)', () => {
+    it('deletes activities when task is deleted', () => {
+      // Create task with activities
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-to-delete',
+          title: 'Task to Delete',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const now = Math.floor(Date.now() / 1000)
+      db.insert(schema.taskActivities)
+        .values([
+          {
+            id: 'activity-1',
+            task_id: 'task-to-delete',
+            event_type: 'status_change',
+            created_at: now
+          },
+          {
+            id: 'activity-2',
+            task_id: 'task-to-delete',
+            event_type: 'agent_start',
+            created_at: now + 1
+          },
+          {
+            id: 'activity-3',
+            task_id: 'task-to-delete',
+            event_type: 'agent_complete',
+            created_at: now + 2
+          }
+        ])
+        .run()
+
+      // Verify activities exist
+      let activities = db.select().from(schema.taskActivities).all()
+      expect(activities).toHaveLength(3)
+
+      // Delete the task
+      db.delete(schema.tasks).where(eq(schema.tasks.id, 'task-to-delete')).run()
+
+      // Verify activities are deleted (cascade)
+      activities = db.select().from(schema.taskActivities).all()
+      expect(activities).toHaveLength(0)
+    })
+
+    it('does not error when deleting task without activities', () => {
+      // Create task without activities
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-no-activities',
+          title: 'Task without Activities',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Delete should not error
+      expect(() => {
+        db.delete(schema.tasks).where(eq(schema.tasks.id, 'task-no-activities')).run()
+      }).not.toThrow()
+
+      // Verify task is deleted
+      const task = db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.id, 'task-no-activities'))
+        .get()
+      expect(task).toBeUndefined()
+    })
+
+    it('only deletes activities for the deleted task', () => {
+      // Create two tasks with activities
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      const now = Math.floor(Date.now() / 1000)
+      db.insert(schema.taskActivities)
+        .values([
+          { id: 'activity-1-1', task_id: 'task-1', event_type: 'status_change', created_at: now },
+          { id: 'activity-1-2', task_id: 'task-1', event_type: 'agent_start', created_at: now + 1 },
+          { id: 'activity-2-1', task_id: 'task-2', event_type: 'status_change', created_at: now },
+          { id: 'activity-2-2', task_id: 'task-2', event_type: 'agent_start', created_at: now + 1 }
+        ])
+        .run()
+
+      // Delete only task-1
+      db.delete(schema.tasks).where(eq(schema.tasks.id, 'task-1')).run()
+
+      // Verify only task-2's activities remain
+      const activities = db.select().from(schema.taskActivities).all()
+      expect(activities).toHaveLength(2)
+      expect(activities.every((a) => a.task_id === 'task-2')).toBe(true)
+    })
+  })
+
+  describe('index usage for fast queries (AC: #1)', () => {
+    it('can query activities by task_id efficiently', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const now = Math.floor(Date.now() / 1000)
+      for (let i = 0; i < 10; i++) {
+        db.insert(schema.taskActivities)
+          .values({
+            id: `activity-${i}`,
+            task_id: 'task-1',
+            event_type: i % 2 === 0 ? 'status_change' : 'agent_start',
+            created_at: now + i
+          })
+          .run()
+      }
+
+      // Query by task_id (uses idx_task_activities_task_id)
+      const activities = db
+        .select()
+        .from(schema.taskActivities)
+        .where(eq(schema.taskActivities.task_id, 'task-1'))
+        .all()
+
+      expect(activities).toHaveLength(10)
+    })
+
+    it('can query activities by event_type', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const now = Math.floor(Date.now() / 1000)
+      db.insert(schema.taskActivities)
+        .values([
+          { id: 'a1', task_id: 'task-1', event_type: 'status_change', created_at: now },
+          { id: 'a2', task_id: 'task-1', event_type: 'status_change', created_at: now + 1 },
+          { id: 'a3', task_id: 'task-1', event_type: 'agent_start', created_at: now + 2 },
+          { id: 'a4', task_id: 'task-1', event_type: 'error', created_at: now + 3 }
+        ])
+        .run()
+
+      // Query by event_type (uses idx_task_activities_event_type)
+      const statusChanges = db
+        .select()
+        .from(schema.taskActivities)
+        .where(eq(schema.taskActivities.event_type, 'status_change'))
+        .all()
+
+      expect(statusChanges).toHaveLength(2)
+    })
+  })
+
+  describe('type exports', () => {
+    it('exports TaskActivity type', () => {
+      // This test verifies TypeScript compilation - if types aren't exported correctly, it won't compile
+      const activity: schema.TaskActivity = {
+        id: 'test',
+        task_id: 'task-1',
+        event_type: 'status_change',
+        payload: null,
+        created_at: 123456789
+      }
+      expect(activity.id).toBe('test')
+    })
+
+    it('exports NewTaskActivity type', () => {
+      // NewTaskActivity is for insert operations
+      const newActivity: schema.NewTaskActivity = {
+        id: 'test',
+        task_id: 'task-1',
+        event_type: 'agent_complete',
+        created_at: 123456789
+      }
+      expect(newActivity.event_type).toBe('agent_complete')
+    })
+
+    it('exports ACTIVITY_EVENT_TYPE enum', () => {
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('status_change')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('agent_start')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('agent_complete')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('tool_used')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('user_command')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('automation_trigger')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('error')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('session_ended')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('stall_detected')
+      expect(schema.ACTIVITY_EVENT_TYPE).toContain('stall_recovered')
     })
   })
 })
