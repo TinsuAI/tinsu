@@ -126,7 +126,9 @@ export const agentRouter = router({
       const devAgentModel = configService.getDevAgentModel()
 
       // Launch the agent using the service with configured model
-      const result = BmadAgentLauncherService.launchPlanningAgent(
+      // Command is sent to the task's tmux session
+      const result = await BmadAgentLauncherService.launchPlanningAgent(
+        input.taskId,
         typedTask,
         ctx.projectRoot,
         devAgentModel
@@ -212,7 +214,9 @@ export const agentRouter = router({
       const devAgentModel = configService.getDevAgentModel()
 
       // Launch the create-story workflow with story identifier
-      const result = BmadAgentLauncherService.launchCreateStory(
+      // Command is sent to the task's tmux session
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        input.taskId,
         ctx.projectRoot,
         storyIdentifier,
         devAgentModel
@@ -297,7 +301,9 @@ export const agentRouter = router({
       devAgentProgressService.setState('dev_implementing')
 
       // Launch the dev-story workflow with story file path
-      const result = BmadAgentLauncherService.launchDevStory(
+      // Command is sent to the task's tmux session
+      const result = await BmadAgentLauncherService.launchDevStory(
+        input.taskId,
         ctx.projectRoot,
         typedTask.story_file_path,
         devAgentModel
@@ -394,7 +400,9 @@ export const agentRouter = router({
       const devAgentModel = configService.getDevAgentModel()
 
       // Launch Claude Code directly with task title and description
-      const result = BmadAgentLauncherService.launchBasicTask(
+      // Command is sent to the task's tmux session
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        input.taskId,
         ctx.projectRoot,
         typedTask.title,
         typedTask.description ?? undefined,

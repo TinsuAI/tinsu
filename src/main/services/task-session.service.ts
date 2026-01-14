@@ -91,9 +91,7 @@ export class TaskSessionService {
     if (cached) return cached
 
     // Fall back to database (indexed query - <10ms)
-    const record = await db.query.task_sessions.findFirst({
-      where: eq(task_sessions.session_id, sessionId)
-    })
+    const record = db.select().from(task_sessions).where(eq(task_sessions.session_id, sessionId)).get()
 
     if (record) {
       // Update cache for future lookups

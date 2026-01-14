@@ -335,31 +335,27 @@ describe('agentRouter', () => {
       })
     })
 
-    it('returns processId on successful launch', async () => {
+    it('returns success on successful launch', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-uuid-123'
-      vi.mocked(BmadAgentLauncherService.launchPlanningAgent).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--skill', 'bmad:bmm:agents:pm']
+      vi.mocked(BmadAgentLauncherService.launchPlanningAgent).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --skill bmad:bmm:agents:pm',
+        success: true
       })
 
       const task = createPlanningTask()
 
       const result = await caller.launchPlanningAgent({ taskId: task.id })
 
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toEqual(['--skill', 'bmad:bmm:agents:pm'])
+      expect(result.success).toBe(true)
+      expect(result.command).toContain('claude')
       expect(BmadAgentLauncherService.launchPlanningAgent).toHaveBeenCalled()
     })
 
     it('calls BmadAgentLauncherService with correct arguments including model (Story 5.1)', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      vi.mocked(BmadAgentLauncherService.launchPlanningAgent).mockReturnValue({
-        processId: 'process-123',
-        command: 'claude',
-        args: ['--skill', 'bmad:bmm:agents:architect', '--model', 'opus']
+      vi.mocked(BmadAgentLauncherService.launchPlanningAgent).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --skill bmad:bmm:agents:architect --model opus',
+        success: true
       })
 
       const task = createPlanningTask({
@@ -370,8 +366,9 @@ describe('agentRouter', () => {
 
       await caller.launchPlanningAgent({ taskId: task.id })
 
-      // Should now include model as third argument
+      // Should now include taskId as first argument and model as fourth argument
       expect(BmadAgentLauncherService.launchPlanningAgent).toHaveBeenCalledWith(
+        task.id,
         expect.objectContaining({
           id: task.id,
           bmad_agent: 'bmad:bmm:agents:architect',
@@ -426,11 +423,9 @@ describe('agentRouter', () => {
 
     it('passes story identifier from epic_number.story_number', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-create-story-123'
-      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story', '5.3']
+      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --dangerously-skip-permissions "/bmad:bmm:workflows:create-story 5.3"',
+        success: true
       })
 
       const epic = createEpic({ epic_number: 5 })
@@ -438,9 +433,10 @@ describe('agentRouter', () => {
 
       const result = await caller.startCreateStory({ taskId: task.id })
 
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
+      expect(result.success).toBe(true)
+      expect(result.command).toContain('claude')
       expect(BmadAgentLauncherService.launchCreateStory).toHaveBeenCalledWith(
+        task.id,
         TEST_PROJECT_ROOT,
         '5.3', // Story identifier in format epic_number.story_number
         'opus' // Story 5.1: Dev agent model from config
@@ -449,19 +445,18 @@ describe('agentRouter', () => {
 
     it('falls back to story_number only when no epic', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-create-story-124'
-      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story', '7']
+      vi.mocked(BmadAgentLauncherService.launchCreateStory).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --dangerously-skip-permissions "/bmad:bmm:workflows:create-story 7"',
+        success: true
       })
 
       const task = createStoryTask({ story_number: '7', epic_id: null })
 
       const result = await caller.startCreateStory({ taskId: task.id })
 
-      expect(result.processId).toBe(mockProcessId)
+      expect(result.success).toBe(true)
       expect(BmadAgentLauncherService.launchCreateStory).toHaveBeenCalledWith(
+        task.id,
         TEST_PROJECT_ROOT,
         '7', // Story number only when no epic
         'opus'
@@ -532,13 +527,11 @@ describe('agentRouter', () => {
       })
     })
 
-    it('returns processId on successful launch', async () => {
+    it('returns success on successful launch', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-dev-story-123'
-      vi.mocked(BmadAgentLauncherService.launchDevStory).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:dev-story', mockStoryFilePath]
+      vi.mocked(BmadAgentLauncherService.launchDevStory).mockResolvedValue({
+        command: `cd "/home/user/test-project" && claude --dangerously-skip-permissions "/bmad:bmm:workflows:dev-story ${mockStoryFilePath}"`,
+        success: true
       })
 
       const task = createStoryTask({
@@ -549,9 +542,10 @@ describe('agentRouter', () => {
 
       const result = await caller.startDevStory({ taskId: task.id })
 
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
+      expect(result.success).toBe(true)
+      expect(result.command).toContain('claude')
       expect(BmadAgentLauncherService.launchDevStory).toHaveBeenCalledWith(
+        task.id,
         TEST_PROJECT_ROOT,
         mockStoryFilePath,
         'opus' // Story 5.1: Dev agent model from config
@@ -677,30 +671,26 @@ describe('agentRouter', () => {
       })
     })
 
-    it('returns processId on successful launch', async () => {
+    it('returns success on successful launch', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-basic-123'
-      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', 'Fix login bug']
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --dangerously-skip-permissions "Fix login bug"',
+        success: true
       })
 
       const task = createBasicTask()
 
       const result = await caller.startBasicTask({ taskId: task.id })
 
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
+      expect(result.success).toBe(true)
+      expect(result.command).toContain('claude')
     })
 
     it('passes task title and description to launcher', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-basic-124'
-      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', 'Fix login bug\n\nThe login button does not work on mobile Safari']
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --dangerously-skip-permissions "Fix login bug\\n\\nThe login button does not work on mobile Safari"',
+        success: true
       })
 
       const task = createBasicTask({
@@ -711,6 +701,7 @@ describe('agentRouter', () => {
       await caller.startBasicTask({ taskId: task.id })
 
       expect(BmadAgentLauncherService.launchBasicTask).toHaveBeenCalledWith(
+        task.id,
         TEST_PROJECT_ROOT,
         'Fix login bug',
         'The login button does not work on mobile Safari',
@@ -720,11 +711,9 @@ describe('agentRouter', () => {
 
     it('handles task with no description', async () => {
       vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
-      const mockProcessId = 'process-basic-125'
-      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockReturnValue({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--dangerously-skip-permissions', 'Quick fix']
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockResolvedValue({
+        command: 'cd "/home/user/test-project" && claude --dangerously-skip-permissions "Quick fix"',
+        success: true
       })
 
       const task = createBasicTask({
@@ -735,6 +724,7 @@ describe('agentRouter', () => {
       await caller.startBasicTask({ taskId: task.id })
 
       expect(BmadAgentLauncherService.launchBasicTask).toHaveBeenCalledWith(
+        task.id,
         TEST_PROJECT_ROOT,
         'Quick fix',
         undefined, // description is undefined when null

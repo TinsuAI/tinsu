@@ -208,9 +208,7 @@ export class TaskTerminalService {
     }
 
     // Query database
-    const existing = await db.query.task_sessions.findFirst({
-      where: eq(task_sessions.task_id, taskId)
-    })
+    const existing = db.select().from(task_sessions).where(eq(task_sessions.task_id, taskId)).get()
 
     if (existing) {
       // Update cache
@@ -245,7 +243,7 @@ export class TaskTerminalService {
    */
   static async validateSessionsOnStartup(): Promise<void> {
     try {
-      const sessions = await db.query.task_sessions.findMany()
+      const sessions = db.select().from(task_sessions).all()
       console.log(`[TaskTerminalService] Validating ${sessions.length} session(s) on startup...`)
 
       // Filter to only active sessions (skip already ended ones)

@@ -8,6 +8,7 @@ import path from 'path'
 import { z } from 'zod'
 import { TaskTerminalService } from './task-terminal.service'
 import { db } from '../db'
+import { task_sessions } from '../db/schema'
 
 const execAsync = promisify(exec)
 const gzipAsync = promisify(gzip)
@@ -211,7 +212,7 @@ export class ScrollbackBackupService {
    */
   static async backupAllActiveSessions(): Promise<void> {
     // Get all task sessions from database
-    const sessions = await db.query.task_sessions.findMany()
+    const sessions = db.select().from(task_sessions).all()
 
     // Backup all concurrently
     const results = await Promise.allSettled(

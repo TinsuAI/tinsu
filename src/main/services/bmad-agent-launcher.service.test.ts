@@ -1,20 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  BmadAgentLauncherService,
-  BmadAgentLaunchResult
-} from './bmad-agent-launcher.service'
-import { ptyService } from './pty.service'
+import { BmadAgentLauncherService } from './bmad-agent-launcher.service'
+import { TaskTerminalService } from './task-terminal.service'
 import { PlanningTask } from '../../shared/types/task.types'
 
-// Mock ptyService
-vi.mock('./pty.service', () => ({
-  ptyService: {
-    spawn: vi.fn()
+// Mock TaskTerminalService
+vi.mock('./task-terminal.service', () => ({
+  TaskTerminalService: {
+    sendCommand: vi.fn()
   }
 }))
 
 describe('BmadAgentLauncherService', () => {
   const mockProjectPath = '/home/user/my-project'
+  const mockTaskId = 'task-123'
 
   // Helper to create a valid PlanningTask
   const createMockPlanningTask = (overrides: Partial<PlanningTask> = {}): PlanningTask => ({
@@ -35,7 +33,7 @@ describe('BmadAgentLauncherService', () => {
     story_number: null,
     story_file_path: null,
     story_file_status: null,
-    context_notes: null, // Story 5.5
+    context_notes: null,
     full_content: null,
     project_id: 'project-1',
     created_at: new Date(),
@@ -45,6 +43,7 @@ describe('BmadAgentLauncherService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -52,359 +51,216 @@ describe('BmadAgentLauncherService', () => {
   })
 
   describe('launchPlanningAgent', () => {
-    it('launches agent with correct command for phase 1 (Product Brief)', () => {
-      const mockProcessId = 'process-uuid-123'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
+    it('sends command to tmux session for phase 1 (Product Brief)', async () => {
       const task = createMockPlanningTask({
         phase_number: 1,
         phase_name: 'Product Brief',
-        bmad_agent: 'bmad:bmm:agents:pm',
-        bmad_workflow: '_bmad/bmm/workflows/1-ideation/create-product-brief/workflow.yaml'
+        bmad_agent: 'bmad:bmm:agents:pm'
       })
 
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
+      const result = await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
 
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('bmad:bmm:agents:pm')
-    })
-
-    it('launches agent with correct command for phase 2 (PRD)', () => {
-      const mockProcessId = 'process-uuid-456'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        phase_number: 2,
-        phase_name: 'PRD',
-        bmad_agent: 'bmad:bmm:agents:pm',
-        bmad_workflow: '_bmad/bmm/workflows/2-discovery/create-prd/workflow.yaml'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('bmad:bmm:agents:pm')
-    })
-
-    it('launches agent with correct command for phase 3 (Architecture)', () => {
-      const mockProcessId = 'process-uuid-789'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        phase_number: 3,
-        phase_name: 'Architecture',
-        bmad_agent: 'bmad:bmm:agents:architect',
-        bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.yaml'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('bmad:bmm:agents:architect')
-    })
-
-    it('launches agent with correct command for phase 4 (UX Design)', () => {
-      const mockProcessId = 'process-uuid-101'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        phase_number: 4,
-        phase_name: 'UX Design',
-        bmad_agent: 'bmad:bmm:agents:ux-designer',
-        bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-ux-design/workflow.yaml'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('bmad:bmm:agents:ux-designer')
-    })
-
-    it('launches agent with correct command for phase 5 (Epics & Stories)', () => {
-      const mockProcessId = 'process-uuid-202'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        phase_number: 5,
-        phase_name: 'Epics & Stories',
-        bmad_agent: 'bmad:bmm:agents:pm',
-        bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-epics-and-stories/workflow.yaml'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('bmad:bmm:agents:pm')
-    })
-
-    it('uses task bmad_agent for skill argument', () => {
-      const mockProcessId = 'process-uuid-303'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const customAgent = 'bmad:custom:agent'
-      const task = createMockPlanningTask({
-        bmad_agent: customAgent
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.args).toContain(customAgent)
-    })
-
-    it('sets working directory to project path', () => {
-      const mockProcessId = 'process-uuid-404'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask()
-
-      BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(ptyService.spawn).toHaveBeenCalledWith(
-        'claude',
-        expect.any(Array),
-        expect.objectContaining({ cwd: mockProjectPath })
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('claude')
       )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('bmad:bmm:agents:pm')
+      )
+      expect(result.success).toBe(true)
     })
 
-    it('returns process ID from ptyService', () => {
-      const expectedProcessId = 'unique-process-id-505'
-      vi.mocked(ptyService.spawn).mockReturnValue(expectedProcessId)
-
-      const task = createMockPlanningTask()
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-
-      expect(result.processId).toBe(expectedProcessId)
-    })
-
-    it('includes command and args in result without model', () => {
-      const mockProcessId = 'process-uuid-606'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
+    it('includes --skill flag with agent identifier', async () => {
       const task = createMockPlanningTask({
         bmad_agent: 'bmad:bmm:agents:architect'
       })
 
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
+      await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
 
-      expect(result).toEqual<BmadAgentLaunchResult>({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--skill', 'bmad:bmm:agents:architect']
-      })
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('--skill bmad:bmm:agents:architect')
+      )
     })
 
-    it('includes model flag when model is specified (Story 5.1)', () => {
-      const mockProcessId = 'process-uuid-707'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes cd to project path in command', async () => {
+      const task = createMockPlanningTask()
 
+      await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
+
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining(`cd "${mockProjectPath}"`)
+      )
+    })
+
+    it('includes model flag when specified (Story 5.1)', async () => {
+      const task = createMockPlanningTask()
+
+      const result = await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath, 'opus')
+
+      expect(result.command).toContain('--model opus')
+    })
+
+    it('does not include model flag when undefined', async () => {
+      const task = createMockPlanningTask()
+
+      const result = await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
+
+      expect(result.command).not.toContain('--model')
+    })
+
+    it('returns command string in result', async () => {
       const task = createMockPlanningTask({
         bmad_agent: 'bmad:bmm:agents:dev'
       })
 
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'opus')
+      const result = await BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
 
-      expect(result).toEqual<BmadAgentLaunchResult>({
-        processId: mockProcessId,
-        command: 'claude',
-        args: ['--skill', 'bmad:bmm:agents:dev', '--model', 'opus']
-      })
+      expect(result.command).toContain('claude')
+      expect(result.command).toContain('bmad:bmm:agents:dev')
     })
 
-    it('includes sonnet model when specified (Story 5.1)', () => {
-      const mockProcessId = 'process-uuid-808'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        bmad_agent: 'bmad:bmm:agents:pm'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'sonnet')
-
-      expect(result.args).toContain('--model')
-      expect(result.args).toContain('sonnet')
-    })
-
-    it('includes haiku model when specified (Story 5.1)', () => {
-      const mockProcessId = 'process-uuid-909'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const task = createMockPlanningTask({
-        bmad_agent: 'bmad:bmm:agents:sm'
-      })
-
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, 'haiku')
-
-      expect(result.args).toContain('--model')
-      expect(result.args).toContain('haiku')
-    })
-
-    it('does not include model flag when model is undefined (Story 5.1)', () => {
-      const mockProcessId = 'process-uuid-1010'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('propagates sendCommand errors', async () => {
+      const sendError = new Error('No terminal session for task')
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(sendError)
 
       const task = createMockPlanningTask()
 
-      const result = BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath, undefined)
-
-      expect(result.args).not.toContain('--model')
-      expect(result.args).toEqual(['--skill', task.bmad_agent])
-    })
-
-    it('propagates ptyService.spawn errors', () => {
-      const spawnError = new Error('Spawn failed')
-      vi.mocked(ptyService.spawn).mockImplementation(() => {
-        throw spawnError
-      })
-
-      const task = createMockPlanningTask()
-
-      expect(() => {
-        BmadAgentLauncherService.launchPlanningAgent(task, mockProjectPath)
-      }).toThrow('Spawn failed')
+      await expect(
+        BmadAgentLauncherService.launchPlanningAgent(mockTaskId, task, mockProjectPath)
+      ).rejects.toThrow('No terminal session for task')
     })
   })
 
   describe('launchCreateStory (Story 5.3 - AC: 1)', () => {
     const mockStoryIdentifier = '5.3'
 
-    it('launches claude with create-story workflow command and story identifier as single arg', () => {
-      const mockProcessId = 'process-create-story-1'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('sends command with create-story workflow and story identifier', async () => {
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryIdentifier
+      )
 
-      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('--dangerously-skip-permissions')
-      expect(result.args).toContain(`/bmad:bmm:workflows:create-story ${mockStoryIdentifier}`)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('claude')
+      )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('--dangerously-skip-permissions')
+      )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('create-story')
+      )
+      expect(result.success).toBe(true)
     })
 
-    it('combines workflow and story identifier in single string argument', () => {
-      const mockProcessId = 'process-create-story-2'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes cd to project path', async () => {
+      await BmadAgentLauncherService.launchCreateStory(mockTaskId, mockProjectPath, mockStoryIdentifier)
 
-      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, '5.1')
-
-      // Workflow and story identifier should be combined in single arg
-      expect(result.args).toContain('/bmad:bmm:workflows:create-story 5.1')
-    })
-
-    it('sets working directory to project path', () => {
-      const mockProcessId = 'process-create-story-3'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
-
-      expect(ptyService.spawn).toHaveBeenCalledWith(
-        'claude',
-        expect.any(Array),
-        expect.objectContaining({ cwd: mockProjectPath })
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining(`cd "${mockProjectPath}"`)
       )
     })
 
-    it('includes model flag when specified', () => {
-      const mockProcessId = 'process-create-story-4'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes model flag when specified', async () => {
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryIdentifier,
+        'opus'
+      )
 
-      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier, 'opus')
-
-      expect(result.args).toContain('--model')
-      expect(result.args).toContain('opus')
+      expect(result.command).toContain('--model opus')
     })
 
-    it('does not include model flag when undefined', () => {
-      const mockProcessId = 'process-create-story-5'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('does not include model flag when undefined', async () => {
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryIdentifier
+      )
 
-      const result = BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
-
-      expect(result.args).not.toContain('--model')
+      expect(result.command).not.toContain('--model')
     })
 
-    it('propagates ptyService.spawn errors', () => {
-      const spawnError = new Error('Spawn failed')
-      vi.mocked(ptyService.spawn).mockImplementation(() => {
-        throw spawnError
-      })
+    it('propagates sendCommand errors', async () => {
+      const sendError = new Error('tmux session not found')
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(sendError)
 
-      expect(() => {
-        BmadAgentLauncherService.launchCreateStory(mockProjectPath, mockStoryIdentifier)
-      }).toThrow('Spawn failed')
+      await expect(
+        BmadAgentLauncherService.launchCreateStory(mockTaskId, mockProjectPath, mockStoryIdentifier)
+      ).rejects.toThrow('tmux session not found')
     })
   })
 
   describe('launchDevStory (Story 5.3 - AC: 3)', () => {
     const mockStoryFilePath = '/path/to/story/5-3-story-task-execution-path.md'
 
-    it('launches claude with dev-story workflow command and story path as single arg', () => {
-      const mockProcessId = 'process-dev-story-1'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('sends command with dev-story workflow and story path', async () => {
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath
+      )
 
-      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('--dangerously-skip-permissions')
-      expect(result.args).toContain(`/bmad:bmm:workflows:dev-story ${mockStoryFilePath}`)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('claude')
+      )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('--dangerously-skip-permissions')
+      )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('dev-story')
+      )
+      expect(result.success).toBe(true)
     })
 
-    it('combines workflow and story file path in single string argument', () => {
-      const mockProcessId = 'process-dev-story-2'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes cd to project path', async () => {
+      await BmadAgentLauncherService.launchDevStory(mockTaskId, mockProjectPath, mockStoryFilePath)
 
-      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
-
-      // Workflow and story file path should be combined in single arg
-      expect(result.args).toContain(`/bmad:bmm:workflows:dev-story ${mockStoryFilePath}`)
-    })
-
-    it('sets working directory to project path', () => {
-      const mockProcessId = 'process-dev-story-3'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
-
-      expect(ptyService.spawn).toHaveBeenCalledWith(
-        'claude',
-        expect.any(Array),
-        expect.objectContaining({ cwd: mockProjectPath })
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining(`cd "${mockProjectPath}"`)
       )
     })
 
-    it('includes model flag when specified', () => {
-      const mockProcessId = 'process-dev-story-4'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes model flag when specified', async () => {
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath,
+        'sonnet'
+      )
 
-      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath, 'sonnet')
-
-      expect(result.args).toContain('--model')
-      expect(result.args).toContain('sonnet')
+      expect(result.command).toContain('--model sonnet')
     })
 
-    it('does not include model flag when undefined', () => {
-      const mockProcessId = 'process-dev-story-5'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('does not include model flag when undefined', async () => {
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath
+      )
 
-      const result = BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
-
-      expect(result.args).not.toContain('--model')
+      expect(result.command).not.toContain('--model')
     })
 
-    it('propagates ptyService.spawn errors', () => {
-      const spawnError = new Error('Spawn failed')
-      vi.mocked(ptyService.spawn).mockImplementation(() => {
-        throw spawnError
-      })
+    it('propagates sendCommand errors', async () => {
+      const sendError = new Error('Send failed')
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(sendError)
 
-      expect(() => {
-        BmadAgentLauncherService.launchDevStory(mockProjectPath, mockStoryFilePath)
-      }).toThrow('Spawn failed')
+      await expect(
+        BmadAgentLauncherService.launchDevStory(mockTaskId, mockProjectPath, mockStoryFilePath)
+      ).rejects.toThrow('Send failed')
     })
   })
 
@@ -412,103 +268,98 @@ describe('BmadAgentLauncherService', () => {
     const mockTaskTitle = 'Fix login bug'
     const mockTaskDescription = 'The login button does not work on mobile Safari'
 
-    it('spawns claude with task title as prompt', () => {
-      const mockProcessId = 'process-basic-1'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('sends command with task title as prompt', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
+        mockProjectPath,
+        mockTaskTitle
+      )
 
-      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
-
-      expect(result.processId).toBe(mockProcessId)
-      expect(result.command).toBe('claude')
-      expect(result.args).toContain('--dangerously-skip-permissions')
-      expect(result.args).toContain(mockTaskTitle)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('claude')
+      )
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining('--dangerously-skip-permissions')
+      )
+      expect(result.success).toBe(true)
     })
 
-    it('includes description in prompt when provided', () => {
-      const mockProcessId = 'process-basic-2'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes task title in command', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
+        mockProjectPath,
+        mockTaskTitle
+      )
 
-      const result = BmadAgentLauncherService.launchBasicTask(
+      expect(result.command).toContain(mockTaskTitle)
+    })
+
+    it('includes description in prompt when provided', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
         mockProjectPath,
         mockTaskTitle,
         mockTaskDescription
       )
 
-      // Should combine title and description with double newline
-      expect(result.args).toContain(`${mockTaskTitle}\n\n${mockTaskDescription}`)
+      // Should contain both title and description
+      expect(result.command).toContain(mockTaskTitle)
+      expect(result.command).toContain(mockTaskDescription)
     })
 
-    it('uses only title when description is undefined', () => {
-      const mockProcessId = 'process-basic-3'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('includes cd to project path', async () => {
+      await BmadAgentLauncherService.launchBasicTask(mockTaskId, mockProjectPath, mockTaskTitle)
 
-      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
-
-      expect(result.args).toContain(mockTaskTitle)
-      expect(result.args).not.toContain('\n\n')
-    })
-
-    it('sets working directory to project path', () => {
-      const mockProcessId = 'process-basic-4'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
-
-      expect(ptyService.spawn).toHaveBeenCalledWith(
-        'claude',
-        expect.any(Array),
-        expect.objectContaining({ cwd: mockProjectPath })
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalledWith(
+        mockTaskId,
+        expect.stringContaining(`cd "${mockProjectPath}"`)
       )
     })
 
-    it('adds model flag when specified', () => {
-      const mockProcessId = 'process-basic-5'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const result = BmadAgentLauncherService.launchBasicTask(
+    it('adds model flag when specified', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
         mockProjectPath,
         mockTaskTitle,
         undefined,
         'opus'
       )
 
-      expect(result.args).toContain('--model')
-      expect(result.args).toContain('opus')
+      expect(result.command).toContain('--model opus')
     })
 
-    it('does not include model flag when undefined', () => {
-      const mockProcessId = 'process-basic-6'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
+    it('does not include model flag when undefined', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
+        mockProjectPath,
+        mockTaskTitle
+      )
 
-      const result = BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
-
-      expect(result.args).not.toContain('--model')
+      expect(result.command).not.toContain('--model')
     })
 
-    it('does not use any workflow flags (no --skill, no /bmad prefix)', () => {
-      const mockProcessId = 'process-basic-7'
-      vi.mocked(ptyService.spawn).mockReturnValue(mockProcessId)
-
-      const result = BmadAgentLauncherService.launchBasicTask(
+    it('does not use any workflow flags (no --skill, no /bmad prefix)', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
         mockProjectPath,
         mockTaskTitle,
         mockTaskDescription
       )
 
       // Basic tasks should NOT use workflow flags
-      expect(result.args).not.toContain('--skill')
-      expect(result.args.some((arg) => arg.startsWith('/bmad'))).toBe(false)
+      expect(result.command).not.toContain('--skill')
+      expect(result.command).not.toContain('/bmad')
     })
 
-    it('propagates ptyService.spawn errors', () => {
-      const spawnError = new Error('Spawn failed')
-      vi.mocked(ptyService.spawn).mockImplementation(() => {
-        throw spawnError
-      })
+    it('propagates sendCommand errors', async () => {
+      const sendError = new Error('Spawn failed')
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(sendError)
 
-      expect(() => {
-        BmadAgentLauncherService.launchBasicTask(mockProjectPath, mockTaskTitle)
-      }).toThrow('Spawn failed')
+      await expect(
+        BmadAgentLauncherService.launchBasicTask(mockTaskId, mockProjectPath, mockTaskTitle)
+      ).rejects.toThrow('Spawn failed')
     })
   })
 })

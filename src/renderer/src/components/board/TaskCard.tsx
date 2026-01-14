@@ -130,13 +130,13 @@ export function TaskCard({
         </div>
       </div>
 
-      {/* Task description - truncated to 2 lines */}
+      {/* Task description - first paragraph (story goal) */}
       {task.description && (
         <p
-          className="mt-1 line-clamp-2 text-xs text-muted-foreground"
+          className="mt-1 text-xs text-muted-foreground"
           data-testid="task-description"
         >
-          {task.description}
+          {task.description.split('\n\n')[0].replace(/\n/g, ' ')}
         </p>
       )}
 
