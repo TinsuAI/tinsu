@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import { StorySyncService } from '../../services/story-sync.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
 import { ConfigService } from '../../services/config.service'
+import { activityLogService } from '../../services'
 
 /**
  * Map database status to file status format.
@@ -186,6 +187,7 @@ export const taskRouter = router({
   // Update task status
   // Story 3.9: Sync status change to story file (AC: 1)
   // Story TES-1.3: Create tmux session when moving to in_progress (AC: 1)
+  // Story TES-2.5: Log status_change activity when status changes (AC: 1, 2)
   updateStatus: publicProcedure
     .input(
       z.object({
@@ -194,6 +196,17 @@ export const taskRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // TES-2.5 AC1: Capture old status BEFORE update
+      const oldTask = ctx.db
+        .select({ status: tasks.status })
+        .from(tasks)
+        .where(eq(tasks.id, input.id))
+        .get()
+
+      if (!oldTask) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
       const result = ctx.db
         .update(tasks)
         .set({ status: input.status, updated_at: new Date() })
@@ -201,8 +214,22 @@ export const taskRouter = router({
         .returning()
         .get()
 
+      // This shouldn't happen since we checked above, but handle gracefully
       if (!result) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // TES-2.5 AC1: Log status_change activity (only if status actually changed)
+      if (oldTask.status !== input.status) {
+        try {
+          await activityLogService.logActivity(input.id, 'status_change', {
+            from: oldTask.status,
+            to: input.status
+          })
+        } catch (error) {
+          // TES-2.5 Edge Case #5: Don't fail status update if activity logging fails
+          console.error('[TES-2.5] Failed to log status_change activity:', error)
+        }
       }
 
       // Story TES-1.3: Create tmux session when moving to in_progress or create_story (AC: 1)
@@ -260,6 +287,7 @@ export const taskRouter = router({
 
   // Update task (including epic/sprint assignment) - Story 2.5
   // Story 3.1.5: Verify task belongs to current project
+  // Story TES-2.5: Log status_change activity when status changes via update mutation
   update: publicProcedure
     .input(
       z.object({
@@ -271,8 +299,19 @@ export const taskRouter = router({
         sprint_id: z.string().nullable().optional()
       })
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input
+
+      // TES-2.5: Capture old status if status is being changed
+      let oldStatus: string | null = null
+      if (input.status !== undefined) {
+        const oldTask = ctx.db
+          .select({ status: tasks.status })
+          .from(tasks)
+          .where(eq(tasks.id, id))
+          .get()
+        oldStatus = oldTask?.status ?? null
+      }
 
       // Update with project ownership check
       const result = ctx.projectId
@@ -292,6 +331,20 @@ export const taskRouter = router({
       if (!result) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
       }
+
+      // TES-2.5: Log status_change activity if status actually changed
+      if (input.status !== undefined && oldStatus !== null && oldStatus !== input.status) {
+        try {
+          await activityLogService.logActivity(id, 'status_change', {
+            from: oldStatus,
+            to: input.status
+          })
+        } catch (error) {
+          // Don't fail the update if activity logging fails
+          console.error('[TES-2.5] Failed to log status_change activity in update mutation:', error)
+        }
+      }
+
       return result
     }),
 
