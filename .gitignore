@@ -26,8 +26,15 @@ _bmad/
 # _bmad-output/
 .agent/
 .agentvibes/
-.claude/
 .gemini/
+
+# Claude Code configuration (mostly ignored, TinSu hooks tracked)
+.claude/*
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/task-completion.sh
+!.claude/hooks/log-tool-use.sh
+!.claude/settings.json
 
 # Database
 data/
