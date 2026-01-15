@@ -181,7 +181,7 @@ development_status:
   # Users can view a real-time, filterable timeline of task events
   tes-epic-2: in-progress
   tes-2-1-task-activities-database-schema: done
-  tes-2-2-activity-log-service-core: backlog
+  tes-2-2-activity-log-service-core: done
   tes-2-3-hook-listener-http-server: backlog
   tes-2-4-claude-code-hook-scripts: backlog
   tes-2-5-status-change-event-capture: backlog

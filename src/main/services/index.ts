@@ -32,3 +32,24 @@ export { TaskTerminalService } from './task-terminal.service'
 
 // Stall detection service (TES-1.11)
 export { StallDetectorService } from './stall-detector.service'
+
+// Activity log service (TES-2.2)
+import { db } from '../db'
+import { ActivityLogService, setActivityLogServiceInstance } from './activity-log.service'
+
+/** Singleton activity log service instance for database persistence */
+export const activityLogService = new ActivityLogService(db)
+
+// Set the singleton instance for backward-compatible static methods
+setActivityLogServiceInstance(activityLogService)
+
+export {
+  ActivityLogService,
+  setActivityLogServiceInstance,
+  type ActivityEventType,
+  type ActivityQueryOptions,
+  type ActivityPayload,
+  type SessionEndedPayload,
+  type StallDetectedPayload,
+  type StallRecoveredPayload
+} from './activity-log.service'

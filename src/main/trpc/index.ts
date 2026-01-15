@@ -10,6 +10,7 @@ import { agentRouter } from './routers/agent.router'
 import { importRouter } from './routers/import.router'
 import { syncRouter } from './routers/sync.router'
 import { artifactsRouter } from './routers/artifacts.router'
+import { activityRouter } from './routers/activity.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -23,7 +24,8 @@ export const appRouter = router({
   agent: agentRouter,
   import: importRouter,
   sync: syncRouter,
-  artifacts: artifactsRouter
+  artifacts: artifactsRouter,
+  activity: activityRouter
 })
 
 // Export type for client consumption

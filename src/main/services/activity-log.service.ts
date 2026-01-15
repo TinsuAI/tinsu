@@ -1,37 +1,29 @@
 /**
- * Activity Log Service - Stub for TES-1.11
+ * Activity Log Service - TES-2.2
  *
- * This is a minimal implementation for logging session lifecycle events.
- * The full implementation with database persistence, streaming, and filtering
- * will be completed in TES Epic 2 (Activity Log & Event Tracking).
+ * Full implementation with database persistence for activity events.
+ * Provides methods for logging and querying task activity events.
  *
- * For now, this logs to console and provides the interface that
- * TaskTerminalService and StallDetectorService will use.
- *
- * @see TES-1.11: Session End & Unresponsive Detection (Task 2)
- * @see TES-2.2: Activity Log Service Core (full implementation)
+ * @see TES-2.2: Activity Log Service Core
+ * @see Architecture: AR3 - ActivityLogService
  */
 
+import { nanoid } from 'nanoid'
+import { eq, desc, inArray, gt, and } from 'drizzle-orm'
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
+import { TRPCError } from '@trpc/server'
+import {
+  taskActivities,
+  tasks,
+  type TaskActivity,
+  type NewTaskActivity,
+  type ActivityEventType as SchemaActivityEventType
+} from '../db/schema'
+
 /**
- * Activity event types supported by the system.
- *
- * TES-1.11 adds session lifecycle events:
- * - session_ended: Terminal session process exited
- * - stall_detected: No output received for threshold duration
- * - stall_recovered: Output received after stall state
+ * Re-export ActivityEventType from schema for convenience.
  */
-export type ActivityEventType =
-  | 'status_change'
-  | 'agent_start'
-  | 'agent_complete'
-  | 'tool_used'
-  | 'user_command'
-  | 'automation_trigger'
-  | 'error'
-  // TES-1.11 session lifecycle events
-  | 'session_ended'
-  | 'stall_detected'
-  | 'stall_recovered'
+export type ActivityEventType = SchemaActivityEventType
 
 /**
  * Session ended event payload.
@@ -71,37 +63,201 @@ export type ActivityPayload =
   | Record<string, unknown>
 
 /**
+ * Options for querying activities.
+ */
+export interface ActivityQueryOptions {
+  /** Filter by specific event types */
+  eventTypes?: ActivityEventType[]
+  /** Maximum number of results (default: 100) */
+  limit?: number
+  /** Offset for pagination (default: 0) */
+  offset?: number
+  /** Filter activities created after this timestamp (Unix ms) */
+  since?: number
+}
+
+/**
  * Activity Log Service
  *
- * Provides methods for logging activity events. Currently logs to console.
- * Will be extended in TES-2 to persist to database and stream to UI.
+ * Provides methods for logging and querying activity events.
+ * All events are persisted to the task_activities table.
+ *
+ * @see TES-2.2: Activity Log Service Core
  */
 export class ActivityLogService {
+  /** Database instance for persistence */
+  private db: BetterSQLite3Database
+
+  /**
+   * Create a new ActivityLogService instance.
+   *
+   * @param db - Drizzle database instance
+   */
+  constructor(db: BetterSQLite3Database) {
+    this.db = db
+  }
+
   /**
    * Log an activity event for a task.
    *
+   * Persists the event to the task_activities table with a unique ID
+   * and accurate timestamp. Also logs to console for debugging visibility.
+   *
    * @param taskId - The task ID the event relates to
    * @param eventType - Type of activity event
-   * @param payload - Event-specific data
+   * @param payload - Event-specific data (optional)
+   * @returns The created TaskActivity record
    *
    * @example
    * ```typescript
-   * await ActivityLogService.logActivity('task-123', 'session_ended', {
+   * const activity = await activityLogService.logActivity('task-123', 'session_ended', {
    *   reason: 'process_exit',
    *   sessionName: 'tinsu-project-task-123'
    * })
+   * console.log('Created activity:', activity.id)
    * ```
    */
-  static async logActivity(
+  async logActivity(
     taskId: string,
     eventType: ActivityEventType,
-    payload: ActivityPayload
-  ): Promise<void> {
-    // TES-1.11: Log to console for now, will persist to DB in TES-2
-    const timestamp = new Date().toISOString()
-    console.log(`[ActivityLog] ${timestamp} | ${taskId} | ${eventType}:`, payload)
+    payload?: ActivityPayload
+  ): Promise<TaskActivity> {
+    // Validate task exists before insert (M1 fix: graceful error handling)
+    const taskExists = this.db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .get()
 
-    // TODO (TES-2.2): Persist to task_activities table
+    if (!taskExists) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `Task not found: ${taskId}`
+      })
+    }
+
+    // Generate unique ID and timestamp
+    const newActivity: NewTaskActivity = {
+      id: nanoid(),
+      task_id: taskId,
+      event_type: eventType,
+      payload: payload ? JSON.stringify(payload) : null,
+      created_at: Date.now()
+    }
+
+    // Insert into database
+    const [created] = this.db
+      .insert(taskActivities)
+      .values(newActivity)
+      .returning()
+      .all()
+
+    // Keep console.log for debugging visibility (TES-1.11 compatibility)
+    const timestamp = new Date(created.created_at).toISOString()
+    console.log(`[ActivityLog] ${timestamp} | ${taskId} | ${eventType}:`, payload ?? {})
+
     // TODO (TES-2.13): Emit event for real-time streaming
+
+    return created
+  }
+
+  /**
+   * Query activities for a task with optional filtering.
+   *
+   * Returns activities sorted by created_at descending (newest first).
+   * Supports filtering by event types, pagination, and time range.
+   *
+   * @param taskId - The task ID to query activities for
+   * @param options - Query options for filtering and pagination
+   * @returns Array of TaskActivity records
+   *
+   * @example
+   * ```typescript
+   * // Get last 10 error events
+   * const errors = await activityLogService.getActivities('task-123', {
+   *   eventTypes: ['error'],
+   *   limit: 10
+   * })
+   *
+   * // Get activities since a timestamp
+   * const recent = await activityLogService.getActivities('task-123', {
+   *   since: Date.now() - 60000 // Last minute
+   * })
+   * ```
+   */
+  async getActivities(
+    taskId: string,
+    options?: ActivityQueryOptions
+  ): Promise<TaskActivity[]> {
+    // Build conditions array
+    const conditions = [eq(taskActivities.task_id, taskId)]
+
+    // Add eventTypes filter if provided
+    if (options?.eventTypes?.length) {
+      conditions.push(inArray(taskActivities.event_type, options.eventTypes))
+    }
+
+    // Add since filter if provided
+    if (options?.since !== undefined) {
+      conditions.push(gt(taskActivities.created_at, options.since))
+    }
+
+    // Build and execute query
+    const results = this.db
+      .select()
+      .from(taskActivities)
+      .where(and(...conditions))
+      .orderBy(desc(taskActivities.created_at))
+      .limit(options?.limit ?? 100)
+      .offset(options?.offset ?? 0)
+      .all()
+
+    return results
+  }
+}
+
+// ===== Static Compatibility Layer =====
+// For backward compatibility with TES-1.11 code that uses static methods.
+// This will be removed when TaskTerminalService and StallDetectorService are updated.
+
+/** Singleton instance for static method compatibility - lazily initialized */
+let _instance: ActivityLogService | null = null
+
+/**
+ * Set the singleton instance.
+ * Called from services/index.ts after db is initialized.
+ */
+export function setActivityLogServiceInstance(instance: ActivityLogService): void {
+  _instance = instance
+}
+
+/**
+ * Get the singleton instance.
+ * @throws Error if instance not set via setActivityLogServiceInstance()
+ */
+function getInstance(): ActivityLogService {
+  if (!_instance) {
+    throw new Error(
+      'ActivityLogService not initialized. Ensure setActivityLogServiceInstance() is called from services/index.ts before using static methods.'
+    )
+  }
+  return _instance
+}
+
+/**
+ * Static compatibility namespace.
+ * @deprecated Use instance methods via activityLogService export instead.
+ */
+export namespace ActivityLogService {
+  /**
+   * Log an activity event (static compatibility).
+   * @deprecated Use instance method via activityLogService export.
+   */
+  export async function logActivity(
+    taskId: string,
+    eventType: ActivityEventType,
+    payload?: ActivityPayload
+  ): Promise<TaskActivity> {
+    return getInstance().logActivity(taskId, eventType, payload)
   }
 }
