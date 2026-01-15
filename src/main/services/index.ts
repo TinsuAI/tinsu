@@ -37,11 +37,17 @@ export { StallDetectorService } from './stall-detector.service'
 import { db } from '../db'
 import { ActivityLogService, setActivityLogServiceInstance } from './activity-log.service'
 
+// Hook listener service (TES-2.3)
+import { HookListenerService } from './hook-listener.service'
+
 /** Singleton activity log service instance for database persistence */
 export const activityLogService = new ActivityLogService(db)
 
 // Set the singleton instance for backward-compatible static methods
 setActivityLogServiceInstance(activityLogService)
+
+/** Singleton hook listener service instance for HTTP hook reception */
+export const hookListenerService = new HookListenerService()
 
 export {
   ActivityLogService,
@@ -53,3 +59,12 @@ export {
   type StallDetectedPayload,
   type StallRecoveredPayload
 } from './activity-log.service'
+
+export {
+  HookListenerService,
+  StopHookPayloadSchema,
+  ToolUseHookPayloadSchema,
+  type StopHookPayload,
+  type ToolUseHookPayload,
+  type HealthResponse
+} from './hook-listener.service'

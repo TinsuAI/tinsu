@@ -7,7 +7,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
-import { ptyService, TmuxService, TaskTerminalService, StallDetectorService } from './services'
+import { ptyService, TmuxService, TaskTerminalService, StallDetectorService, hookListenerService } from './services'
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -135,6 +135,16 @@ app.whenReady().then(async () => {
     // Don't block startup - continue with potentially stale records
   }
 
+  // TES-2.3: Start hook listener HTTP server for Claude Code hook events
+  // Port can be overridden via TINSU_HOOK_PORT environment variable
+  try {
+    const hookPort = process.env.TINSU_HOOK_PORT ? parseInt(process.env.TINSU_HOOK_PORT, 10) : 3847
+    await hookListenerService.start(hookPort)
+  } catch (error) {
+    console.warn('[main] Hook listener failed to start:', error)
+    // Don't block startup - graceful degradation if hook server unavailable
+  }
+
   // Initialize tRPC IPC handler before window creation
   createIPCHandler({ router: appRouter, createContext })
 
@@ -168,11 +178,17 @@ app.on('window-all-closed', () => {
 
 // Clean up PTY processes before the app quits
 // This prevents zombie processes from lingering after the app closes
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   // TES-1.11: Stop all session monitors and stall detection
   console.log('[TES-1.11] Stopping session monitors and stall detection...')
   TaskTerminalService.stopAllSessionMonitors()
   StallDetectorService.clearAll()
+
+  // TES-2.3: Stop hook listener HTTP server
+  if (hookListenerService.isRunning()) {
+    console.log('[TES-2.3] Stopping hook listener HTTP server...')
+    await hookListenerService.stop()
+  }
 
   const processCount = ptyService.getProcessCount()
   if (processCount > 0) {
