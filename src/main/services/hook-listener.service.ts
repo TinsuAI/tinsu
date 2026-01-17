@@ -26,6 +26,9 @@ const PORT_FILE = '/tmp/tinsu-hook-port'
 /** Maximum body size for incoming requests (64KB) */
 const MAX_BODY_SIZE = 64 * 1024
 
+/** Maximum command length before truncation (TES-2.7) */
+const MAX_COMMAND_LENGTH = 100
+
 /**
  * Zod schema for Stop hook payload validation.
  * Validates payloads from Claude Code Stop hook.
@@ -435,15 +438,107 @@ export class HookListenerService {
    * Handle PostToolUse hook event.
    *
    * Called after each tool use in Claude Code.
-   * Logs the event for debugging.
+   * Logs tool_used activity with tool-specific payload.
    *
    * @param payload - Tool use hook payload
    *
-   * TODO: TES-2.7 - Call ActivityLogService to log tool_used event
+   * @see TES-2.7: Tool Usage Event Capture
    */
   async onToolUseHook(payload: ToolUseHookPayload): Promise<void> {
     console.log('[HookListener] Tool use hook received:', JSON.stringify(payload, null, 2))
-    // Future integration point (TES-2.7):
-    // - Call ActivityLogService to log tool_used event
+
+    // TES-2.7 Task 1: Look up task_id from session_id (same pattern as onStopHook)
+    const session = db
+      .select()
+      .from(task_sessions)
+      .where(eq(task_sessions.session_id, payload.session_id))
+      .get()
+
+    if (!session) {
+      console.warn(
+        `[HookListener] Orphan tool-use event - session_id not found:`,
+        payload.session_id
+      )
+      return
+    }
+
+    const taskId = session.task_id
+
+    // TES-2.7 Task 2: Build payload based on tool type
+    const activityPayload: {
+      tool: string
+      file?: string
+      command?: string
+      summary?: string
+    } = {
+      tool: payload.tool_name
+    }
+
+    // TES-2.7 Task 3: Extract file path for file operations
+    // Priority: file_path (Read/Edit/Write) → path (Glob/Grep directory) → pattern (Glob/Grep fallback)
+    // For Glob/Grep, prefer 'path' over 'pattern' because the directory is more meaningful
+    // for activity tracking than the glob/regex pattern itself.
+    if (['Read', 'Edit', 'Write', 'Glob', 'Grep'].includes(payload.tool_name)) {
+      const filePath =
+        payload.tool_input.file_path ?? payload.tool_input.path ?? payload.tool_input.pattern
+      if (filePath && typeof filePath === 'string') {
+        activityPayload.file = filePath
+      }
+    }
+
+    // TES-2.7 Task 5: Extract command for Bash tool (truncated to MAX_COMMAND_LENGTH chars)
+    if (payload.tool_name === 'Bash') {
+      const command = payload.tool_input.command
+      if (command && typeof command === 'string') {
+        activityPayload.command =
+          command.length > MAX_COMMAND_LENGTH
+            ? command.substring(0, MAX_COMMAND_LENGTH) + '...'
+            : command
+      }
+    }
+
+    // TES-2.7 Task 4: Generate summary for Edit tool
+    if (payload.tool_name === 'Edit') {
+      activityPayload.summary = this.generateEditSummary(payload.tool_input)
+    }
+
+    // TES-2.7: Log tool_used activity
+    try {
+      await ActivityLogService.logActivity(taskId, 'tool_used', activityPayload)
+    } catch (error) {
+      console.error('[HookListener] Failed to log tool_used activity:', error)
+    }
+  }
+
+  /**
+   * Generate a summary for Edit tool usage.
+   * Format: "+N -M" showing lines added/removed (git-style), or "file edited" if calculation not possible.
+   *
+   * For replacements, shows actual lines: old lines are removed, new lines are added.
+   * Example: replacing 3 lines with 5 lines = "+5 -3"
+   *
+   * @param toolInput - The tool_input from Edit tool
+   * @returns Human-readable summary of the edit
+   *
+   * @see TES-2.7: Tool Usage Event Capture
+   */
+  private generateEditSummary(toolInput: Record<string, unknown>): string {
+    const oldString = toolInput.old_string
+    const newString = toolInput.new_string
+
+    if (typeof oldString !== 'string' || typeof newString !== 'string') {
+      return 'file edited'
+    }
+
+    const oldLines = oldString.split('\n').length
+    const newLines = newString.split('\n').length
+
+    if (oldLines === newLines) {
+      // Same line count but content changed
+      return `${newLines} lines modified`
+    }
+
+    // Show actual lines replaced (git-style: lines added, lines removed)
+    return `+${newLines} -${oldLines}`
   }
 }

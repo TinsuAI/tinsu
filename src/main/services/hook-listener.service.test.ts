@@ -819,4 +819,477 @@ describe('HookListenerService', () => {
       consoleSpy.mockRestore()
     })
   })
+
+  // TES-2.7: Tool Usage Event Capture tests
+  describe('onToolUseHook tool_used logging (TES-2.7)', () => {
+    it('logs tool_used activity when PostToolUse hook fires with mapped session (TES-2.7 AC#1)', async () => {
+      // Mock: session exists with this session_id
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: 'test-session-abc',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'test-session-abc',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/src/test.ts', old_string: 'old', new_string: 'new' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-123',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Edit',
+          file: '/src/test.ts'
+        })
+      )
+    })
+
+    it('includes tool name in payload (TES-2.7 AC#1)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-tool-name',
+        tmux_session: 'tinsu-project-task-tool-name',
+        session_id: 'tool-name-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'tool-name-session',
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-tool-name',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Grep'
+        })
+      )
+    })
+
+    it('extracts file_path for Read tool (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-read',
+        tmux_session: 'tinsu-project-task-read',
+        session_id: 'read-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'read-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/home/user/project/src/main.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-read',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Read',
+          file: '/home/user/project/src/main.ts'
+        })
+      )
+    })
+
+    it('extracts file_path for Write tool (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-write',
+        tmux_session: 'tinsu-project-task-write',
+        session_id: 'write-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'write-session',
+        tool_name: 'Write',
+        tool_input: { file_path: '/tmp/new-file.ts', content: 'export const foo = 1' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-write',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Write',
+          file: '/tmp/new-file.ts'
+        })
+      )
+    })
+
+    it('extracts pattern for Glob tool (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-glob',
+        tmux_session: 'tinsu-project-task-glob',
+        session_id: 'glob-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'glob-session',
+        tool_name: 'Glob',
+        tool_input: { pattern: '**/*.ts', path: '/src' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Should use path first if available, then pattern
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-glob',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Glob',
+          file: '/src'
+        })
+      )
+    })
+
+    it('generates change summary for Edit tool (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-edit-summary',
+        tmux_session: 'tinsu-project-task-edit-summary',
+        session_id: 'edit-summary-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'edit-summary-session',
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: '/src/component.tsx',
+          old_string: 'line1\nline2\nline3',
+          new_string: 'line1\nline2\nline3\nline4\nline5'
+        },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-edit-summary',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Edit',
+          file: '/src/component.tsx',
+          summary: '+5 -3' // 5 new lines added, 3 old lines removed (git-style)
+        })
+      )
+    })
+
+    it('generates "file edited" summary when old_string/new_string not provided (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-edit-no-strings',
+        tmux_session: 'tinsu-project-task-edit-no-strings',
+        session_id: 'edit-no-strings-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'edit-no-strings-session',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-edit-no-strings',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Edit',
+          summary: 'file edited'
+        })
+      )
+    })
+
+    it('generates "N lines modified" when line count unchanged but content changed (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-edit-same-lines',
+        tmux_session: 'tinsu-project-task-edit-same-lines',
+        session_id: 'edit-same-lines-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'edit-same-lines-session',
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: '/src/file.ts',
+          old_string: 'const foo = 1\nconst bar = 2',
+          new_string: 'const foo = 99\nconst bar = 88'
+        },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-edit-same-lines',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Edit',
+          summary: '2 lines modified'
+        })
+      )
+    })
+
+    it('extracts and truncates command for Bash tool (TES-2.7 AC#3)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-bash',
+        tmux_session: 'tinsu-project-task-bash',
+        session_id: 'bash-session',
+        current_phase: 'dev-story'
+      })
+
+      const longCommand = 'npm run build && npm run test && npm run lint && npm run format && npm run check && npm run deploy && npm run cleanup'
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'bash-session',
+        tool_name: 'Bash',
+        tool_input: { command: longCommand },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-bash',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Bash'
+        })
+      )
+
+      // Verify command is truncated to 100 chars + "..."
+      const callArgs = mockLogActivity.mock.calls[0]
+      expect(callArgs[2].command).toHaveLength(103) // 100 + "..."
+      expect(callArgs[2].command).toMatch(/^.{100}\.\.\.$/)
+    })
+
+    it('does not truncate short Bash commands (TES-2.7 AC#3)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-bash-short',
+        tmux_session: 'tinsu-project-task-bash-short',
+        session_id: 'bash-short-session',
+        current_phase: 'dev-story'
+      })
+
+      const shortCommand = 'npm run test'
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'bash-short-session',
+        tool_name: 'Bash',
+        tool_input: { command: shortCommand },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-bash-short',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Bash',
+          command: 'npm run test'
+        })
+      )
+    })
+
+    it('handles orphan session_id gracefully (TES-2.7 Task 1.2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+
+      const consoleSpy = vi.spyOn(console, 'warn')
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'orphan-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Orphan tool-use event'),
+        'orphan-session'
+      )
+      expect(mockLogActivity).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('continues even if activity logging fails (TES-2.7 Task 2.4)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-log-fail',
+        tmux_session: 'tinsu-project-task-log-fail',
+        session_id: 'log-fail-session',
+        current_phase: 'dev-story'
+      })
+
+      // Make logActivity throw
+      mockLogActivity.mockRejectedValueOnce(new Error('Database error'))
+
+      const consoleSpy = vi.spyOn(console, 'error')
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'log-fail-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      // Should not throw
+      await expect(service.onToolUseHook(payload)).resolves.toBeUndefined()
+
+      // Should have logged error
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to log tool_used'),
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('logs tool without file/command for unknown tool types (TES-2.7 edge case)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-unknown-tool',
+        tmux_session: 'tinsu-project-task-unknown-tool',
+        session_id: 'unknown-tool-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'unknown-tool-session',
+        tool_name: 'WebFetch',
+        tool_input: { url: 'https://example.com' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-unknown-tool',
+        'tool_used',
+        { tool: 'WebFetch' }
+      )
+    })
+
+    it('extracts pattern for Grep tool when path not provided (TES-2.7 AC#2)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-grep',
+        tmux_session: 'tinsu-project-task-grep',
+        session_id: 'grep-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'grep-session',
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO|FIXME' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Falls back to pattern when path not provided
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-grep',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Grep',
+          file: 'TODO|FIXME'
+        })
+      )
+    })
+
+    it('logs Task tool without extracting additional fields (TES-2.7 edge case)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-subagent',
+        tmux_session: 'tinsu-project-task-subagent',
+        session_id: 'task-tool-session',
+        current_phase: 'dev-story'
+      })
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'task-tool-session',
+        tool_name: 'Task',
+        tool_input: { prompt: 'Search for TODO comments', subagent_type: 'Explore' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Task tool logs only tool name, no file/command extraction
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-subagent',
+        'tool_used',
+        { tool: 'Task' }
+      )
+    })
+
+    it('does not truncate exactly 100 character command (boundary test)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-bash-boundary',
+        tmux_session: 'tinsu-project-task-bash-boundary',
+        session_id: 'bash-boundary-session',
+        current_phase: 'dev-story'
+      })
+
+      // Exactly 100 characters
+      const exactCommand = 'a'.repeat(100)
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'bash-boundary-session',
+        tool_name: 'Bash',
+        tool_input: { command: exactCommand },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-bash-boundary',
+        'tool_used',
+        expect.objectContaining({
+          tool: 'Bash',
+          command: exactCommand // Should NOT be truncated
+        })
+      )
+
+      // Verify no "..." suffix
+      const callArgs = mockLogActivity.mock.calls[0]
+      expect(callArgs[2].command).toHaveLength(100)
+      expect(callArgs[2].command).not.toContain('...')
+    })
+  })
 })
