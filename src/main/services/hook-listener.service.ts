@@ -12,6 +12,10 @@
 import * as http from 'http'
 import * as fs from 'fs'
 import { z } from 'zod'
+import { eq, desc, and } from 'drizzle-orm'
+import { db } from '../db'
+import { task_sessions, taskActivities } from '../db/schema'
+import { ActivityLogService } from './activity-log.service'
 
 /** Default port for the hook listener HTTP server */
 const DEFAULT_PORT = 3847
@@ -354,18 +358,77 @@ export class HookListenerService {
    * Handle Stop hook event.
    *
    * Called when Claude Code session ends.
-   * Logs the event for debugging.
+   * Logs agent_complete activity with duration calculated from agent_start.
    *
    * @param payload - Stop hook payload
    *
-   * TODO: TES-2.6 - Call ActivityLogService to log agent_complete event
-   * TODO: TES-2.6 - Trigger AutomationService.onAgentComplete()
+   * @see TES-2.6: Agent Start/Complete Event Capture
    */
   async onStopHook(payload: StopHookPayload): Promise<void> {
     console.log('[HookListener] Stop hook received:', JSON.stringify(payload, null, 2))
-    // Future integration points (TES-2.6):
-    // - Call ActivityLogService to log agent_complete event
-    // - Trigger AutomationService.onAgentComplete() for workflow transitions
+
+    // TES-2.6: Look up task_id from session_id
+    // First, try to find a task_session with this session_id
+    let session = db
+      .select()
+      .from(task_sessions)
+      .where(eq(task_sessions.session_id, payload.session_id))
+      .get()
+
+    // If no session found, this might be the first hook event for this session.
+    // The session_id may not have been set yet. We need a different approach.
+    // For now, log as orphan if not found (session_id mapping happens via other means).
+    if (!session) {
+      console.warn(
+        `[HookListener] Orphan stop event - session_id not found in task_sessions:`,
+        payload.session_id
+      )
+      // TES-2.6 Task 2.3: Handle orphan events gracefully
+      return
+    }
+
+    const taskId = session.task_id
+    const phase = session.current_phase ?? 'manual'
+
+    // TES-2.6: Calculate duration_ms from agent_start event timestamp
+    let duration_ms: number | null = null
+    try {
+      // Query most recent agent_start event for this task
+      const startEvents = db
+        .select()
+        .from(taskActivities)
+        .where(
+          and(
+            eq(taskActivities.task_id, taskId),
+            eq(taskActivities.event_type, 'agent_start')
+          )
+        )
+        .orderBy(desc(taskActivities.created_at))
+        .limit(1)
+        .all()
+
+      if (startEvents.length > 0) {
+        const startTime = startEvents[0].created_at
+        duration_ms = Date.now() - startTime
+      } else {
+        console.warn(`[HookListener] No agent_start event found for task ${taskId} - duration_ms will be null`)
+      }
+    } catch (error) {
+      console.warn('[HookListener] Failed to calculate duration:', error)
+    }
+
+    // TES-2.6: Log agent_complete activity
+    try {
+      await ActivityLogService.logActivity(taskId, 'agent_complete', {
+        phase,
+        duration_ms,
+        session_id: payload.session_id
+      })
+    } catch (error) {
+      console.error('[HookListener] Failed to log agent_complete activity:', error)
+    }
+
+    // Future: Trigger AutomationService.onAgentComplete() for workflow transitions (TES-5.x)
   }
 
   /**

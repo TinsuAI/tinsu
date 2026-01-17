@@ -374,6 +374,18 @@ export class TaskTerminalService {
       throw new Error(`tmux session ${sessionName} no longer exists`)
     }
 
+    // TES-2.6: Log agent_start activity before sending command
+    // Get current phase from task_sessions to include in payload
+    const session = db.select().from(task_sessions).where(eq(task_sessions.task_id, taskId)).get()
+    const phase = session?.current_phase ?? 'manual'
+
+    // Log agent_start event (don't fail command if logging fails)
+    try {
+      await ActivityLogService.logActivity(taskId, 'agent_start', { phase })
+    } catch (error) {
+      console.warn('[TaskTerminalService] Failed to log agent_start activity:', error)
+    }
+
     // Use tmux send-keys with Enter to execute the command
     // JSON.stringify handles escaping special characters in the command
     await execAsync(

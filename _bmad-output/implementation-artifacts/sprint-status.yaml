@@ -185,7 +185,7 @@ development_status:
   tes-2-3-hook-listener-http-server: done
   tes-2-4-claude-code-hook-scripts: done
   tes-2-5-status-change-event-capture: done
-  tes-2-6-agent-start-complete-event-capture: backlog
+  tes-2-6-agent-start-complete-event-capture: done
   tes-2-7-tool-usage-event-capture: backlog
   tes-2-8-user-command-event-capture: backlog
   tes-2-9-automation-trigger-event-capture: backlog

@@ -15,6 +15,40 @@ import {
   type ToolUseHookPayload
 } from './hook-listener.service'
 
+// Mock database and ActivityLogService for TES-2.6 tests
+const mockDbSelectGet = vi.fn()
+const mockDbSelectAll = vi.fn()
+const mockDbSelect = vi.fn(() => ({
+  from: vi.fn(() => ({
+    where: vi.fn(() => ({
+      get: mockDbSelectGet,
+      orderBy: vi.fn(() => ({
+        limit: vi.fn(() => ({
+          all: mockDbSelectAll
+        }))
+      }))
+    }))
+  }))
+}))
+
+vi.mock('../db', () => ({
+  db: {
+    select: () => mockDbSelect()
+  }
+}))
+
+vi.mock('../db/schema', () => ({
+  task_sessions: { session_id: 'session_id', task_id: 'task_id' },
+  taskActivities: { task_id: 'task_id', event_type: 'event_type', created_at: 'created_at' }
+}))
+
+const mockLogActivity = vi.fn()
+vi.mock('./activity-log.service', () => ({
+  ActivityLogService: {
+    logActivity: (...args: unknown[]) => mockLogActivity(...args)
+  }
+}))
+
 const PORT_FILE = '/tmp/tinsu-hook-port'
 
 /**
@@ -71,9 +105,14 @@ describe('HookListenerService', () => {
   let portCounter = 38500
 
   beforeEach(() => {
+    vi.clearAllMocks()
     service = new HookListenerService()
     // Each test gets a unique port to avoid conflicts
     testPort = portCounter++
+    // Reset database mocks
+    mockDbSelectGet.mockReset()
+    mockDbSelectAll.mockReset()
+    mockLogActivity.mockReset()
   })
 
   afterEach(async () => {
@@ -534,6 +573,247 @@ describe('HookListenerService', () => {
       expect(consoleSpy).toHaveBeenCalledWith(
         '[HookListener] Tool use hook received:',
         expect.stringContaining('tool-log-test-session')
+      )
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  // TES-2.6: Agent Start/Complete Event Capture tests
+  describe('onStopHook agent_complete logging (TES-2.6)', () => {
+    it('logs agent_complete activity when Stop hook fires with mapped session', async () => {
+      // Mock: session exists with this session_id
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-123',
+        tmux_session: 'tinsu-project-task-123',
+        session_id: 'test-session-abc',
+        current_phase: 'dev-story'
+      })
+
+      // Mock: agent_start event exists for duration calculation
+      mockDbSelectAll.mockReturnValueOnce([
+        { id: 'activity-1', task_id: 'task-123', event_type: 'agent_start', created_at: Date.now() - 5000 }
+      ])
+
+      const payload: StopHookPayload = {
+        session_id: 'test-session-abc',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should have logged agent_complete
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-123',
+        'agent_complete',
+        expect.objectContaining({
+          phase: 'dev-story',
+          session_id: 'test-session-abc'
+        })
+      )
+    })
+
+    it('calculates duration_ms from agent_start timestamp (TES-2.6 AC#3)', async () => {
+      const startTime = Date.now() - 10000 // 10 seconds ago
+
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-duration',
+        tmux_session: 'tinsu-project-task-duration',
+        session_id: 'duration-session',
+        current_phase: 'code-review'
+      })
+
+      mockDbSelectAll.mockReturnValueOnce([
+        { id: 'activity-1', task_id: 'task-duration', event_type: 'agent_start', created_at: startTime }
+      ])
+
+      const payload: StopHookPayload = {
+        session_id: 'duration-session',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should have logged with duration_ms calculated
+      expect(mockLogActivity).toHaveBeenCalled()
+      const callArgs = mockLogActivity.mock.calls[0]
+      expect(callArgs[0]).toBe('task-duration')
+      expect(callArgs[1]).toBe('agent_complete')
+      expect(callArgs[2].duration_ms).toBeGreaterThanOrEqual(10000)
+      expect(callArgs[2].duration_ms).toBeLessThan(11000) // Allow 1s margin
+    })
+
+    it('sets duration_ms to null when no agent_start event found (TES-2.6 edge case)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-no-start',
+        tmux_session: 'tinsu-project-task-no-start',
+        session_id: 'no-start-session',
+        current_phase: 'manual'
+      })
+
+      // No agent_start events
+      mockDbSelectAll.mockReturnValueOnce([])
+
+      const consoleSpy = vi.spyOn(console, 'warn')
+
+      const payload: StopHookPayload = {
+        session_id: 'no-start-session',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should have logged warning
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('No agent_start event found')
+      )
+
+      // Should have logged with duration_ms = null
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-no-start',
+        'agent_complete',
+        expect.objectContaining({
+          phase: 'manual',
+          duration_ms: null,
+          session_id: 'no-start-session'
+        })
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('handles orphan session_id gracefully (TES-2.6 Task 2.3)', async () => {
+      // Mock: no session found for this session_id
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+
+      const consoleSpy = vi.spyOn(console, 'warn')
+
+      const payload: StopHookPayload = {
+        session_id: 'orphan-session-xyz',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should have logged warning about orphan
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Orphan stop event'),
+        'orphan-session-xyz'
+      )
+
+      // Should NOT have tried to log activity
+      expect(mockLogActivity).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('uses "manual" as default phase when current_phase is null', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-no-phase',
+        tmux_session: 'tinsu-project-task-no-phase',
+        session_id: 'null-phase-session',
+        current_phase: null // No phase set
+      })
+
+      mockDbSelectAll.mockReturnValueOnce([
+        { id: 'activity-1', task_id: 'task-no-phase', event_type: 'agent_start', created_at: Date.now() - 1000 }
+      ])
+
+      const payload: StopHookPayload = {
+        session_id: 'null-phase-session',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should default to 'manual'
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-no-phase',
+        'agent_complete',
+        expect.objectContaining({
+          phase: 'manual'
+        })
+      )
+    })
+
+    it('includes session_id in payload for debugging (TES-2.6 Task 3.4)', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-debug',
+        tmux_session: 'tinsu-project-task-debug',
+        session_id: 'debug-session-id',
+        current_phase: 'dev-story'
+      })
+
+      mockDbSelectAll.mockReturnValueOnce([
+        { id: 'activity-1', task_id: 'task-debug', event_type: 'agent_start', created_at: Date.now() - 1000 }
+      ])
+
+      const payload: StopHookPayload = {
+        session_id: 'debug-session-id',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should include session_id in payload
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-debug',
+        'agent_complete',
+        expect.objectContaining({
+          session_id: 'debug-session-id'
+        })
+      )
+    })
+
+    it('continues even if activity logging fails', async () => {
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-log-fail',
+        tmux_session: 'tinsu-project-task-log-fail',
+        session_id: 'fail-session',
+        current_phase: 'dev-story'
+      })
+
+      mockDbSelectAll.mockReturnValueOnce([
+        { id: 'activity-1', task_id: 'task-log-fail', event_type: 'agent_start', created_at: Date.now() - 1000 }
+      ])
+
+      // Make logActivity throw
+      mockLogActivity.mockRejectedValueOnce(new Error('Database error'))
+
+      const consoleSpy = vi.spyOn(console, 'error')
+
+      const payload: StopHookPayload = {
+        session_id: 'fail-session',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      // Should not throw
+      await expect(service.onStopHook(payload)).resolves.toBeUndefined()
+
+      // Should have logged error
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to log agent_complete'),
+        expect.any(Error)
       )
 
       consoleSpy.mockRestore()

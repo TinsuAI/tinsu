@@ -54,12 +54,27 @@ const mockUpdateSet = vi.fn(() => ({
 const mockUpdate = vi.fn(() => ({
   set: mockUpdateSet
 }))
+// Mock for db.select().from().where().get() chain (TES-2.6)
+// Note: mockSelectGet delegates to mockFindFirst for backward compatibility
+const mockSelectGet = vi.fn(() => mockFindFirst())
+const mockSelectWhere = vi.fn(() => ({
+  get: mockSelectGet,
+  all: mockFindMany
+}))
+const mockSelectFrom = vi.fn(() => ({
+  where: mockSelectWhere,
+  all: mockFindMany
+}))
+const mockSelect = vi.fn(() => ({
+  from: mockSelectFrom
+}))
 
 vi.mock('../db', () => ({
   db: {
     insert: () => mockInsert(),
     delete: () => mockDelete(),
     update: () => mockUpdate(),
+    select: () => mockSelect(),
     query: {
       task_sessions: {
         findFirst: () => mockFindFirst(),
@@ -776,6 +791,96 @@ describe('TaskTerminalService', () => {
       // Should have used JSON.stringify to escape the command
       const sendKeysCmd = commandsCalled.find(cmd => cmd.includes('send-keys'))
       expect(sendKeysCmd).toContain('"echo \\"hello world\\""')
+    })
+
+    // TES-2.6: Agent start event logging tests
+    it('logs agent_start activity when sending command (TES-2.6)', async () => {
+      // Note: getSessionName uses db.select().get() which is synchronous
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-agent-start',
+        tmux_session: 'tinsu-project-task-agent-start',
+        session_id: null,
+        current_phase: 'dev-story',
+        created_at: new Date()
+      })
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.sendCommand('task-agent-start', 'claude --print ...')
+
+      // Should have logged agent_start activity with correct phase
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-agent-start',
+        'agent_start',
+        { phase: 'dev-story' }
+      )
+    })
+
+    it('logs agent_start with "manual" phase when current_phase is null (TES-2.6)', async () => {
+      // Note: getSessionName uses db.select().get() which is synchronous
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-manual',
+        tmux_session: 'tinsu-project-task-manual',
+        session_id: null,
+        current_phase: null, // No phase set
+        created_at: new Date()
+      })
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.sendCommand('task-manual', 'npm test')
+
+      // Should default to 'manual' when no phase set
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-manual',
+        'agent_start',
+        { phase: 'manual' }
+      )
+    })
+
+    it('continues sending command even if agent_start logging fails (TES-2.6)', async () => {
+      // Note: getSessionName uses db.select().get() which is synchronous
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-log-fail',
+        tmux_session: 'tinsu-project-task-log-fail',
+        session_id: null,
+        current_phase: 'code-review',
+        created_at: new Date()
+      })
+
+      // Make logActivity throw an error
+      mockLogActivity.mockRejectedValueOnce(new Error('Database error'))
+
+      const commandsCalled: string[] = []
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          commandsCalled.push(cmd)
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      // Should not throw - command should still be sent
+      await TaskTerminalService.sendCommand('task-log-fail', 'echo test')
+
+      // Command should have been sent despite logging failure
+      expect(commandsCalled.some(cmd => cmd.includes('send-keys'))).toBe(true)
     })
   })
 
