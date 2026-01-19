@@ -8,6 +8,7 @@ import { TaskSessionService } from '../../services/task-session.service'
 import { ScrollbackBackupService } from '../../services/scrollback-backup.service'
 import { ptyService } from '../../services/pty.service'
 import { devAgentProgressService, DevAgentProgressInfo } from '../../services/dev-agent-progress.service'
+import { ActivityLogService } from '../../services/activity-log.service'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
@@ -100,6 +101,13 @@ vi.mock('../../services/pty.service', () => ({
     resize: vi.fn(),
     on: vi.fn(),
     off: vi.fn()
+  }
+}))
+
+// Mock ActivityLogService for TES-2.8
+vi.mock('../../services/activity-log.service', () => ({
+  ActivityLogService: {
+    logActivity: vi.fn()
   }
 }))
 
@@ -1003,6 +1011,142 @@ describe('agentRouter', () => {
         'task-123',
         'echo "hello world" && npm run test'
       )
+    })
+
+    // ===== TES-2.8: User Command Event Capture Tests =====
+
+    it('logs user_command activity when command sent successfully (TES-2.8)', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+      vi.mocked(ActivityLogService.logActivity).mockResolvedValue({
+        id: 'activity-1',
+        task_id: 'task-123',
+        event_type: 'user_command',
+        payload: '{"command":"npm run test"}',
+        created_at: Date.now()
+      })
+
+      await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: 'npm run test'
+      })
+
+      expect(ActivityLogService.logActivity).toHaveBeenCalledWith(
+        'task-123',
+        'user_command',
+        { command: 'npm run test' }
+      )
+    })
+
+    it('returns success even when activity logging fails (TES-2.8)', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+      vi.mocked(ActivityLogService.logActivity).mockRejectedValue(new Error('DB error'))
+
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: 'npm run test'
+      })
+
+      expect(result).toEqual({ success: true })
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to log user_command'),
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('logs activity with correct payload containing command text (TES-2.8)', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+      vi.mocked(ActivityLogService.logActivity).mockResolvedValue({
+        id: 'activity-2',
+        task_id: 'task-456',
+        event_type: 'user_command',
+        payload: '{"command":"git status --short"}',
+        created_at: Date.now()
+      })
+
+      await caller.sendTerminalCommand({
+        taskId: 'task-456',
+        command: 'git status --short'
+      })
+
+      expect(ActivityLogService.logActivity).toHaveBeenCalledWith(
+        'task-456',
+        'user_command',
+        { command: 'git status --short' }
+      )
+    })
+
+    it('does not log activity when command send fails (TES-2.8)', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockRejectedValue(
+        new Error('No terminal session for task task-789')
+      )
+
+      await expect(
+        caller.sendTerminalCommand({ taskId: 'task-789', command: 'pwd' })
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND'
+      })
+
+      // Activity logging should not be called if command send failed
+      expect(ActivityLogService.logActivity).not.toHaveBeenCalled()
+    })
+
+    it('masks common secrets in logged command', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+      vi.mocked(ActivityLogService.logActivity).mockResolvedValue({
+        id: 'activity-3',
+        task_id: 'task-123',
+        event_type: 'user_command',
+        payload: '{"command":"login --password *****"}',
+        created_at: Date.now()
+      })
+
+      await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: 'login --password mysecretpassword123'
+      })
+
+      expect(ActivityLogService.logActivity).toHaveBeenCalledWith(
+        'task-123',
+        'user_command',
+        { command: expect.stringContaining('*****') }
+      )
+      expect(ActivityLogService.logActivity).toHaveBeenCalledWith(
+        'task-123',
+        'user_command',
+        { command: expect.not.stringContaining('mysecretpassword123') }
+      )
+    })
+
+    it('truncates long commands in logged command', async () => {
+      vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue()
+      vi.mocked(ActivityLogService.logActivity).mockResolvedValue({
+        id: 'activity-4',
+        task_id: 'task-123',
+        event_type: 'user_command',
+        payload: '...',
+        created_at: Date.now()
+      })
+
+      const longCommand = 'a'.repeat(2000)
+      await caller.sendTerminalCommand({
+        taskId: 'task-123',
+        command: longCommand
+      })
+
+      // Should be truncated to 1000 chars + suffix
+      expect(ActivityLogService.logActivity).toHaveBeenCalledWith(
+        'task-123',
+        'user_command',
+        { command: expect.stringContaining('... (truncated)') }
+      )
+      // Should verify length is much shorter than original
+      const callArgs = vi.mocked(ActivityLogService.logActivity).mock.calls[0]
+      const payload = callArgs[2] as { command: string }
+      expect(payload.command.length).toBeLessThan(1100)
     })
   })
 

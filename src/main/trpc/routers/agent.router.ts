@@ -18,6 +18,7 @@ import { ptyService } from '../../services/pty.service'
 import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
 import { sessionEventEmitter, type SessionEndedEventData, type SessionStalledEventData, type SessionEventData } from '../../lib/session-events'
 import { StallDetectorService } from '../../services/stall-detector.service'
+import { ActivityLogService } from '../../services/activity-log.service'
 
 /**
  * TES-1.11: Maps processId to taskId for stall detection.
@@ -662,8 +663,25 @@ export const agentRouter = router({
       try {
         await TaskTerminalService.sendCommand(input.taskId, input.command)
 
-        // TODO (TES-2.x): Log activity event
-        // await activityLogService.logActivity(input.taskId, 'user_command', { command: input.command })
+        // TES-2.8: Log user_command activity
+        try {
+          // Security: Mask common secrets and truncate long commands for logging
+          // We don't limit the actual execution, just the audit log to prevent bloating/leaks
+          let safeCommand = input.command
+          if (safeCommand.length > 1000) {
+            safeCommand = safeCommand.slice(0, 1000) + '... (truncated)'
+          }
+          // Basic masking for common secret patterns (password, token, key)
+          // Simple regex to catch --password value or password=value
+          safeCommand = safeCommand.replace(/(--?(?:password|token|key|secret)[=\s]+)(\S+)/gi, '$1*****')
+
+          await ActivityLogService.logActivity(input.taskId, 'user_command', {
+            command: safeCommand
+          })
+        } catch (logError) {
+          console.warn('[agent.sendTerminalCommand] Failed to log user_command activity:', logError)
+          // Don't fail the mutation - command was sent successfully
+        }
 
         return { success: true }
       } catch (error) {
