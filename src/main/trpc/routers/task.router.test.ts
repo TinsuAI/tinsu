@@ -9,13 +9,17 @@ import * as schema from '../../db/schema'
 vi.mock('../../services', () => {
   const mockLogActivity = vi.fn()
   const mockGetActivities = vi.fn()
+  const mockOnStatusInProgress = vi.fn().mockResolvedValue(undefined)
   return {
     activityLogService: {
       logActivity: mockLogActivity,
       getActivities: mockGetActivities
     },
+    AutomationService: {
+      onStatusInProgress: mockOnStatusInProgress
+    },
     // Export for test assertions
-    __mocks: { mockLogActivity, mockGetActivities }
+    __mocks: { mockLogActivity, mockGetActivities, mockOnStatusInProgress }
   }
 })
 
@@ -46,7 +50,7 @@ vi.mock('../../services/config.service', () => ({
 import { taskRouter } from './task.router'
 // TES-2.5: Import the mock functions for assertions
 import { __mocks } from '../../services'
-const { mockLogActivity, mockGetActivities } = __mocks as { mockLogActivity: ReturnType<typeof vi.fn>, mockGetActivities: ReturnType<typeof vi.fn> }
+const { mockLogActivity, mockGetActivities, mockOnStatusInProgress } = __mocks as { mockLogActivity: ReturnType<typeof vi.fn>, mockGetActivities: ReturnType<typeof vi.fn>, mockOnStatusInProgress: ReturnType<typeof vi.fn> }
 
 type TestDb = BetterSQLite3Database<typeof schema>
 
@@ -167,6 +171,7 @@ describe('taskRouter', () => {
     mockLogActivity.mockReset()
     mockLogActivity.mockResolvedValue({ id: 'activity-1', task_id: '', event_type: '', payload: null, created_at: Date.now() })
     mockGetActivities.mockReset()
+    mockOnStatusInProgress.mockReset()
   })
 
   describe('getAll', () => {
@@ -355,9 +360,50 @@ describe('taskRouter', () => {
       expect(result.status).toBe('in_progress')
     })
 
-    // TES-2.5: Status change event capture tests
-    describe('status_change activity logging', () => {
-      it('should log status_change activity when task status changes', async () => {
+          // TES-2.9: Automation Trigger Integration
+          it('should trigger AutomationService.onStatusInProgress when status changes to in_progress', async () => {
+            // Arrange
+            db.insert(schema.tasks)
+              .values({
+                id: 'task-automation',
+                title: 'Task for Automation',
+                status: 'backlog',
+                task_type: 'story',
+                project_id: TEST_PROJECT_ID,
+                created_at: new Date(),
+                updated_at: new Date()
+              })
+              .run()
+    
+            // Act
+            await caller.updateStatus({ id: 'task-automation', status: 'in_progress' })
+    
+            // Assert
+            expect(mockOnStatusInProgress).toHaveBeenCalledWith('task-automation', 'story')
+          })
+    
+          it('should not trigger AutomationService when status changes to review', async () => {
+            // Arrange
+            db.insert(schema.tasks)
+              .values({
+                id: 'task-no-automation',
+                title: 'Task No Automation',
+                status: 'in_progress',
+                project_id: TEST_PROJECT_ID,
+                created_at: new Date(),
+                updated_at: new Date()
+              })
+              .run()
+    
+            // Act
+            await caller.updateStatus({ id: 'task-no-automation', status: 'review' })
+    
+            // Assert
+            expect(mockOnStatusInProgress).not.toHaveBeenCalled()
+          })
+    
+          // TES-2.5: Status change event capture tests
+          describe('status_change activity logging', () => {      it('should log status_change activity when task status changes', async () => {
         // Arrange: Create a task in backlog
         db.insert(schema.tasks)
           .values({

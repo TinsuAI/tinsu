@@ -40,6 +40,9 @@ import { ActivityLogService, setActivityLogServiceInstance } from './activity-lo
 // Hook listener service (TES-2.3)
 import { HookListenerService } from './hook-listener.service'
 
+// Automation service (TES-2.9)
+export { AutomationService } from './automation.service'
+
 /** Singleton activity log service instance for database persistence */
 export const activityLogService = new ActivityLogService(db)
 

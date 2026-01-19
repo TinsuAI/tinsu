@@ -188,7 +188,7 @@ development_status:
   tes-2-6-agent-start-complete-event-capture: done
   tes-2-7-tool-usage-event-capture: done
   tes-2-8-user-command-event-capture: done
-  tes-2-9-automation-trigger-event-capture: backlog
+  tes-2-9-automation-trigger-event-capture: done
   tes-2-10-error-event-capture: backlog
   tes-2-11-activity-log-ui-display: backlog
   tes-2-12-activity-log-filtering: backlog

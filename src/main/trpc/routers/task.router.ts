@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto'
 import { StorySyncService } from '../../services/story-sync.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
 import { ConfigService } from '../../services/config.service'
-import { activityLogService } from '../../services'
+import { activityLogService, AutomationService } from '../../services'
 
 /**
  * Map database status to file status format.
@@ -250,6 +250,12 @@ export const taskRouter = router({
           // Create tmux session (reuses existing if present - AC: 2)
           const sessionName = await TaskTerminalService.createSession(input.id, projectName)
           console.log(`Created tmux session: ${sessionName}`)
+
+          // Story TES-2.9: Trigger automation event logging (and future automation)
+          // Only trigger if specifically moving to in_progress
+          if (input.status === 'in_progress') {
+            await AutomationService.onStatusInProgress(input.id, result.task_type)
+          }
         } catch (error) {
           // AC: 3 - Log error and propagate meaningful message for frontend toast
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'

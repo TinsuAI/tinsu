@@ -16,6 +16,7 @@ import { eq, desc, and } from 'drizzle-orm'
 import { db } from '../db'
 import { task_sessions, taskActivities } from '../db/schema'
 import { ActivityLogService } from './activity-log.service'
+import { AutomationService } from './automation.service'
 
 /** Default port for the hook listener HTTP server */
 const DEFAULT_PORT = 3847
@@ -431,7 +432,9 @@ export class HookListenerService {
       console.error('[HookListener] Failed to log agent_complete activity:', error)
     }
 
-    // Future: Trigger AutomationService.onAgentComplete() for workflow transitions (TES-5.x)
+    // TES-2.9: Trigger AutomationService.onAgentComplete for workflow transitions
+    // This logs the automation_trigger event and (in future) advances the workflow
+    await AutomationService.onAgentComplete(taskId, phase)
   }
 
   /**
