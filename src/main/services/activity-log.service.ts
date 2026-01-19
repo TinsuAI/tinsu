@@ -54,12 +54,34 @@ export interface StallRecoveredPayload {
 }
 
 /**
+ * Error event payload for logging errors from agents, hooks, or services.
+ *
+ * Used for capturing error details when:
+ * - Agent execution fails (via Stop hook)
+ * - Hook delivery fails (ActivityLogService throws)
+ * - tmux session creation fails
+ *
+ * @see TES-2.10: Error Event Capture
+ */
+export interface ErrorEventPayload {
+  /** Human-readable error message (required) */
+  message: string
+  /** Error code if available (e.g., 'ECONNREFUSED', 'ENOENT', 'HOOK_FAILED') */
+  code?: string
+  /** Stack trace if available (truncated for storage) */
+  stack?: string
+  /** Source of the error for debugging */
+  source?: 'agent' | 'hook_delivery' | 'tmux_creation' | 'session_lookup'
+}
+
+/**
  * Union type for all activity payloads.
  */
 export type ActivityPayload =
   | SessionEndedPayload
   | StallDetectedPayload
   | StallRecoveredPayload
+  | ErrorEventPayload
   | Record<string, unknown>
 
 /**

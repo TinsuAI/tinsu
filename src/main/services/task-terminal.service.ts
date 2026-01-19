@@ -13,6 +13,9 @@ const execAsync = promisify(exec)
 /** Timeout for tmux commands in milliseconds (matching TmuxService pattern) */
 const TMUX_COMMAND_TIMEOUT = 5000
 
+/** Maximum stack trace length before truncation (TES-2.10) */
+const MAX_STACK_LENGTH = 1000
+
 /**
  * Regex to validate safe shell argument (alphanumeric, dash, underscore only)
  * Used to prevent command injection attacks
@@ -94,7 +97,14 @@ export class TaskTerminalService {
       }
       // Session record exists but tmux session is gone - recreate tmux session
       // This happens after system reboot when old session is marked as 'ended' (TES-1.10)
-      await this.createTmuxSession(existingSession)
+      // TES-2.10: Wrap with error event logging
+      try {
+        await this.createTmuxSession(existingSession)
+      } catch (error) {
+        // Log error event before re-throwing
+        await this.logTmuxCreationError(taskId, existingSession, error)
+        throw error
+      }
 
       // TES-1.10: Reset session state since we're starting fresh
       // Clear session_id and current_phase to indicate new active session
@@ -117,7 +127,14 @@ export class TaskTerminalService {
     const sessionName = `tinsu-${sanitizedProject}-${taskId}`
 
     // AC#1: Create tmux session
-    await this.createTmuxSession(sessionName)
+    // TES-2.10: Wrap with error event logging
+    try {
+      await this.createTmuxSession(sessionName)
+    } catch (error) {
+      // Log error event before re-throwing
+      await this.logTmuxCreationError(taskId, sessionName, error)
+      throw error
+    }
 
     // AC#1: Create database record
     // Handle race condition: if another request inserted first, query and return existing
@@ -528,6 +545,44 @@ export class TaskTerminalService {
    */
   static isMonitoring(taskId: string): boolean {
     return this.sessionMonitors.has(taskId)
+  }
+
+  /**
+   * Log a tmux session creation failure as an error event.
+   *
+   * Called when createTmuxSession() fails. Logs the error to the activity log
+   * before re-throwing to provide visibility into terminal creation failures.
+   *
+   * @param taskId - The task ID the session was being created for
+   * @param sessionName - The tmux session name that failed to create
+   * @param error - The error that occurred
+   *
+   * @see TES-2.10: Error Event Capture (AC: #3)
+   */
+  private static async logTmuxCreationError(
+    taskId: string,
+    sessionName: string,
+    error: unknown
+  ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorCode = error instanceof Error && 'code' in error
+      ? String((error as { code?: string }).code)
+      : 'TMUX_CREATE_FAILED'
+    const stack = error instanceof Error && error.stack
+      ? (error.stack.length > MAX_STACK_LENGTH ? error.stack.substring(0, MAX_STACK_LENGTH) + '...' : error.stack)
+      : undefined
+
+    try {
+      await ActivityLogService.logActivity(taskId, 'error', {
+        message: `Failed to create terminal session: ${errorMessage}`,
+        code: errorCode,
+        source: 'tmux_creation' as const,
+        stack
+      })
+    } catch (logError) {
+      // Don't let logging failure mask the original error
+      console.warn('[TaskTerminalService] Failed to log tmux creation error:', logError)
+    }
   }
 
   /**

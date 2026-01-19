@@ -108,7 +108,7 @@ describe('TaskTerminalService', () => {
     // Default: tmux is installed
     mockCheckTmuxInstalled.mockResolvedValue(true)
     // Default: findMany returns empty array
-    mockFindMany.mockResolvedValue([])
+    mockFindMany.mockReturnValue([])
   })
 
   afterEach(() => {
@@ -118,7 +118,7 @@ describe('TaskTerminalService', () => {
   describe('createSession', () => {
     it('creates a new tmux session when none exists (AC: 1)', async () => {
       // Mock: no existing session in database
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       // Mock: tmux commands succeed
       vi.mocked(exec).mockImplementation(
@@ -147,7 +147,7 @@ describe('TaskTerminalService', () => {
 
     it('reuses existing session when already exists (AC: 2)', async () => {
       // Mock: existing session in database
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -178,7 +178,7 @@ describe('TaskTerminalService', () => {
 
     it('recreates tmux session if DB record exists but tmux session is gone', async () => {
       // Mock: existing session in database
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -232,7 +232,7 @@ describe('TaskTerminalService', () => {
      */
     it('recreates tmux session after reboot (TES-1.10: session with ended phase)', async () => {
       // Mock: existing session marked as ended after reboot
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-rebooted',
         tmux_session: 'tinsu-project-task-rebooted',
@@ -290,7 +290,7 @@ describe('TaskTerminalService', () => {
      */
     it('startup validation integrates correctly - non-blocking with proper error handling', async () => {
       // Simulate worst-case: DB returns data but all tmux checks fail
-      mockFindMany.mockResolvedValue([
+      mockFindMany.mockReturnValue([
         {
           id: 'session-1',
           task_id: 'task-1',
@@ -320,7 +320,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('sanitizes project name for session naming', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       vi.mocked(exec).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
@@ -337,7 +337,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('throws error when tmux command fails (AC: 3)', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       // Mock: tmux command fails
       vi.mocked(exec).mockImplementation(
@@ -355,7 +355,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('handles duplicate session name gracefully', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       // Mock: new-session fails with duplicate error
       vi.mocked(exec).mockImplementation(
@@ -395,7 +395,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('accepts valid UUID-style taskId', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       vi.mocked(exec).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
@@ -448,7 +448,7 @@ describe('TaskTerminalService', () => {
 
   describe('hasSession', () => {
     it('returns true when session exists in DB and tmux', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -471,7 +471,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('returns false when no session in DB', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       const result = await TaskTerminalService.hasSession('task-999')
 
@@ -479,7 +479,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('returns false when DB record exists but tmux session is gone', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -506,7 +506,7 @@ describe('TaskTerminalService', () => {
 
   describe('killSession', () => {
     it('kills tmux session and deletes database record', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -537,7 +537,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('does nothing when no session exists', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       await TaskTerminalService.killSession('task-999')
 
@@ -546,7 +546,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('ignores errors when tmux session already gone', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -575,7 +575,7 @@ describe('TaskTerminalService', () => {
 
   describe('getSessionName', () => {
     it('returns session name from database', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -590,7 +590,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('returns null when no session exists', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       const result = await TaskTerminalService.getSessionName('task-999')
 
@@ -598,7 +598,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('uses cache for repeated lookups', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -619,7 +619,7 @@ describe('TaskTerminalService', () => {
 
   describe('clearCache', () => {
     it('clears the session cache', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -643,7 +643,7 @@ describe('TaskTerminalService', () => {
 
   describe('getAttachCommand', () => {
     it('returns attach command when session exists in DB and tmux (AC: 1)', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -667,7 +667,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('returns null when no session in DB', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       const result = await TaskTerminalService.getAttachCommand('task-999')
 
@@ -675,7 +675,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('returns null when DB record exists but tmux session is gone', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -703,7 +703,7 @@ describe('TaskTerminalService', () => {
 
   describe('sendCommand', () => {
     it('sends command to tmux session when session exists', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -732,7 +732,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('throws error when no session exists in DB', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       await expect(
         TaskTerminalService.sendCommand('task-999', 'echo hello')
@@ -740,7 +740,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('throws error when tmux session is gone', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -766,7 +766,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('escapes special characters in command', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'existing-id',
         task_id: 'task-123',
         tmux_session: 'tinsu-project-task-123',
@@ -886,7 +886,7 @@ describe('TaskTerminalService', () => {
 
   describe('session naming convention', () => {
     beforeEach(() => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       vi.mocked(exec).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
@@ -933,7 +933,7 @@ describe('TaskTerminalService', () => {
   describe('validateSessionsOnStartup', () => {
     it('validates all sessions and marks stale ones as ended (AC: #2)', async () => {
       // Mock: multiple sessions in database
-      mockFindMany.mockResolvedValue([
+      mockFindMany.mockReturnValue([
         {
           id: 'session-1',
           task_id: 'task-1',
@@ -999,7 +999,7 @@ describe('TaskTerminalService', () => {
      */
     it('handles complete reboot scenario: detects stale sessions and marks them for history restoration', async () => {
       // Simulate: 3 sessions existed before reboot with various states
-      mockFindMany.mockResolvedValue([
+      mockFindMany.mockReturnValue([
         {
           id: 'session-active-1',
           task_id: 'task-active-1',
@@ -1070,7 +1070,7 @@ describe('TaskTerminalService', () => {
 
     it('skips sessions already marked as ended', async () => {
       // Mock: session already ended
-      mockFindMany.mockResolvedValue([
+      mockFindMany.mockReturnValue([
         {
           id: 'session-1',
           task_id: 'task-1',
@@ -1108,14 +1108,14 @@ describe('TaskTerminalService', () => {
     })
 
     it('handles empty session list gracefully', async () => {
-      mockFindMany.mockResolvedValue([])
+      mockFindMany.mockReturnValue([])
 
       await expect(TaskTerminalService.validateSessionsOnStartup()).resolves.not.toThrow()
     })
 
     it('clears cache for stale sessions', async () => {
       // Pre-populate cache
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-stale',
         tmux_session: 'tinsu-project-task-stale',
@@ -1129,7 +1129,7 @@ describe('TaskTerminalService', () => {
       expect(mockFindFirst).toHaveBeenCalledTimes(1)
 
       // Now simulate stale session in validation
-      mockFindMany.mockResolvedValue([
+      mockFindMany.mockReturnValue([
         {
           id: 'session-1',
           task_id: 'task-stale',
@@ -1178,7 +1178,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('starts monitoring when session exists (AC: #1)', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-monitor',
         tmux_session: 'tinsu-project-task-monitor',
@@ -1202,7 +1202,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('does not start duplicate monitors', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-monitor',
         tmux_session: 'tinsu-project-task-monitor',
@@ -1227,7 +1227,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('does not monitor when no session record exists', async () => {
-      mockFindFirst.mockResolvedValue(undefined)
+      mockFindFirst.mockReturnValue(undefined)
 
       await TaskTerminalService.startSessionMonitor('task-no-session')
 
@@ -1235,7 +1235,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('does not monitor when tmux session is gone', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-gone',
         tmux_session: 'tinsu-project-task-gone',
@@ -1261,7 +1261,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('detects session exit and emits event (AC: #1)', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-exit',
         tmux_session: 'tinsu-project-task-exit',
@@ -1310,7 +1310,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('updates database when session ends (AC: #2)', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-db-update',
         tmux_session: 'tinsu-project-task-db-update',
@@ -1348,7 +1348,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('logs activity when session ends (TES-1.11 Task 2)', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-activity-log',
         tmux_session: 'tinsu-project-task-activity-log',
@@ -1403,7 +1403,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('stops monitoring and clears interval', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-stop',
         tmux_session: 'tinsu-project-task-stop',
@@ -1445,7 +1445,7 @@ describe('TaskTerminalService', () => {
     })
 
     it('stops monitor when killing session', async () => {
-      mockFindFirst.mockResolvedValue({
+      mockFindFirst.mockReturnValue({
         id: 'session-1',
         task_id: 'task-kill',
         tmux_session: 'tinsu-project-task-kill',
@@ -1469,6 +1469,175 @@ describe('TaskTerminalService', () => {
       // Kill session should stop monitor
       await TaskTerminalService.killSession('task-kill')
       expect(TaskTerminalService.isMonitoring('task-kill')).toBe(false)
+    })
+  })
+
+  // ===== TES-2.10: Error Event Capture =====
+
+  describe('tmux error event capture (TES-2.10)', () => {
+    it('logs error event when tmux session creation fails (AC: #3)', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      // Mock: tmux new-session command fails
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('tmux server not running') as ExecException
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      // Should throw the original error
+      await expect(TaskTerminalService.createSession('task-error', 'project')).rejects.toThrow(
+        'tmux server not running'
+      )
+
+      // Should have logged error event before throwing
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-error',
+        'error',
+        expect.objectContaining({
+          message: expect.stringContaining('Failed to create terminal session'),
+          code: expect.any(String),
+          source: 'tmux_creation'
+        })
+      )
+    })
+
+    it('error payload includes tmux error message', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('tmux: invalid option -- x') as ExecException
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(TaskTerminalService.createSession('task-invalid', 'project')).rejects.toThrow()
+
+      // Error message should include the tmux error
+      const errorCall = mockLogActivity.mock.calls.find(
+        call => call[1] === 'error'
+      )
+      expect(errorCall).toBeDefined()
+      expect(errorCall![2].message).toContain('tmux: invalid option -- x')
+    })
+
+    it('error event includes error code when available', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('Connection refused') as ExecException & { code: string }
+          error.code = 'ECONNREFUSED'
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(TaskTerminalService.createSession('task-connrefused', 'project')).rejects.toThrow()
+
+      const errorCall = mockLogActivity.mock.calls.find(
+        call => call[1] === 'error'
+      )
+      expect(errorCall).toBeDefined()
+      expect(errorCall![2].code).toBe('ECONNREFUSED')
+    })
+
+    it('uses default error code when none available', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('Unknown error')
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(TaskTerminalService.createSession('task-unknown', 'project')).rejects.toThrow()
+
+      const errorCall = mockLogActivity.mock.calls.find(
+        call => call[1] === 'error'
+      )
+      expect(errorCall).toBeDefined()
+      expect(errorCall![2].code).toBe('TMUX_CREATE_FAILED')
+    })
+
+    it('continues to throw original error even if error logging fails', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      // Make logActivity fail
+      mockLogActivity.mockRejectedValue(new Error('DB error'))
+
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('tmux crashed')
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      // Should still throw the original tmux error
+      await expect(TaskTerminalService.createSession('task-cascade', 'project')).rejects.toThrow(
+        'tmux crashed'
+      )
+    })
+
+    it('logs error event when recreating tmux session fails (TES-1.10 path)', async () => {
+      // Mock: existing session record exists but tmux session is gone
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-recreate-fail',
+        tmux_session: 'tinsu-project-task-recreate-fail',
+        session_id: null,
+        current_phase: 'ended',
+        created_at: new Date()
+      })
+      mockCheckTmuxInstalled.mockResolvedValue(true)
+
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+
+          if (cmd.includes('has-session')) {
+            // Session doesn't exist
+            const error = new Error('session not found') as ExecException
+            error.code = 1
+            cb?.(error, '', '')
+          } else if (cmd.includes('new-session')) {
+            // Recreate fails
+            const error = new Error('tmux permissions denied')
+            cb?.(error, '', '')
+          }
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(TaskTerminalService.createSession('task-recreate-fail', 'project')).rejects.toThrow(
+        'tmux permissions denied'
+      )
+
+      // Should have logged error for the recreation failure
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-recreate-fail',
+        'error',
+        expect.objectContaining({
+          source: 'tmux_creation'
+        })
+      )
     })
   })
 })

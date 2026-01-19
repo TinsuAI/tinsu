@@ -1292,4 +1292,388 @@ describe('HookListenerService', () => {
       expect(callArgs[2].command).not.toContain('...')
     })
   })
+
+  // TES-2.10: Error Event Capture tests
+  describe('Error event capture (TES-2.10)', () => {
+    describe('Agent error detection in onStopHook', () => {
+      it('logs error event when agent exits with non-zero exit_code (AC#1)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-error-exit',
+          tmux_session: 'tinsu-project-task-error-exit',
+          session_id: 'error-exit-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-error-exit', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        // Resolve subsequent logActivity calls (for agent_complete and automation_trigger)
+        mockLogActivity.mockResolvedValue({})
+
+        const payload = {
+          session_id: 'error-exit-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          exit_code: 1 // Non-zero exit code
+        }
+
+        await service.onStopHook(payload)
+
+        // Should have logged error event first
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-error-exit',
+          'error',
+          expect.objectContaining({
+            message: 'Agent exited with code 1',
+            code: 'EXIT_1',
+            source: 'agent'
+          })
+        )
+      })
+
+      it('logs error event when error field is present in payload (AC#1)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-error-msg',
+          tmux_session: 'tinsu-project-task-error-msg',
+          session_id: 'error-msg-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-error-msg', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        mockLogActivity.mockResolvedValue({})
+
+        const payload = {
+          session_id: 'error-msg-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          error: 'Agent crashed: out of memory' // Error message present
+        }
+
+        await service.onStopHook(payload)
+
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-error-msg',
+          'error',
+          expect.objectContaining({
+            message: 'Agent crashed: out of memory',
+            source: 'agent'
+          })
+        )
+      })
+
+      it('logs error event when error_code field is present (AC#1)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-error-code',
+          tmux_session: 'tinsu-project-task-error-code',
+          session_id: 'error-code-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-error-code', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        mockLogActivity.mockResolvedValue({})
+
+        const payload = {
+          session_id: 'error-code-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          error_code: 'ECONNREFUSED'
+        }
+
+        await service.onStopHook(payload)
+
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-error-code',
+          'error',
+          expect.objectContaining({
+            message: 'Agent execution failed',
+            code: 'ECONNREFUSED',
+            source: 'agent'
+          })
+        )
+      })
+
+      it('does NOT log error event for successful exit (exit_code = 0)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-success',
+          tmux_session: 'tinsu-project-task-success',
+          session_id: 'success-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-success', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        mockLogActivity.mockResolvedValue({})
+
+        const payload = {
+          session_id: 'success-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          exit_code: 0 // Success
+        }
+
+        await service.onStopHook(payload)
+
+        // Should NOT have logged error event
+        const errorCalls = mockLogActivity.mock.calls.filter(
+          call => call[1] === 'error'
+        )
+        expect(errorCalls).toHaveLength(0)
+
+        // Should still have logged agent_complete
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-success',
+          'agent_complete',
+          expect.any(Object)
+        )
+      })
+
+      it('continues processing even when error logging fails', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-error-log-fail',
+          tmux_session: 'tinsu-project-task-error-log-fail',
+          session_id: 'error-log-fail-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-error-log-fail', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        // First call (error) fails, subsequent calls succeed
+        mockLogActivity
+          .mockRejectedValueOnce(new Error('DB error'))
+          .mockResolvedValue({})
+
+        const consoleSpy = vi.spyOn(console, 'warn')
+
+        const payload = {
+          session_id: 'error-log-fail-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          exit_code: 1
+        }
+
+        // Should not throw
+        await expect(service.onStopHook(payload)).resolves.toBeUndefined()
+
+        // Should have warned about error logging failure
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to log agent error activity'),
+          expect.any(Error)
+        )
+
+        // Should still have tried to log agent_complete
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-error-log-fail',
+          'agent_complete',
+          expect.any(Object)
+        )
+
+        consoleSpy.mockRestore()
+      })
+
+      it('truncates long error messages (> 1000 chars)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-long-error',
+          tmux_session: 'tinsu-project-task-long-error',
+          session_id: 'long-error-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-long-error', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        mockLogActivity.mockResolvedValue({})
+
+        const longErrorMessage = 'E'.repeat(1500)
+
+        const payload = {
+          session_id: 'long-error-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop' as const,
+          error: longErrorMessage
+        }
+
+        await service.onStopHook(payload)
+
+        const errorCall = mockLogActivity.mock.calls.find(
+          call => call[1] === 'error'
+        )
+        expect(errorCall).toBeDefined()
+        // Should be truncated to 1000 + "..."
+        expect(errorCall![2].message).toHaveLength(1003)
+        expect(errorCall![2].message).toMatch(/^E{1000}\.\.\.$/)
+      })
+    })
+
+    describe('Hook delivery failure capture', () => {
+      it('logs error event when agent_complete logging fails (AC#2)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-delivery-fail',
+          tmux_session: 'tinsu-project-task-delivery-fail',
+          session_id: 'delivery-fail-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-delivery-fail', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        // First call (agent_complete) fails, second call (error) succeeds
+        mockLogActivity
+          .mockRejectedValueOnce(new Error('Database connection lost'))
+          .mockResolvedValue({})
+
+        const payload: StopHookPayload = {
+          session_id: 'delivery-fail-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop'
+        }
+
+        await service.onStopHook(payload)
+
+        // Should have logged error event for delivery failure
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-delivery-fail',
+          'error',
+          expect.objectContaining({
+            message: expect.stringContaining('Failed to log agent_complete event'),
+            code: 'HOOK_DELIVERY_FAILED',
+            source: 'hook_delivery'
+          })
+        )
+      })
+
+      it('logs error event when tool_used logging fails (AC#2)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-tool-fail',
+          tmux_session: 'tinsu-project-task-tool-fail',
+          session_id: 'tool-fail-session',
+          current_phase: 'dev-story'
+        })
+
+        // First call (tool_used) fails, second call (error) succeeds
+        mockLogActivity
+          .mockRejectedValueOnce(new Error('Disk full'))
+          .mockResolvedValue({})
+
+        const payload: ToolUseHookPayload = {
+          session_id: 'tool-fail-session',
+          tool_name: 'Read',
+          tool_input: { file_path: '/src/file.ts' },
+          hook_event_name: 'PostToolUse'
+        }
+
+        await service.onToolUseHook(payload)
+
+        // Should have logged error event for delivery failure
+        expect(mockLogActivity).toHaveBeenCalledWith(
+          'task-tool-fail',
+          'error',
+          expect.objectContaining({
+            message: expect.stringContaining('Failed to log tool_used event'),
+            code: 'HOOK_DELIVERY_FAILED',
+            source: 'hook_delivery'
+          })
+        )
+      })
+
+      it('continues gracefully when even error logging fails (last resort)', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-all-fail',
+          tmux_session: 'tinsu-project-task-all-fail',
+          session_id: 'all-fail-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-all-fail', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        // All logActivity calls fail
+        mockLogActivity.mockRejectedValue(new Error('All logging failed'))
+
+        const consoleSpy = vi.spyOn(console, 'error')
+
+        const payload: StopHookPayload = {
+          session_id: 'all-fail-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop'
+        }
+
+        // Should not throw
+        await expect(service.onStopHook(payload)).resolves.toBeUndefined()
+
+        // Should have logged to console as last resort
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to log hook delivery error'),
+          expect.any(Error)
+        )
+
+        consoleSpy.mockRestore()
+      })
+
+      it('includes original error message in delivery failure payload', async () => {
+        mockDbSelectGet.mockReturnValueOnce({
+          id: 'session-1',
+          task_id: 'task-msg-include',
+          tmux_session: 'tinsu-project-task-msg-include',
+          session_id: 'msg-include-session',
+          current_phase: 'dev-story'
+        })
+
+        mockDbSelectAll.mockReturnValueOnce([
+          { id: 'activity-1', task_id: 'task-msg-include', event_type: 'agent_start', created_at: Date.now() - 1000 }
+        ])
+
+        const originalError = new Error('SQLITE_BUSY: database is locked')
+
+        mockLogActivity
+          .mockRejectedValueOnce(originalError)
+          .mockResolvedValue({})
+
+        const payload: StopHookPayload = {
+          session_id: 'msg-include-session',
+          transcript_path: '/tmp/transcript.json',
+          cwd: '/home/user/project',
+          hook_event_name: 'Stop'
+        }
+
+        await service.onStopHook(payload)
+
+        const errorCall = mockLogActivity.mock.calls.find(
+          call => call[1] === 'error'
+        )
+        expect(errorCall).toBeDefined()
+        expect(errorCall![2].message).toContain('SQLITE_BUSY: database is locked')
+      })
+    })
+  })
 })

@@ -30,16 +30,33 @@ const MAX_BODY_SIZE = 64 * 1024
 /** Maximum command length before truncation (TES-2.7) */
 const MAX_COMMAND_LENGTH = 100
 
+/** Maximum error message length before truncation (TES-2.10) */
+const MAX_ERROR_LENGTH = 1000
+
+/** Maximum stack trace length before truncation (TES-2.10) */
+const MAX_STACK_LENGTH = 1000
+
 /**
  * Zod schema for Stop hook payload validation.
  * Validates payloads from Claude Code Stop hook.
+ *
+ * Note: Additional fields (exit_code, error, etc.) may be present
+ * depending on Claude Code version. Use passthrough() to preserve them.
+ *
+ * @see TES-2.10: Error Event Capture - added passthrough for error detection
  */
-export const StopHookPayloadSchema = z.object({
-  session_id: z.string(),
-  transcript_path: z.string(),
-  cwd: z.string(),
-  hook_event_name: z.literal('Stop')
-})
+export const StopHookPayloadSchema = z
+  .object({
+    session_id: z.string(),
+    transcript_path: z.string(),
+    cwd: z.string(),
+    hook_event_name: z.literal('Stop'),
+    // TES-2.10: Optional error-related fields that may be present
+    exit_code: z.number().optional(),
+    error: z.string().optional(),
+    error_code: z.string().optional()
+  })
+  .passthrough() // Allow additional fields for future compatibility
 
 /**
  * Stop hook payload from Claude Code.
@@ -363,17 +380,19 @@ export class HookListenerService {
    *
    * Called when Claude Code session ends.
    * Logs agent_complete activity with duration calculated from agent_start.
+   * Also detects and logs error events when agent exits with errors.
    *
    * @param payload - Stop hook payload
    *
    * @see TES-2.6: Agent Start/Complete Event Capture
+   * @see TES-2.10: Error Event Capture
    */
   async onStopHook(payload: StopHookPayload): Promise<void> {
     console.log('[HookListener] Stop hook received:', JSON.stringify(payload, null, 2))
 
     // TES-2.6: Look up task_id from session_id
     // First, try to find a task_session with this session_id
-    let session = db
+    const session = db
       .select()
       .from(task_sessions)
       .where(eq(task_sessions.session_id, payload.session_id))
@@ -393,6 +412,27 @@ export class HookListenerService {
 
     const taskId = session.task_id
     const phase = session.current_phase ?? 'manual'
+
+    // TES-2.10: Detect error condition from payload
+    // Error indicators: exit_code > 0, error field present, or error_code field present
+    const hasError = this.detectAgentError(payload)
+
+    // TES-2.10: Log error event if agent exited with error
+    if (hasError) {
+      try {
+        const errorMessage = this.extractErrorMessage(payload)
+        const errorCode = payload.error_code ?? (payload.exit_code !== undefined ? `EXIT_${payload.exit_code}` : undefined)
+
+        await ActivityLogService.logActivity(taskId, 'error', {
+          message: errorMessage,
+          code: errorCode,
+          source: 'agent' as const
+        })
+      } catch (logError) {
+        console.warn('[HookListener] Failed to log agent error activity:', logError)
+        // Continue - don't let error logging break the main flow
+      }
+    }
 
     // TES-2.6: Calculate duration_ms from agent_start event timestamp
     let duration_ms: number | null = null
@@ -422,6 +462,7 @@ export class HookListenerService {
     }
 
     // TES-2.6: Log agent_complete activity
+    // TES-2.10: Wrap with hook delivery error capture
     try {
       await ActivityLogService.logActivity(taskId, 'agent_complete', {
         phase,
@@ -430,11 +471,77 @@ export class HookListenerService {
       })
     } catch (error) {
       console.error('[HookListener] Failed to log agent_complete activity:', error)
+      // TES-2.10: Log hook delivery failure as error event
+      await this.logHookDeliveryError(taskId, 'agent_complete', error)
     }
 
     // TES-2.9: Trigger AutomationService.onAgentComplete for workflow transitions
     // This logs the automation_trigger event and (in future) advances the workflow
     await AutomationService.onAgentComplete(taskId, phase)
+  }
+
+  /**
+   * Detect if the Stop hook payload indicates an agent error.
+   *
+   * Error conditions:
+   * - exit_code > 0 (non-zero exit)
+   * - error field is present and non-empty
+   * - error_code field is present
+   *
+   * @param payload - Stop hook payload
+   * @returns true if error detected
+   *
+   * @see TES-2.10: Error Event Capture
+   */
+  private detectAgentError(payload: StopHookPayload): boolean {
+    // Check for non-zero exit code
+    if (payload.exit_code !== undefined && payload.exit_code > 0) {
+      return true
+    }
+
+    // Check for error message field
+    if (payload.error && typeof payload.error === 'string' && payload.error.length > 0) {
+      return true
+    }
+
+    // Check for error code field
+    if (payload.error_code && typeof payload.error_code === 'string' && payload.error_code.length > 0) {
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Extract error message from Stop hook payload.
+   *
+   * Priority:
+   * 1. error field if present
+   * 2. Construct message from exit_code if present
+   * 3. Default message
+   *
+   * @param payload - Stop hook payload
+   * @returns Human-readable error message
+   *
+   * @see TES-2.10: Error Event Capture
+   */
+  private extractErrorMessage(payload: StopHookPayload): string {
+    // Use error field if present
+    if (payload.error && typeof payload.error === 'string' && payload.error.length > 0) {
+      // Truncate if too long
+      if (payload.error.length > MAX_ERROR_LENGTH) {
+        return payload.error.substring(0, MAX_ERROR_LENGTH) + '...'
+      }
+      return payload.error
+    }
+
+    // Construct message from exit code
+    if (payload.exit_code !== undefined && payload.exit_code > 0) {
+      return `Agent exited with code ${payload.exit_code}`
+    }
+
+    // Default message
+    return 'Agent execution failed'
   }
 
   /**
@@ -506,10 +613,48 @@ export class HookListenerService {
     }
 
     // TES-2.7: Log tool_used activity
+    // TES-2.10: Wrap with hook delivery error capture
     try {
       await ActivityLogService.logActivity(taskId, 'tool_used', activityPayload)
     } catch (error) {
       console.error('[HookListener] Failed to log tool_used activity:', error)
+      // TES-2.10: Log hook delivery failure as error event
+      await this.logHookDeliveryError(taskId, 'tool_used', error)
+    }
+  }
+
+  /**
+   * Log a hook delivery failure as an error event.
+   *
+   * When logging an activity fails (e.g., agent_complete, tool_used),
+   * this method attempts to log the delivery failure itself as an error event.
+   *
+   * @param taskId - Task ID the original event was for
+   * @param originalEventType - The event type that failed to log
+   * @param error - The error that caused the failure
+   *
+   * @see TES-2.10: Error Event Capture (AC: #2)
+   */
+  private async logHookDeliveryError(
+    taskId: string,
+    originalEventType: string,
+    error: unknown
+  ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error && error.stack
+      ? (error.stack.length > MAX_STACK_LENGTH ? error.stack.substring(0, MAX_STACK_LENGTH) + '...' : error.stack)
+      : undefined
+
+    try {
+      await ActivityLogService.logActivity(taskId, 'error', {
+        message: `Failed to log ${originalEventType} event: ${errorMessage}`,
+        code: 'HOOK_DELIVERY_FAILED',
+        source: 'hook_delivery' as const,
+        stack
+      })
+    } catch (logError) {
+      // Last resort - just log to console if even error logging fails
+      console.error('[HookListener] Failed to log hook delivery error event:', logError)
     }
   }
 
