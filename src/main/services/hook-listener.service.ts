@@ -12,11 +12,12 @@
 import * as http from 'http'
 import * as fs from 'fs'
 import { z } from 'zod'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, isNull, ne } from 'drizzle-orm'
 import { db } from '../db'
 import { task_sessions, taskActivities } from '../db/schema'
 import { ActivityLogService } from './activity-log.service'
 import { AutomationService } from './automation.service'
+import { TaskSessionService } from './task-session.service'
 
 /** Default port for the hook listener HTTP server */
 const DEFAULT_PORT = 3847
@@ -392,22 +393,27 @@ export class HookListenerService {
 
     // TES-2.6: Look up task_id from session_id
     // First, try to find a task_session with this session_id
-    const session = db
+    let session = db
       .select()
       .from(task_sessions)
       .where(eq(task_sessions.session_id, payload.session_id))
       .get()
 
-    // If no session found, this might be the first hook event for this session.
-    // The session_id may not have been set yet. We need a different approach.
-    // For now, log as orphan if not found (session_id mapping happens via other means).
+    // TES-1.7: If session not found, try to register the orphan session_id
+    // This handles the case where the Stop hook is the first hook event received
     if (!session) {
-      console.warn(
-        `[HookListener] Orphan stop event - session_id not found in task_sessions:`,
-        payload.session_id
+      console.log(
+        `[HookListener] Session not found for ${payload.session_id}, attempting auto-registration...`
       )
-      // TES-2.6 Task 2.3: Handle orphan events gracefully
-      return
+      session = await this.tryRegisterOrphanSession(payload.session_id)
+
+      if (!session) {
+        console.warn(
+          `[HookListener] Orphan stop event - could not register session_id:`,
+          payload.session_id
+        )
+        return
+      }
     }
 
     const taskId = session.task_id
@@ -558,18 +564,26 @@ export class HookListenerService {
     console.log('[HookListener] Tool use hook received:', JSON.stringify(payload, null, 2))
 
     // TES-2.7 Task 1: Look up task_id from session_id (same pattern as onStopHook)
-    const session = db
+    let session = db
       .select()
       .from(task_sessions)
       .where(eq(task_sessions.session_id, payload.session_id))
       .get()
 
+    // TES-1.7: If session not found, try to register the orphan session_id
     if (!session) {
-      console.warn(
-        `[HookListener] Orphan tool-use event - session_id not found:`,
-        payload.session_id
+      console.log(
+        `[HookListener] Session not found for ${payload.session_id}, attempting auto-registration...`
       )
-      return
+      session = await this.tryRegisterOrphanSession(payload.session_id)
+
+      if (!session) {
+        console.warn(
+          `[HookListener] Orphan tool-use event - could not register session_id:`,
+          payload.session_id
+        )
+        return
+      }
     }
 
     const taskId = session.task_id
@@ -621,6 +635,87 @@ export class HookListenerService {
       // TES-2.10: Log hook delivery failure as error event
       await this.logHookDeliveryError(taskId, 'tool_used', error)
     }
+  }
+
+  /**
+   * Try to register an orphan session_id with an active task.
+   *
+   * When a hook event arrives with a session_id that's not in the database,
+   * this method attempts to find an active task_session (has tmux session but
+   * no session_id yet) and register the session_id with it.
+   *
+   * This handles the case where Claude Code starts inside a tmux session and
+   * the first hook event fires before the session_id has been registered.
+   *
+   * @param sessionId - The Claude Code session_id from the hook payload
+   * @returns The task_session record if registration succeeded, null otherwise
+   *
+   * @see TES-1.7: Session-Task Mapping & Event Routing
+   */
+  private async tryRegisterOrphanSession(sessionId: string): Promise<typeof task_sessions.$inferSelect | null> {
+    // Find active task_sessions with null session_id
+    // Active means: has tmux session and current_phase is NOT 'ended'
+    const activeSessions = db
+      .select()
+      .from(task_sessions)
+      .where(
+        and(
+          isNull(task_sessions.session_id),
+          // current_phase is null (active) or not 'ended'
+          // Note: null means active, 'ended' means historical
+          // We want: session_id IS NULL AND (current_phase IS NULL OR current_phase != 'ended')
+        )
+      )
+      .all()
+      .filter(s => s.current_phase !== 'ended')
+
+    if (activeSessions.length === 0) {
+      console.warn(
+        `[HookListener] No active task sessions without session_id found for orphan:`,
+        sessionId
+      )
+      return null
+    }
+
+    if (activeSessions.length > 1) {
+      // Multiple active sessions - ambiguous, can't auto-register
+      // Log which sessions are active for debugging
+      console.warn(
+        `[HookListener] Multiple active task sessions without session_id (${activeSessions.length}):`,
+        activeSessions.map(s => ({ task_id: s.task_id, tmux_session: s.tmux_session }))
+      )
+      // Still try to register with the most recently created one (best guess)
+      const mostRecent = activeSessions.reduce((latest, current) =>
+        current.created_at > latest.created_at ? current : latest
+      )
+      console.log(
+        `[HookListener] Auto-registering session_id with most recent task:`,
+        mostRecent.task_id
+      )
+      await TaskSessionService.updateSessionId(mostRecent.task_id, sessionId)
+
+      // Return the updated session
+      return db
+        .select()
+        .from(task_sessions)
+        .where(eq(task_sessions.session_id, sessionId))
+        .get() ?? null
+    }
+
+    // Exactly one active session - register the session_id
+    const targetSession = activeSessions[0]
+    console.log(
+      `[HookListener] Auto-registering orphan session_id ${sessionId} with task ${targetSession.task_id}`
+    )
+
+    await TaskSessionService.updateSessionId(targetSession.task_id, sessionId)
+
+    // Return the updated session
+    return db
+      .select()
+      .from(task_sessions)
+      .where(eq(task_sessions.session_id, sessionId))
+      .get() ?? null
   }
 
   /**

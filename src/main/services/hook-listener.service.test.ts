@@ -18,10 +18,12 @@ import {
 // Mock database and ActivityLogService for TES-2.6 tests
 const mockDbSelectGet = vi.fn()
 const mockDbSelectAll = vi.fn()
+const mockDbSelectWhereAll = vi.fn(() => []) // For tryRegisterOrphanSession
 const mockDbSelect = vi.fn(() => ({
   from: vi.fn(() => ({
     where: vi.fn(() => ({
       get: mockDbSelectGet,
+      all: mockDbSelectWhereAll, // Support .where().all() for orphan session lookup
       orderBy: vi.fn(() => ({
         limit: vi.fn(() => ({
           all: mockDbSelectAll
@@ -46,6 +48,13 @@ const mockLogActivity = vi.fn()
 vi.mock('./activity-log.service', () => ({
   ActivityLogService: {
     logActivity: (...args: unknown[]) => mockLogActivity(...args)
+  }
+}))
+
+const mockUpdateSessionId = vi.fn()
+vi.mock('./task-session.service', () => ({
+  TaskSessionService: {
+    updateSessionId: (...args: unknown[]) => mockUpdateSessionId(...args)
   }
 }))
 
@@ -112,7 +121,10 @@ describe('HookListenerService', () => {
     // Reset database mocks
     mockDbSelectGet.mockReset()
     mockDbSelectAll.mockReset()
+    mockDbSelectWhereAll.mockReset()
+    mockDbSelectWhereAll.mockReturnValue([]) // Default: no orphan sessions to register
     mockLogActivity.mockReset()
+    mockUpdateSessionId.mockReset()
   })
 
   afterEach(async () => {
@@ -1120,8 +1132,9 @@ describe('HookListenerService', () => {
       )
     })
 
-    it('handles orphan session_id gracefully (TES-2.7 Task 1.2)', async () => {
+    it('handles orphan session_id gracefully when no active sessions exist (TES-2.7 Task 1.2)', async () => {
       mockDbSelectGet.mockReturnValueOnce(undefined)
+      mockDbSelectWhereAll.mockReturnValueOnce([]) // No active sessions to register with
 
       const consoleSpy = vi.spyOn(console, 'warn')
 
@@ -1135,7 +1148,7 @@ describe('HookListenerService', () => {
       await service.onToolUseHook(payload)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Orphan tool-use event'),
+        expect.stringContaining('could not register session_id'),
         'orphan-session'
       )
       expect(mockLogActivity).not.toHaveBeenCalled()
@@ -1674,6 +1687,204 @@ describe('HookListenerService', () => {
         expect(errorCall).toBeDefined()
         expect(errorCall![2].message).toContain('SQLITE_BUSY: database is locked')
       })
+    })
+  })
+
+  describe('Orphan session auto-registration (TES-1.7)', () => {
+    it('auto-registers session_id when exactly one active session exists', async () => {
+      // First call: session not found by session_id
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+      // Second call: find active sessions with null session_id
+      mockDbSelectWhereAll.mockReturnValueOnce([
+        {
+          id: 'session-1',
+          task_id: 'task-orphan-auto',
+          tmux_session: 'tinsu-project-task-orphan-auto',
+          session_id: null,
+          current_phase: null, // null = active
+          created_at: new Date()
+        }
+      ])
+      // Third call: return updated session after registration
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-1',
+        task_id: 'task-orphan-auto',
+        tmux_session: 'tinsu-project-task-orphan-auto',
+        session_id: 'new-orphan-session',
+        current_phase: null
+      })
+
+      const consoleSpy = vi.spyOn(console, 'log')
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'new-orphan-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Should have called updateSessionId
+      expect(mockUpdateSessionId).toHaveBeenCalledWith('task-orphan-auto', 'new-orphan-session')
+
+      // Should log activity after successful registration
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-orphan-auto',
+        'tool_used',
+        expect.objectContaining({ tool: 'Read' })
+      )
+
+      // Should log the auto-registration (single string containing both session_id and task_id)
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Auto-registering orphan session_id new-orphan-session with task task-orphan-auto')
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('auto-registers with most recent session when multiple active sessions exist', async () => {
+      // First call: session not found by session_id
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+      // Second call: find multiple active sessions with null session_id
+      const olderDate = new Date('2024-01-01')
+      const newerDate = new Date('2024-01-02')
+      mockDbSelectWhereAll.mockReturnValueOnce([
+        {
+          id: 'session-older',
+          task_id: 'task-older',
+          tmux_session: 'tinsu-project-task-older',
+          session_id: null,
+          current_phase: null,
+          created_at: olderDate
+        },
+        {
+          id: 'session-newer',
+          task_id: 'task-newer',
+          tmux_session: 'tinsu-project-task-newer',
+          session_id: null,
+          current_phase: null,
+          created_at: newerDate
+        }
+      ])
+      // Third call: return updated session after registration
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-newer',
+        task_id: 'task-newer',
+        tmux_session: 'tinsu-project-task-newer',
+        session_id: 'multi-orphan-session',
+        current_phase: null
+      })
+
+      const consoleSpy = vi.spyOn(console, 'warn')
+      const logSpy = vi.spyOn(console, 'log')
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'multi-orphan-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Should warn about multiple sessions
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Multiple active task sessions'),
+        expect.any(Array)
+      )
+
+      // Should register with the newer session (most recent by created_at)
+      expect(mockUpdateSessionId).toHaveBeenCalledWith('task-newer', 'multi-orphan-session')
+
+      // Should still log activity
+      expect(mockLogActivity).toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+      logSpy.mockRestore()
+    })
+
+    it('filters out sessions with current_phase=ended', async () => {
+      // First call: session not found by session_id
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+      // Second call: find sessions including one with 'ended' phase
+      mockDbSelectWhereAll.mockReturnValueOnce([
+        {
+          id: 'session-ended',
+          task_id: 'task-ended',
+          tmux_session: 'tinsu-project-task-ended',
+          session_id: null,
+          current_phase: 'ended', // Should be filtered out
+          created_at: new Date()
+        }
+      ])
+
+      const consoleSpy = vi.spyOn(console, 'warn')
+
+      const payload: ToolUseHookPayload = {
+        session_id: 'ended-filter-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/file.ts' },
+        hook_event_name: 'PostToolUse'
+      }
+
+      await service.onToolUseHook(payload)
+
+      // Should not call updateSessionId since all sessions were filtered
+      expect(mockUpdateSessionId).not.toHaveBeenCalled()
+
+      // Should warn about no active sessions
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('No active task sessions'),
+        'ended-filter-session'
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it('auto-registers session_id on Stop hook as well', async () => {
+      // First call: session not found by session_id
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+      // Second call: find active sessions with null session_id
+      mockDbSelectWhereAll.mockReturnValueOnce([
+        {
+          id: 'session-stop',
+          task_id: 'task-stop-auto',
+          tmux_session: 'tinsu-project-task-stop-auto',
+          session_id: null,
+          current_phase: null,
+          created_at: new Date()
+        }
+      ])
+      // Third call: return updated session after registration
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'session-stop',
+        task_id: 'task-stop-auto',
+        tmux_session: 'tinsu-project-task-stop-auto',
+        session_id: 'stop-orphan-session',
+        current_phase: null
+      })
+      // Fourth call: look up agent_start event for duration calculation
+      mockDbSelectAll.mockReturnValueOnce([])
+
+      const payload: StopHookPayload = {
+        session_id: 'stop-orphan-session',
+        transcript_path: '/tmp/transcript.json',
+        cwd: '/home/user/project',
+        hook_event_name: 'Stop'
+      }
+
+      await service.onStopHook(payload)
+
+      // Should have called updateSessionId
+      expect(mockUpdateSessionId).toHaveBeenCalledWith('task-stop-auto', 'stop-orphan-session')
+
+      // Should log agent_complete activity
+      expect(mockLogActivity).toHaveBeenCalledWith(
+        'task-stop-auto',
+        'agent_complete',
+        expect.any(Object)
+      )
     })
   })
 })
