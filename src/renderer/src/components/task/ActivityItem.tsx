@@ -11,22 +11,12 @@ import {
   Clock
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import type { ActivityEventType } from '../../../../main/db/schema'
-
-/**
- * Activity event shape from the API.
- * Matches the TaskActivity type from schema.ts
- */
-export interface Activity {
-  id: string
-  task_id: string
-  event_type: ActivityEventType
-  payload: string | null // JSON string
-  created_at: number // Unix timestamp ms
-}
+import type { Activity, ActivityEventType } from '@shared/types/activity.types'
 
 interface ActivityItemProps {
   activity: Activity
+  /** Optional class name for animation or styling */
+  className?: string
 }
 
 /**
@@ -187,7 +177,7 @@ function formatPayload(eventType: ActivityEventType, payload: Record<string, unk
  *
  * @see TES-2.11: Activity Log UI Display (AC: #1, #2)
  */
-export function ActivityItem({ activity }: ActivityItemProps): React.ReactNode {
+export function ActivityItem({ activity, className }: ActivityItemProps): React.ReactNode {
   // Format timestamp as HH:MM:SS (AC: #1)
   const timestamp = format(new Date(activity.created_at), 'HH:mm:ss')
 
@@ -205,7 +195,7 @@ export function ActivityItem({ activity }: ActivityItemProps): React.ReactNode {
   const formattedPayload = formatPayload(activity.event_type, payload)
 
   return (
-    <div className="flex items-start gap-3 p-3 border-b border-zinc-800 last:border-b-0">
+    <div className={cn('flex items-start gap-3 p-3 border-b border-zinc-800 last:border-b-0', className)}>
       {/* Icon */}
       <div className={cn('mt-0.5 flex-shrink-0', getIconColorClass(activity.event_type))}>
         {getEventIcon(activity.event_type)}

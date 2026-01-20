@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Operation } from '@trpc/client'
 import type { TRPCResponseMessage } from '@trpc/server/rpc'
+import type { ActivityEventPayload } from '../shared/types/activity.types'
 
 // Type from trpc-electron for the exposed IPC bridge
 interface RendererGlobalElectronTRPC {
@@ -17,9 +18,12 @@ interface FileChangeEvent {
   filePath: string
 }
 
-// Story 3.9: Custom API types
+// Custom API types
 interface CustomAPI {
+  /** Story 3.9: Subscribe to file change events */
   onFileChange: (callback: (event: FileChangeEvent) => void) => () => void
+  /** TES-2.13: Subscribe to activity events for real-time streaming */
+  onActivityCreated: (callback: (event: ActivityEventPayload) => void) => () => void
 }
 
 declare global {

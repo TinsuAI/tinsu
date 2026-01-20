@@ -19,6 +19,7 @@ import {
   type NewTaskActivity,
   type ActivityEventType as SchemaActivityEventType
 } from '../db/schema'
+import { activityEmitter } from './activity-emitter'
 
 /**
  * Re-export ActivityEventType from schema for convenience.
@@ -174,11 +175,8 @@ export class ActivityLogService {
       .returning()
       .all()
 
-    // Keep console.log for debugging visibility (TES-1.11 compatibility)
-    const timestamp = new Date(created.created_at).toISOString()
-    console.log(`[ActivityLog] ${timestamp} | ${taskId} | ${eventType}:`, payload ?? {})
-
-    // TODO (TES-2.13): Emit event for real-time streaming
+    // TES-2.13: Emit event for real-time streaming to renderer
+    activityEmitter.emitActivity(created)
 
     return created
   }

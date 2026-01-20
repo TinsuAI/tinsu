@@ -43,6 +43,10 @@ import { HookListenerService } from './hook-listener.service'
 // Automation service (TES-2.9)
 export { AutomationService } from './automation.service'
 
+// Activity event emitter (TES-2.13)
+export { activityEmitter, ACTIVITY_EVENT_CHANNEL } from './activity-emitter'
+export type { ActivityEventPayload } from './activity-emitter'
+
 /** Singleton activity log service instance for database persistence */
 export const activityLogService = new ActivityLogService(db)
 

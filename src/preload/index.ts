@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeElectronTRPC } from 'trpc-electron/main'
+import type { ActivityEventPayload } from '../shared/types/activity.types'
 
 // Story 3.9: File change event types
 interface FileChangeEvent {
@@ -20,6 +21,18 @@ const api = {
     // Return unsubscribe function
     return () => {
       ipcRenderer.removeListener('file-change', handler)
+    }
+  },
+
+  // TES-2.13: Subscribe to activity events for real-time streaming
+  onActivityCreated: (callback: (event: ActivityEventPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: ActivityEventPayload) => {
+      callback(data)
+    }
+    ipcRenderer.on('activity-created', handler)
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener('activity-created', handler)
     }
   }
 }

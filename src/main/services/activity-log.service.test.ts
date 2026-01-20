@@ -18,6 +18,13 @@ import { eq, desc } from 'drizzle-orm'
 import * as schema from '../db/schema'
 import { ActivityLogService, type ActivityEventType, type ActivityPayload } from './activity-log.service'
 
+// Mock electron BrowserWindow for ActivityEventEmitter
+vi.mock('electron', () => ({
+  BrowserWindow: {
+    getAllWindows: vi.fn(() => [])
+  }
+}))
+
 type TestDb = BetterSQLite3Database<typeof schema>
 
 /**
@@ -234,23 +241,6 @@ describe('ActivityLogService (TES-2.2)', () => {
 
       expect(activity.created_at).toBeGreaterThanOrEqual(beforeMs)
       expect(activity.created_at).toBeLessThanOrEqual(afterMs)
-    })
-
-    it('keeps console.log for debugging visibility', async () => {
-      createTestTask(db, 'task-log')
-
-      await service.logActivity('task-log', 'session_ended', {
-        reason: 'process_exit',
-        sessionName: 'test-session'
-      })
-
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('[ActivityLog]'),
-        expect.objectContaining({
-          reason: 'process_exit',
-          sessionName: 'test-session'
-        })
-      )
     })
 
     it('logs all supported event types', async () => {
