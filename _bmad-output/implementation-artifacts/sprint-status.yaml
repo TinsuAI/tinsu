@@ -191,7 +191,7 @@ development_status:
   tes-2-9-automation-trigger-event-capture: done
   tes-2-10-error-event-capture: done
   tes-2-11-activity-log-ui-display: done
-  tes-2-12-activity-log-filtering: backlog
+  tes-2-12-activity-log-filtering: done
   tes-2-13-real-time-activity-streaming: backlog
   tes-epic-2-retrospective: optional
 

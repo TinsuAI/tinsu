@@ -239,7 +239,10 @@ describe('ActivitiesTab', () => {
       renderWithProviders(<ActivitiesTab taskId="task-123" />)
 
       expect(screen.getByText('Status Changed')).toBeInTheDocument()
-      expect(screen.getByText('Error')).toBeInTheDocument()
+      // Use getAllByText for 'Error' since there's also an Error filter chip
+      // The activity item has text-sm font-medium class for the title
+      const errorTexts = screen.getAllByText('Error')
+      expect(errorTexts.some(el => el.classList.contains('font-medium'))).toBe(true)
       expect(screen.getByText('User Command')).toBeInTheDocument()
     })
   })
@@ -255,10 +258,167 @@ describe('ActivitiesTab', () => {
 
       renderWithProviders(<ActivitiesTab taskId="task-abc-123" />)
 
+      // eventTypes is undefined when 'all' filter is selected (default)
       expect(trpc.activity.listActivities.useQuery).toHaveBeenCalledWith(
-        { taskId: 'task-abc-123', limit: 100 },
+        { taskId: 'task-abc-123', limit: 100, eventTypes: undefined },
         expect.any(Object)
       )
+    })
+  })
+
+  /**
+   * Integration tests for activity log filtering.
+   *
+   * @see TES-2.12: Activity Log Filtering
+   */
+  describe('Filter Integration (TES-2.12)', () => {
+    it('renders filter chips above activity list', () => {
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // All filter chips should be present
+      expect(screen.getByText('All')).toBeInTheDocument()
+      expect(screen.getByText('Status')).toBeInTheDocument()
+      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('User')).toBeInTheDocument()
+      // Use getByRole to avoid conflict with "Error" activity title
+      expect(screen.getByRole('button', { name: /error/i })).toBeInTheDocument()
+    })
+
+    it('passes status_change eventType when Status filter clicked', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Click Status filter
+      await user.click(screen.getByText('Status'))
+
+      // Verify query was called with status_change eventType
+      expect(trpc.activity.listActivities.useQuery).toHaveBeenLastCalledWith(
+        { taskId: 'task-123', limit: 100, eventTypes: ['status_change'] },
+        expect.any(Object)
+      )
+    })
+
+    it('passes agent-related eventTypes when Agent filter clicked', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Click Agent filter
+      await user.click(screen.getByText('Agent'))
+
+      // Verify query was called with agent-related eventTypes
+      const lastCall = vi.mocked(trpc.activity.listActivities.useQuery).mock.calls.at(-1)
+      const eventTypes = lastCall?.[0]?.eventTypes as string[]
+
+      expect(eventTypes).toContain('agent_start')
+      expect(eventTypes).toContain('agent_complete')
+      expect(eventTypes).toContain('tool_used')
+      expect(eventTypes).toContain('automation_trigger')
+      expect(eventTypes).toContain('stall_recovered')
+    })
+
+    it('passes combined eventTypes when multiple filters selected (OR logic)', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Click Status filter first
+      await user.click(screen.getByText('Status'))
+      // Then click User filter
+      await user.click(screen.getByText('User'))
+
+      // Verify query includes eventTypes from both categories (OR logic)
+      const lastCall = vi.mocked(trpc.activity.listActivities.useQuery).mock.calls.at(-1)
+      const eventTypes = lastCall?.[0]?.eventTypes as string[]
+
+      expect(eventTypes).toContain('status_change')
+      expect(eventTypes).toContain('user_command')
+    })
+
+    it('resets to undefined eventTypes when All filter clicked', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Click Status filter first
+      await user.click(screen.getByText('Status'))
+      // Then click All to reset
+      await user.click(screen.getByText('All'))
+
+      // Verify query was called with undefined eventTypes (no filter)
+      expect(trpc.activity.listActivities.useQuery).toHaveBeenLastCalledWith(
+        { taskId: 'task-123', limit: 100, eventTypes: undefined },
+        expect.any(Object)
+      )
+    })
+
+    it('shows "No matching events" when filter returns empty result', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Click Status filter (will have empty results based on mock)
+      await user.click(screen.getByText('Status'))
+
+      // Should show "No matching events" instead of "No activity yet"
+      expect(screen.getByText('No matching events')).toBeInTheDocument()
+    })
+
+    it('shows "No activity yet" when All filter and empty result', () => {
+      vi.mocked(trpc.activity.listActivities.useQuery).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+
+      renderWithProviders(<ActivitiesTab taskId="task-123" />)
+
+      // Should show "No activity yet" when All filter is selected (default)
+      expect(screen.getByText('No activity yet')).toBeInTheDocument()
     })
   })
 })
