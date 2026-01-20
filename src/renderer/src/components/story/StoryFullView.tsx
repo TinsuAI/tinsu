@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye } from 'lucide-react'
+import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye, Terminal, Activity } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
+import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
+import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
 import { NotionEditor } from '@renderer/components/editor'
 import { useStoryViewStore } from '@renderer/stores'
 import { trpc } from '@renderer/lib/trpc'
@@ -107,6 +109,12 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 export function StoryFullView() {
   const { activeStoryId, isEditing, closeStory, setEditing } = useStoryViewStore()
 
+  // Tab state for switching between content, activities, and terminal
+  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal'>('content')
+
+  // Ref for TaskTerminal to enable focus control
+  const terminalRef = useRef<TaskTerminalRef>(null)
+
   // Fetch story data
   const { data: task, isLoading } = trpc.tasks.getById.useQuery(
     { id: activeStoryId! },
@@ -115,6 +123,14 @@ export function StoryFullView() {
 
   // Fetch all epics to find the matching one
   const { data: epics } = trpc.epics.getAll.useQuery()
+
+  // Check if task has an active terminal session
+  const { data: taskSession } = trpc.agent.getTaskSession.useQuery(
+    { taskId: activeStoryId ?? '' },
+    { enabled: !!activeStoryId }
+  )
+
+  const hasActiveSession = !!taskSession
 
   // Find the epic for this story
   const epic = useMemo(() => {
@@ -195,6 +211,10 @@ export function StoryFullView() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger tab shortcuts if typing in an input field
+      const activeElement = document.activeElement
+      const isTyping = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA'
+
       // Escape to close or cancel edit
       if (e.key === 'Escape') {
         if (isEditing) {
@@ -217,11 +237,38 @@ export function StoryFullView() {
           setEditing(true)
         }
       }
+
+      // Number key shortcuts for tab switching (1=Content, 2=Activities always; 3=Terminal when session active)
+      if (!isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === '1') {
+          e.preventDefault()
+          setActiveTab('content')
+          return
+        }
+        if (e.key === '2') {
+          e.preventDefault()
+          setActiveTab('activities')
+          return
+        }
+        if (e.key === '3') {
+          e.preventDefault()
+          setActiveTab('terminal')
+          return
+        }
+      }
+
+      // "/" key to focus terminal input
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
+        if (activeTab === 'terminal' && hasActiveSession) {
+          e.preventDefault()
+          terminalRef.current?.focusInput()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, handleCancel, handleBack, handleSave, setEditing])
+  }, [isEditing, handleCancel, handleBack, handleSave, setEditing, hasActiveSession, activeTab])
 
   if (!activeStoryId) return null
 
@@ -361,8 +408,66 @@ export function StoryFullView() {
           </h1>
         </div>
 
-        {/* Content area */}
-        {isEditing ? (
+        {/* Tab buttons - always show Content and Activities, Terminal only when session active */}
+        <div className="mb-6 flex gap-2 border-b border-border/30 pb-4" role="tablist" aria-label="Story Detail Tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'content'}
+            aria-controls="panel-content"
+            id="tab-content"
+            onClick={() => setActiveTab('content')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'content'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">1</span>
+            <BookOpen className="h-4 w-4" />
+            Content
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'activities'}
+            aria-controls="panel-activities"
+            id="tab-activities"
+            onClick={() => setActiveTab('activities')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'activities'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">2</span>
+            <Activity className="h-4 w-4" />
+            Activities
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'terminal'}
+            aria-controls="panel-terminal"
+            id="tab-terminal"
+            onClick={() => setActiveTab('terminal')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'terminal'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">3</span>
+            <Terminal className="h-4 w-4" />
+            Terminal
+          </button>
+        </div>
+
+        {/* Content tab */}
+        {activeTab === 'content' && (isEditing ? (
           <div className="relative">
             {/* Keyboard shortcuts hint */}
             <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground/60">
@@ -539,6 +644,30 @@ export function StoryFullView() {
               </div>
             )}
           </article>
+        ))}
+
+        {/* Activities tab - always available */}
+        {activeTab === 'activities' && (
+          <div
+            id="panel-activities"
+            role="tabpanel"
+            aria-labelledby="tab-activities"
+            className="min-h-[500px]"
+          >
+            <ActivitiesTab taskId={activeStoryId!} />
+          </div>
+        )}
+
+        {/* Terminal tab - always available for manual work */}
+        {activeTab === 'terminal' && (
+          <div
+            id="panel-terminal"
+            role="tabpanel"
+            aria-labelledby="tab-terminal"
+            className="min-h-[500px]"
+          >
+            <TaskTerminal ref={terminalRef} taskId={activeStoryId!} />
+          </div>
         )}
       </main>
     </div>

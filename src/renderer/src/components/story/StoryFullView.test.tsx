@@ -24,6 +24,11 @@ vi.mock('@renderer/lib/trpc', () => ({
         useQuery: vi.fn(() => ({ data: [] }))
       }
     },
+    agent: {
+      getTaskSession: {
+        useQuery: vi.fn(() => ({ data: null }))
+      }
+    },
     useUtils: vi.fn(() => ({
       tasks: {
         getById: { invalidate: vi.fn() },
@@ -165,7 +170,7 @@ describe('StoryFullView', () => {
     expect(useStoryViewStore.getState().isEditing).toBe(true)
   })
 
-  it('shows textarea in edit mode', () => {
+  it('shows editor in edit mode', () => {
     useStoryViewStore.setState({ activeStoryId: 'story-1', isEditing: true })
     vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
       data: mockTask,
@@ -174,11 +179,12 @@ describe('StoryFullView', () => {
 
     renderWithProviders(<StoryFullView />)
 
-    expect(screen.getByRole('textbox')).toBeInTheDocument()
-    expect(screen.getByText('Editing mode')).toBeInTheDocument()
+    // NotionEditor is rendered in edit mode - check for Preview and Save buttons
+    expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
   })
 
-  it('shows cancel button in edit mode', () => {
+  it('shows save button in edit mode', () => {
     useStoryViewStore.setState({ activeStoryId: 'story-1', isEditing: true })
     vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
       data: mockTask,
@@ -187,7 +193,7 @@ describe('StoryFullView', () => {
 
     renderWithProviders(<StoryFullView />)
 
-    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+    // Save button is always shown in edit mode (disabled when no changes)
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
   })
 
