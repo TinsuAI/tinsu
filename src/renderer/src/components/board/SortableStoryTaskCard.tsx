@@ -8,6 +8,8 @@ interface SortableStoryTaskCardProps extends StoryTaskCardProps {
   isDragging?: boolean
   /** Story 3.9: Whether this task is currently syncing with its story file */
   isSyncing?: boolean
+  /** TES-3.1: Whether this task is currently selected in the detail panel */
+  isSelected?: boolean
 }
 
 /**
@@ -19,6 +21,7 @@ export function SortableStoryTaskCard({
   task,
   isDragging,
   isSyncing = false,
+  isSelected = false,
   className,
   ...props
 }: SortableStoryTaskCardProps) {
@@ -64,6 +67,7 @@ export function SortableStoryTaskCard({
       <StoryTaskCard
         task={task}
         isSyncing={isSyncing}
+        isSelected={isSelected}
         className={cn(isCurrentlyDragging && 'shadow-md')}
         {...props}
       />

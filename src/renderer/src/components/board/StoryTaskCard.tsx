@@ -28,6 +28,8 @@ export interface StoryTaskCardProps {
   isAgentRunning?: boolean
   /** Story 5.5: Current step in the DEV agent workflow */
   agentProgressStep?: ProgressStep
+  /** TES-3.1: Whether this task is currently selected in the detail panel */
+  isSelected?: boolean
   className?: string
 }
 
@@ -52,6 +54,7 @@ export function StoryTaskCard({
   onStoryFileClick,
   isAgentRunning = false,
   agentProgressStep,
+  isSelected = false,
   className
 }: StoryTaskCardProps) {
   const handleDeleteClick = useCallback(
@@ -114,6 +117,8 @@ export function StoryTaskCard({
         'cursor-pointer',
         // Story 3.9: Sync state styling
         isSyncing && 'pointer-events-none opacity-70',
+        // TES-3.1: Selected state when task is active in detail panel
+        isSelected && 'ring-2 ring-cyan-500/60 ring-offset-1 ring-offset-background',
         className
       )}
       data-testid={`story-task-card-${task.id}`}

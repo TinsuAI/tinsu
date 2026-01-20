@@ -477,3 +477,26 @@ body {
     0 2px 4px oklch(0 0 0 / 0.3);
   transform: scale(1.05);
 }
+
+/* =====================================================
+   TASK DETAIL PANEL - Editorial Command Center (TES-3.1)
+   ===================================================== */
+
+/* Panel header with glass effect */
+.task-detail-panel-header {
+  background: linear-gradient(
+    180deg,
+    oklch(0.12 0.015 280 / 0.95) 0%,
+    oklch(0.1 0.012 280 / 0.9) 100%
+  );
+  backdrop-filter: blur(12px);
+}
+
+/* Tab bar with subtle depth */
+.task-detail-panel-tabs {
+  background: linear-gradient(
+    180deg,
+    oklch(0.1 0.01 280 / 0.6) 0%,
+    oklch(0.09 0.008 280 / 0.4) 100%
+  );
+}

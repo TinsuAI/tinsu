@@ -36,6 +36,8 @@ interface KanbanBoardProps {
   hasActiveFilters?: boolean
   /** Story 3.9: Set of task IDs currently syncing (AC: 5) */
   syncingTaskIds?: Set<string>
+  /** TES-3.1: ID of the currently selected task in the detail panel */
+  selectedTaskId?: string | null
   /** Callback when task status changes via drag-drop */
   onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
   /** Callback when task order changes within a column (receives new order of task IDs) */
@@ -72,6 +74,7 @@ export function KanbanBoard({
   className,
   hasActiveFilters = false,
   syncingTaskIds = new Set(),
+  selectedTaskId = null,
   onStatusChange,
   onReorder,
   onAddTask,
@@ -451,6 +454,7 @@ export function KanbanBoard({
                             onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
                             isSyncing={syncingTaskIds.has(task.id)}
+                            isSelected={selectedTaskId === task.id}
                           />
                         ) : (
                           <SortableTaskCard
@@ -458,8 +462,10 @@ export function KanbanBoard({
                             epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
+                            onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
                             onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
                             isDragging={activeId === task.id}
+                            isSelected={selectedTaskId === task.id}
                           />
                         )}
                       </div>

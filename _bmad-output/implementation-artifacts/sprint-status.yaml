@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-01-14
+# updated: 2026-01-19
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -197,8 +197,8 @@ development_status:
 
   # TES Epic 3: Quad-Pane Task Workspace
   # Users can view Terminal, Activities, Diff, and Content simultaneously
-  tes-epic-3: backlog
-  tes-3-1-task-detail-panel-container: backlog
+  tes-epic-3: in-progress
+  tes-3-1-task-detail-panel-container: done
   tes-3-2-quad-pane-layout: backlog
   tes-3-3-section-expand-collapse: backlog
   tes-3-4-terminal-section-integration: backlog

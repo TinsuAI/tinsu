@@ -20,6 +20,10 @@ export interface TaskCardProps {
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right') => void
   /** Callback when delete button is clicked */
   onDelete?: () => void
+  /** Callback when card is clicked */
+  onClick?: () => void
+  /** Whether this card is selected */
+  isSelected?: boolean
   className?: string
 }
 
@@ -30,6 +34,8 @@ export function TaskCard({
   agentStatus = 'idle',
   onNavigate,
   onDelete,
+  onClick,
+  isSelected,
   className
 }: TaskCardProps) {
   const handleDeleteClick = useCallback(
@@ -61,17 +67,26 @@ export function TaskCard({
           e.preventDefault()
           onNavigate('right')
           break
+        case 'Enter':
+        case ' ':
+          if (onClick) {
+            e.preventDefault()
+            onClick()
+          }
+          break
       }
     },
-    [onNavigate]
+    [onNavigate, onClick]
   )
 
   return (
     <div
       role="option"
       tabIndex={0}
+      aria-selected={isSelected}
       aria-label={`Task: ${task.title}${epicName ? `, Epic: ${epicName}` : ''}`}
       onKeyDown={handleKeyDown}
+      onClick={onClick}
       className={cn(
         // Base card styling with depth
         'kanban-card group rounded-xl p-3.5',
@@ -79,6 +94,8 @@ export function TaskCard({
         'focus-visible:outline-none',
         // Cursor
         'cursor-pointer',
+        // Selected state
+        isSelected && 'ring-2 ring-cyan-500/60 ring-offset-1 ring-offset-background',
         className
       )}
       data-testid={`task-card-${task.id}`}
