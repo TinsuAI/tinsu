@@ -1,17 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   X,
   BookOpen,
   CheckCircle2,
-  Copy,
-  Check,
   Eye,
   Terminal,
   Activity,
+  GitCompareArrows,
   Pencil,
   Save
 } from 'lucide-react'
@@ -21,87 +18,13 @@ import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
 import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
 import { NotionEditor } from '@renderer/components/editor'
+import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
+import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
+import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
+import { useQuadPaneStore, type SectionId } from '@renderer/stores/quad-pane.store'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
-
-/**
- * Code block component with syntax highlighting and copy button.
- */
-function CodeBlock({ language, code }: { language: string; code: string }) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [code])
-
-  const customStyle = {
-    ...oneDark,
-    'pre[class*="language-"]': {
-      ...oneDark['pre[class*="language-"]'],
-      background: 'transparent',
-      margin: 0,
-      padding: 0
-    },
-    'code[class*="language-"]': {
-      ...oneDark['code[class*="language-"]'],
-      background: 'transparent'
-    }
-  }
-
-  return (
-    <div className="group relative my-4 overflow-hidden rounded-lg border border-border/30 bg-[#1a1b26]">
-      <div className="flex items-center justify-between border-b border-border/20 bg-[#1a1b26] px-4 py-2">
-        <span className="text-xs font-medium text-muted-foreground">{language || 'plaintext'}</span>
-        <button
-          onClick={handleCopy}
-          className={cn(
-            'flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
-            copied
-              ? 'text-emerald-400'
-              : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-          )}
-          aria-label={copied ? 'Copied!' : 'Copy code'}
-        >
-          {copied ? (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="h-3.5 w-3.5" />
-              Copy
-            </>
-          )}
-        </button>
-      </div>
-      <div className="overflow-x-auto p-4">
-        <SyntaxHighlighter
-          style={customStyle}
-          language={language || 'text'}
-          PreTag="div"
-          customStyle={{
-            margin: 0,
-            padding: 0,
-            background: 'transparent',
-            fontSize: '0.875rem',
-            lineHeight: '1.7'
-          }}
-          codeTagProps={{
-            style: {
-              fontFamily:
-                'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace'
-            }
-          }}
-        >
-          {code}
-        </SyntaxHighlighter>
-      </div>
-    </div>
-  )
-}
+import { markdownComponents } from '@renderer/components/task/MarkdownComponents'
 
 export interface TaskDetailContentProps {
   taskId: string
@@ -109,20 +32,33 @@ export interface TaskDetailContentProps {
 }
 
 /**
- * Task detail content component with tabs for Content, Activities, and Terminal.
+ * Task detail content component with responsive layout.
  *
- * Extracted from StoryFullView.tsx for use in the slide-over panel.
- * Preserves all keyboard shortcuts and functionality.
+ * Implements Story TES-3.2 (Quad-Pane Layout) with state preservation (AC 6.5).
+ * Uses a single DOM structure that adapts via CSS to prevent component unmounting
+ * during layout switches (resize).
  *
- * Story TES-3.1: Task Detail Panel Container
+ * Layouts:
+ * - Desktop (>=1024px): 2x2 Grid (Quad Pane)
+ * - Mobile (<1024px): Tabbed Interface
  */
 export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
-  // Tab state for switching between content, activities, and terminal
-  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal'>('content')
+  // Layout mode detection
+  const layoutMode = useQuadPaneLayout()
+  const { expandSection } = useQuadPaneStore()
+  const isQuad = layoutMode === 'quad'
+
+  // Tab state (active even in quad mode, but only affects mobile visibility)
+  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>('content')
   const [isEditing, setEditing] = useState(false)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
+
+  // Handler for section expansion
+  const handleExpandSection = useCallback((section: SectionId) => {
+    expandSection(section)
+  }, [expandSection])
 
   // Fetch task data
   const { data: task, isLoading } = trpc.tasks.getById.useQuery({ id: taskId }, { enabled: !!taskId })
@@ -242,11 +178,18 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
           setActiveTab('terminal')
           return
         }
+        if (e.key === '4') {
+          e.preventDefault()
+          setActiveTab('diff')
+          return
+        }
       }
 
       // "/" key to focus terminal input
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
-        if (activeTab === 'terminal' && hasActiveSession) {
+        // Only focus if terminal is visible
+        const terminalVisible = isQuad || activeTab === 'terminal'
+        if (terminalVisible && hasActiveSession) {
           e.preventDefault()
           terminalRef.current?.focusInput()
         }
@@ -255,7 +198,7 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab])
+  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isQuad])
 
   if (isLoading) {
     return (
@@ -284,6 +227,9 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
   const displayContent = task.full_content ?? task.description ?? ''
   const statusLabel = task.status.replace('_', ' ')
 
+  // Helper to determine visibility of a section
+  const isVisible = (tab: typeof activeTab) => isQuad || activeTab === tab
+
   return (
     <div className="flex h-full flex-col">
       {/* Header with close button */}
@@ -311,6 +257,7 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
                 task.status === 'create_story' && 'bg-cyan-500/10 text-cyan-400'
               )}
             >
+              {statusLabel === 'create story' && <Pencil className="h-3 w-3" />}
               {task.status === 'done' && <CheckCircle2 className="h-3 w-3" />}
               {statusLabel}
             </div>
@@ -386,93 +333,166 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
         </div>
       </header>
 
-      {/* Tab bar */}
+      {/* Tab bar (Mobile Only) */}
+      {!isQuad && (
+        <div
+          className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2"
+          role="tablist"
+          aria-label="Task Detail Tabs"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'content'}
+            onClick={() => setActiveTab('content')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'content'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">1</span>
+            <BookOpen className="h-4 w-4" />
+            Content
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'activities'}
+            onClick={() => setActiveTab('activities')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'activities'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">2</span>
+            <Activity className="h-4 w-4" />
+            Activities
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'terminal'}
+            onClick={() => setActiveTab('terminal')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'terminal'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">3</span>
+            <Terminal className="h-4 w-4" />
+            Terminal
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'diff'}
+            onClick={() => setActiveTab('diff')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'diff'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">4</span>
+            <GitCompareArrows className="h-4 w-4" />
+            Diff
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area - Responsive Layout */}
+      {/* Uses CSS to toggle sections instead of React unmounting */}
       <div
-        className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2"
-        role="tablist"
-        aria-label="Task Detail Tabs"
+        className={cn(
+          'flex-1 p-4 min-h-0',
+          isQuad ? 'grid h-full grid-cols-2 grid-rows-2 gap-3' : 'flex flex-col'
+        )}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'content'}
-          aria-controls="panel-content"
-          id="tab-content"
-          onClick={() => setActiveTab('content')}
+        {/* Terminal Section (Top-Left in Quad) */}
+        <QuadPaneSection
+          title="Terminal"
+          icon={Terminal}
+          onExpand={() => handleExpandSection('terminal')}
+          showHeader={isQuad}
           className={cn(
-            'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            activeTab === 'content'
-              ? 'bg-cyan-500/20 text-cyan-400'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            'min-h-0',
+            !isVisible('terminal') && 'hidden',
+            !isQuad && 'flex-1 border-0 bg-transparent' // Mobile: Remove card styling
           )}
         >
-          <span className="text-xs text-muted-foreground/60">1</span>
-          <BookOpen className="h-4 w-4" />
-          Content
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'activities'}
-          aria-controls="panel-activities"
-          id="tab-activities"
-          onClick={() => setActiveTab('activities')}
-          className={cn(
-            'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            activeTab === 'activities'
-              ? 'bg-cyan-500/20 text-cyan-400'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          )}
-        >
-          <span className="text-xs text-muted-foreground/60">2</span>
-          <Activity className="h-4 w-4" />
-          Activities
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'terminal'}
-          aria-controls="panel-terminal"
-          id="tab-terminal"
-          onClick={() => setActiveTab('terminal')}
-          className={cn(
-            'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            activeTab === 'terminal'
-              ? 'bg-cyan-500/20 text-cyan-400'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          )}
-        >
-          <span className="text-xs text-muted-foreground/60">3</span>
-          <Terminal className="h-4 w-4" />
-          Terminal
-        </button>
-      </div>
+          <TaskTerminal ref={terminalRef} taskId={taskId} />
+        </QuadPaneSection>
 
-      {/* Tab content */}
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-        {/* Content tab */}
-        {activeTab === 'content' &&
-          (isEditing ? (
-            <div className="relative">
-              {/* Keyboard shortcuts hint */}
-              <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground/60">
-                <kbd className="rounded border border-border px-1.5 py-0.5">⌘S</kbd>
-                <span>save</span>
-                <span className="mx-1">·</span>
-                <kbd className="rounded border border-border px-1.5 py-0.5">/</kbd>
-                <span>commands</span>
-              </div>
+        {/* Activities Section (Top-Right in Quad) */}
+        <QuadPaneSection
+          title="Activities"
+          icon={Activity}
+          onExpand={() => handleExpandSection('activities')}
+          showHeader={isQuad}
+          className={cn(
+            'min-h-0',
+            !isVisible('activities') && 'hidden',
+            !isQuad && 'flex-1 border-0 bg-transparent'
+          )}
+        >
+          <ActivitiesTab taskId={taskId} />
+        </QuadPaneSection>
 
-              {/* Notion-like rich text editor */}
+        {/* Diff Section (Bottom-Left in Quad) */}
+        <QuadPaneSection
+          title="Diff"
+          icon={GitCompareArrows}
+          onExpand={() => handleExpandSection('diff')}
+          showHeader={isQuad}
+          className={cn(
+            'min-h-0',
+            !isVisible('diff') && 'hidden',
+            !isQuad && 'flex-1 border-0 bg-transparent'
+          )}
+        >
+          <DiffPlaceholder />
+        </QuadPaneSection>
+
+        {/* Content Section (Bottom-Right in Quad) */}
+        <QuadPaneSection
+          title="Content"
+          icon={BookOpen}
+          onExpand={() => handleExpandSection('content')}
+          showHeader={isQuad}
+          className={cn(
+            'min-h-0',
+            !isVisible('content') && 'hidden',
+            !isQuad && 'flex-1 border-0 bg-transparent'
+          )}
+        >
+          {/* Content Rendering Logic */}
+          {isEditing ? (
+            <div className={cn(isQuad ? 'p-4' : 'pt-4')}>
+              {/* Mobile Editor Hint */}
+              {!isQuad && (
+                <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground/60">
+                  <kbd className="rounded border border-border px-1.5 py-0.5">⌘S</kbd>
+                  <span>save</span>
+                  <span className="mx-1">·</span>
+                  <kbd className="rounded border border-border px-1.5 py-0.5">/</kbd>
+                  <span>commands</span>
+                </div>
+              )}
+
               <NotionEditor
                 content={editContent}
                 onChange={handleContentChange}
                 placeholder="Start writing your story..."
                 autoFocus
-                className="min-h-[50vh] rounded-lg border border-border/50 bg-card/30 p-6"
+                className="min-h-[200px] rounded-lg border border-border/50 bg-card/30 p-4"
               />
-
-              {/* Change indicator */}
               {hasChanges && (
                 <div className="mt-3 flex items-center gap-2 text-sm text-amber-400">
                   <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
@@ -481,176 +501,32 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
               )}
             </div>
           ) : (
-            <article className="story-content">
+            <div className={cn(isQuad ? 'p-4' : 'pt-4')}>
               {displayContent ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    h1: ({ children }) => (
-                      <h1 className="mb-6 mt-10 text-2xl font-bold tracking-tight text-foreground first:mt-0">
-                        {children}
-                      </h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="mb-4 mt-8 text-xl font-semibold tracking-tight text-foreground">
-                        {children}
-                      </h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="mb-3 mt-6 text-lg font-semibold text-foreground">
-                        {children}
-                      </h3>
-                    ),
-                    h4: ({ children }) => (
-                      <h4 className="mb-2 mt-4 text-base font-medium text-foreground">
-                        {children}
-                      </h4>
-                    ),
-                    p: ({ children }) => (
-                      <p className="mb-4 leading-7 text-foreground/90">{children}</p>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="mb-4 ml-6 list-disc space-y-2 text-foreground/90">
-                        {children}
-                      </ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="mb-4 ml-6 list-decimal space-y-2 text-foreground/90">
-                        {children}
-                      </ol>
-                    ),
-                    li: ({ children }) => <li className="leading-7">{children}</li>,
-                    input: ({ type, checked }) =>
-                      type === 'checkbox' ? (
-                        <span
-                          className={cn(
-                            'mr-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                            checked
-                              ? 'border-cyan-500 bg-cyan-500 text-white'
-                              : 'border-muted-foreground/50 bg-transparent'
-                          )}
-                          aria-checked={checked}
-                          role="checkbox"
-                        >
-                          {checked && (
-                            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
-                              <path
-                                d="M2 6L5 9L10 3"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                      ) : null,
-                    blockquote: ({ children }) => (
-                      <blockquote className="my-4 border-l-4 border-cyan-500/50 pl-4 italic text-foreground/70">
-                        {children}
-                      </blockquote>
-                    ),
-                    code: ({ className, children }) => {
-                      const match = /language-(\w+)/.exec(className || '')
-                      const language = match ? match[1] : ''
-                      const codeString = String(children).replace(/\n$/, '')
-                      const isInline = !className && !codeString.includes('\n')
-
-                      if (isInline) {
-                        return (
-                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-cyan-400">
-                            {children}
-                          </code>
-                        )
-                      }
-
-                      return <CodeBlock language={language} code={codeString} />
-                    },
-                    pre: ({ children }) => <>{children}</>,
-                    hr: () => <hr className="my-8 border-border/30" />,
-                    table: ({ children }) => (
-                      <div className="my-4 overflow-x-auto">
-                        <table className="w-full border-collapse text-sm">{children}</table>
-                      </div>
-                    ),
-                    thead: ({ children }) => (
-                      <thead className="border-b border-border bg-muted/30">{children}</thead>
-                    ),
-                    th: ({ children }) => (
-                      <th className="px-4 py-2 text-left font-semibold text-foreground">
-                        {children}
-                      </th>
-                    ),
-                    td: ({ children }) => (
-                      <td className="border-b border-border/30 px-4 py-2 text-foreground/90">
-                        {children}
-                      </td>
-                    ),
-                    a: ({ href, children }) => (
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 transition-colors hover:text-cyan-300 hover:decoration-cyan-300/50"
-                      >
-                        {children}
-                      </a>
-                    ),
-                    strong: ({ children }) => (
-                      <strong className="font-semibold text-foreground">{children}</strong>
-                    ),
-                    em: ({ children }) => (
-                      <em className="italic text-foreground/90">{children}</em>
-                    )
-                  }}
-                >
-                  {displayContent}
-                </ReactMarkdown>
+                <article className="story-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {displayContent}
+                  </ReactMarkdown>
+                </article>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mb-4 rounded-full bg-muted p-4">
-                    <BookOpen className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="mb-2 text-lg font-medium text-foreground">No content yet</h3>
-                  <p className="mb-6 text-sm text-muted-foreground">
-                    This task doesn&apos;t have any detailed content.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditing(true)}
-                    className="gap-2 border-cyan-500/30 text-cyan-400"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Add Content
-                  </Button>
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <BookOpen className="mb-3 h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No content yet</p>
+                  {!isQuad && (
+                     <Button
+                       variant="outline"
+                       onClick={() => setEditing(true)}
+                       className="mt-4 gap-2 border-cyan-500/30 text-cyan-400"
+                     >
+                       <Pencil className="h-4 w-4" />
+                       Add Content
+                     </Button>
+                  )}
                 </div>
               )}
-            </article>
-          ))}
-
-        {/* Activities tab */}
-        {activeTab === 'activities' && (
-          <div
-            id="panel-activities"
-            role="tabpanel"
-            aria-labelledby="tab-activities"
-            className="min-h-[400px]"
-          >
-            <ActivitiesTab taskId={taskId} />
-          </div>
-        )}
-
-        {/* Terminal tab */}
-        {activeTab === 'terminal' && (
-          <div
-            id="panel-terminal"
-            role="tabpanel"
-            aria-labelledby="tab-terminal"
-            className="min-h-[400px]"
-          >
-            <TaskTerminal ref={terminalRef} taskId={taskId} />
-          </div>
-        )}
+            </div>
+          )}
+        </QuadPaneSection>
       </div>
     </div>
   )

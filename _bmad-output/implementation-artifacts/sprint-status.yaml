@@ -199,7 +199,7 @@ development_status:
   # Users can view Terminal, Activities, Diff, and Content simultaneously
   tes-epic-3: in-progress
   tes-3-1-task-detail-panel-container: done
-  tes-3-2-quad-pane-layout: backlog
+  tes-3-2-quad-pane-layout: done
   tes-3-3-section-expand-collapse: backlog
   tes-3-4-terminal-section-integration: backlog
   tes-3-5-activities-section-integration: backlog
