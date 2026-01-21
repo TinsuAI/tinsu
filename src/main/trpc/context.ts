@@ -17,10 +17,9 @@ export interface Context {
 
 export const createContext = async (_opts: CreateContextOptions): Promise<Context> => ({
   db,
-  // Use TINSU_PROJECT_ROOT env for testing, otherwise use app's current working directory
-  // TODO: In packaged Electron app, process.cwd() may return unpredictable paths.
-  // Future: Derive projectRoot from opened project folder or use app.getPath('userData')
-  projectRoot: process.env.TINSU_PROJECT_ROOT || process.cwd(),
+  // Get projectRoot from currently open project (updated when switching projects)
+  // Falls back to TINSU_PROJECT_ROOT env for testing, then process.cwd()
+  projectRoot: ProjectService.getCurrentProject() || process.env.TINSU_PROJECT_ROOT || process.cwd(),
   // Story 3.1.5: Include projectId from ProjectService for project-scoped queries
   projectId: ProjectService.getCurrentProjectId(),
   // TES-2.2: Activity log service for activity operations
