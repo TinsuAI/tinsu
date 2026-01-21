@@ -219,7 +219,7 @@ development_status:
   tes-epic-4: in-progress
   tes-4-1-git-diff-data-fetching: done
   tes-4-2-diff-summary-bar: done
-  tes-4-3-file-tree-component: backlog
+  tes-4-3-file-tree-component: done
   tes-4-4-monaco-diff-viewer-integration: backlog
   tes-4-5-unified-vs-split-view-toggle: backlog
   tes-4-6-diff-section-in-quad-pane: backlog

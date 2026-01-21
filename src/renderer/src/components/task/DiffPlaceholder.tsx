@@ -1,9 +1,10 @@
-import { GitCompareArrows, RefreshCw, AlertCircle, FileCode } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { GitCompareArrows, RefreshCw, AlertCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
-import { DiffSummaryBar } from '@renderer/components/diff'
+import { DiffSummaryBar, FileTree } from '@renderer/components/diff'
 
 /**
  * Props for DiffPlaceholder component
@@ -25,6 +26,25 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary } = useDiff(
     taskId ?? null
   )
+
+  // State for selected file in file tree
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+
+  // Refs for scroll-into-view functionality
+  const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  // Handle file selection from tree
+  const handleFileSelect = useCallback((path: string) => {
+    setSelectedFile(path)
+
+    // Scroll the file's diff section into view - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      const fileRef = fileRefs.current.get(path)
+      if (fileRef) {
+        fileRef.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 0)
+  }, [])
 
   // Loading state - show skeleton
   if (isLoading) {
@@ -120,7 +140,7 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
     )
   }
 
-  // Has changes - show diff summary and file list
+  // Has changes - show diff summary, file tree, and diff content
   return (
     <div
       className={cn(
@@ -137,16 +157,33 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
         className="border-b border-border/20 px-4 py-2"
       />
 
-      {/* File list */}
+      {/* File tree for navigation */}
+      <div className="shrink-0 border-b border-border/20">
+        <FileTree
+          files={diff?.files ?? []}
+          selectedFile={selectedFile}
+          onFileSelect={handleFileSelect}
+          className="max-h-[200px]"
+        />
+      </div>
+
+      {/* File diff content */}
       <div className="kanban-scroll flex-1 overflow-auto">
         <div className="divide-y divide-border/10">
           {diff?.files.map((file) => (
-            <div key={file.path} className="px-4 py-2.5 hover:bg-muted/20">
+            <div
+              key={file.path}
+              ref={(el) => {
+                if (el) {
+                  fileRefs.current.set(file.path, el)
+                }
+              }}
+              className={cn('px-4 py-2.5', selectedFile === file.path && 'bg-muted/30')}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <FileCode className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                   <span
-                    className="truncate text-sm text-foreground/70"
+                    className="truncate text-sm font-medium text-foreground/80"
                     title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
                   >
                     {file.oldPath ? (
