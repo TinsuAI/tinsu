@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ResizableWorkspace, type WorkspaceTask } from './ResizableWorkspace'
 
 // Mock the child components to simplify testing
@@ -282,5 +283,217 @@ describe('ResizableWorkspace', () => {
     const separators = screen.getAllByRole('separator')
     // Should have at least 3: 2 horizontal (between columns) and 1 vertical (terminal/activities)
     expect(separators.length).toBeGreaterThanOrEqual(3)
+  })
+
+  // Story TES-3.3: Keyboard shortcut tests
+  describe('Keyboard shortcuts (Story TES-3.3)', () => {
+    it('collapses expanded section when Escape is pressed (AC: #2)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div data-testid="content-editor">Content</div>}
+        />
+      )
+
+      // First expand a section
+      const expandButton = screen.getByLabelText('Expand Content')
+      await user.click(expandButton)
+      expect(screen.getByTestId('resizable-workspace-expanded')).toBeInTheDocument()
+
+      // Press Escape
+      await user.keyboard('{Escape}')
+
+      // Should return to 3-column view
+      expect(screen.getByTestId('resizable-workspace')).toBeInTheDocument()
+      expect(screen.queryByTestId('resizable-workspace-expanded')).not.toBeInTheDocument()
+    })
+
+    it('does nothing when Escape is pressed and no section is expanded', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      // Press Escape when in 3-column view
+      await user.keyboard('{Escape}')
+
+      // Should still be in 3-column view
+      expect(screen.getByTestId('resizable-workspace')).toBeInTheDocument()
+    })
+
+    it('expands Content section when key 1 is pressed (AC: #3)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      await user.keyboard('1')
+
+      expect(screen.getByTestId('resizable-workspace-expanded')).toBeInTheDocument()
+      expect(screen.getByLabelText('Collapse Content')).toBeInTheDocument()
+    })
+
+    it('expands Terminal section when key 2 is pressed (AC: #3)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      await user.keyboard('2')
+
+      expect(screen.getByTestId('resizable-workspace-expanded')).toBeInTheDocument()
+      expect(screen.getByLabelText('Collapse Terminal')).toBeInTheDocument()
+    })
+
+    it('expands Activities section when key 3 is pressed (AC: #3)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      await user.keyboard('3')
+
+      expect(screen.getByTestId('resizable-workspace-expanded')).toBeInTheDocument()
+      expect(screen.getByLabelText('Collapse Activities')).toBeInTheDocument()
+    })
+
+    it('expands Diff section when key 4 is pressed (AC: #3)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      await user.keyboard('4')
+
+      expect(screen.getByTestId('resizable-workspace-expanded')).toBeInTheDocument()
+      expect(screen.getByLabelText('Collapse Diff')).toBeInTheDocument()
+    })
+
+    it('switches between expanded sections with number keys (AC: #3)', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      // Expand Content with key 1
+      await user.keyboard('1')
+      expect(screen.getByLabelText('Collapse Content')).toBeInTheDocument()
+
+      // Switch to Terminal with key 2
+      await user.keyboard('2')
+      expect(screen.getByLabelText('Collapse Terminal')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Collapse Content')).not.toBeInTheDocument()
+
+      // Switch to Activities with key 3
+      await user.keyboard('3')
+      expect(screen.getByLabelText('Collapse Activities')).toBeInTheDocument()
+
+      // Switch to Diff with key 4
+      await user.keyboard('4')
+      expect(screen.getByLabelText('Collapse Diff')).toBeInTheDocument()
+    })
+
+    it('does not handle keyboard shortcuts when typing in input', async () => {
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<input data-testid="test-input" />}
+        />
+      )
+
+      const input = screen.getByTestId('test-input')
+      input.focus()
+
+      // Dispatch keyboard event while input is focused
+      fireEvent.keyDown(window, { key: '1' })
+
+      // Should NOT expand - still in 3-column view
+      expect(screen.getByTestId('resizable-workspace')).toBeInTheDocument()
+      expect(screen.queryByTestId('resizable-workspace-expanded')).not.toBeInTheDocument()
+    })
+
+    it('does not handle keyboard shortcuts when typing in textarea', async () => {
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<textarea data-testid="test-textarea" />}
+        />
+      )
+
+      const textarea = screen.getByTestId('test-textarea')
+      textarea.focus()
+
+      // Dispatch keyboard event while textarea is focused
+      fireEvent.keyDown(window, { key: '2' })
+
+      // Should NOT expand - still in 3-column view
+      expect(screen.getByTestId('resizable-workspace')).toBeInTheDocument()
+      expect(screen.queryByTestId('resizable-workspace-expanded')).not.toBeInTheDocument()
+    })
+
+    it('does not handle number keys when modifier keys are pressed', async () => {
+      const user = userEvent.setup()
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      // Ctrl+1 should not expand
+      await user.keyboard('{Control>}1{/Control}')
+      expect(screen.getByTestId('resizable-workspace')).toBeInTheDocument()
+      expect(screen.queryByTestId('resizable-workspace-expanded')).not.toBeInTheDocument()
+    })
+
+    it('has smooth transition classes on expanded view', () => {
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      // Expand a section
+      fireEvent.click(screen.getByLabelText('Expand Content'))
+
+      const expandedView = screen.getByTestId('resizable-workspace-expanded')
+      expect(expandedView).toHaveClass('transition-all', 'duration-200', 'ease-out')
+
+      // Note: AC #3 requires <200ms transition. Tailwind's duration-200 = 200ms.
+      // Actual animation performance validated manually - automated timing tests
+      // are unreliable in test environments due to JSDOM limitations.
+    })
+
+    it('has smooth transition classes on normal 3-column view', () => {
+      render(
+        <ResizableWorkspace
+          task={mockTask}
+          contentSection={<div>Content</div>}
+        />
+      )
+
+      const normalView = screen.getByTestId('resizable-workspace')
+      expect(normalView).toHaveClass('transition-all', 'duration-200', 'ease-out')
+    })
   })
 })

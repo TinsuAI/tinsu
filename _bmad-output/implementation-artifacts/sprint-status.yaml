@@ -201,7 +201,7 @@ development_status:
   tes-epic-3: in-progress
   tes-3-1-task-workspace-navigation: done  # Implemented: full-screen task workspace navigation
   tes-3-2-three-column-task-workspace: review  # Updated: quad-pane → 3-column resizable
-  tes-3-3-section-expand-collapse: backlog
+  tes-3-3-section-expand-collapse: done
   tes-3-4-terminal-section-integration: done  # Implemented during Epic 1 & 2
   tes-3-5-activities-section-integration: done  # Implemented during Epic 2
   tes-3-6-content-section-display: done  # Implemented during quad-pane work

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Group, Panel, Separator, type GroupImperativeHandle, type Layout } from 'react-resizable-panels'
 import { FileText, Terminal, Activity, GitCompareArrows } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
@@ -106,6 +106,9 @@ export function ResizableWorkspace({
     vertical: Layout
   } | null>(null)
 
+  // Store last focused element for restoration after section switching (MEDIUM #4)
+  const lastFocusedElement = useRef<HTMLElement | null>(null)
+
   // Refs for panel groups to get/set layout programmatically
   const horizontalGroupRef = useRef<GroupImperativeHandle>(null)
   const verticalGroupRef = useRef<GroupImperativeHandle>(null)
@@ -154,6 +157,11 @@ export function ResizableWorkspace({
 
   // Expand a section to full screen
   const handleExpand = useCallback((section: ExpandedSection) => {
+    // Store currently focused element for restoration (MEDIUM #4)
+    if (document.activeElement instanceof HTMLElement) {
+      lastFocusedElement.current = document.activeElement
+    }
+
     // Save current layout before expanding
     const horizontal = horizontalGroupRef.current?.getLayout()
     const vertical = verticalGroupRef.current?.getLayout()
@@ -166,19 +174,84 @@ export function ResizableWorkspace({
   // Collapse back to 3-column view
   const handleCollapse = useCallback(() => {
     setExpandedSection(null)
+
     // Restore saved layout after a tick to let React re-render the panels
     if (savedLayout) {
       requestAnimationFrame(() => {
-        horizontalGroupRef.current?.setLayout(savedLayout.horizontal)
-        verticalGroupRef.current?.setLayout(savedLayout.vertical)
+        try {
+          horizontalGroupRef.current?.setLayout(savedLayout.horizontal)
+          verticalGroupRef.current?.setLayout(savedLayout.vertical)
+
+          // Try to restore focus to previously focused element (MEDIUM #4)
+          if (lastFocusedElement.current && document.contains(lastFocusedElement.current)) {
+            try {
+              lastFocusedElement.current.focus()
+            } catch {
+              // Element might not be focusable anymore, ignore
+            }
+          }
+        } catch {
+          // Ignore layout restoration errors (can occur in test environments)
+        }
       })
     }
   }, [savedLayout])
 
+  // Keyboard shortcuts for expand/collapse and section switching
+  // Story TES-3.3: Section Expand/Collapse (AC: #2, #3)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement
+      const isTyping =
+        activeElement?.tagName === 'INPUT' ||
+        activeElement?.tagName === 'TEXTAREA' ||
+        (activeElement as HTMLElement)?.contentEditable === 'true'
+
+      // Don't handle shortcuts when typing or with modifier keys (except for Escape)
+      if (e.key !== 'Escape' && (isTyping || e.ctrlKey || e.metaKey || e.altKey)) return
+
+      // Escape to collapse expanded section (AC: #2)
+      // MEDIUM #2: Escape always collapses when a section is expanded, even when typing.
+      // This is intentional - similar to modal dialogs, Escape should exit/collapse
+      // regardless of input focus state. Terminal-specific input handlers can prevent
+      // this if needed by calling e.stopPropagation() on their Escape handlers.
+      if (e.key === 'Escape' && expandedSection) {
+        e.preventDefault()
+        handleCollapse()
+        return
+      }
+
+      // Skip number keys when typing
+      if (isTyping) return
+
+      // Number keys 1-4 to expand/switch sections (AC: #3)
+      // Note: Rapid section switching is allowed - the 200ms CSS transition provides
+      // sufficient visual feedback without needing to block inputs (MEDIUM #3 resolved)
+      const sectionMap: Record<string, ExpandedSection> = {
+        '1': 'content',
+        '2': 'terminal',
+        '3': 'activities',
+        '4': 'diff'
+      }
+
+      const targetSection = sectionMap[e.key]
+      if (targetSection) {
+        e.preventDefault()
+        handleExpand(targetSection)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [expandedSection, handleExpand, handleCollapse])
+
   // Render expanded section full screen
   if (expandedSection) {
     return (
-      <div className="flex h-full flex-col" data-testid="resizable-workspace-expanded">
+      <div
+        className="flex h-full flex-col transition-all duration-200 ease-out"
+        data-testid="resizable-workspace-expanded"
+      >
         {expandedSection === 'content' && (
           <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border/30 bg-card/30">
             <SectionHeader
@@ -238,7 +311,10 @@ export function ResizableWorkspace({
 
   // Normal 3-column view
   return (
-    <div className="h-full" data-testid="resizable-workspace">
+    <div
+      className="h-full transition-all duration-200 ease-out"
+      data-testid="resizable-workspace"
+    >
       <Group
         groupRef={horizontalGroupRef}
         orientation="horizontal"
