@@ -1,8 +1,9 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { trpc } from '@renderer/lib/trpc'
 import { useTerminalStore } from '@renderer/stores/terminal.store'
 import type { AgentWorkflowType } from '@renderer/stores/terminal.store'
 import { toast } from 'sonner'
+import type { ActivityEventPayload } from '@shared/types/activity.types'
 
 /**
  * Hook for launching BMAD agents via Claude Code CLI.
@@ -213,10 +214,74 @@ export function useAgentLauncher() {
     }
   })
 
-  // Story 5.3 - AC: 2: Subscribe to PTY exit events for completion handling
-  // Story 5.3b - AC: 3: Extended to handle basic_task completion
-  // Story 5.3b fix: Use processIdRef for subscription stability - useTerminal clears
-  // activeProcessId on exit which could disable this subscription before handler runs
+  // FIX: Subscribe to agent_complete activity events to detect when Claude Code finishes.
+  // The previous PTY exit subscription doesn't work because:
+  // 1. Agent launch mutations don't return a processId (they send commands to tmux via send-keys)
+  // 2. The PTY is attached to tmux, not Claude Code - it doesn't exit when Claude Code exits
+  // 3. agent_complete events are fired by the hook-listener when Claude Code's Stop hook triggers
+  useEffect(() => {
+    // Only subscribe if we have an active agent task
+    if (!agentTaskId) {
+      return
+    }
+
+    const handleActivityEvent = (event: ActivityEventPayload): void => {
+      // Only process agent_complete events for our task
+      if (event.taskId !== agentTaskId || event.activity.event_type !== 'agent_complete') {
+        return
+      }
+
+      // Capture ref values before clearing
+      const currentWorkflowType = workflowTypeRef.current
+      const currentTaskId = taskIdRef.current
+
+      console.log('[useAgentLauncher] agent_complete event received:', {
+        taskId: event.taskId,
+        currentWorkflowType,
+        currentTaskId,
+        payload: event.activity.payload
+      })
+
+      // Clear refs to prevent stale data on next run
+      workflowTypeRef.current = null
+      taskIdRef.current = null
+      processIdRef.current = null
+
+      // CRITICAL: Clear the agent state to allow subsequent workflows
+      console.log('[useAgentLauncher] Calling clearAgent() to reset agent state')
+      clearAgent()
+
+      // Handle workflow-specific completion logic
+      if (currentTaskId) {
+        if (currentWorkflowType === 'create_story') {
+          // Call completion handler to scan for story file and update task
+          handleCreateStoryCompleteMutation.mutate({ taskId: currentTaskId })
+        } else if (currentWorkflowType === 'basic_task') {
+          // Call completion handler to update task status to 'review'
+          handleBasicTaskCompleteMutation.mutate({ taskId: currentTaskId })
+        } else if (currentWorkflowType === 'dev_story') {
+          // Call completion handler to update task status to 'review'
+          handleDevStoryCompleteMutation.mutate({ taskId: currentTaskId })
+        }
+      }
+    }
+
+    // Subscribe to activity events via Electron IPC
+    const unsubscribe = window.api.onActivityCreated(handleActivityEvent)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [
+    agentTaskId,
+    clearAgent,
+    handleCreateStoryCompleteMutation,
+    handleBasicTaskCompleteMutation,
+    handleDevStoryCompleteMutation
+  ])
+
+  // Legacy PTY exit subscription (kept for backwards compatibility with planning tasks
+  // that might use a different PTY-based approach, but should be replaced)
   const subscriptionProcessId = processIdRef.current ?? activeProcessId ?? ''
   trpc.pty.onExit.useSubscription(
     { processId: subscriptionProcessId },

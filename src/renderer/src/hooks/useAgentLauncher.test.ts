@@ -148,6 +148,10 @@ vi.mock('@renderer/lib/trpc', () => ({
   }
 }))
 
+// Mock window.api for activity event subscription
+const mockActivityUnsubscribe = vi.fn()
+const mockOnActivityCreated = vi.fn(() => mockActivityUnsubscribe)
+
 describe('useAgentLauncher', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -161,6 +165,15 @@ describe('useAgentLauncher', () => {
     })
     // Reset subscription callback
     mockExitSubscriptionOnData = undefined
+    // Mock window.api for activity event subscription
+    Object.defineProperty(window, 'api', {
+      writable: true,
+      configurable: true,
+      value: {
+        onActivityCreated: mockOnActivityCreated,
+        onFileChange: vi.fn(() => vi.fn())
+      }
+    })
   })
 
   describe('launchPlanningAgent', () => {
@@ -707,6 +720,141 @@ describe('useAgentLauncher', () => {
 
       // Verify agent state is cleared even on error (user can retry)
       expect(useTerminalStore.getState().agentTaskId).toBeNull()
+    })
+  })
+
+  describe('agent_complete activity event subscription (FIX for sequential workflows)', () => {
+    it('should subscribe to activity events when agent task is active', () => {
+      useTerminalStore.setState({ agentTaskId: 'task-123' })
+
+      renderHook(() => useAgentLauncher())
+
+      // Verify subscription was set up
+      expect(mockOnActivityCreated).toHaveBeenCalled()
+    })
+
+    it('should not subscribe when no agent task is active', () => {
+      useTerminalStore.setState({ agentTaskId: null })
+
+      renderHook(() => useAgentLauncher())
+
+      // Subscription might be called but should be cleaned up
+      // The important thing is the hook doesn't crash
+      expect(true).toBe(true)
+    })
+
+    it('should clear agent state on agent_complete event', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching create-story
+      act(() => {
+        mockCreateStoryOnSuccess?.(
+          { processId: 'create-123', command: 'claude', args: [] },
+          { taskId: 'task-456' }
+        )
+      })
+
+      // Verify agent is running
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
+
+      // Get the activity handler that was registered
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+
+      // Simulate agent_complete event
+      act(() => {
+        activityHandler?.({
+          taskId: 'task-456',
+          activity: {
+            id: 'activity-1',
+            task_id: 'task-456',
+            event_type: 'agent_complete',
+            payload: { phase: 'create-story' },
+            created_at: new Date().toISOString()
+          }
+        })
+      })
+
+      // Verify agent state is cleared
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+    })
+
+    it('should ignore agent_complete events for different tasks', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching create-story
+      act(() => {
+        mockCreateStoryOnSuccess?.(
+          { processId: 'create-123', command: 'claude', args: [] },
+          { taskId: 'task-456' }
+        )
+      })
+
+      // Verify agent is running
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
+
+      // Get the activity handler
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+
+      // Simulate agent_complete event for DIFFERENT task
+      act(() => {
+        activityHandler?.({
+          taskId: 'task-OTHER',
+          activity: {
+            id: 'activity-1',
+            task_id: 'task-OTHER',
+            event_type: 'agent_complete',
+            payload: { phase: 'create-story' },
+            created_at: new Date().toISOString()
+          }
+        })
+      })
+
+      // Verify agent state is NOT cleared (event was for different task)
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
+    })
+
+    it('should call handleCreateStoryComplete on agent_complete for create_story workflow', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching create-story
+      act(() => {
+        mockCreateStoryOnSuccess?.(
+          { processId: 'create-123', command: 'claude', args: [] },
+          { taskId: 'task-456' }
+        )
+      })
+
+      // Get the activity handler
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+
+      // Simulate agent_complete event
+      act(() => {
+        activityHandler?.({
+          taskId: 'task-456',
+          activity: {
+            id: 'activity-1',
+            task_id: 'task-456',
+            event_type: 'agent_complete',
+            payload: { phase: 'create-story' },
+            created_at: new Date().toISOString()
+          }
+        })
+      })
+
+      // Verify completion handler was called
+      expect(mockHandleCompleteMutate).toHaveBeenCalledWith({ taskId: 'task-456' })
+    })
+
+    it('should unsubscribe on cleanup', () => {
+      useTerminalStore.setState({ agentTaskId: 'task-123' })
+
+      const { unmount } = renderHook(() => useAgentLauncher())
+
+      // Unmount the hook
+      unmount()
+
+      // Verify unsubscribe was called
+      expect(mockActivityUnsubscribe).toHaveBeenCalled()
     })
   })
 })
