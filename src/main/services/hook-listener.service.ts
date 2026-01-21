@@ -484,6 +484,13 @@ export class HookListenerService {
     // TES-2.9: Trigger AutomationService.onAgentComplete for workflow transitions
     // This logs the automation_trigger event and (in future) advances the workflow
     await AutomationService.onAgentComplete(taskId, phase)
+
+    // Mark the session as ended in session history for traceability
+    try {
+      await TaskSessionService.markSessionEnded(payload.session_id)
+    } catch (error) {
+      console.warn('[HookListener] Failed to mark session as ended:', error)
+    }
   }
 
   /**
@@ -692,7 +699,8 @@ export class HookListenerService {
         `[HookListener] Auto-registering session_id with most recent task:`,
         mostRecent.task_id
       )
-      await TaskSessionService.updateSessionId(mostRecent.task_id, sessionId)
+      // Pass current_phase as workflow type for session history tracking
+      await TaskSessionService.updateSessionId(mostRecent.task_id, sessionId, mostRecent.current_phase ?? undefined)
 
       // Return the updated session
       return db
@@ -708,7 +716,8 @@ export class HookListenerService {
       `[HookListener] Auto-registering orphan session_id ${sessionId} with task ${targetSession.task_id}`
     )
 
-    await TaskSessionService.updateSessionId(targetSession.task_id, sessionId)
+    // Pass current_phase as workflow type for session history tracking
+    await TaskSessionService.updateSessionId(targetSession.task_id, sessionId, targetSession.current_phase ?? undefined)
 
     // Return the updated session
     return db

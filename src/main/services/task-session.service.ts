@@ -1,6 +1,7 @@
 import { db } from '../db'
-import { task_sessions } from '../db/schema'
+import { task_sessions, sessionHistory } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { v4 as uuid } from 'uuid'
 
 /**
  * Service for managing session-task mappings.
@@ -49,12 +50,27 @@ export class TaskSessionService {
    * await TaskSessionService.updateSessionId('task-123', 'claude-session-abc')
    * ```
    */
-  static async updateSessionId(taskId: string, sessionId: string): Promise<void> {
-    // Update database
+  static async updateSessionId(taskId: string, sessionId: string, workflowType?: string): Promise<void> {
+    // Update database - set current active session
     await db
       .update(task_sessions)
       .set({ session_id: sessionId })
       .where(eq(task_sessions.task_id, taskId))
+
+    // Also save to session history for traceability
+    await db.insert(sessionHistory).values({
+      id: uuid(),
+      task_id: taskId,
+      session_id: sessionId,
+      workflow_type: workflowType ?? null,
+      started_at: new Date()
+    })
+
+    console.log('[TaskSessionService] Session registered and saved to history:', {
+      taskId,
+      sessionId,
+      workflowType
+    })
 
     // Evict oldest entry if cache is full (FIFO eviction)
     if (this.sessionToTaskCache.size >= this.MAX_CACHE_SIZE) {
@@ -90,13 +106,23 @@ export class TaskSessionService {
     const cached = this.sessionToTaskCache.get(sessionId)
     if (cached) return cached
 
-    // Fall back to database (indexed query - <10ms)
+    // Fall back to database - check current active session first
     const record = db.select().from(task_sessions).where(eq(task_sessions.session_id, sessionId)).get()
 
     if (record) {
       // Update cache for future lookups
       this.sessionToTaskCache.set(sessionId, record.task_id)
       return record.task_id
+    }
+
+    // Also check session history for historical sessions
+    // This allows hook events from previous workflows to still be routed correctly
+    const historyRecord = db.select().from(sessionHistory).where(eq(sessionHistory.session_id, sessionId)).get()
+
+    if (historyRecord) {
+      // Update cache for future lookups
+      this.sessionToTaskCache.set(sessionId, historyRecord.task_id)
+      return historyRecord.task_id
     }
 
     return null
@@ -167,6 +193,52 @@ export class TaskSessionService {
         break
       }
     }
+  }
+
+  /**
+   * Marks the current session as ended in session history.
+   * Called when clearing context before starting a new workflow.
+   *
+   * @param taskId - The task's unique identifier
+   */
+  static async endCurrentSession(taskId: string): Promise<void> {
+    // Get the current session_id from task_sessions
+    const currentSession = db
+      .select()
+      .from(task_sessions)
+      .where(eq(task_sessions.task_id, taskId))
+      .get()
+
+    if (currentSession?.session_id) {
+      // Mark this session as ended in history
+      await db
+        .update(sessionHistory)
+        .set({ ended_at: new Date() })
+        .where(eq(sessionHistory.session_id, currentSession.session_id))
+
+      console.log('[TaskSessionService] Marked session as ended:', {
+        taskId,
+        sessionId: currentSession.session_id
+      })
+    }
+
+    // Clear from cache
+    this.clearSession(taskId)
+  }
+
+  /**
+   * Marks a session as ended in session history by session_id.
+   * Called when the Stop hook fires (agent completes).
+   *
+   * @param sessionId - The Claude Code session ID
+   */
+  static async markSessionEnded(sessionId: string): Promise<void> {
+    const result = await db
+      .update(sessionHistory)
+      .set({ ended_at: new Date() })
+      .where(eq(sessionHistory.session_id, sessionId))
+
+    console.log('[TaskSessionService] Marked session as ended:', { sessionId })
   }
 
   /**

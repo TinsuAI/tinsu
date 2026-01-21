@@ -122,6 +122,22 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_sessions_session_id ON task_sessions(session_id)')
   sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_task_sessions_task_id_unique ON task_sessions(task_id)')
 
+  // Session history table for tracking all Claude Code session_ids per task
+  // This preserves the mapping for traceability after workflows complete
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS session_history (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      workflow_type TEXT,
+      started_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      ended_at INTEGER,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_session_history_task_id ON session_history(task_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_session_history_session_id ON session_history(session_id)')
+
   // Story 3.10: Task artifacts table for linking artifacts to tasks
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS task_artifacts (

@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { TmuxService } from './tmux.service'
 import { sessionEventEmitter } from '../lib/session-events'
 import { ActivityLogService } from './activity-log.service'
+import { TaskSessionService } from './task-session.service'
 
 const execAsync = promisify(exec)
 
@@ -429,6 +430,17 @@ export class TaskTerminalService {
       { timeout: TMUX_COMMAND_TIMEOUT }
     )
     await new Promise(resolve => setTimeout(resolve, 200))
+
+    // Mark the current session as ended in history and clear the cache
+    // This preserves the session history for traceability
+    console.log('[TaskTerminalService] clearContext: Ending current session and resetting for new workflow')
+    await TaskSessionService.endCurrentSession(taskId)
+
+    // Reset session_id to null so the new Claude Code session can auto-register
+    // Each Claude Code invocation gets a new session_id, so we need to clear the old one
+    await db.update(task_sessions)
+      .set({ session_id: null })
+      .where(eq(task_sessions.task_id, taskId))
 
     console.log('[TaskTerminalService] clearContext: Complete')
   }

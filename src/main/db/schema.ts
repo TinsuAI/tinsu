@@ -257,6 +257,31 @@ export const task_sessions = sqliteTable(
 export type TaskSession = InferSelectModel<typeof task_sessions>
 export type NewTaskSession = InferInsertModel<typeof task_sessions>
 
+// Session history table for tracking all Claude Code session_ids per task
+// This preserves the mapping for traceability after workflows complete
+export const sessionHistory = sqliteTable(
+  'session_history',
+  {
+    id: text('id').primaryKey(),
+    task_id: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    session_id: text('session_id').notNull(),
+    workflow_type: text('workflow_type'), // create_story, dev_story, code_review, planning, basic_task
+    started_at: integer('started_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    ended_at: integer('ended_at', { mode: 'timestamp' }) // Nullable - set when workflow ends
+  },
+  (table) => [
+    index('idx_session_history_task_id').on(table.task_id),
+    index('idx_session_history_session_id').on(table.session_id)
+  ]
+)
+
+export type SessionHistory = InferSelectModel<typeof sessionHistory>
+export type NewSessionHistory = InferInsertModel<typeof sessionHistory>
+
 // Story TES-2.1: Activity event type enum for task event tracking
 export const ACTIVITY_EVENT_TYPE = [
   'status_change',
