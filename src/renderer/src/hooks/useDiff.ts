@@ -10,6 +10,7 @@
 import { useCallback } from 'react'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
+import type { DiffSummary } from '@renderer/components/diff'
 
 /**
  * Hook for fetching git diff data for a task.
@@ -39,7 +40,7 @@ export function useDiff(taskId: string | null): {
   error: string | null
   refresh: () => Promise<void>
   hasChanges: boolean
-  summary: { filesChanged: number; linesAdded: number; linesRemoved: number } | null
+  summary: DiffSummary | null
 } {
   // Query: Fetch diff data for the task
   const {

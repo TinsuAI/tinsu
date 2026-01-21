@@ -1,8 +1,9 @@
-import { GitCompareArrows, RefreshCw, AlertCircle, FileCode, Plus, Minus } from 'lucide-react'
+import { GitCompareArrows, RefreshCw, AlertCircle, FileCode } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
+import { DiffSummaryBar } from '@renderer/components/diff'
 
 /**
  * Props for DiffPlaceholder component
@@ -129,34 +130,12 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
       data-testid="diff-content"
     >
       {/* Summary header */}
-      <div className="flex items-center justify-between border-b border-border/20 px-4 py-2">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-foreground/80">
-            {summary?.filesChanged} {summary?.filesChanged === 1 ? 'file' : 'files'} changed
-          </span>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="flex items-center gap-0.5 text-green-500">
-              <Plus className="h-3 w-3" />
-              {summary?.linesAdded}
-            </span>
-            <span className="flex items-center gap-0.5 text-red-500">
-              <Minus className="h-3 w-3" />
-              {summary?.linesRemoved}
-            </span>
-          </div>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={refresh}
-          disabled={isRefreshing}
-          className="h-7 w-7"
-          title="Refresh diff"
-        >
-          <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
-        </Button>
-      </div>
+      <DiffSummaryBar
+        summary={summary}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        className="border-b border-border/20 px-4 py-2"
+      />
 
       {/* File list */}
       <div className="kanban-scroll flex-1 overflow-auto">
