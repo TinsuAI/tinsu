@@ -221,7 +221,7 @@ development_status:
   tes-4-2-diff-summary-bar: done
   tes-4-3-file-tree-component: done
   tes-4-4-monaco-diff-viewer-integration: done
-  tes-4-5-unified-vs-split-view-toggle: backlog
+  tes-4-5-unified-vs-split-view-toggle: done
   tes-4-6-diff-section-in-quad-pane: backlog
   tes-epic-4-retrospective: optional
 

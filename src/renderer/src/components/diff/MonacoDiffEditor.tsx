@@ -10,8 +10,10 @@
  * Story TES-4.4: Monaco Diff Viewer Integration
  */
 
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import { DiffEditor, type Monaco, type OnMount, loader } from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
+import type { DiffViewMode } from '@renderer/stores/diff.store'
 import { cn } from '@renderer/lib/utils'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { Button } from '@renderer/components/ui/button'
@@ -34,6 +36,12 @@ export interface MonacoDiffEditorProps {
   className?: string
   /** Optional height (default: 300px) */
   height?: string | number
+  /**
+   * View mode for the diff display (TES-4.5)
+   * - 'split': Side-by-side view with original on left, modified on right (default)
+   * - 'unified': Interleaved view with changes shown in single column
+   */
+  viewMode?: DiffViewMode
 }
 
 /**
@@ -61,13 +69,17 @@ export function MonacoDiffEditor({
   language,
   filePath,
   className,
-  height = 300
+  height = 300,
+  viewMode = 'split'
 }: MonacoDiffEditorProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Thread-safe theme registration tracking (per component instance)
   const themeRegisteredRef = useRef(false)
+
+  // Ref to the Monaco diff editor instance for dynamic option updates (TES-4.5)
+  const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
 
   /**
    * Handler called before Monaco mounts.
@@ -87,9 +99,11 @@ export function MonacoDiffEditor({
 
   /**
    * Handler called when the editor has mounted.
-   * Marks loading as complete and clears any errors.
+   * Marks loading as complete, clears any errors, and captures editor ref.
    */
-  const handleMount: OnMount = useCallback(() => {
+  const handleMount: OnMount = useCallback((editor) => {
+    // Store editor reference for dynamic option updates (TES-4.5)
+    editorRef.current = editor as unknown as editor.IStandaloneDiffEditor
     setIsLoading(false)
     setError(null) // Clear errors on successful mount
   }, [])
@@ -101,6 +115,31 @@ export function MonacoDiffEditor({
     setError(null)
     setIsLoading(true)
   }, [])
+
+  /**
+   * Dynamically update editor view mode without remounting (TES-4.5)
+   * Uses Monaco's updateOptions() for smooth transitions
+   */
+  useEffect(() => {
+    if (editorRef.current) {
+      const renderSideBySide = viewMode === 'split'
+
+      // Capture scroll position before view switch
+      const modifiedEditor = editorRef.current.getModifiedEditor()
+      const visibleRanges = modifiedEditor.getVisibleRanges()
+      const firstVisibleLine = visibleRanges[0]?.startLineNumber ?? 1
+
+      // Update the view mode
+      editorRef.current.updateOptions({
+        renderSideBySide
+      })
+
+      // Restore scroll position after layout update
+      requestAnimationFrame(() => {
+        modifiedEditor.revealLineInCenter(firstVisibleLine)
+      })
+    }
+  }, [viewMode])
 
   return (
     <div
@@ -156,8 +195,8 @@ export function MonacoDiffEditor({
           readOnly: true,
           originalEditable: false,
 
-          // Split view with synchronized scrolling (AC #4)
-          renderSideBySide: true,
+          // View mode: split (side-by-side) or unified (interleaved) (TES-4.5)
+          renderSideBySide: viewMode === 'split',
           enableSplitViewResizing: true,
 
           // Line numbers visible (AC #4)

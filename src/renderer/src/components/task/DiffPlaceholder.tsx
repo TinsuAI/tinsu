@@ -8,9 +8,11 @@ import {
   DiffSummaryBar,
   FileTree,
   MonacoDiffEditor,
+  ViewModeToggle,
   getLanguageFromPath,
   reconstructFileContent
 } from '@renderer/components/diff'
+import { useDiffStore } from '@renderer/stores/diff.store'
 import type { GitDiffHunk } from '@main/services/git.service'
 
 /**
@@ -34,11 +36,17 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
     taskId ?? null
   )
 
+  // Get view mode from store (TES-4.5)
+  const { viewMode, toggleViewMode } = useDiffStore()
+
   // State for selected file in file tree
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   // Refs for scroll-into-view functionality
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  // Ref for the container to enable keyboard shortcut focus (TES-4.5)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Handle file selection from tree
   const handleFileSelect = useCallback((path: string) => {
@@ -52,6 +60,29 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
       }
     }, 0)
   }, [])
+
+  /**
+   * Handle keyboard shortcuts for the diff section (TES-4.5)
+   * - V: Toggle between unified and split view modes
+   */
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Only handle 'V' key when no modifier keys are pressed
+      // and the target is not an input/textarea
+      if (
+        (e.key === 'v' || e.key === 'V') &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault()
+        toggleViewMode()
+      }
+    },
+    [toggleViewMode]
+  )
 
   // Loading state - show skeleton
   if (isLoading) {
@@ -150,19 +181,27 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   // Has changes - show diff summary, file tree, and diff content
   return (
     <div
+      ref={containerRef}
       className={cn(
         'flex h-full flex-col overflow-hidden',
-        'bg-gradient-to-br from-muted/5 to-transparent'
+        'bg-gradient-to-br from-muted/5 to-transparent',
+        'focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/30'
       )}
       data-testid="diff-content"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      aria-label="Diff viewer. Press V to toggle between unified and split view."
     >
-      {/* Summary header */}
-      <DiffSummaryBar
-        summary={summary}
-        onRefresh={refresh}
-        isRefreshing={isRefreshing}
-        className="border-b border-border/20 px-4 py-2"
-      />
+      {/* Summary header with view mode toggle (TES-4.5) */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/20 px-4 py-2">
+        <DiffSummaryBar
+          summary={summary}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
+          className="flex-1"
+        />
+        {selectedFile && <ViewModeToggle />}
+      </div>
 
       {/* File tree for navigation */}
       <div className="shrink-0 border-b border-border/20">
@@ -231,9 +270,9 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
                 </div>
               </div>
 
-              {/* Monaco Diff Viewer - TES-4.4 */}
+              {/* Monaco Diff Viewer - TES-4.4, TES-4.5 */}
               {file.hunks.length > 0 && selectedFile === file.path && (
-                <FileDiffViewer hunks={file.hunks} filePath={file.path} />
+                <FileDiffViewer hunks={file.hunks} filePath={file.path} viewMode={viewMode} />
               )}
 
               {/* Compact preview when file is not selected */}
@@ -290,6 +329,8 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
 interface FileDiffViewerProps {
   hunks: GitDiffHunk[]
   filePath: string
+  /** View mode for the diff display (TES-4.5) */
+  viewMode: 'unified' | 'split'
 }
 
 /**
@@ -299,8 +340,9 @@ interface FileDiffViewerProps {
  * Reconstructs file content from hunks and detects language from path.
  *
  * Story TES-4.4: Monaco Diff Viewer Integration
+ * Story TES-4.5: Added viewMode prop for unified/split toggle
  */
-function FileDiffViewer({ hunks, filePath }: FileDiffViewerProps): React.JSX.Element {
+function FileDiffViewer({ hunks, filePath, viewMode }: FileDiffViewerProps): React.JSX.Element {
   // Memoize content reconstruction - expensive operation
   const { original, modified } = useMemo(() => reconstructFileContent(hunks), [hunks])
 
@@ -315,6 +357,7 @@ function FileDiffViewer({ hunks, filePath }: FileDiffViewerProps): React.JSX.Ele
         language={language}
         filePath={filePath}
         height={300}
+        viewMode={viewMode}
       />
     </div>
   )

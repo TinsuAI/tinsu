@@ -123,11 +123,23 @@ describe('MonacoDiffEditor', () => {
       expect(options.originalEditable).toBe(false)
     })
 
-    it('configures side-by-side view', () => {
+    it('configures side-by-side view by default (split mode)', () => {
       render(<MonacoDiffEditor {...defaultProps} />)
       const options = JSON.parse(screen.getByTestId('monaco-options').textContent || '{}')
       expect(options.renderSideBySide).toBe(true)
       expect(options.enableSplitViewResizing).toBe(true)
+    })
+
+    it('configures split view when viewMode is split (TES-4.5)', () => {
+      render(<MonacoDiffEditor {...defaultProps} viewMode="split" />)
+      const options = JSON.parse(screen.getByTestId('monaco-options').textContent || '{}')
+      expect(options.renderSideBySide).toBe(true)
+    })
+
+    it('configures unified view when viewMode is unified (TES-4.5)', () => {
+      render(<MonacoDiffEditor {...defaultProps} viewMode="unified" />)
+      const options = JSON.parse(screen.getByTestId('monaco-options').textContent || '{}')
+      expect(options.renderSideBySide).toBe(false)
     })
 
     it('configures line numbers', () => {
