@@ -301,7 +301,7 @@ export function ResizableWorkspace({
               onCollapse={handleCollapse}
             />
             <div className="min-h-0 flex-1">
-              <DiffPlaceholder />
+              <DiffPlaceholder taskId={task.id} />
             </div>
           </div>
         )}
@@ -432,7 +432,7 @@ export function ResizableWorkspace({
             onExpand={() => handleExpand('diff')}
           />
           <div className="min-h-0 flex-1">
-            <DiffPlaceholder />
+            <DiffPlaceholder taskId={task.id} />
           </div>
         </Panel>
       </Group>

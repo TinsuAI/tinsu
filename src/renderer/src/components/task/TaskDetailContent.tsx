@@ -519,7 +519,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               showHeader={false}
               className={cn('h-full', !isVisible('diff') && 'hidden')}
             >
-              <DiffPlaceholder />
+              <DiffPlaceholder taskId={taskId} />
             </QuadPaneSection>
           </div>
         </>

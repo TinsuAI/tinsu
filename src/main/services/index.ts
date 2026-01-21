@@ -43,6 +43,15 @@ import { HookListenerService } from './hook-listener.service'
 // Automation service (TES-2.9)
 export { AutomationService } from './automation.service'
 
+// Git service (TES-4.1)
+export {
+  GitService,
+  type GitDiffResult,
+  type GitDiffFile,
+  type GitDiffHunk,
+  type GitDiffLine
+} from './git.service'
+
 // Activity event emitter (TES-2.13)
 export { activityEmitter, ACTIVITY_EVENT_CHANNEL } from './activity-emitter'
 export type { ActivityEventPayload } from './activity-emitter'

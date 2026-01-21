@@ -28,6 +28,11 @@ vi.mock('@renderer/lib/trpc', () => ({
         useQuery: vi.fn()
       }
     },
+    git: {
+      getDiff: {
+        useQuery: vi.fn()
+      }
+    },
     useUtils: vi.fn()
   }
 }))
@@ -125,6 +130,14 @@ describe('TaskDetailContent', () => {
         getById: { invalidate: vi.fn() },
         getAllWithEpics: { invalidate: vi.fn() }
       }
+    } as any)
+
+    vi.mocked(trpc.git.getDiff.useQuery).mockReturnValue({
+      data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isFetching: false
     } as any)
   })
 
