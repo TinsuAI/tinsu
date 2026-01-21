@@ -1,10 +1,17 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { GitCompareArrows, RefreshCw, AlertCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
-import { DiffSummaryBar, FileTree } from '@renderer/components/diff'
+import {
+  DiffSummaryBar,
+  FileTree,
+  MonacoDiffEditor,
+  getLanguageFromPath,
+  reconstructFileContent
+} from '@renderer/components/diff'
+import type { GitDiffHunk } from '@main/services/git.service'
 
 /**
  * Props for DiffPlaceholder component
@@ -224,9 +231,26 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
                 </div>
               </div>
 
-              {/* Hunk preview (first few lines) */}
-              {file.hunks.length > 0 && file.hunks[0].lines.length > 0 && (
-                <div className="mt-1.5 overflow-hidden rounded border border-border/20 bg-black/20">
+              {/* Monaco Diff Viewer - TES-4.4 */}
+              {file.hunks.length > 0 && selectedFile === file.path && (
+                <FileDiffViewer hunks={file.hunks} filePath={file.path} />
+              )}
+
+              {/* Compact preview when file is not selected */}
+              {file.hunks.length > 0 && selectedFile !== file.path && (
+                <div
+                  className="mt-1.5 cursor-pointer overflow-hidden rounded border border-border/20 bg-black/20 transition-colors hover:border-border/40"
+                  onClick={() => handleFileSelect(file.path)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleFileSelect(file.path)
+                    }
+                  }}
+                  aria-label={`View diff for ${file.path}`}
+                >
                   <div className="max-h-[80px] overflow-hidden">
                     {file.hunks[0].lines.slice(0, 4).map((line, idx) => (
                       <div
@@ -246,7 +270,7 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
                     ))}
                     {file.hunks[0].lines.length > 4 && (
                       <div className="px-2 py-0.5 text-[10px] text-muted-foreground/40">
-                        ... {file.hunks[0].lines.length - 4} more lines
+                        Click to view full diff ({file.hunks[0].lines.length - 4} more lines)
                       </div>
                     )}
                   </div>
@@ -256,6 +280,42 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Props for FileDiffViewer internal component
+ */
+interface FileDiffViewerProps {
+  hunks: GitDiffHunk[]
+  filePath: string
+}
+
+/**
+ * FileDiffViewer - Memoized Monaco diff viewer for a single file.
+ *
+ * Wraps MonacoDiffEditor with useMemo for performance optimization.
+ * Reconstructs file content from hunks and detects language from path.
+ *
+ * Story TES-4.4: Monaco Diff Viewer Integration
+ */
+function FileDiffViewer({ hunks, filePath }: FileDiffViewerProps): React.JSX.Element {
+  // Memoize content reconstruction - expensive operation
+  const { original, modified } = useMemo(() => reconstructFileContent(hunks), [hunks])
+
+  // Memoize language detection
+  const language = useMemo(() => getLanguageFromPath(filePath), [filePath])
+
+  return (
+    <div className="mt-2">
+      <MonacoDiffEditor
+        original={original}
+        modified={modified}
+        language={language}
+        filePath={filePath}
+        height={300}
+      />
     </div>
   )
 }
