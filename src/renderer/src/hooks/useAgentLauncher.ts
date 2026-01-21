@@ -38,6 +38,7 @@ export function useAgentLauncher() {
     setActiveProcess,
     setAgentTask,
     setAgentWorkflowType,
+    clearAgent,
     agentTaskId,
     agentWorkflowType,
     activeProcessId
@@ -227,10 +228,24 @@ export function useAgentLauncher() {
         const currentTaskId = taskIdRef.current
         const currentProcessId = processIdRef.current
 
+        console.log('[useAgentLauncher] PTY exit event received:', {
+          eventProcessId: event.processId,
+          exitCode: event.exitCode,
+          currentWorkflowType,
+          currentTaskId,
+          currentProcessId,
+          storeAgentTaskId: agentTaskId
+        })
+
         // Clear refs to prevent stale data on next run
         workflowTypeRef.current = null
         taskIdRef.current = null
         processIdRef.current = null
+
+        // CRITICAL: Clear the agent state when any agent exits (regardless of exit code)
+        // This allows subsequent workflows (like dev-story after create-story) to launch
+        console.log('[useAgentLauncher] Calling clearAgent() to reset agent state')
+        clearAgent()
 
         // Only handle successful exits (exit code 0) and verify processId matches
         if (event.exitCode === 0 && currentProcessId) {
@@ -289,16 +304,24 @@ export function useAgentLauncher() {
   // Story 5.3 - AC: 3: Launch dev-story workflow
   const launchDevStory = useCallback(
     (taskId: string) => {
+      console.log('[useAgentLauncher] launchDevStory called:', {
+        taskId,
+        isAgentRunning,
+        agentTaskId,
+        activeProcessId
+      })
       // Story 5.3 - Task 8: Block concurrent execution (AC 5)
       if (isAgentRunning) {
+        console.log('[useAgentLauncher] BLOCKED: Agent already running, showing warning')
         toast.warning('Agent already running', {
           description: 'Another workflow is currently executing. Wait for it to complete.'
         })
         return // Block the launch - don't allow concurrent execution
       }
+      console.log('[useAgentLauncher] Calling devStoryMutation.mutate')
       devStoryMutation.mutate({ taskId })
     },
-    [devStoryMutation, isAgentRunning]
+    [devStoryMutation, isAgentRunning, agentTaskId, activeProcessId]
   )
 
   // Story 5.3b - AC: 1: Launch basic task directly

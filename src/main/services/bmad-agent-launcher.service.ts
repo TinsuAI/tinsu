@@ -132,6 +132,9 @@ export class BmadAgentLauncherService {
    * Uses `--dangerously-skip-permissions` flag for non-interactive execution.
    * Passes the story file path as an argument to the workflow.
    *
+   * Important: This method first clears any existing Claude Code context
+   * to ensure a fresh start after the create-story workflow.
+   *
    * @param taskId - The task ID (used to find tmux session)
    * @param projectPath - Root path of the project (used as working directory)
    * @param storyFilePath - Full path to the story file (.md) to implement
@@ -156,6 +159,24 @@ export class BmadAgentLauncherService {
     storyFilePath: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
+    console.log('[BmadAgentLauncherService] launchDevStory called:', {
+      taskId,
+      projectPath,
+      storyFilePath,
+      model
+    })
+
+    // Clear any existing Claude Code context before launching dev-story
+    // This handles the case where create-story just completed in the same session
+    try {
+      console.log('[BmadAgentLauncherService] Clearing context before dev-story...')
+      await TaskTerminalService.clearContext(taskId)
+      console.log('[BmadAgentLauncherService] Context cleared successfully')
+    } catch (error) {
+      // Log but don't fail - the session might be in a clean state already
+      console.warn('[BmadAgentLauncherService] Failed to clear context before dev-story:', error)
+    }
+
     // Combine workflow command and story file path as single string argument
     const workflowWithArg = `/bmad:bmm:workflows:dev-story ${storyFilePath}`
     const args = ['--dangerously-skip-permissions', JSON.stringify(workflowWithArg)]
@@ -168,8 +189,11 @@ export class BmadAgentLauncherService {
     // Build full command: cd to project dir and run claude
     const fullCommand = `cd ${JSON.stringify(projectPath)} && claude ${args.join(' ')}`
 
+    console.log('[BmadAgentLauncherService] Sending dev-story command to tmux:', fullCommand)
+
     // Send command to tmux session
     await TaskTerminalService.sendCommand(taskId, fullCommand)
+    console.log('[BmadAgentLauncherService] Dev-story command sent successfully')
 
     return {
       command: fullCommand,

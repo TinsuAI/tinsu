@@ -6,7 +6,8 @@ import { PlanningTask } from '../../shared/types/task.types'
 // Mock TaskTerminalService
 vi.mock('./task-terminal.service', () => ({
   TaskTerminalService: {
-    sendCommand: vi.fn()
+    sendCommand: vi.fn(),
+    clearContext: vi.fn()
   }
 }))
 
@@ -44,6 +45,7 @@ describe('BmadAgentLauncherService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(TaskTerminalService.sendCommand).mockResolvedValue(undefined)
+    vi.mocked(TaskTerminalService.clearContext).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -201,6 +203,34 @@ describe('BmadAgentLauncherService', () => {
 
   describe('launchDevStory (Story 5.3 - AC: 3)', () => {
     const mockStoryFilePath = '/path/to/story/5-3-story-task-execution-path.md'
+
+    it('clears context before sending dev-story command', async () => {
+      await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath
+      )
+
+      // Verify clearContext was called before sendCommand
+      expect(TaskTerminalService.clearContext).toHaveBeenCalledWith(mockTaskId)
+      expect(TaskTerminalService.clearContext).toHaveBeenCalledBefore(
+        vi.mocked(TaskTerminalService.sendCommand)
+      )
+    })
+
+    it('continues even if clearContext fails', async () => {
+      vi.mocked(TaskTerminalService.clearContext).mockRejectedValue(new Error('Clear failed'))
+
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath
+      )
+
+      // Should still succeed and call sendCommand
+      expect(result.success).toBe(true)
+      expect(TaskTerminalService.sendCommand).toHaveBeenCalled()
+    })
 
     it('sends command with dev-story workflow and story path', async () => {
       const result = await BmadAgentLauncherService.launchDevStory(

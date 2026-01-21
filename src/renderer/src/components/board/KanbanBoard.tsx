@@ -247,12 +247,19 @@ export function KanbanBoard({
         }
 
         // Story 5.3 - AC: 3: Intercept story_ready tasks dragged to in_progress
+        console.log('[KanbanBoard] Checking dev-story intercept:', {
+          targetStatus,
+          isStory: isStoryTask(task),
+          story_file_status: (task as { story_file_status?: string }).story_file_status,
+          hasCallback: !!onDevStoryRequested
+        })
         if (
           targetStatus === 'in_progress' &&
           isStoryTask(task) &&
           task.story_file_status === 'story_ready' &&
           onDevStoryRequested
         ) {
+          console.log('[KanbanBoard] Intercepting for dev-story dialog')
           onDevStoryRequested(task)
           return // Let the callback handle the status change
         }
@@ -264,6 +271,7 @@ export function KanbanBoard({
         }
 
         // Default: Commit the status change immediately
+        console.log('[KanbanBoard] Default status change (no dialog):', { taskId, targetStatus })
         if (onStatusChange) {
           onStatusChange(taskId, targetStatus)
           // Story 3.4: Trigger agent launch when planning task moved to in_progress

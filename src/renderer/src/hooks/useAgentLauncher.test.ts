@@ -653,4 +653,60 @@ describe('useAgentLauncher', () => {
       expect(mockHandleDevStoryCompleteMutate).toHaveBeenCalledWith({ taskId: 'task-dev' })
     })
   })
+
+  describe('clearAgent on PTY exit (enables sequential workflows)', () => {
+    it('should clear agentTaskId when PTY exits (allows dev-story after create-story)', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching create-story
+      act(() => {
+        mockCreateStoryOnSuccess?.(
+          { processId: 'create-123', command: 'claude', args: ['--create-story'] },
+          { taskId: 'task-456' }
+        )
+      })
+
+      // Verify agent is running
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
+
+      // Simulate PTY exit (create-story completes)
+      act(() => {
+        mockExitSubscriptionOnData?.({
+          processId: 'create-123',
+          exitCode: 0
+        })
+      })
+
+      // Verify agent state is cleared (allows new workflow to launch)
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+      expect(useTerminalStore.getState().activeProcessId).toBeNull()
+      expect(useTerminalStore.getState().agentWorkflowType).toBeNull()
+    })
+
+    it('should clear agentTaskId even on non-zero exit code', () => {
+      renderHook(() => useAgentLauncher())
+
+      // Simulate launching planning agent
+      act(() => {
+        mockOnSuccess?.(
+          { processId: 'plan-123', command: 'claude', args: [] },
+          { taskId: 'task-789' }
+        )
+      })
+
+      // Verify agent is running
+      expect(useTerminalStore.getState().agentTaskId).toBe('task-789')
+
+      // Simulate PTY exit with error
+      act(() => {
+        mockExitSubscriptionOnData?.({
+          processId: 'plan-123',
+          exitCode: 1
+        })
+      })
+
+      // Verify agent state is cleared even on error (user can retry)
+      expect(useTerminalStore.getState().agentTaskId).toBeNull()
+    })
+  })
 })

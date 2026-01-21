@@ -362,6 +362,78 @@ export class TaskTerminalService {
   }
 
   /**
+   * Clears the Claude Code context and interrupts any running process.
+   *
+   * Sends Ctrl+C to interrupt any running process, then sends /clear
+   * to clear Claude Code conversation context if claude is running.
+   *
+   * This should be called before launching a new workflow when a previous
+   * workflow has completed in the same tmux session.
+   *
+   * @param taskId - The task's unique identifier
+   * @throws Error if session doesn't exist
+   *
+   * @example
+   * ```typescript
+   * await TaskTerminalService.clearContext('task-123')
+   * // Interrupts running process and clears Claude Code context
+   * ```
+   */
+  static async clearContext(taskId: string): Promise<void> {
+    console.log('[TaskTerminalService] clearContext called for taskId:', taskId)
+
+    const sessionName = await this.getSessionName(taskId)
+    console.log('[TaskTerminalService] clearContext sessionName:', sessionName)
+
+    if (!sessionName) {
+      console.error('[TaskTerminalService] clearContext: No terminal session found')
+      throw new Error(`No terminal session for task ${taskId}`)
+    }
+
+    // Verify tmux session exists
+    const exists = await this.tmuxSessionExists(sessionName)
+    console.log('[TaskTerminalService] clearContext tmux session exists:', exists)
+
+    if (!exists) {
+      console.error('[TaskTerminalService] clearContext: tmux session no longer exists')
+      throw new Error(`tmux session ${sessionName} no longer exists`)
+    }
+
+    // Send Ctrl+C twice to interrupt any running process
+    console.log('[TaskTerminalService] clearContext: Sending Ctrl+C (twice)')
+    await execAsync(
+      `tmux send-keys -t ${sessionName} C-c`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await execAsync(
+      `tmux send-keys -t ${sessionName} C-c`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    // Send Ctrl+D (EOF) to force exit Claude Code CLI immediately
+    // This is faster and more reliable than /exit
+    console.log('[TaskTerminalService] clearContext: Sending Ctrl+D to force exit')
+    await execAsync(
+      `tmux send-keys -t ${sessionName} C-d`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+
+    // Wait for Claude Code to fully exit and return to bash prompt
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Send Ctrl+C to clear any partial input at bash prompt
+    await execAsync(
+      `tmux send-keys -t ${sessionName} C-c`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    console.log('[TaskTerminalService] clearContext: Complete')
+  }
+
+  /**
    * Sends a command to a task's tmux session.
    *
    * Uses tmux send-keys to inject a command into the session.
@@ -380,14 +452,22 @@ export class TaskTerminalService {
    * @see TES-1.4: xterm.js Terminal Attachment
    */
   static async sendCommand(taskId: string, command: string): Promise<void> {
+    console.log('[TaskTerminalService] sendCommand called:', { taskId, command: command.substring(0, 100) + '...' })
+
     const sessionName = await this.getSessionName(taskId)
+    console.log('[TaskTerminalService] sendCommand sessionName:', sessionName)
+
     if (!sessionName) {
+      console.error('[TaskTerminalService] sendCommand: No terminal session found')
       throw new Error(`No terminal session for task ${taskId}`)
     }
 
     // Verify tmux session exists
     const exists = await this.tmuxSessionExists(sessionName)
+    console.log('[TaskTerminalService] sendCommand tmux session exists:', exists)
+
     if (!exists) {
+      console.error('[TaskTerminalService] sendCommand: tmux session no longer exists')
       throw new Error(`tmux session ${sessionName} no longer exists`)
     }
 
@@ -405,8 +485,11 @@ export class TaskTerminalService {
 
     // Use tmux send-keys with Enter to execute the command
     // JSON.stringify handles escaping special characters in the command
+    const tmuxCommand = `tmux send-keys -t ${sessionName} ${JSON.stringify(command)} Enter`
+    console.log('[TaskTerminalService] sendCommand executing tmux command:', tmuxCommand.substring(0, 150) + '...')
+
     await execAsync(
-      `tmux send-keys -t ${sessionName} ${JSON.stringify(command)} Enter`,
+      tmuxCommand,
       { timeout: TMUX_COMMAND_TIMEOUT }
     )
   }

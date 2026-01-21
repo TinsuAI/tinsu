@@ -884,6 +884,101 @@ describe('TaskTerminalService', () => {
     })
   })
 
+  describe('clearContext', () => {
+    it('sends Ctrl+C and /clear to tmux session', async () => {
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-clear',
+        tmux_session: 'tinsu-project-task-clear',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      const commandsCalled: string[] = []
+
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          commandsCalled.push(cmd)
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.clearContext('task-clear')
+
+      // Should have sent Ctrl+C
+      expect(commandsCalled.some(cmd => cmd.includes('send-keys') && cmd.includes('C-c'))).toBe(true)
+      // Should have sent /exit to exit Claude Code CLI
+      expect(commandsCalled.some(cmd => cmd.includes('send-keys') && cmd.includes('/exit'))).toBe(true)
+    })
+
+    it('throws error when no session exists in DB', async () => {
+      mockFindFirst.mockReturnValue(undefined)
+
+      await expect(
+        TaskTerminalService.clearContext('task-no-session')
+      ).rejects.toThrow('No terminal session for task task-no-session')
+    })
+
+    it('throws error when tmux session is gone', async () => {
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-gone',
+        tmux_session: 'tinsu-project-task-gone',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      // Mock: tmux has-session fails
+      vi.mocked(exec).mockImplementation(
+        (_cmd: string, _options: unknown, callback?: ExecCallback) => {
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          const error = new Error('session not found') as ExecException
+          error.code = 1
+          cb?.(error, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await expect(
+        TaskTerminalService.clearContext('task-gone')
+      ).rejects.toThrow('tmux session tinsu-project-task-gone no longer exists')
+    })
+
+    it('sends Ctrl+C before /exit', async () => {
+      mockFindFirst.mockReturnValue({
+        id: 'existing-id',
+        task_id: 'task-order',
+        tmux_session: 'tinsu-project-task-order',
+        session_id: null,
+        current_phase: null,
+        created_at: new Date()
+      })
+
+      const commandsCalled: string[] = []
+
+      vi.mocked(exec).mockImplementation(
+        (cmd: string, _options: unknown, callback?: ExecCallback) => {
+          commandsCalled.push(cmd)
+          const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
+          cb?.(null, '', '')
+          return {} as ReturnType<typeof exec>
+        }
+      )
+
+      await TaskTerminalService.clearContext('task-order')
+
+      // Find indices of Ctrl+C and /exit commands
+      const ctrlCIndex = commandsCalled.findIndex(cmd => cmd.includes('send-keys') && cmd.includes('C-c'))
+      const exitIndex = commandsCalled.findIndex(cmd => cmd.includes('send-keys') && cmd.includes('/exit'))
+
+      expect(ctrlCIndex).toBeLessThan(exitIndex)
+    })
+  })
+
   describe('session naming convention', () => {
     beforeEach(() => {
       mockFindFirst.mockReturnValue(undefined)

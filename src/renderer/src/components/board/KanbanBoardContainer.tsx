@@ -258,14 +258,21 @@ export function KanbanBoardContainer() {
 
   // Story 5.3 - AC: 3: Handle dev-story confirmation
   const handleDevStoryConfirm = useCallback(async () => {
-    if (!devStoryTask) return
+    console.log('[KanbanBoardContainer] handleDevStoryConfirm called, devStoryTask:', devStoryTask?.id)
+    if (!devStoryTask) {
+      console.log('[KanbanBoardContainer] handleDevStoryConfirm: No devStoryTask, returning')
+      return
+    }
 
     // Move task to in_progress status (this creates the tmux session if needed)
     // Must await to ensure session is created before launching workflow
+    console.log('[KanbanBoardContainer] handleDevStoryConfirm: Updating status to in_progress')
     await updateStatusMutation.mutateAsync({ id: devStoryTask.id, status: 'in_progress' })
+    console.log('[KanbanBoardContainer] handleDevStoryConfirm: Status updated, now launching dev-story')
 
     // Launch the dev-story workflow
     launchDevStory(devStoryTask.id)
+    console.log('[KanbanBoardContainer] handleDevStoryConfirm: launchDevStory called')
 
     // Clear the dialog state
     setDevStoryTask(null)

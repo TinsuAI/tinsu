@@ -262,6 +262,8 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      console.log('[agent.router] startDevStory mutation called with taskId:', input.taskId)
+
       // Check CLI is installed first
       const isInstalled = await ClaudeCliDetectorService.isClaudeCodeInstalled()
       if (!isInstalled) {
@@ -315,6 +317,7 @@ export const agentRouter = router({
 
       // Launch the dev-story workflow with story file path
       // Command is sent to the task's tmux session
+      console.log('[agent.router] startDevStory: Calling BmadAgentLauncherService.launchDevStory')
       const result = await BmadAgentLauncherService.launchDevStory(
         input.taskId,
         ctx.projectRoot,
@@ -322,6 +325,7 @@ export const agentRouter = router({
         devAgentModel
       )
 
+      console.log('[agent.router] startDevStory: Complete, result:', result)
       return result
     }),
 
