@@ -1340,38 +1340,50 @@ The Task Execution Sandbox transforms the task detail view from a simple informa
 
 **Core Innovation:** A Kanban card is no longer just a record — it's a **workspace where work happens**. Users can run 10+ tasks in parallel, switch between them freely, and never lose context.
 
-### The 4-Tab Task Detail Interface
+### The 3-Column Task Workspace
 
-The task detail panel evolves from a single-pane slide-over to a **tabbed workspace**:
+The task detail view is a **full-screen workspace** with three resizable columns:
 
-| Tab | Purpose | Primary Action |
-|-----|---------|----------------|
-| **Terminal** | Watch agent work, type commands | Observe + Intervene |
-| **Activities** | Event timeline with filtering | Debug + Audit |
-| **Diff** | Git changes made by agent | Review + Validate |
-| **Content** | Task description, acceptance criteria | Reference |
+| Column | Content | Purpose |
+|--------|---------|---------|
+| **Left (~30%)** | Content Editor (WYSIWYG) | Read/edit story details, acceptance criteria |
+| **Center (~25%)** | Terminal (top) + Activities (bottom) | Monitor execution, debug issues |
+| **Right (~45%)** | Git Diff Viewer | Review code changes before approval |
 
 **Layout Specifications:**
 
 | Element | Specification |
 |---------|---------------|
-| Tab bar height | 44px (touch-friendly) |
-| Tab indicator | 2px bottom border, `--primary` color |
-| Active tab | Bold text, indicator visible |
-| Inactive tab | `--text-muted` color |
-| Panel width | 50% viewport on desktop, full-width on mobile |
-| Panel position | Right side slide-over (replaces 400px ReviewPanel) |
+| Navigation | Full-screen route (`/task/{taskId}`) with back button |
+| Column widths | Resizable via drag handles, persisted to localStorage |
+| Minimum column width | 150px (prevents collapse) |
+| Center column split | Vertical divider between Terminal (60%) and Activities (40%), also resizable |
+| Section headers | Icon + title + expand-to-full button |
 
-**Tab Navigation:**
+**Layout Diagram:**
+
+```
+┌─────────────────┬────────────────┬──────────────────────┐
+│                 │   TERMINAL     │                      │
+│    CONTENT      │       ↕        │      GIT DIFF        │
+│    EDITOR    ←→ ├────────────────┤ ←→                   │
+│   (WYSIWYG)     │  ACTIVITIES    │   (Code Review)      │
+│                 │                │                      │
+└─────────────────┴────────────────┴──────────────────────┘
+        ←→ = horizontal resize handle
+         ↕ = vertical resize handle
+```
+
+**Keyboard Navigation:**
 
 | Shortcut | Action |
 |----------|--------|
-| `1` | Switch to Terminal tab |
-| `2` | Switch to Activities tab |
-| `3` | Switch to Diff tab |
-| `4` | Switch to Content tab |
-| `Tab` | Cycle through tabs |
-| `Shift+Tab` | Reverse cycle |
+| `1` | Focus Content section |
+| `2` | Focus Terminal section |
+| `3` | Focus Activities section |
+| `4` | Focus Diff section |
+| `Escape` | Return to Kanban board |
+| `E` | Expand focused section to full-screen |
 
 ### Terminal Tab
 

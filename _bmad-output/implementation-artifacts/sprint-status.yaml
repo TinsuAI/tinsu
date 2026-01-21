@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-01-19
+# updated: 2026-01-20
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -195,15 +195,16 @@ development_status:
   tes-2-13-real-time-activity-streaming: done
   tes-epic-2-retrospective: optional
 
-  # TES Epic 3: Quad-Pane Task Workspace
-  # Users can view Terminal, Activities, Diff, and Content simultaneously
+  # TES Epic 3: Three-Column Task Workspace (Course Correction 2026-01-20)
+  # Users can view and work in a full-screen workspace with resizable columns
+  # Updated: quad-pane → 3-column resizable layout; stories 3.4-3.6 already complete
   tes-epic-3: in-progress
-  tes-3-1-task-detail-panel-container: done
-  tes-3-2-quad-pane-layout: done
+  tes-3-1-task-workspace-navigation: backlog  # Updated: slide panel → full-screen route
+  tes-3-2-three-column-task-workspace: backlog  # Updated: quad-pane → 3-column resizable
   tes-3-3-section-expand-collapse: backlog
-  tes-3-4-terminal-section-integration: backlog
-  tes-3-5-activities-section-integration: backlog
-  tes-3-6-content-section-display: backlog
+  tes-3-4-terminal-section-integration: done  # Implemented during Epic 1 & 2
+  tes-3-5-activities-section-integration: done  # Implemented during Epic 2
+  tes-3-6-content-section-display: done  # Implemented during quad-pane work
   tes-3-7-task-state-preservation: backlog
   tes-3-8-concurrent-task-support-10-plus: backlog
   tes-3-9-task-type-visual-differentiation: backlog

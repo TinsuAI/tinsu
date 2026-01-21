@@ -180,13 +180,18 @@ Users can view a real-time, filterable timeline of everything happening on a tas
 **FRs covered:** FR10-FR20
 **Additional:** AR2, AR3 (HookListenerService, ActivityLogService), AR4, AR6-AR8
 
-### Epic 3: Quad-Pane Task Workspace
-Users can view Terminal, Activities, Diff, and Content simultaneously with expand-to-full options.
+### Epic 3: Three-Column Task Workspace
+Users can view and work in a full-screen task workspace with resizable columns for Content editing, execution monitoring (Terminal + Activities), and code review (Diff).
 
-**User Outcome:** "I have complete visibility of every task in one view"
+**User Outcome:** "I have a customizable workspace that gives each task function the space it needs"
 
 **FRs covered:** FR21-FR25
 **Additional:** UX1-UX3, UX8-UX15
+
+**Implementation Notes (2026-01-20 Course Correction):**
+- Stories 3.4, 3.5, 3.6 completed during earlier implementation
+- Story 3.1 updated: slide panel → full-screen route
+- Story 3.2 updated: quad-pane → 3-column resizable layout
 
 ### Epic 4: Git Diff Viewer
 Users can review all code changes made by the agent with file tree and unified/split views.
@@ -862,65 +867,102 @@ So that I can monitor task progress live.
 
 ---
 
-## Epic 3: Quad-Pane Task Workspace
+## Epic 3: Three-Column Task Workspace
 
-Users can view Terminal, Activities, Diff, and Content simultaneously with expand-to-full options.
+Users can view and work in a full-screen task workspace with resizable columns for Content editing, execution monitoring (Terminal + Activities), and code review (Diff).
 
-### Story 3.1: Task Detail Panel Container
-**Task ID:** `tes-3-1-task-detail-panel-container`
+### Story 3.1: Task Workspace Navigation
+**Task ID:** `tes-3-1-task-workspace-navigation`
 
 As a user,
-I want a task detail panel that slides in when I select a task,
-So that I can view task information without losing board context.
+I want to navigate to a full-screen task workspace when I select a task,
+So that I have adequate space to view and work on task details.
 
 **Acceptance Criteria:**
 
 **Given** the user is viewing the Kanban board
 **When** the user clicks on a task card
-**Then** a detail panel slides in from the right
-**And** the panel width is 60-70% of viewport on desktop
-**And** the board remains partially visible behind
+**Then** the app navigates to a full-screen task workspace (route: /task/{taskId})
+**And** a back button is visible in the header to return to the board
 
-**Given** the detail panel is open
-**When** the user clicks outside the panel or presses Escape
-**Then** the panel slides out and closes
-**And** focus returns to the previously selected task card
+**Given** the user is in the task workspace
+**When** the user clicks the back button or presses Escape
+**Then** the app navigates back to the Kanban board
+**And** the previously selected task card is scrolled into view
 
-**Given** the detail panel is open
-**When** the user clicks a different task card
-**Then** the panel content updates to show the new task
-**And** no slide animation occurs (instant switch)
+**Given** the user is in the task workspace
+**When** the user wants to switch to a different task
+**Then** they can use the back button to return to board and select another task
 
 **References:** FR21, UX3
 
+**Updated:** 2026-01-20 (Course Correction - changed from slide panel to full-screen route)
+
 ---
 
-### Story 3.2: Quad-Pane Layout
-**Task ID:** `tes-3-2-quad-pane-layout`
+### Story 3.2: Three-Column Task Workspace
+**Task ID:** `tes-3-2-three-column-task-workspace`
 
 As a user,
-I want to see Terminal, Activities, Diff, and Content all at once,
-So that I have complete visibility without switching tabs.
+I want a full-screen task workspace with resizable columns for Content, Execution, and Diff,
+So that I can customize my workspace layout based on my current focus.
 
 **Acceptance Criteria:**
 
-**Given** the task detail panel is open on a large screen (1024px+)
-**When** the layout renders
-**Then** four sections are displayed in a 2x2 grid
-**And** Terminal is top-left, Activities is top-right
-**And** Diff is bottom-left, Content is bottom-right
+**Given** the user navigates to a task workspace
+**When** the layout renders on desktop
+**Then** three columns are displayed with default widths:
+  - Column 1 (left, default ~30%): Content Editor (WYSIWYG) - full height
+  - Column 2 (center, default ~25%): Terminal (top) + Activities (bottom) - vertically stacked
+  - Column 3 (right, default ~45%): Git Diff Viewer - full height for code review
 
-**Given** each section in the quad-pane
+**Given** the columns are displayed
+**When** the user hovers between two columns
+**Then** a resize handle (vertical divider) appears
+**And** the cursor changes to col-resize
+
+**Given** the user drags a resize handle
+**When** dragging left or right
+**Then** the adjacent columns resize proportionally in real-time
+**And** minimum column width is enforced (150px) to prevent collapse
+
+**Given** the user releases the resize handle
+**When** the drag ends
+**Then** the new column widths are persisted to localStorage
+**And** restored on next visit to any task workspace
+
+**Given** the Terminal/Activities column (column 2)
 **When** displayed
-**Then** each section has a header with section name
-**And** each section has an expand button in the header
-**And** sections have subtle borders for visual separation
+**Then** a horizontal resize handle exists between Terminal and Activities
+**And** the user can adjust the vertical split ratio (default 60% Terminal / 40% Activities)
 
-**Given** the viewport is resized
-**When** width remains above 1024px
-**Then** the quad-pane layout is maintained with proportional sizing
+**Given** each section in the workspace
+**When** displayed
+**Then** each section has a header with section name and icon
+**And** each section has an expand-to-full button in the header
 
-**References:** FR21, UX1
+**Given** the user clicks an expand button on any section
+**When** the section expands
+**Then** that section fills the entire workspace
+**And** a collapse button allows returning to 3-column view
+**And** column proportions are preserved when returning
+
+**Layout Diagram:**
+```
+┌─────────────────┬────────────────┬──────────────────────┐
+│                 │   TERMINAL     │                      │
+│    CONTENT      │       ↕        │      GIT DIFF        │
+│    EDITOR    ←→ ├────────────────┤ ←→                   │
+│   (WYSIWYG)     │  ACTIVITIES    │   (Code Review)      │
+│                 │                │                      │
+└─────────────────┴────────────────┴──────────────────────┘
+        ←→ = horizontal resize handle
+         ↕ = vertical resize handle
+```
+
+**References:** FR21, FR22, UX1
+
+**Updated:** 2026-01-20 (Course Correction - changed from quad-pane to 3-column resizable layout)
 
 ---
 
@@ -955,10 +997,11 @@ So that I can focus on one aspect when needed.
 
 ### Story 3.4: Terminal Section Integration
 **Task ID:** `tes-3-4-terminal-section-integration`
+**Status:** ✅ COMPLETE (implemented during Epic 1 & 2 development)
 
 As a user,
 I want the Terminal section to show my task's terminal,
-So that I can watch agent work within the quad-pane.
+So that I can watch agent work within the workspace.
 
 **Acceptance Criteria:**
 
@@ -973,20 +1016,23 @@ So that I can watch agent work within the quad-pane.
 **Then** a status bar shows: task status, elapsed time, current phase
 **And** the command input field is at the bottom of the section
 
-**Given** the Terminal section is in quad-pane (smaller size)
+**Given** the Terminal section is in the workspace
 **When** the user wants more detail
 **Then** they can expand to full view for more terminal real estate
 
 **References:** UX4
 
+**Implementation Note:** Fully implemented in TaskTerminal.tsx and XTerminal.tsx with session state tracking, input field, and real-time streaming.
+
 ---
 
 ### Story 3.5: Activities Section Integration
 **Task ID:** `tes-3-5-activities-section-integration`
+**Status:** ✅ COMPLETE (implemented during Epic 2 development)
 
 As a user,
 I want the Activities section to show the event log,
-So that I can monitor task events in the quad-pane.
+So that I can monitor task events in the workspace.
 
 **Acceptance Criteria:**
 
@@ -995,7 +1041,7 @@ So that I can monitor task events in the quad-pane.
 **Then** events are shown in a scrollable list
 **And** filter chips are visible at the top of the section
 
-**Given** the Activities section is in quad-pane
+**Given** the Activities section is in the workspace
 **When** new events arrive
 **Then** they animate in at the top
 **And** real-time streaming works as in Epic 2
@@ -1007,10 +1053,13 @@ So that I can monitor task events in the quad-pane.
 
 **References:** UX5
 
+**Implementation Note:** Fully implemented in ActivitiesTab.tsx and ActivityItem.tsx with real-time streaming, event filtering (all, status, agent, user, error), slide-in animations, and new event indicator.
+
 ---
 
 ### Story 3.6: Content Section Display
 **Task ID:** `tes-3-6-content-section-display`
+**Status:** ✅ COMPLETE (implemented during quad-pane development)
 
 As a user,
 I want to see the task description and acceptance criteria,
@@ -1031,11 +1080,13 @@ So that I can reference what needs to be done.
 **And** pending criteria show an empty circle
 
 **Given** the content is longer than the section height
-**When** the section is in quad-pane
+**When** the section is in the workspace
 **Then** the section scrolls independently
 **And** the task title remains fixed at the top
 
 **References:** FR23, UX7
+
+**Implementation Note:** Fully implemented in TaskDetailContent.tsx with NotionEditor (WYSIWYG), ReactMarkdown rendering, MarkdownComponents.tsx for styling, edit/preview toggle, and save functionality.
 
 ---
 

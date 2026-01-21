@@ -648,8 +648,8 @@ echo "$INPUT" | nc -U /tmp/tinsu.sock
 
 ### Task Detail View
 
-- **FR21:** User can view task details in a tabbed interface
-- **FR22:** User can switch between Terminal, Activities, Diff, and Content tabs
+- **FR21:** User can view task details in a full-screen 3-column workspace with resizable columns (Content, Terminal+Activities, Diff) optimized for editing, monitoring, and code review
+- **FR22:** User can resize column widths via drag handles, with preferences persisted to localStorage
 - **FR23:** User can view task description and acceptance criteria in Content tab
 - **FR24:** User can switch between different tasks while preserving each task's state
 - **FR25:** User can have multiple tasks open simultaneously (10+ concurrent)
