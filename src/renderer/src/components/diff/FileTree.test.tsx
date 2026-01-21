@@ -402,4 +402,152 @@ describe('FileTree', () => {
       expect(screen.getByText('Unknown')).toBeInTheDocument()
     })
   })
+
+  describe('compact mode (TES-4.6)', () => {
+    it('renders compact view when compact prop is true', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const container = screen.getByTestId('file-tree')
+      expect(container).toHaveAttribute('data-compact', 'true')
+    })
+
+    it('renders normal view when compact prop is false', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={false} />
+      )
+
+      const container = screen.getByTestId('file-tree')
+      expect(container).toHaveAttribute('data-compact', 'false')
+    })
+
+    it('defaults to non-compact mode when compact prop is not provided', () => {
+      render(<FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} />)
+
+      const container = screen.getByTestId('file-tree')
+      expect(container).toHaveAttribute('data-compact', 'false')
+    })
+
+    it('uses horizontal layout in compact mode', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const container = screen.getByTestId('file-tree')
+      expect(container).toHaveClass('flex-wrap')
+    })
+
+    it('displays icon buttons in compact mode', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      // Should have 4 buttons (one for each file)
+      const buttons = screen.getAllByRole('button')
+      expect(buttons).toHaveLength(4)
+    })
+
+    it('calls onFileSelect when compact icon is clicked', () => {
+      const onFileSelect = vi.fn()
+      render(
+        <FileTree
+          files={mockFiles}
+          selectedFile={null}
+          onFileSelect={onFileSelect}
+          compact={true}
+        />
+      )
+
+      const buttons = screen.getAllByRole('button')
+      fireEvent.click(buttons[0]) // Click first button (modified.ts)
+
+      expect(onFileSelect).toHaveBeenCalledWith('src/modified.ts')
+    })
+
+    it('highlights selected file in compact mode', () => {
+      render(
+        <FileTree
+          files={mockFiles}
+          selectedFile="src/modified.ts"
+          onFileSelect={vi.fn()}
+          compact={true}
+        />
+      )
+
+      const buttons = screen.getAllByRole('button')
+      // First button should be selected (modified.ts comes first after sorting)
+      expect(buttons[0]).toHaveClass('ring-1')
+    })
+
+    it('has accessible aria-labels in compact mode', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const buttons = screen.getAllByRole('button')
+      // Check first button has accessibility info
+      expect(buttons[0]).toHaveAttribute(
+        'aria-label',
+        'modified.ts, modified, 10 additions, 5 deletions'
+      )
+    })
+
+    it('has compact view aria-label on container', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const container = screen.getByRole('list')
+      expect(container).toHaveAttribute('aria-label', 'Changed files (compact view)')
+    })
+
+    it('does not show filenames in compact mode', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      // Filenames should not be visible as text nodes (only in tooltips)
+      expect(screen.queryByText('modified.ts')).not.toBeInTheDocument()
+      expect(screen.queryByText('added.ts')).not.toBeInTheDocument()
+    })
+
+    it('shows filenames in normal mode', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={false} />
+      )
+
+      // Filenames should be visible
+      expect(screen.getByText('modified.ts')).toBeInTheDocument()
+      expect(screen.getByText('added.ts')).toBeInTheDocument()
+    })
+
+    it('has keyboard focus indicators on compact mode buttons', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const buttons = screen.getAllByRole('button')
+      // Check first button has focus-visible classes for accessibility
+      expect(buttons[0]).toHaveClass('focus-visible:outline-none')
+      expect(buttons[0]).toHaveClass('focus-visible:ring-2')
+    })
+
+    it('compact mode icons have proper color classes', () => {
+      render(
+        <FileTree files={mockFiles} selectedFile={null} onFileSelect={vi.fn()} compact={true} />
+      )
+
+      const buttons = screen.getAllByRole('button')
+      // All buttons should be present (4 files)
+      expect(buttons).toHaveLength(4)
+
+      // Each button should have accessible labels with status info
+      buttons.forEach(button => {
+        const label = button.getAttribute('aria-label')
+        expect(label).toBeTruthy()
+        expect(label).toMatch(/modified|added|deleted|renamed/)
+      })
+    })
+  })
 })

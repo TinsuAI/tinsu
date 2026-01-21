@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useLayoutEffect } from 'react'
 import { GitCompareArrows, RefreshCw, AlertCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
@@ -15,6 +15,55 @@ import {
 import { useDiffStore } from '@renderer/stores/diff.store'
 import type { GitDiffHunk } from '@main/services/git.service'
 
+/** Threshold width (px) below which compact mode is enabled */
+const COMPACT_WIDTH_THRESHOLD = 400
+
+/**
+ * Custom hook for observing container width changes.
+ * Uses ResizeObserver for efficient size detection with debouncing.
+ *
+ * Story TES-4.6: Dynamic compact/expanded mode switching
+ * Debouncing prevents excessive re-renders during window resize.
+ */
+function useContainerWidth() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+
+    // Set initial width immediately
+    setWidth(element.getBoundingClientRect().width)
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        // Clear previous timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+
+        // Debounce width updates (100ms delay)
+        timeoutRef.current = setTimeout(() => {
+          setWidth(entry.contentRect.width)
+        }, 100)
+      }
+    })
+
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  return { ref, width }
+}
+
 /**
  * Props for DiffPlaceholder component
  */
@@ -30,6 +79,7 @@ export interface DiffPlaceholderProps {
  * error state with retry option when failed, and diff summary when available.
  *
  * Story TES-4.1: Git Diff Data Fetching
+ * Story TES-4.6: Added dynamic compact mode based on container width
  */
 export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Element {
   const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary } = useDiff(
@@ -48,6 +98,12 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   // Ref for the container to enable keyboard shortcut focus (TES-4.5)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Track container width for dynamic compact mode (TES-4.6)
+  const { ref: sizeRef, width: containerWidth } = useContainerWidth()
+
+  // Determine if we should use compact mode based on container width
+  const isCompactMode = containerWidth > 0 && containerWidth < COMPACT_WIDTH_THRESHOLD
+
   // Handle file selection from tree
   const handleFileSelect = useCallback((path: string) => {
     setSelectedFile(path)
@@ -62,26 +118,58 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   }, [])
 
   /**
-   * Handle keyboard shortcuts for the diff section (TES-4.5)
-   * - V: Toggle between unified and split view modes
+   * Handle keyboard shortcuts for the diff section
+   * - V: Toggle between unified and split view modes (TES-4.5)
+   * - [: Navigate to previous file (TES-4.6)
+   * - ]: Navigate to next file (TES-4.6)
    */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Only handle 'V' key when no modifier keys are pressed
-      // and the target is not an input/textarea
-      if (
-        (e.key === 'v' || e.key === 'V') &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
-      ) {
+      // Skip if modifier keys are pressed or target is input/textarea
+      const isModifierPressed = e.metaKey || e.ctrlKey || e.altKey
+      const isInputFocused =
+        e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+
+      if (isModifierPressed || isInputFocused) return
+
+      const files = diff?.files ?? []
+
+      // V: Toggle view mode (TES-4.5)
+      if (e.key === 'v' || e.key === 'V') {
         e.preventDefault()
         toggleViewMode()
+        return
+      }
+
+      // [ : Previous file (TES-4.6)
+      if (e.key === '[') {
+        e.preventDefault()
+        if (files.length === 0) return
+
+        const currentIndex = selectedFile ? files.findIndex((f) => f.path === selectedFile) : -1
+
+        // Wraparound: if no selection or at first, go to last; otherwise go to previous
+        const prevIndex =
+          currentIndex <= 0 ? files.length - 1 : currentIndex - 1
+        handleFileSelect(files[prevIndex].path)
+        return
+      }
+
+      // ] : Next file (TES-4.6)
+      if (e.key === ']') {
+        e.preventDefault()
+        if (files.length === 0) return
+
+        const currentIndex = selectedFile ? files.findIndex((f) => f.path === selectedFile) : -1
+
+        // Wraparound: if no selection or at last, go to first; otherwise go to next
+        const nextIndex =
+          currentIndex < 0 || currentIndex >= files.length - 1 ? 0 : currentIndex + 1
+        handleFileSelect(files[nextIndex].path)
+        return
       }
     },
-    [toggleViewMode]
+    [diff?.files, selectedFile, toggleViewMode, handleFileSelect]
   )
 
   // Loading state - show skeleton
@@ -181,16 +269,21 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   // Has changes - show diff summary, file tree, and diff content
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        // Merge refs: containerRef for keyboard focus, sizeRef for resize detection
+        if (containerRef) (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+        if (sizeRef) (sizeRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+      }}
       className={cn(
         'flex h-full flex-col overflow-hidden',
         'bg-gradient-to-br from-muted/5 to-transparent',
         'focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/30'
       )}
       data-testid="diff-content"
+      data-compact={isCompactMode}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      aria-label="Diff viewer. Press V to toggle between unified and split view."
+      aria-label="Diff viewer. Press V to toggle between unified and split view. Press [ and ] to navigate files."
     >
       {/* Summary header with view mode toggle (TES-4.5) */}
       <div className="flex items-center justify-between gap-2 border-b border-border/20 px-4 py-2">
@@ -203,13 +296,20 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
         {selectedFile && <ViewModeToggle />}
       </div>
 
-      {/* File tree for navigation */}
-      <div className="shrink-0 border-b border-border/20">
+      {/* File tree for navigation - compact mode when container is narrow (TES-4.6) */}
+      <div className={cn(
+        'shrink-0 border-b border-border/20 transition-all duration-200',
+        isCompactMode ? 'py-0' : ''
+      )}>
         <FileTree
           files={diff?.files ?? []}
           selectedFile={selectedFile}
           onFileSelect={handleFileSelect}
-          className="max-h-[200px]"
+          compact={isCompactMode}
+          className={cn(
+            'transition-all duration-200',
+            isCompactMode ? 'max-h-[100px]' : 'max-h-[200px]'
+          )}
         />
       </div>
 
