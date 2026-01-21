@@ -55,6 +55,18 @@ export class BmadAgentLauncherService {
     projectPath: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
+    // Clear any existing Claude Code context before launching planning agent
+    // This handles the case where a previous workflow attempt left a stale session_id
+    // that would prevent the new session from auto-registering its session_id
+    try {
+      console.log('[BmadAgentLauncherService] Clearing context before planning agent...')
+      await TaskTerminalService.clearContext(taskId)
+      console.log('[BmadAgentLauncherService] Context cleared successfully')
+    } catch (error) {
+      // Log but don't fail - the session might be in a clean state already
+      console.warn('[BmadAgentLauncherService] Failed to clear context before planning agent:', error)
+    }
+
     // Build the claude command with skill flag
     // e.g., 'bmad:bmm:agents:pm' -> claude --skill bmad:bmm:agents:pm
     const args = ['--skill', task.bmad_agent]
@@ -103,6 +115,18 @@ export class BmadAgentLauncherService {
     storyIdentifier: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
+    // Clear any existing Claude Code context before launching create-story
+    // This handles the case where a previous workflow attempt left a stale session_id
+    // that would prevent the new session from auto-registering its session_id
+    try {
+      console.log('[BmadAgentLauncherService] Clearing context before create-story...')
+      await TaskTerminalService.clearContext(taskId)
+      console.log('[BmadAgentLauncherService] Context cleared successfully')
+    } catch (error) {
+      // Log but don't fail - the session might be in a clean state already
+      console.warn('[BmadAgentLauncherService] Failed to clear context before create-story:', error)
+    }
+
     // Combine workflow command and story identifier as single string argument
     const workflowWithArg = `/bmad:bmm:workflows:create-story ${storyIdentifier}`
     const args = ['--dangerously-skip-permissions', JSON.stringify(workflowWithArg)]
@@ -237,6 +261,18 @@ export class BmadAgentLauncherService {
     taskDescription?: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
+    // Clear any existing Claude Code context before launching basic task
+    // This handles the case where a previous workflow attempt left a stale session_id
+    // that would prevent the new session from auto-registering its session_id
+    try {
+      console.log('[BmadAgentLauncherService] Clearing context before basic task...')
+      await TaskTerminalService.clearContext(taskId)
+      console.log('[BmadAgentLauncherService] Context cleared successfully')
+    } catch (error) {
+      // Log but don't fail - the session might be in a clean state already
+      console.warn('[BmadAgentLauncherService] Failed to clear context before basic task:', error)
+    }
+
     // Construct prompt from task title and description
     const prompt = taskDescription ? `${taskTitle}\n\n${taskDescription}` : taskTitle
     const args = ['--dangerously-skip-permissions', JSON.stringify(prompt)]

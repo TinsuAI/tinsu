@@ -192,9 +192,19 @@ export const agentRouter = router({
       let storyPrefix: string | null = null
       if (typedTask.sprint_id) {
         const sprint = ctx.db.select().from(sprints).where(eq(sprints.id, typedTask.sprint_id)).get()
+        console.log('[agent.router] startCreateStory: Looking up sprint for task:', {
+          taskId: input.taskId,
+          sprintId: typedTask.sprint_id,
+          foundSprint: sprint ? { id: sprint.id, name: sprint.name, story_prefix: sprint.story_prefix } : null
+        })
         if (sprint && sprint.story_prefix) {
           storyPrefix = sprint.story_prefix
         }
+      } else {
+        console.log('[agent.router] startCreateStory: Task has no sprint_id:', {
+          taskId: input.taskId,
+          sprintId: typedTask.sprint_id
+        })
       }
 
       // Get epic to form story identifier (e.g., "5.3" or "tes-1.1")
@@ -221,6 +231,14 @@ export const agentRouter = router({
           message: 'Cannot determine story identifier. Task must have story_number and epic with epic_number.'
         })
       }
+
+      console.log('[agent.router] startCreateStory: Final story identifier:', {
+        taskId: input.taskId,
+        storyIdentifier,
+        storyPrefix,
+        epicNumber: typedTask.epic_id ? 'found' : 'missing',
+        storyNumber: typedTask.story_number
+      })
 
       // Get configured dev agent model from project config
       const configService = new ConfigService(ctx.projectRoot)

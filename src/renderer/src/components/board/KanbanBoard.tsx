@@ -241,7 +241,15 @@ export function KanbanBoard({
         }
 
         // Story 5.3 - AC: 1: Intercept story tasks dragged to create_story
+        console.log('[KanbanBoard] Checking create-story intercept:', {
+          targetStatus,
+          taskId: task.id,
+          taskType: task.task_type,
+          isStory: isStoryTask(task),
+          hasCallback: !!onCreateStoryRequested
+        })
         if (targetStatus === 'create_story' && isStoryTask(task) && onCreateStoryRequested) {
+          console.log('[KanbanBoard] Intercepting for create-story dialog')
           onCreateStoryRequested(task)
           return // Let the callback handle the status change
         }

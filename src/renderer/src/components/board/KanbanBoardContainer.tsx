@@ -231,20 +231,28 @@ export function KanbanBoardContainer() {
 
   // Story 5.3 - AC: 1: Handle create-story dialog request
   const handleCreateStoryRequested = useCallback((task: Task) => {
+    console.log('[KanbanBoardContainer] handleCreateStoryRequested called:', { taskId: task.id, taskType: task.task_type })
     setCreateStoryTask(task)
     setCreateStoryDialogOpen(true)
   }, [])
 
   // Story 5.3 - AC: 1: Handle create-story confirmation
   const handleCreateStoryConfirm = useCallback(async () => {
-    if (!createStoryTask) return
+    console.log('[KanbanBoardContainer] handleCreateStoryConfirm called, createStoryTask:', createStoryTask?.id)
+    if (!createStoryTask) {
+      console.log('[KanbanBoardContainer] handleCreateStoryConfirm: No createStoryTask, returning')
+      return
+    }
 
     // Move task to create_story status (this creates the tmux session)
     // Must await to ensure session is created before launching workflow
+    console.log('[KanbanBoardContainer] handleCreateStoryConfirm: Updating status to create_story')
     await updateStatusMutation.mutateAsync({ id: createStoryTask.id, status: 'create_story' })
+    console.log('[KanbanBoardContainer] handleCreateStoryConfirm: Status updated, now launching create-story')
 
     // Launch the create-story workflow
     launchCreateStory(createStoryTask.id)
+    console.log('[KanbanBoardContainer] handleCreateStoryConfirm: launchCreateStory called')
 
     // Clear the dialog state
     setCreateStoryTask(null)
