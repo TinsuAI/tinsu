@@ -105,6 +105,17 @@ export class StoryCompletionService {
       }
     }
 
+    // Get the sprint to determine the story prefix (e.g., "tes" for task-execution-sandbox)
+    let storyPrefix: string | undefined
+    if (epic.sprint_id) {
+      const sprint = db
+        .select()
+        .from(schema.sprints)
+        .where(eq(schema.sprints.id, epic.sprint_id))
+        .get()
+      storyPrefix = sprint?.story_prefix ?? undefined
+    }
+
     // Scan implementation-artifacts for the story file
     // Expected path: {projectRoot}/_bmad-output/implementation-artifacts/
     const implementationArtifactsDir = join(projectRoot, '_bmad-output', 'implementation-artifacts')
@@ -112,7 +123,8 @@ export class StoryCompletionService {
     const storyFile = await DetailedStoryParserService.findStoryFile(
       implementationArtifactsDir,
       epic.epic_number,
-      task.story_number.toString()
+      task.story_number.toString(),
+      storyPrefix
     )
 
     if (!storyFile) {

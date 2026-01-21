@@ -1,6 +1,9 @@
 import { TaskTerminalService } from './task-terminal.service'
 import { PlanningTask } from '../../shared/types/task.types'
 import type { ClaudeModel } from '../../shared/types/config.types'
+import { db } from '../db'
+import { task_sessions } from '../db/schema'
+import { eq } from 'drizzle-orm'
 
 /**
  * Result returned when launching a BMAD agent.
@@ -31,6 +34,52 @@ export interface BmadAgentLaunchResult {
  */
 export class BmadAgentLauncherService {
   /**
+   * Clears any stale session state before launching a new Claude Code session.
+   *
+   * Only runs clearContext() if there's an existing session_id registered,
+   * which indicates a previous Claude Code session that needs to be cleaned up.
+   * For brand new sessions (no session_id), this just resets the session_id to null.
+   *
+   * @param taskId - The task ID to clear session for
+   * @param workflowName - Name of the workflow for logging
+   */
+  private static async clearStaleSessionIfNeeded(taskId: string, workflowName: string): Promise<void> {
+    // Check if there's an existing session_id that needs clearing
+    const session = db
+      .select()
+      .from(task_sessions)
+      .where(eq(task_sessions.task_id, taskId))
+      .get()
+
+    if (!session) {
+      // No session record - nothing to clear
+      console.log(`[BmadAgentLauncherService] No session record for ${workflowName}, skipping context clear`)
+      return
+    }
+
+    if (session.session_id) {
+      // There's an existing session_id - need to clear context
+      // This kills any running Claude Code and resets session_id
+      console.log(`[BmadAgentLauncherService] Found stale session_id for ${workflowName}, clearing context...`)
+      try {
+        await TaskTerminalService.clearContext(taskId)
+        console.log(`[BmadAgentLauncherService] Context cleared successfully for ${workflowName}`)
+      } catch (error) {
+        // Log but don't fail - try to reset session_id anyway
+        console.warn(`[BmadAgentLauncherService] Failed to clear context for ${workflowName}:`, error)
+        // Still reset session_id even if clearContext failed
+        await db.update(task_sessions)
+          .set({ session_id: null })
+          .where(eq(task_sessions.task_id, taskId))
+        console.log(`[BmadAgentLauncherService] Reset session_id to null for ${workflowName}`)
+      }
+    } else {
+      // No session_id - new session, nothing to clear
+      console.log(`[BmadAgentLauncherService] No stale session_id for ${workflowName}, proceeding with launch`)
+    }
+  }
+
+  /**
    * Launches the appropriate BMAD agent for a planning task.
    *
    * Uses the task's `bmad_agent` field to invoke the correct Claude Code skill.
@@ -55,17 +104,8 @@ export class BmadAgentLauncherService {
     projectPath: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
-    // Clear any existing Claude Code context before launching planning agent
-    // This handles the case where a previous workflow attempt left a stale session_id
-    // that would prevent the new session from auto-registering its session_id
-    try {
-      console.log('[BmadAgentLauncherService] Clearing context before planning agent...')
-      await TaskTerminalService.clearContext(taskId)
-      console.log('[BmadAgentLauncherService] Context cleared successfully')
-    } catch (error) {
-      // Log but don't fail - the session might be in a clean state already
-      console.warn('[BmadAgentLauncherService] Failed to clear context before planning agent:', error)
-    }
+    // Clear any stale session state before launching
+    await this.clearStaleSessionIfNeeded(taskId, 'planning-agent')
 
     // Build the claude command with skill flag
     // e.g., 'bmad:bmm:agents:pm' -> claude --skill bmad:bmm:agents:pm
@@ -115,17 +155,8 @@ export class BmadAgentLauncherService {
     storyIdentifier: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
-    // Clear any existing Claude Code context before launching create-story
-    // This handles the case where a previous workflow attempt left a stale session_id
-    // that would prevent the new session from auto-registering its session_id
-    try {
-      console.log('[BmadAgentLauncherService] Clearing context before create-story...')
-      await TaskTerminalService.clearContext(taskId)
-      console.log('[BmadAgentLauncherService] Context cleared successfully')
-    } catch (error) {
-      // Log but don't fail - the session might be in a clean state already
-      console.warn('[BmadAgentLauncherService] Failed to clear context before create-story:', error)
-    }
+    // Clear any stale session state before launching
+    await this.clearStaleSessionIfNeeded(taskId, 'create-story')
 
     // Combine workflow command and story identifier as single string argument
     const workflowWithArg = `/bmad:bmm:workflows:create-story ${storyIdentifier}`
@@ -190,16 +221,10 @@ export class BmadAgentLauncherService {
       model
     })
 
-    // Clear any existing Claude Code context before launching dev-story
-    // This handles the case where create-story just completed in the same session
-    try {
-      console.log('[BmadAgentLauncherService] Clearing context before dev-story...')
-      await TaskTerminalService.clearContext(taskId)
-      console.log('[BmadAgentLauncherService] Context cleared successfully')
-    } catch (error) {
-      // Log but don't fail - the session might be in a clean state already
-      console.warn('[BmadAgentLauncherService] Failed to clear context before dev-story:', error)
-    }
+    // Clear any stale session state before launching
+    // For dev-story, we ALWAYS clear context because it typically follows create-story
+    // and the previous session_id needs to be cleared for the new session to register
+    await this.clearStaleSessionIfNeeded(taskId, 'dev-story')
 
     // Combine workflow command and story file path as single string argument
     const workflowWithArg = `/bmad:bmm:workflows:dev-story ${storyFilePath}`
@@ -261,17 +286,8 @@ export class BmadAgentLauncherService {
     taskDescription?: string,
     model?: ClaudeModel
   ): Promise<BmadAgentLaunchResult> {
-    // Clear any existing Claude Code context before launching basic task
-    // This handles the case where a previous workflow attempt left a stale session_id
-    // that would prevent the new session from auto-registering its session_id
-    try {
-      console.log('[BmadAgentLauncherService] Clearing context before basic task...')
-      await TaskTerminalService.clearContext(taskId)
-      console.log('[BmadAgentLauncherService] Context cleared successfully')
-    } catch (error) {
-      // Log but don't fail - the session might be in a clean state already
-      console.warn('[BmadAgentLauncherService] Failed to clear context before basic task:', error)
-    }
+    // Clear any stale session state before launching
+    await this.clearStaleSessionIfNeeded(taskId, 'basic-task')
 
     // Construct prompt from task title and description
     const prompt = taskDescription ? `${taskTitle}\n\n${taskDescription}` : taskTitle

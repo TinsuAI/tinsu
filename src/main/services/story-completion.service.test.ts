@@ -156,7 +156,8 @@ describe('StoryCompletionService', () => {
         })
         .mockReturnValueOnce({
           id: 'epic-1',
-          epic_number: 5
+          epic_number: 5,
+          sprint_id: null
         })
 
       vi.mocked(DetailedStoryParserService.findStoryFile).mockResolvedValue(null)
@@ -172,7 +173,8 @@ describe('StoryCompletionService', () => {
       expect(DetailedStoryParserService.findStoryFile).toHaveBeenCalledWith(
         '/project/root/_bmad-output/implementation-artifacts',
         5,
-        '3'
+        '3',
+        undefined
       )
     })
 
@@ -186,7 +188,8 @@ describe('StoryCompletionService', () => {
         })
         .mockReturnValueOnce({
           id: 'epic-1',
-          epic_number: 5
+          epic_number: 5,
+          sprint_id: null
         })
 
       vi.mocked(DetailedStoryParserService.findStoryFile).mockResolvedValue({
@@ -229,7 +232,8 @@ describe('StoryCompletionService', () => {
         })
         .mockReturnValueOnce({
           id: 'epic-3',
-          epic_number: 3
+          epic_number: 3,
+          sprint_id: null
         })
 
       vi.mocked(DetailedStoryParserService.findStoryFile).mockResolvedValue({
@@ -249,7 +253,52 @@ describe('StoryCompletionService', () => {
       expect(DetailedStoryParserService.findStoryFile).toHaveBeenCalledWith(
         '/project/root/_bmad-output/implementation-artifacts',
         3,
-        '15'
+        '15',
+        undefined
+      )
+    })
+
+    it('passes story_prefix from sprint when finding story file', async () => {
+      mockDb._mockGet
+        .mockReturnValueOnce({
+          id: 'task-789',
+          task_type: 'story',
+          epic_id: 'epic-tes-3',
+          story_number: '3'
+        })
+        .mockReturnValueOnce({
+          id: 'epic-tes-3',
+          epic_number: 3,
+          sprint_id: 'sprint-tes'
+        })
+        .mockReturnValueOnce({
+          id: 'sprint-tes',
+          story_prefix: 'tes'
+        })
+
+      vi.mocked(DetailedStoryParserService.findStoryFile).mockResolvedValue({
+        prefix: 'tes',
+        epicNumber: 3,
+        storyNumber: '3',
+        filePath: '/project/root/_bmad-output/implementation-artifacts/tes-3-3-section-expand-collapse.md',
+        fullContent: '# Story TES-3.3: Section Expand/Collapse\n\n...'
+      })
+
+      const result = await StoryCompletionService.handleCreateStoryComplete(
+        mockDb as any,
+        'task-789',
+        '/project/root'
+      )
+
+      expect(result.success).toBe(true)
+      expect(result.storyFilePath).toBe(
+        '/project/root/_bmad-output/implementation-artifacts/tes-3-3-section-expand-collapse.md'
+      )
+      expect(DetailedStoryParserService.findStoryFile).toHaveBeenCalledWith(
+        '/project/root/_bmad-output/implementation-artifacts',
+        3,
+        '3',
+        'tes'
       )
     })
   })
