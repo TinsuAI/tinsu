@@ -14,38 +14,49 @@ import type * as monacoNamespace from 'monaco-editor'
 export const TINSU_DARK_THEME = 'tinsu-dark'
 
 /**
- * TinSu dark theme definition for Monaco Editor.
+ * GitHub-inspired dark theme for Monaco Editor.
  *
- * Colors are designed to:
- * - Match TinSu's dark UI aesthetic (#1a1a1a background)
- * - Use green-500 at 15% opacity for additions (per AC #2)
- * - Use red-500 at 15% opacity for removals (per AC #3)
- * - Maintain proper contrast for accessibility
+ * Colors match GitHub's commit diff view:
+ * - Subtle, muted backgrounds for additions and deletions
+ * - GitHub's authentic color palette
+ * - Proper contrast for accessibility
+ * - Professional, refined appearance
  */
 export const tinsuDarkTheme: monacoNamespace.editor.IStandaloneThemeData = {
   base: 'vs-dark',
   inherit: true,
   rules: [],
   colors: {
-    // Editor background matching TinSu panels
-    'editor.background': '#1a1a1a',
+    // Editor background - GitHub dark theme
+    'editor.background': '#0d1117',
 
-    // Diff highlighting colors per acceptance criteria
-    // AC #2: Added lines have green background rgba(34, 197, 94, 0.15)
-    'diffEditor.insertedTextBackground': 'rgba(34, 197, 94, 0.15)',
-    'diffEditor.insertedLineBackground': 'rgba(34, 197, 94, 0.08)',
-    'diffEditorGutter.insertedLineBackground': 'rgba(34, 197, 94, 0.3)',
+    // GitHub-style diff colors - ADDITIONS (green)
+    // Very subtle green background matching GitHub's aesthetic
+    'diffEditor.insertedTextBackground': '#23863a20', // Text-level changes (more opaque)
+    'diffEditor.insertedLineBackground': '#23863a10', // Line-level changes (very subtle)
+    'diffEditorGutter.insertedLineBackground': '#23863a25', // Gutter (line number area)
 
-    // AC #3: Removed lines have red background rgba(239, 68, 68, 0.15)
-    'diffEditor.removedTextBackground': 'rgba(239, 68, 68, 0.15)',
-    'diffEditor.removedLineBackground': 'rgba(239, 68, 68, 0.08)',
-    'diffEditorGutter.removedLineBackground': 'rgba(239, 68, 68, 0.3)',
+    // Inline added text (character-level diff within a line)
+    'diffEditor.insertedTextBorder': '#23863a00',
 
-    // Border and UI colors
-    'editorLineNumber.foreground': '#4a4a4a',
-    'editorLineNumber.activeForeground': '#888888',
-    'editor.lineHighlightBackground': '#262626',
-    'editor.selectionBackground': '#3a3a3a'
+    // GitHub-style diff colors - DELETIONS (red)
+    // Very subtle red/pink background matching GitHub's aesthetic
+    'diffEditor.removedTextBackground': '#d73a4920', // Text-level changes (more opaque)
+    'diffEditor.removedLineBackground': '#d73a4910', // Line-level changes (very subtle)
+    'diffEditorGutter.removedLineBackground': '#d73a4925', // Gutter (line number area)
+
+    // Inline removed text (character-level diff within a line)
+    'diffEditor.removedTextBorder': '#d73a4900',
+
+    // Border and UI colors - GitHub style
+    'editorLineNumber.foreground': '#484f58',
+    'editorLineNumber.activeForeground': '#8b949e',
+    'editor.lineHighlightBackground': '#161b22',
+    'editor.selectionBackground': '#264f78',
+    'editorGutter.background': '#0d1117',
+
+    // Diff overview ruler (scrollbar area)
+    'diffEditor.diagonalFill': '#21262d60'
   }
 }
 

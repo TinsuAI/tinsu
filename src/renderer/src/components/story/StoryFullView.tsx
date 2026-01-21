@@ -3,12 +3,13 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye, Terminal, Activity } from 'lucide-react'
+import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye, Terminal, Activity, GitCompareArrows } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
 import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
+import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { NotionEditor } from '@renderer/components/editor'
 import { useStoryViewStore } from '@renderer/stores'
 import { trpc } from '@renderer/lib/trpc'
@@ -109,8 +110,8 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 export function StoryFullView() {
   const { activeStoryId, isEditing, closeStory, setEditing } = useStoryViewStore()
 
-  // Tab state for switching between content, activities, and terminal
-  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal'>('content')
+  // Tab state for switching between content, activities, terminal, and diff
+  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>('content')
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -238,7 +239,7 @@ export function StoryFullView() {
         }
       }
 
-      // Number key shortcuts for tab switching (1=Content, 2=Activities always; 3=Terminal when session active)
+      // Number key shortcuts for tab switching (1=Content, 2=Activities, 3=Terminal, 4=Diff)
       if (!isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === '1') {
           e.preventDefault()
@@ -253,6 +254,11 @@ export function StoryFullView() {
         if (e.key === '3') {
           e.preventDefault()
           setActiveTab('terminal')
+          return
+        }
+        if (e.key === '4') {
+          e.preventDefault()
+          setActiveTab('diff')
           return
         }
       }
@@ -408,7 +414,7 @@ export function StoryFullView() {
           </h1>
         </div>
 
-        {/* Tab buttons - always show Content and Activities, Terminal only when session active */}
+        {/* Tab buttons - Content, Activities, Terminal, and Diff */}
         <div className="mb-6 flex gap-2 border-b border-border/30 pb-4" role="tablist" aria-label="Story Detail Tabs">
           <button
             type="button"
@@ -463,6 +469,24 @@ export function StoryFullView() {
             <span className="text-xs text-muted-foreground/60">3</span>
             <Terminal className="h-4 w-4" />
             Terminal
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'diff'}
+            aria-controls="panel-diff"
+            id="tab-diff"
+            onClick={() => setActiveTab('diff')}
+            className={cn(
+              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              activeTab === 'diff'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span className="text-xs text-muted-foreground/60">4</span>
+            <GitCompareArrows className="h-4 w-4" />
+            Diff
           </button>
         </div>
 
@@ -667,6 +691,18 @@ export function StoryFullView() {
             className="min-h-[500px]"
           >
             <TaskTerminal ref={terminalRef} taskId={activeStoryId!} />
+          </div>
+        )}
+
+        {/* Diff tab - GitHub-style git diff viewer */}
+        {activeTab === 'diff' && (
+          <div
+            id="panel-diff"
+            role="tabpanel"
+            aria-labelledby="tab-diff"
+            className="min-h-[500px] rounded-lg border border-border/10 bg-background shadow-sm"
+          >
+            <DiffPlaceholder taskId={activeStoryId!} />
           </div>
         )}
       </main>

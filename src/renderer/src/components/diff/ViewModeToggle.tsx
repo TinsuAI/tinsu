@@ -62,20 +62,28 @@ export function ViewModeToggle({
       <ToggleGroupItem
         value="unified"
         aria-label="Unified view - changes shown interleaved in single column"
-        className="rounded-r-none border border-r-0 border-border/40 px-2.5 py-1 text-xs data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10"
+        className={cn(
+          'h-8 rounded-r-none border border-r-0 border-border/30 px-3 text-xs font-medium',
+          'hover:bg-muted/40 transition-colors',
+          'data-[state=on]:border-[#58a6ff]/40 data-[state=on]:bg-[#58a6ff]/10 data-[state=on]:text-[#58a6ff]'
+        )}
         data-testid="view-mode-unified"
       >
         <Rows className="mr-1.5 h-3.5 w-3.5" />
-        Unified
+        <span className="hidden sm:inline">Unified</span>
       </ToggleGroupItem>
       <ToggleGroupItem
         value="split"
         aria-label="Split view - original and modified side by side"
-        className="rounded-l-none border border-border/40 px-2.5 py-1 text-xs data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10"
+        className={cn(
+          'h-8 rounded-l-none border border-border/30 px-3 text-xs font-medium',
+          'hover:bg-muted/40 transition-colors',
+          'data-[state=on]:border-[#58a6ff]/40 data-[state=on]:bg-[#58a6ff]/10 data-[state=on]:text-[#58a6ff]'
+        )}
         data-testid="view-mode-split"
       >
         <Columns className="mr-1.5 h-3.5 w-3.5" />
-        Split
+        <span className="hidden sm:inline">Split</span>
       </ToggleGroupItem>
     </ToggleGroup>
   )

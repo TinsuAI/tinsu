@@ -63,37 +63,54 @@ export function DiffSummaryBar({
 
   return (
     <div
-      className={cn('flex items-center justify-between', className)}
+      className={cn('flex items-center justify-between gap-3', className)}
       data-testid="diff-summary-bar"
     >
-      <span className="text-sm text-foreground/80" data-testid="diff-summary-text">
-        {summaryText.filesChanged} {summaryText.fileLabel} changed{' '}
-        <span className="text-muted-foreground/60">{'\u00B7'}</span>{' '}
+      {/* GitHub-style summary with refined typography */}
+      <div className="flex items-center gap-2.5 text-sm">
+        {/* Files changed - prominent */}
+        <span className="font-medium text-foreground">
+          {summaryText.filesChanged} {summaryText.fileLabel} changed
+        </span>
+
+        {/* Divider */}
+        <span className="text-border">•</span>
+
+        {/* Additions - GitHub green */}
         <span
-          className="text-green-500"
+          className="flex items-baseline gap-1 font-medium text-[#3fb950]"
           aria-label={`${summaryText.linesAdded} ${summaryText.addedLabel} added`}
         >
-          +{summaryText.linesAdded} {summaryText.addedLabel}
-        </span>{' '}
-        <span className="text-muted-foreground/60">{'\u00B7'}</span>{' '}
+          <span className="text-base leading-none">+</span>
+          <span>{summaryText.linesAdded}</span>
+        </span>
+
+        {/* Deletions - GitHub red */}
         <span
-          className="text-red-500"
+          className="flex items-baseline gap-1 font-medium text-[#f85149]"
           aria-label={`${summaryText.linesRemoved} ${summaryText.removedLabel} removed`}
         >
-          -{summaryText.linesRemoved} {summaryText.removedLabel}
+          <span className="text-base leading-none">−</span>
+          <span>{summaryText.linesRemoved}</span>
         </span>
-      </span>
+      </div>
 
+      {/* Refresh button with refined hover state */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onRefresh}
         disabled={isRefreshing}
-        className="h-7 w-7"
+        className="h-8 w-8 rounded-md hover:bg-muted/40 active:bg-muted/60 transition-colors"
         aria-label="Refresh diff"
         data-testid="diff-refresh-button"
       >
-        <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+        <RefreshCw
+          className={cn(
+            'h-4 w-4 text-muted-foreground transition-colors',
+            isRefreshing && 'animate-spin'
+          )}
+        />
       </Button>
     </div>
   )

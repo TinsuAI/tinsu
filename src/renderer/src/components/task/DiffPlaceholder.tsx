@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useLayoutEffect } from 'react'
-import { GitCompareArrows, RefreshCw, AlertCircle } from 'lucide-react'
+import { GitCompareArrows, RefreshCw, AlertCircle, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
@@ -89,8 +89,19 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   // Get view mode from store (TES-4.5)
   const { viewMode, toggleViewMode } = useDiffStore()
 
-  // State for selected file in file tree
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  // State for expanded/collapsed files - all expanded by default (GitHub-style)
+  const [expandedFiles, setExpandedFiles] = useState<Map<string, boolean>>(new Map())
+
+  // Initialize all files as expanded when diff changes
+  useMemo(() => {
+    if (diff?.files) {
+      const newExpandedState = new Map<string, boolean>()
+      diff.files.forEach(file => {
+        newExpandedState.set(file.path, true) // All files expanded by default
+      })
+      setExpandedFiles(newExpandedState)
+    }
+  }, [diff?.files])
 
   // Refs for scroll-into-view functionality
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -104,11 +115,51 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   // Determine if we should use compact mode based on container width
   const isCompactMode = containerWidth > 0 && containerWidth < COMPACT_WIDTH_THRESHOLD
 
-  // Handle file selection from tree
-  const handleFileSelect = useCallback((path: string) => {
-    setSelectedFile(path)
+  // Toggle file expansion (collapse/expand like GitHub)
+  const toggleFileExpand = useCallback((path: string) => {
+    setExpandedFiles(prev => {
+      const next = new Map(prev)
+      next.set(path, !prev.get(path))
+      return next
+    })
 
     // Scroll the file's diff section into view - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      const fileRef = fileRefs.current.get(path)
+      if (fileRef) {
+        fileRef.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 0)
+  }, [])
+
+  // Collapse all files
+  const collapseAll = useCallback(() => {
+    setExpandedFiles(prev => {
+      const next = new Map(prev)
+      next.forEach((_, path) => next.set(path, false))
+      return next
+    })
+  }, [])
+
+  // Expand all files
+  const expandAll = useCallback(() => {
+    setExpandedFiles(prev => {
+      const next = new Map(prev)
+      next.forEach((_, path) => next.set(path, true))
+      return next
+    })
+  }, [])
+
+  // Handle file selection from tree - now just scrolls to the file
+  const handleFileSelect = useCallback((path: string) => {
+    // Ensure file is expanded when selected from tree
+    setExpandedFiles(prev => {
+      const next = new Map(prev)
+      next.set(path, true)
+      return next
+    })
+
+    // Scroll the file's diff section into view
     setTimeout(() => {
       const fileRef = fileRefs.current.get(path)
       if (fileRef) {
@@ -120,8 +171,6 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
   /**
    * Handle keyboard shortcuts for the diff section
    * - V: Toggle between unified and split view modes (TES-4.5)
-   * - [: Navigate to previous file (TES-4.6)
-   * - ]: Navigate to next file (TES-4.6)
    */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -132,123 +181,103 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
 
       if (isModifierPressed || isInputFocused) return
 
-      const files = diff?.files ?? []
-
       // V: Toggle view mode (TES-4.5)
       if (e.key === 'v' || e.key === 'V') {
         e.preventDefault()
         toggleViewMode()
         return
       }
-
-      // [ : Previous file (TES-4.6)
-      if (e.key === '[') {
-        e.preventDefault()
-        if (files.length === 0) return
-
-        const currentIndex = selectedFile ? files.findIndex((f) => f.path === selectedFile) : -1
-
-        // Wraparound: if no selection or at first, go to last; otherwise go to previous
-        const prevIndex =
-          currentIndex <= 0 ? files.length - 1 : currentIndex - 1
-        handleFileSelect(files[prevIndex].path)
-        return
-      }
-
-      // ] : Next file (TES-4.6)
-      if (e.key === ']') {
-        e.preventDefault()
-        if (files.length === 0) return
-
-        const currentIndex = selectedFile ? files.findIndex((f) => f.path === selectedFile) : -1
-
-        // Wraparound: if no selection or at last, go to first; otherwise go to next
-        const nextIndex =
-          currentIndex < 0 || currentIndex >= files.length - 1 ? 0 : currentIndex + 1
-        handleFileSelect(files[nextIndex].path)
-        return
-      }
     },
-    [diff?.files, selectedFile, toggleViewMode, handleFileSelect]
+    [toggleViewMode]
   )
 
-  // Loading state - show skeleton
+  // GitHub-style loading skeleton
   if (isLoading) {
     return (
       <div
         className={cn(
           'flex h-full flex-col',
-          'p-4',
-          'bg-gradient-to-br from-muted/5 to-transparent'
+          'p-5',
+          'bg-background'
         )}
         data-testid="diff-loading"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-8 w-8 rounded" />
+        <div className="mb-5 flex items-center justify-between">
+          <Skeleton className="h-6 w-40 bg-muted/10" />
+          <Skeleton className="h-8 w-8 rounded-md bg-muted/10" />
         </div>
-        <Skeleton className="mb-2 h-4 w-full" />
-        <Skeleton className="mb-2 h-4 w-3/4" />
-        <Skeleton className="mb-2 h-4 w-5/6" />
-        <Skeleton className="mb-2 h-4 w-2/3" />
-        <Skeleton className="h-4 w-4/5" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full bg-muted/10" />
+          <Skeleton className="h-4 w-[85%] bg-muted/10" />
+          <Skeleton className="h-4 w-[92%] bg-muted/10" />
+          <Skeleton className="h-4 w-[78%] bg-muted/10" />
+          <Skeleton className="h-4 w-[88%] bg-muted/10" />
+        </div>
       </div>
     )
   }
 
-  // Error state - show error with retry
+  // GitHub-style error state
   if (error) {
     return (
       <div
         className={cn(
           'flex h-full flex-col items-center justify-center',
-          'p-6',
-          'bg-gradient-to-br from-destructive/5 to-transparent'
+          'p-8',
+          'bg-background'
         )}
         data-testid="diff-error"
       >
         <div
-          className={cn('mb-4 rounded-xl p-4', 'bg-destructive/10', 'border border-destructive/20')}
+          className={cn(
+            'mb-4 rounded-lg p-5',
+            'bg-[#f85149]/5',
+            'border border-[#f85149]/20'
+          )}
         >
-          <AlertCircle className="h-8 w-8 text-destructive/70" />
+          <AlertCircle className="h-10 w-10 text-[#f85149]" />
         </div>
 
-        <h4 className="mb-1.5 text-sm font-medium text-destructive/80">Unable to load diff</h4>
+        <h4 className="mb-2 text-base font-semibold text-foreground/80">Unable to load diff</h4>
 
-        <p className="mb-4 max-w-[200px] text-center text-xs text-muted-foreground/60">{error}</p>
+        <p className="mb-5 max-w-[280px] text-center text-sm text-muted-foreground/60 leading-relaxed">{error}</p>
 
         <Button
           variant="outline"
           size="sm"
           onClick={refresh}
           disabled={isRefreshing}
-          className="gap-2"
+          className="gap-2 rounded-md border-border/40 hover:bg-muted/40 transition-colors"
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
           {isRefreshing ? 'Retrying...' : 'Retry'}
         </Button>
       </div>
     )
   }
 
-  // Empty state - no changes yet
+  // GitHub-style empty state
   if (!hasChanges) {
     return (
       <div
         className={cn(
           'flex h-full flex-col items-center justify-center',
-          'p-6',
-          'bg-gradient-to-br from-muted/5 to-transparent'
+          'p-8',
+          'bg-background'
         )}
         data-testid="diff-empty"
       >
-        <div className={cn('mb-4 rounded-xl p-4', 'bg-muted/20', 'border border-border/20')}>
-          <GitCompareArrows className="h-8 w-8 text-muted-foreground/50" />
+        <div className={cn(
+          'mb-4 rounded-lg p-5',
+          'bg-muted/10',
+          'border border-border/10'
+        )}>
+          <GitCompareArrows className="h-10 w-10 text-muted-foreground/40" />
         </div>
 
-        <h4 className="mb-1.5 text-sm font-medium text-muted-foreground/70">No changes yet</h4>
+        <h4 className="mb-2 text-base font-semibold text-foreground/80">No changes yet</h4>
 
-        <p className="mb-4 max-w-[200px] text-center text-xs text-muted-foreground/50">
+        <p className="mb-5 max-w-[280px] text-center text-sm text-muted-foreground/60 leading-relaxed">
           Changes will appear here once the task modifies files
         </p>
 
@@ -257,16 +286,16 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
           size="sm"
           onClick={refresh}
           disabled={isRefreshing}
-          className="gap-2 text-xs text-muted-foreground/60"
+          className="gap-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
         >
-          <RefreshCw className={cn('h-3 w-3', isRefreshing && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
           {isRefreshing ? 'Checking...' : 'Check for changes'}
         </Button>
       </div>
     )
   }
 
-  // Has changes - show diff summary, file tree, and diff content
+  // Has changes - show GitHub-style diff view
   return (
     <div
       ref={(el) => {
@@ -276,147 +305,194 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
       }}
       className={cn(
         'flex h-full flex-col overflow-hidden',
-        'bg-gradient-to-br from-muted/5 to-transparent',
-        'focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/30'
+        'bg-background',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#58a6ff]/30 focus-visible:ring-offset-1'
       )}
       data-testid="diff-content"
       data-compact={isCompactMode}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      aria-label="Diff viewer. Press V to toggle between unified and split view. Press [ and ] to navigate files."
+      aria-label="Diff viewer. Press V to toggle between unified and split view."
     >
-      {/* Summary header with view mode toggle (TES-4.5) */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/20 px-4 py-2">
+      {/* GitHub-style header with refined controls */}
+      <div className="flex items-center justify-between gap-3 border-b border-border/10 bg-background px-5 py-3.5">
         <DiffSummaryBar
           summary={summary}
           onRefresh={refresh}
           isRefreshing={isRefreshing}
           className="flex-1"
         />
-        {selectedFile && <ViewModeToggle />}
+        <div className="flex items-center gap-1.5">
+          {/* Collapse/Expand All buttons - GitHub style */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={collapseAll}
+            className="h-8 gap-1.5 rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+            title="Collapse all files"
+          >
+            <ChevronsUp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Collapse</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={expandAll}
+            className="h-8 gap-1.5 rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+            title="Expand all files"
+          >
+            <ChevronsDown className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Expand</span>
+          </Button>
+          <div className="mx-1 h-5 w-px bg-border/40" />
+          <ViewModeToggle />
+        </div>
       </div>
 
-      {/* File tree for navigation - compact mode when container is narrow (TES-4.6) */}
+      {/* File tree navigation - GitHub style with refined borders */}
       <div className={cn(
-        'shrink-0 border-b border-border/20 transition-all duration-200',
+        'shrink-0 border-b border-border/[0.08] bg-background transition-all duration-200',
         isCompactMode ? 'py-0' : ''
       )}>
         <FileTree
           files={diff?.files ?? []}
-          selectedFile={selectedFile}
+          selectedFile={null}
           onFileSelect={handleFileSelect}
           compact={isCompactMode}
           className={cn(
             'transition-all duration-200',
-            isCompactMode ? 'max-h-[100px]' : 'max-h-[200px]'
+            isCompactMode ? 'max-h-[100px]' : 'max-h-[180px]'
           )}
         />
       </div>
 
-      {/* File diff content */}
-      <div className="kanban-scroll flex-1 overflow-auto">
-        <div className="divide-y divide-border/10">
-          {diff?.files.map((file) => (
-            <div
-              key={file.path}
-              ref={(el) => {
-                if (el) {
-                  fileRefs.current.set(file.path, el)
-                }
-              }}
-              className={cn('px-4 py-2.5', selectedFile === file.path && 'bg-muted/30')}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span
-                    className="truncate text-sm font-medium text-foreground/80"
-                    title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
-                  >
-                    {file.oldPath ? (
-                      <>
-                        <span className="text-muted-foreground/50 line-through">
-                          {file.oldPath}
-                        </span>
-                        <span className="mx-1 text-muted-foreground/30">→</span>
-                        {file.path}
-                      </>
-                    ) : (
-                      file.path
-                    )}
-                  </span>
-                </div>
+      {/* File diff content - GitHub-style refined layout */}
+      <div className="kanban-scroll flex-1 overflow-auto bg-background">
+        <div className="divide-y divide-border/[0.08]">
+          {diff?.files.map((file) => {
+            const isExpanded = expandedFiles.get(file.path) ?? true
 
-                <div className="flex shrink-0 items-center gap-2">
-                  {/* Status badge */}
-                  <span
-                    className={cn(
-                      'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase',
-                      file.status === 'added' && 'bg-green-500/20 text-green-500',
-                      file.status === 'modified' && 'bg-yellow-500/20 text-yellow-500',
-                      file.status === 'deleted' && 'bg-red-500/20 text-red-500',
-                      file.status === 'renamed' && 'bg-blue-500/20 text-blue-500'
-                    )}
-                  >
-                    {file.status}
-                  </span>
+            return (
+              <div
+                key={file.path}
+                ref={(el) => {
+                  if (el) {
+                    fileRefs.current.set(file.path, el)
+                  }
+                }}
+                className="group"
+              >
+                {/* GitHub-style file header with refined spacing */}
+                <div className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/[0.02] transition-colors">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    {/* Collapse/Expand button */}
+                    <button
+                      onClick={() => toggleFileExpand(file.path)}
+                      className="flex-shrink-0 rounded-md p-1 text-muted-foreground transition-all hover:bg-muted/40 hover:text-foreground active:scale-95"
+                      aria-label={isExpanded ? 'Collapse diff' : 'Expand diff'}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
 
-                  {/* Line count */}
-                  <div className="flex items-center gap-1 text-xs">
-                    {file.additions > 0 && (
-                      <span className="text-green-500">+{file.additions}</span>
-                    )}
-                    {file.deletions > 0 && <span className="text-red-500">-{file.deletions}</span>}
+                    {/* File path with refined typography */}
+                    <span
+                      className="min-w-0 truncate font-mono text-sm font-medium text-foreground"
+                      title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+                    >
+                      {file.oldPath ? (
+                        <>
+                          <span className="text-muted-foreground/40 line-through">
+                            {file.oldPath}
+                          </span>
+                          <span className="mx-2 text-muted-foreground/30">→</span>
+                          <span>{file.path}</span>
+                        </>
+                      ) : (
+                        file.path
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Status badge and stats - GitHub style */}
+                  <div className="flex shrink-0 items-center gap-2.5">
+                    {/* Status badge with refined colors */}
+                    <span
+                      className={cn(
+                        'rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                        file.status === 'added' && 'bg-[#3fb950]/10 text-[#3fb950]',
+                        file.status === 'modified' && 'bg-[#d29922]/10 text-[#d29922]',
+                        file.status === 'deleted' && 'bg-[#f85149]/10 text-[#f85149]',
+                        file.status === 'renamed' && 'bg-[#58a6ff]/10 text-[#58a6ff]'
+                      )}
+                    >
+                      {file.status}
+                    </span>
+
+                    {/* Line count with refined styling */}
+                    <div className="flex items-center gap-1.5 text-xs font-medium tabular-nums">
+                      {file.additions > 0 && (
+                        <span className="text-[#3fb950]">+{file.additions}</span>
+                      )}
+                      {file.deletions > 0 && (
+                        <span className="text-[#f85149]">−{file.deletions}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Diff content - shown when expanded */}
+                {file.hunks.length > 0 && isExpanded && (
+                  <div className="px-5 pb-4">
+                    <FileDiffViewer hunks={file.hunks} filePath={file.path} viewMode={viewMode} />
+                  </div>
+                )}
+
+                {/* Collapsed preview with GitHub-style compact view */}
+                {file.hunks.length > 0 && !isExpanded && (
+                  <div className="mx-5 mb-3 overflow-hidden rounded-md border border-border/20 bg-[#0d1117]">
+                    <div className="max-h-[100px] overflow-hidden">
+                      {(() => {
+                        const allChangedLines = file.hunks.flatMap(hunk =>
+                          hunk.lines.filter(line => line.type === 'add' || line.type === 'remove')
+                        )
+                        const previewLines = allChangedLines.slice(0, 4)
+                        const totalChangedLines = allChangedLines.length
+
+                        return (
+                          <>
+                            {previewLines.map((line, idx) => (
+                              <div
+                                key={idx}
+                                className={cn(
+                                  'px-3 py-1 font-mono text-xs leading-5 transition-colors',
+                                  line.type === 'add' && 'bg-[#3fb950]/5 text-[#aff5b4] hover:bg-[#3fb950]/8',
+                                  line.type === 'remove' && 'bg-[#f85149]/5 text-[#ffdcd7] hover:bg-[#f85149]/8'
+                                )}
+                              >
+                                <span className="mr-3 select-none text-muted-foreground/40">
+                                  {line.type === 'add' ? '+' : '−'}
+                                </span>
+                                <span>{line.content}</span>
+                              </div>
+                            ))}
+                            {totalChangedLines > 4 && (
+                              <div className="px-3 py-1.5 text-xs text-muted-foreground/50">
+                                {totalChangedLines - 4} more {totalChangedLines - 4 === 1 ? 'change' : 'changes'}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Monaco Diff Viewer - TES-4.4, TES-4.5 */}
-              {file.hunks.length > 0 && selectedFile === file.path && (
-                <FileDiffViewer hunks={file.hunks} filePath={file.path} viewMode={viewMode} />
-              )}
-
-              {/* Compact preview when file is not selected */}
-              {file.hunks.length > 0 && selectedFile !== file.path && (
-                <div
-                  className="mt-1.5 cursor-pointer overflow-hidden rounded border border-border/20 bg-black/20 transition-colors hover:border-border/40"
-                  onClick={() => handleFileSelect(file.path)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      handleFileSelect(file.path)
-                    }
-                  }}
-                  aria-label={`View diff for ${file.path}`}
-                >
-                  <div className="max-h-[80px] overflow-hidden">
-                    {file.hunks[0].lines.slice(0, 4).map((line, idx) => (
-                      <div
-                        key={idx}
-                        className={cn(
-                          'px-2 py-0.5 font-mono text-[10px] leading-4',
-                          line.type === 'add' && 'bg-green-500/10 text-green-400',
-                          line.type === 'remove' && 'bg-red-500/10 text-red-400',
-                          line.type === 'context' && 'text-muted-foreground/60'
-                        )}
-                      >
-                        <span className="mr-2 select-none opacity-50">
-                          {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
-                        </span>
-                        {line.content}
-                      </div>
-                    ))}
-                    {file.hunks[0].lines.length > 4 && (
-                      <div className="px-2 py-0.5 text-[10px] text-muted-foreground/40">
-                        Click to view full diff ({file.hunks[0].lines.length - 4} more lines)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
@@ -448,6 +524,15 @@ function FileDiffViewer({ hunks, filePath, viewMode }: FileDiffViewerProps): Rea
 
   // Memoize language detection
   const language = useMemo(() => getLanguageFromPath(filePath), [filePath])
+
+  // If no content, show a message instead of blank Monaco editor
+  if (!original && !modified) {
+    return (
+      <div className="mt-2 rounded border border-border/20 bg-muted/10 p-4 text-center text-sm text-muted-foreground">
+        No diff content available
+      </div>
+    )
+  }
 
   return (
     <div className="mt-2">

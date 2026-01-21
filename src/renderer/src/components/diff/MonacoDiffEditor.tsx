@@ -20,6 +20,14 @@ import { Button } from '@renderer/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { registerTinsuTheme, TINSU_DARK_THEME } from './theme'
 
+// Configure Monaco to load from local public directory
+// This prevents CSP violations in Electron
+loader.config({
+  paths: {
+    vs: '/monaco/vs'
+  }
+})
+
 /**
  * Props for the MonacoDiffEditor component.
  */
@@ -117,6 +125,30 @@ export function MonacoDiffEditor({
   }, [])
 
   /**
+   * Catch mount errors and display them
+   */
+  const handleMountError = useCallback(() => {
+    setError('Monaco editor failed to render')
+    setIsLoading(false)
+  }, [])
+
+  /**
+   * Timeout to detect Monaco loading failures
+   * If still loading after 10 seconds, assume it failed
+   */
+  useEffect(() => {
+    if (!isLoading) return
+
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        handleMountError()
+      }
+    }, 10000)
+
+    return () => clearTimeout(timeout)
+  }, [isLoading, handleMountError])
+
+  /**
    * Dynamically update editor view mode without remounting (TES-4.5)
    * Uses Monaco's updateOptions() for smooth transitions
    */
@@ -143,38 +175,50 @@ export function MonacoDiffEditor({
 
   return (
     <div
-      className={cn('relative overflow-hidden rounded border border-border/20', className)}
+      className={cn(
+        'relative overflow-hidden',
+        'rounded-md border border-border/20',
+        'bg-[#0d1117]',
+        'shadow-sm',
+        className
+      )}
+      style={{ minHeight: typeof height === 'number' ? `${height}px` : height }}
       data-testid="monaco-diff-editor"
       aria-label={`Diff viewer for ${filePath}`}
     >
-      {/* Loading skeleton overlay */}
+      {/* GitHub-style loading skeleton */}
       {isLoading && !error && (
         <div
-          className="absolute inset-0 z-10 flex flex-col gap-1 bg-[#1a1a1a] p-2"
+          className="absolute inset-0 z-10 flex flex-col gap-1.5 bg-[#0d1117] p-4"
           data-testid="monaco-loading"
         >
-          <Skeleton className="h-4 w-full bg-muted/20" />
-          <Skeleton className="h-4 w-3/4 bg-muted/20" />
-          <Skeleton className="h-4 w-5/6 bg-muted/20" />
-          <Skeleton className="h-4 w-2/3 bg-muted/20" />
-          <Skeleton className="h-4 w-4/5 bg-muted/20" />
+          <Skeleton className="h-4 w-full bg-muted/10" />
+          <Skeleton className="h-4 w-[90%] bg-muted/10" />
+          <Skeleton className="h-4 w-[95%] bg-muted/10" />
+          <Skeleton className="h-4 w-[85%] bg-muted/10" />
+          <Skeleton className="h-4 w-[92%] bg-muted/10" />
         </div>
       )}
 
-      {/* Error state overlay */}
+      {/* GitHub-style error state */}
       {error && (
         <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#1a1a1a] p-4"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#0d1117] p-4"
           data-testid="monaco-error"
         >
-          <div className="rounded-lg bg-destructive/10 p-3">
-            <AlertCircle className="h-6 w-6 text-destructive" />
+          <div className="rounded-lg bg-[#f85149]/10 p-4">
+            <AlertCircle className="h-7 w-7 text-[#f85149]" />
           </div>
           <div className="text-center">
-            <p className="mb-1 text-sm font-medium text-destructive">Failed to load diff viewer</p>
-            <p className="text-xs text-muted-foreground">{error}</p>
+            <p className="mb-1.5 text-sm font-semibold text-foreground">Failed to load diff viewer</p>
+            <p className="text-xs text-muted-foreground/70">{error}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRetry}
+            className="gap-2 rounded-md border-border/40 hover:bg-muted/40"
+          >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry
           </Button>
@@ -210,10 +254,9 @@ export function MonacoDiffEditor({
           glyphMargin: true,
 
           // Collapse unchanged regions (AC #5)
+          // Disabled to prevent blank diff view - Monaco was collapsing too aggressively
           hideUnchangedRegions: {
-            enabled: true,
-            minimumLineCount: 3,
-            contextLineCount: 3
+            enabled: false
           },
 
           // Performance

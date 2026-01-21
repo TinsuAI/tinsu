@@ -22,6 +22,8 @@ export default defineConfig({
         '@shared': resolve('src/shared')
       }
     },
-    plugins: [tailwindcss(), react()]
+    plugins: [tailwindcss(), react()],
+    // Serve Monaco files from public directory
+    publicDir: resolve('public')
   }
 })

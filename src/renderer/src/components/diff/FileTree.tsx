@@ -33,12 +33,12 @@ const statusSortOrder: Record<GitDiffFile['status'], number> = {
   renamed: 3
 }
 
-/** Status icons mapping */
+/** Status icons mapping - GitHub style colors */
 const statusIcons: Record<GitDiffFile['status'], React.JSX.Element> = {
-  added: <Plus className="h-3.5 w-3.5 text-green-500" />,
-  modified: <Circle className="h-3.5 w-3.5 text-yellow-500" fill="currentColor" />,
-  deleted: <Minus className="h-3.5 w-3.5 text-red-500" />,
-  renamed: <ArrowRight className="h-3.5 w-3.5 text-blue-500" />
+  added: <Plus className="h-3.5 w-3.5 text-[#3fb950]" />,
+  modified: <Circle className="h-3 w-3 text-[#d29922]" fill="currentColor" />,
+  deleted: <Minus className="h-3.5 w-3.5 text-[#f85149]" />,
+  renamed: <ArrowRight className="h-3.5 w-3.5 text-[#58a6ff]" />
 }
 
 /** Compact mode status icons with larger hit area */
@@ -49,12 +49,12 @@ const compactStatusIcons: Record<GitDiffFile['status'], React.ComponentType<{ cl
   renamed: ArrowRight
 }
 
-/** Status color classes for compact mode icons */
+/** Status color classes for compact mode icons - GitHub style */
 const statusColorClasses: Record<GitDiffFile['status'], string> = {
-  added: 'text-green-500',
-  modified: 'text-yellow-500',
-  deleted: 'text-red-500',
-  renamed: 'text-blue-500'
+  added: 'text-[#3fb950]',
+  modified: 'text-[#d29922]',
+  deleted: 'text-[#f85149]',
+  renamed: 'text-[#58a6ff]'
 }
 
 /**
@@ -186,39 +186,39 @@ function FileTreeItem({
       onClick={onSelect}
       onKeyDown={handleKeyDown}
       className={cn(
-        'flex w-full items-center justify-between gap-2 px-3 py-1.5',
-        'cursor-pointer transition-colors',
-        'hover:bg-muted/20',
-        isSelected && 'bg-muted/40'
+        'flex w-full items-center justify-between gap-3 px-4 py-2',
+        'cursor-pointer transition-all duration-150',
+        'hover:bg-muted/[0.03] active:bg-muted/[0.06]',
+        isSelected && 'bg-muted/[0.08] border-l-2 border-[#58a6ff]'
       )}
       title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path || 'Unknown'}
       aria-label={`${filename}, ${file.status}, ${file.additions} additions, ${file.deletions} deletions`}
     >
       {/* Left side: icon + filename + label */}
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2.5">
         {/* Status icon */}
         <span className="shrink-0" aria-hidden="true">
           {statusIcons[file.status]}
         </span>
 
-        {/* Filename (truncated) */}
-        <span className="truncate text-sm text-foreground/80">{filename}</span>
+        {/* Filename (truncated) - GitHub monospace font */}
+        <span className="truncate font-mono text-sm font-medium text-foreground">{filename}</span>
 
         {/* Status label for added/deleted */}
         {file.status === 'added' && (
-          <span className="shrink-0 text-xs text-green-500/70">(new)</span>
+          <span className="shrink-0 text-xs font-medium text-[#3fb950]/70">(new)</span>
         )}
         {file.status === 'deleted' && (
-          <span className="shrink-0 text-xs text-red-500/70">(deleted)</span>
+          <span className="shrink-0 text-xs font-medium text-[#f85149]/70">(deleted)</span>
         )}
       </div>
 
-      {/* Right side: line stats */}
-      <div className="flex shrink-0 items-center gap-1.5 text-xs">
-        {file.additions > 0 && <span className="text-green-500">+{file.additions}</span>}
-        {file.deletions > 0 && <span className="text-red-500">-{file.deletions}</span>}
+      {/* Right side: line stats - GitHub style */}
+      <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium tabular-nums">
+        {file.additions > 0 && <span className="text-[#3fb950]">+{file.additions}</span>}
+        {file.deletions > 0 && <span className="text-[#f85149]">−{file.deletions}</span>}
         {file.additions === 0 && file.deletions === 0 && (
-          <span className="text-muted-foreground/50">±0</span>
+          <span className="text-muted-foreground/40">±0</span>
         )}
       </div>
     </button>
