@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { X, Download, Trash2, RefreshCw, Settings } from 'lucide-react'
+import { X, Download, Trash2, RefreshCw, Settings, Terminal } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useTerminalStore } from '@renderer/stores/terminal.store'
 import { FilterButton, FilterPanel, FilterSummary } from '@renderer/components/filter'
 import { VelocityWidget } from '@renderer/components/velocity'
 import { ProjectSwitcher } from '@renderer/components/project'
@@ -25,6 +26,7 @@ interface HeaderProps {
 export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false, onOpenSettings }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
+  const { isVisible: isTerminalVisible, toggleVisible: toggleTerminalVisible } = useTerminalStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
 
   const showClearAll = hasActiveFilters()
@@ -45,6 +47,18 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
         <div className="ml-auto flex items-center gap-2">
           {/* Velocity widget - shows task completion metrics (Story 2.7) */}
           <VelocityWidget />
+
+          {/* Terminal toggle button */}
+          <Button
+            variant={isTerminalVisible ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={toggleTerminalVisible}
+            data-testid="header-terminal-toggle"
+            aria-label={isTerminalVisible ? 'Hide terminal' : 'Show terminal'}
+          >
+            <Terminal className="mr-1 h-3 w-3" />
+            Terminal
+          </Button>
 
           {/* Clear all filters button - only visible when filters active */}
           {showClearAll && (

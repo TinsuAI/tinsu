@@ -29,6 +29,8 @@ export interface TerminalBuffer {
 }
 
 interface TerminalState {
+  /** Whether the terminal dock is visible (shown/hidden) */
+  isVisible: boolean
   /** Whether the terminal dock is expanded */
   isExpanded: boolean
   /** Height of the terminal dock in pixels (for top/bottom positions) */
@@ -47,6 +49,10 @@ interface TerminalState {
   /** TES-1.6: Cached terminal buffers keyed by taskId */
   terminalBuffers: Record<string, TerminalBuffer>
 
+  /** Set the visibility state */
+  setVisible: (visible: boolean) => void
+  /** Toggle visibility state */
+  toggleVisible: () => void
   /** Set the expanded state */
   setExpanded: (expanded: boolean) => void
   /** Toggle expanded state */
@@ -79,6 +85,7 @@ interface TerminalState {
 export const useTerminalStore = create<TerminalState>()(
   persist(
     (set, get) => ({
+      isVisible: false,
       isExpanded: true,
       height: DEFAULT_HEIGHT,
       width: DEFAULT_WIDTH,
@@ -88,6 +95,8 @@ export const useTerminalStore = create<TerminalState>()(
       agentWorkflowType: null,
       terminalBuffers: {},
 
+      setVisible: (isVisible) => set({ isVisible }),
+      toggleVisible: () => set((state) => ({ isVisible: !state.isVisible })),
       setExpanded: (isExpanded) => set({ isExpanded }),
       toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
       setHeight: (height) => set({ height: Math.max(MIN_SIZE, height) }),
@@ -141,12 +150,13 @@ export const useTerminalStore = create<TerminalState>()(
     }),
     {
       name: 'terminal-storage',
-      // Persist height, width, isExpanded, and dockPosition
+      // Persist height, width, isExpanded, isVisible, and dockPosition
       // DO NOT persist terminalBuffers (memory/performance concern, transient state)
       partialize: (state) => ({
         height: state.height,
         width: state.width,
         isExpanded: state.isExpanded,
+        isVisible: state.isVisible,
         dockPosition: state.dockPosition
       })
     }

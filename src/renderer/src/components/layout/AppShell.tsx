@@ -19,7 +19,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const { isExpanded, height, width, dockPosition } = useTerminalStore()
+  const { isVisible, isExpanded, height, width, dockPosition } = useTerminalStore()
   const projectPath = useProjectStore((state) => state.projectPath)
   const { syncProjectPath, selectedSprintId } = useUIStore()
 
@@ -59,6 +59,10 @@ export function AppShell({ children }: AppShellProps) {
 
   // Calculate content area padding based on terminal dock position and state
   const contentPadding = useMemo(() => {
+    // No padding needed when terminal is hidden
+    if (!isVisible) {
+      return {}
+    }
     const size = isExpanded ? (dockPosition === 'left' || dockPosition === 'right' ? width : height) : MIN_SIZE
     switch (dockPosition) {
       case 'bottom':
@@ -70,7 +74,7 @@ export function AppShell({ children }: AppShellProps) {
       case 'right':
         return { paddingRight: size }
     }
-  }, [isExpanded, dockPosition, height, width])
+  }, [isVisible, isExpanded, dockPosition, height, width])
 
   return (
     <div className="flex h-screen min-w-[1024px] flex-col overflow-hidden bg-background">
@@ -85,7 +89,7 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar />
         <MainContent>{children}</MainContent>
       </div>
-      <TerminalDock />
+      {isVisible && <TerminalDock />}
 
       {/* Story 3.7: Import Stories dialog - accessible from header */}
       <ImportStoriesDialog
