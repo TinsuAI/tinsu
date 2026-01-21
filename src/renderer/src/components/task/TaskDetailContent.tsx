@@ -21,8 +21,8 @@ import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
 import { NotionEditor } from '@renderer/components/editor'
 import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
+import { ResizableWorkspace } from '@renderer/components/workspace'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
-import { useQuadPaneStore, type SectionId } from '@renderer/stores/quad-pane.store'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
 import { markdownComponents } from '@renderer/components/task/MarkdownComponents'
@@ -46,31 +46,25 @@ export interface TaskDetailContentProps {
 /**
  * Task detail content component with responsive layout.
  *
- * Implements Story TES-3.2 (Quad-Pane Layout) with state preservation (AC 6.5).
- * Uses a single DOM structure that adapts via CSS to prevent component unmounting
- * during layout switches (resize).
+ * Implements Story TES-3.2 (Three-Column Task Workspace) with resizable panels.
  *
  * Layouts:
- * - Desktop (>=1024px): 2x2 Grid (Quad Pane)
+ * - Desktop (>=1024px): 3-column resizable layout (Content, Terminal+Activities, Diff)
  * - Mobile (<1024px): Tabbed Interface
  */
 export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetailContentProps) {
-  // Layout mode detection
+  // Layout mode detection (uses media query)
   const layoutMode = useQuadPaneLayout()
-  const { expandSection } = useQuadPaneStore()
-  const isQuad = layoutMode === 'quad'
+  const isDesktop = layoutMode === 'quad' // 'quad' means desktop (>= 1024px)
 
-  // Tab state (active even in quad mode, but only affects mobile visibility)
-  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>('content')
+  // Tab state for mobile layout
+  const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>(
+    'content'
+  )
   const [isEditing, setEditing] = useState(false)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
-
-  // Handler for section expansion
-  const handleExpandSection = useCallback((section: SectionId) => {
-    expandSection(section)
-  }, [expandSection])
 
   // Fetch task data only if not provided via props
   const { data: fetchedTask, isLoading } = trpc.tasks.getById.useQuery(
@@ -179,8 +173,8 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         }
       }
 
-      // Number key shortcuts for tab switching
-      if (!isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Number key shortcuts for tab switching (mobile only)
+      if (!isDesktop && !isTyping && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === '1') {
           e.preventDefault()
           setActiveTab('content')
@@ -206,7 +200,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
       // "/" key to focus terminal input
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
         // Only focus if terminal is visible
-        const terminalVisible = isQuad || activeTab === 'terminal'
+        const terminalVisible = isDesktop || activeTab === 'terminal'
         if (terminalVisible && hasActiveSession) {
           e.preventDefault()
           terminalRef.current?.focusInput()
@@ -216,7 +210,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isQuad])
+  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isDesktop])
 
   if (isLoading) {
     return (
@@ -245,8 +239,54 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const displayContent = task.full_content ?? task.description ?? ''
   const statusLabel = task.status.replace('_', ' ')
 
-  // Helper to determine visibility of a section
-  const isVisible = (tab: typeof activeTab) => isQuad || activeTab === tab
+  // Helper to determine visibility of a section (mobile only)
+  const isVisible = (tab: typeof activeTab) => activeTab === tab
+
+  // Content section rendering (shared between desktop and mobile)
+  const contentSection = (
+    <>
+      {isEditing ? (
+        <div className="p-4">
+          <NotionEditor
+            content={editContent}
+            onChange={handleContentChange}
+            placeholder="Start writing your story..."
+            autoFocus
+            className="min-h-[200px] rounded-lg border border-border/50 bg-card/30 p-4"
+          />
+          {hasChanges && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-amber-400">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+              Unsaved changes
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="p-4">
+          {displayContent ? (
+            <article className="story-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {displayContent}
+              </ReactMarkdown>
+            </article>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <BookOpen className="mb-3 h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">No content yet</p>
+              <Button
+                variant="outline"
+                onClick={() => setEditing(true)}
+                className="mt-4 gap-2 border-cyan-500/30 text-cyan-400"
+              >
+                <Pencil className="h-4 w-4" />
+                Add Content
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -354,201 +394,136 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         </div>
       </header>
 
-      {/* Tab bar (Mobile Only) */}
-      {!isQuad && (
-        <div
-          className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2"
-          role="tablist"
-          aria-label="Task Detail Tabs"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'content'}
-            onClick={() => setActiveTab('content')}
-            className={cn(
-              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              activeTab === 'content'
-                ? 'bg-cyan-500/20 text-cyan-400'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            <span className="text-xs text-muted-foreground/60">1</span>
-            <BookOpen className="h-4 w-4" />
-            Content
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'activities'}
-            onClick={() => setActiveTab('activities')}
-            className={cn(
-              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              activeTab === 'activities'
-                ? 'bg-cyan-500/20 text-cyan-400'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            <span className="text-xs text-muted-foreground/60">2</span>
-            <Activity className="h-4 w-4" />
-            Activities
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'terminal'}
-            onClick={() => setActiveTab('terminal')}
-            className={cn(
-              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              activeTab === 'terminal'
-                ? 'bg-cyan-500/20 text-cyan-400'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            <span className="text-xs text-muted-foreground/60">3</span>
-            <Terminal className="h-4 w-4" />
-            Terminal
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'diff'}
-            onClick={() => setActiveTab('diff')}
-            className={cn(
-              'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              activeTab === 'diff'
-                ? 'bg-cyan-500/20 text-cyan-400'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            <span className="text-xs text-muted-foreground/60">4</span>
-            <GitCompareArrows className="h-4 w-4" />
-            Diff
-          </button>
+      {/* Desktop: 3-Column Resizable Layout */}
+      {isDesktop && (
+        <div className="min-h-0 flex-1 p-4">
+          <ResizableWorkspace
+            task={task}
+            contentSection={contentSection}
+            terminalRef={terminalRef}
+          />
         </div>
       )}
 
-      {/* Main Content Area - Responsive Layout */}
-      {/* Uses CSS to toggle sections instead of React unmounting */}
-      <div
-        className={cn(
-          'flex-1 p-4 min-h-0',
-          isQuad ? 'grid h-full grid-cols-2 grid-rows-2 gap-3' : 'flex flex-col'
-        )}
-      >
-        {/* Terminal Section (Top-Left in Quad) */}
-        <QuadPaneSection
-          title="Terminal"
-          icon={Terminal}
-          onExpand={() => handleExpandSection('terminal')}
-          showHeader={isQuad}
-          className={cn(
-            'min-h-0',
-            !isVisible('terminal') && 'hidden',
-            !isQuad && 'flex-1 border-0 bg-transparent' // Mobile: Remove card styling
-          )}
-        >
-          <TaskTerminal ref={terminalRef} taskId={taskId} />
-        </QuadPaneSection>
-
-        {/* Activities Section (Top-Right in Quad) */}
-        <QuadPaneSection
-          title="Activities"
-          icon={Activity}
-          onExpand={() => handleExpandSection('activities')}
-          showHeader={isQuad}
-          className={cn(
-            'min-h-0',
-            !isVisible('activities') && 'hidden',
-            !isQuad && 'flex-1 border-0 bg-transparent'
-          )}
-        >
-          <ActivitiesTab taskId={taskId} />
-        </QuadPaneSection>
-
-        {/* Diff Section (Bottom-Left in Quad) */}
-        <QuadPaneSection
-          title="Diff"
-          icon={GitCompareArrows}
-          onExpand={() => handleExpandSection('diff')}
-          showHeader={isQuad}
-          className={cn(
-            'min-h-0',
-            !isVisible('diff') && 'hidden',
-            !isQuad && 'flex-1 border-0 bg-transparent'
-          )}
-        >
-          <DiffPlaceholder />
-        </QuadPaneSection>
-
-        {/* Content Section (Bottom-Right in Quad) */}
-        <QuadPaneSection
-          title="Content"
-          icon={BookOpen}
-          onExpand={() => handleExpandSection('content')}
-          showHeader={isQuad}
-          className={cn(
-            'min-h-0',
-            !isVisible('content') && 'hidden',
-            !isQuad && 'flex-1 border-0 bg-transparent'
-          )}
-        >
-          {/* Content Rendering Logic */}
-          {isEditing ? (
-            <div className={cn(isQuad ? 'p-4' : 'pt-4')}>
-              {/* Mobile Editor Hint */}
-              {!isQuad && (
-                <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground/60">
-                  <kbd className="rounded border border-border px-1.5 py-0.5">⌘S</kbd>
-                  <span>save</span>
-                  <span className="mx-1">·</span>
-                  <kbd className="rounded border border-border px-1.5 py-0.5">/</kbd>
-                  <span>commands</span>
-                </div>
+      {/* Mobile: Tabbed Interface */}
+      {!isDesktop && (
+        <>
+          {/* Tab bar */}
+          <div
+            className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2"
+            role="tablist"
+            aria-label="Task Detail Tabs"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'content'}
+              onClick={() => setActiveTab('content')}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeTab === 'content'
+                  ? 'bg-cyan-500/20 text-cyan-400'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
+            >
+              <span className="text-xs text-muted-foreground/60">1</span>
+              <BookOpen className="h-4 w-4" />
+              Content
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'activities'}
+              onClick={() => setActiveTab('activities')}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeTab === 'activities'
+                  ? 'bg-cyan-500/20 text-cyan-400'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <span className="text-xs text-muted-foreground/60">2</span>
+              <Activity className="h-4 w-4" />
+              Activities
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'terminal'}
+              onClick={() => setActiveTab('terminal')}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeTab === 'terminal'
+                  ? 'bg-cyan-500/20 text-cyan-400'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <span className="text-xs text-muted-foreground/60">3</span>
+              <Terminal className="h-4 w-4" />
+              Terminal
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'diff'}
+              onClick={() => setActiveTab('diff')}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeTab === 'diff'
+                  ? 'bg-cyan-500/20 text-cyan-400'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <span className="text-xs text-muted-foreground/60">4</span>
+              <GitCompareArrows className="h-4 w-4" />
+              Diff
+            </button>
+          </div>
 
-              <NotionEditor
-                content={editContent}
-                onChange={handleContentChange}
-                placeholder="Start writing your story..."
-                autoFocus
-                className="min-h-[200px] rounded-lg border border-border/50 bg-card/30 p-4"
-              />
-              {hasChanges && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-amber-400">
-                  <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                  Unsaved changes
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className={cn(isQuad ? 'p-4' : 'pt-4')}>
-              {displayContent ? (
-                <article className="story-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {displayContent}
-                  </ReactMarkdown>
-                </article>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <BookOpen className="mb-3 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No content yet</p>
-                  {!isQuad && (
-                     <Button
-                       variant="outline"
-                       onClick={() => setEditing(true)}
-                       className="mt-4 gap-2 border-cyan-500/30 text-cyan-400"
-                     >
-                       <Pencil className="h-4 w-4" />
-                       Add Content
-                     </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </QuadPaneSection>
-      </div>
+          {/* Tab content */}
+          <div className="min-h-0 flex-1 p-4">
+            {/* Content Tab */}
+            <QuadPaneSection
+              title="Content"
+              icon={BookOpen}
+              showHeader={false}
+              className={cn('h-full', !isVisible('content') && 'hidden')}
+            >
+              {contentSection}
+            </QuadPaneSection>
+
+            {/* Activities Tab */}
+            <QuadPaneSection
+              title="Activities"
+              icon={Activity}
+              showHeader={false}
+              className={cn('h-full', !isVisible('activities') && 'hidden')}
+            >
+              <ActivitiesTab taskId={taskId} />
+            </QuadPaneSection>
+
+            {/* Terminal Tab */}
+            <QuadPaneSection
+              title="Terminal"
+              icon={Terminal}
+              showHeader={false}
+              className={cn('h-full', !isVisible('terminal') && 'hidden')}
+            >
+              <TaskTerminal ref={terminalRef} taskId={taskId} />
+            </QuadPaneSection>
+
+            {/* Diff Tab */}
+            <QuadPaneSection
+              title="Diff"
+              icon={GitCompareArrows}
+              showHeader={false}
+              className={cn('h-full', !isVisible('diff') && 'hidden')}
+            >
+              <DiffPlaceholder />
+            </QuadPaneSection>
+          </div>
+        </>
+      )}
     </div>
   )
 }

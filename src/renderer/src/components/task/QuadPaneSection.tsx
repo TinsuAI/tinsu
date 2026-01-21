@@ -131,11 +131,8 @@ export function QuadPaneSection({
         className={cn(
           // Fill remaining space
           'min-h-0 flex-1',
-          // Enable scrolling
-          'overflow-auto',
-          // Custom scrollbar styling (matches kanban-scroll)
-          'scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border/30',
-          'hover:scrollbar-thumb-border/50'
+          // Enable scrolling with kanban-style scrollbar
+          'kanban-scroll overflow-auto'
         )}
         data-testid="quad-pane-section-content"
       >

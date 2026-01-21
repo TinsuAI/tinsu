@@ -263,7 +263,7 @@ export function ActivitiesTab({ taskId }: ActivitiesTabProps): React.ReactNode {
       {/* Content Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto"
+        className="kanban-scroll flex-1 overflow-y-auto"
         onScroll={handleScroll}
       >
         {isLoading ? (
