@@ -403,3 +403,55 @@ describe('KanbanBoard phase 5 completion (Story 3.7)', () => {
   // phase 5 planning task is dragged to done requires @dnd-kit/testing utilities
   // The actual integration behavior is tested in KanbanBoardContainer tests
 })
+
+// TES-3.1: Scroll restoration when returning from task workspace
+describe('KanbanBoard scroll restoration (TES-3.1)', () => {
+  it('should call scrollIntoView when returnTaskId is set', async () => {
+    const scrollIntoViewMock = vi.fn()
+    const focusMock = vi.fn()
+
+    // Mock HTMLElement.prototype.scrollIntoView and focus
+    HTMLDivElement.prototype.scrollIntoView = scrollIntoViewMock
+    HTMLDivElement.prototype.focus = focusMock
+
+    const { useTaskWorkspaceStore } = await import('@renderer/stores/task-workspace.store')
+
+    // Set returnTaskId before rendering
+    useTaskWorkspaceStore.setState({ returnTaskId: '1' })
+
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Wait for the requestAnimationFrame to execute and scrollIntoView to be called
+    await vi.waitFor(
+      () => {
+        expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+        expect(focusMock).toHaveBeenCalled()
+      },
+      { timeout: 1000 }
+    )
+  })
+
+  it('should clear returnTaskId after scrolling', async () => {
+    const { useTaskWorkspaceStore } = await import('@renderer/stores/task-workspace.store')
+
+    useTaskWorkspaceStore.setState({ returnTaskId: '1' })
+
+    render(<KanbanBoard tasks={mockTasks} />)
+
+    // Wait for scroll restoration to complete
+    await vi.waitFor(() => {
+      expect(useTaskWorkspaceStore.getState().returnTaskId).toBeNull()
+    })
+  })
+
+  it('should not crash when returnTaskId task is not found', async () => {
+    const { useTaskWorkspaceStore } = await import('@renderer/stores/task-workspace.store')
+
+    useTaskWorkspaceStore.setState({ returnTaskId: 'nonexistent-task' })
+
+    // Should not throw
+    expect(() => {
+      render(<KanbanBoard tasks={mockTasks} />)
+    }).not.toThrow()
+  })
+})

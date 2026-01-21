@@ -8,8 +8,7 @@ import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
 import { CreateStoryConfirmDialog } from '../dialogs/CreateStoryConfirmDialog'
 import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
 import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
-import { TaskDetailPanel } from '../task/TaskDetailPanel'
-import { useUIStore, useTerminalStore, useTaskDetailPanelStore } from '@renderer/stores'
+import { useUIStore, useTerminalStore, useTaskWorkspaceStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 import type { Task, TaskStatus } from '@shared/types/task.types'
@@ -27,8 +26,8 @@ export function KanbanBoardContainer() {
   // Story 3.9: Sync hook for bidirectional sync (AC: 5)
   const { syncingTaskIds } = useStorySync()
 
-  // TES-3.1: Task detail panel store for slide-over view
-  const { openPanel, isOpen: isPanelOpen, activeTaskId, switchTask } = useTaskDetailPanelStore()
+  // TES-3.1: Task workspace store for full-screen navigation
+  const { openWorkspace, activeTaskId } = useTaskWorkspaceStore()
 
   // Story 2.6: Get all filter state
   const selectedSprintId = useUIStore((state) => state.selectedSprintId)
@@ -337,18 +336,12 @@ export function KanbanBoardContainer() {
     return filtered
   }, [tasks, selectedSprintId, selectedEpicIds, selectedStatuses])
 
-  // TES-3.1: Handle story card click to open task detail panel (AC: #1, #3)
+  // TES-3.1: Handle story card click to open full-screen task workspace (AC: #1, #3)
   const handleStoryClick = useCallback(
     (taskId: string) => {
-      if (isPanelOpen && activeTaskId !== taskId) {
-        // Panel already open, switch to new task instantly (no animation)
-        switchTask(taskId)
-      } else {
-        // Open panel with slide-in animation
-        openPanel(taskId)
-      }
+      openWorkspace(taskId)
     },
-    [isPanelOpen, activeTaskId, switchTask, openPanel]
+    [openWorkspace]
   )
 
   // Create epic name and color maps for display on task cards
@@ -403,7 +396,7 @@ export function KanbanBoardContainer() {
         isLoading={isLoading}
         hasActiveFilters={hasActiveFilters}
         syncingTaskIds={syncingTaskIds}
-        selectedTaskId={isPanelOpen ? activeTaskId : null}
+        selectedTaskId={activeTaskId}
         onStatusChange={handleStatusChange}
         onReorder={handleReorder}
         onAddTask={handleAddTask}
@@ -462,8 +455,6 @@ export function KanbanBoardContainer() {
           onConfirm={handleBasicTaskConfirm}
         />
       )}
-      {/* TES-3.1: Task detail panel slide-over */}
-      <TaskDetailPanel />
     </>
   )
 }

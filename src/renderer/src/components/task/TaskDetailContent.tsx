@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
+  ArrowLeft,
   X,
   BookOpen,
   CheckCircle2,
@@ -28,6 +29,17 @@ import { markdownComponents } from '@renderer/components/task/MarkdownComponents
 
 export interface TaskDetailContentProps {
   taskId: string
+  task?: {
+    id: string
+    title: string
+    description: string | null
+    status: string
+    epic_id: string | null
+    story_number: number | null
+    full_content: string | null
+    created_at: Date
+    updated_at: Date
+  } | null
   onClose: () => void
 }
 
@@ -42,7 +54,7 @@ export interface TaskDetailContentProps {
  * - Desktop (>=1024px): 2x2 Grid (Quad Pane)
  * - Mobile (<1024px): Tabbed Interface
  */
-export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
+export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetailContentProps) {
   // Layout mode detection
   const layoutMode = useQuadPaneLayout()
   const { expandSection } = useQuadPaneStore()
@@ -60,8 +72,14 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
     expandSection(section)
   }, [expandSection])
 
-  // Fetch task data
-  const { data: task, isLoading } = trpc.tasks.getById.useQuery({ id: taskId }, { enabled: !!taskId })
+  // Fetch task data only if not provided via props
+  const { data: fetchedTask, isLoading } = trpc.tasks.getById.useQuery(
+    { id: taskId },
+    { enabled: !!taskId && !taskProp }
+  )
+
+  // Use provided task or fetched task
+  const task = taskProp || fetchedTask
 
   // Fetch all epics to find the matching one
   const { data: epics } = trpc.epics.getAll.useQuery()
@@ -232,8 +250,20 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header with close button */}
-      <header className="task-detail-panel-header flex items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
+      {/* Header with back button */}
+      <header className="task-detail-panel-header flex items-center gap-4 border-b border-border/40 px-6 py-4">
+        {/* TES-3.1: Back button on left side (AC: #1) */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="shrink-0 gap-2 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+          aria-label="Back to board"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Back</span>
+        </Button>
+
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-2">
@@ -321,15 +351,6 @@ export function TaskDetailContent({ taskId, onClose }: TaskDetailContentProps) {
               Edit
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="ml-2 h-8 w-8 rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
-            aria-label="Close panel"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
       </header>
 

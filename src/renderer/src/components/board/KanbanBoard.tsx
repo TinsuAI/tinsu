@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
 import {
   DndContext,
   pointerWithin,
@@ -23,6 +23,7 @@ import { StoryTaskCard } from './StoryTaskCard'
 import { SortableStoryTaskCard } from './SortableStoryTaskCard'
 import { TASK_STATUS, type TaskStatus, type Task, isPlanningTask, isStoryTask, isBasicTask } from '@shared/types/task.types'
 import { validateDragMove } from '@shared/utils/drag-validation'
+import { useTaskWorkspaceStore } from '@renderer/stores'
 
 interface KanbanBoardProps {
   tasks: Task[]
@@ -95,6 +96,41 @@ export function KanbanBoard({
   // Track active drag item
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
+
+  // TES-3.1: Scroll restoration when returning from task workspace (AC: #2)
+  const { returnTaskId, clearReturnTaskId } = useTaskWorkspaceStore()
+
+  useEffect(() => {
+    if (!returnTaskId) return
+
+    let retryCount = 0
+    const maxRetries = 10 // Max 10 frames (~160ms at 60fps)
+
+    const attemptScroll = () => {
+      const taskCard = cardRefs.current.get(returnTaskId)
+
+      if (taskCard) {
+        // Card found, scroll to it
+        taskCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        taskCard.focus()
+        clearReturnTaskId()
+      } else if (retryCount < maxRetries) {
+        // Card not found yet, retry next frame
+        retryCount++
+        requestAnimationFrame(attemptScroll)
+      } else {
+        // Max retries reached, give up and clear
+        clearReturnTaskId()
+      }
+    }
+
+    // Start on next frame to allow DOM to update
+    const rafId = requestAnimationFrame(attemptScroll)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+    }
+  }, [returnTaskId, clearReturnTaskId])
 
   // Configure sensors for drag detection
   const sensors = useSensors(

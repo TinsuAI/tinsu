@@ -3,15 +3,18 @@ import { AppShell } from './components/layout/AppShell'
 import { Welcome } from './components/Welcome'
 import { KanbanBoardContainer } from './components/board'
 import { StoryFullView } from './components/story'
+import { TaskWorkspacePage } from './pages/TaskWorkspacePage'
 import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
-import { useStoryViewStore } from './stores'
+import { useStoryViewStore, useTaskWorkspaceStore } from './stores'
 import { trpc } from './lib/trpc'
 import { useFileWatcher } from './hooks/useFileWatcher'
 
 function App(): React.JSX.Element {
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
   const activeStoryId = useStoryViewStore((state) => state.activeStoryId)
+  // TES-3.1: Full-screen task workspace navigation
+  const activeTaskId = useTaskWorkspaceStore((state) => state.activeTaskId)
 
   // Story 3.9: Start file watching when project is opened
   useFileWatcher(projectPath)
@@ -77,16 +80,25 @@ function App(): React.JSX.Element {
     )
   }
 
-  // Keep AppShell mounted but hidden when viewing stories to preserve scroll positions
-  // StoryFullView renders as full-screen overlay when active
+  // Keep AppShell mounted but hidden when viewing tasks/stories to preserve scroll positions
+  // TES-3.1: TaskWorkspacePage renders as full-screen workspace when a task is active
+  // StoryFullView renders as full-screen overlay when viewing story content
+  const isViewingTask = !!activeTaskId
+  const isViewingStory = !!activeStoryId
+
   return (
     <>
-      <div className={activeStoryId ? 'hidden' : undefined}>
+      <div
+        className={isViewingTask || isViewingStory ? 'hidden' : undefined}
+        aria-hidden={isViewingTask || isViewingStory}
+        inert={isViewingTask || isViewingStory ? ('' as any) : undefined}
+      >
         <AppShell>
           <KanbanBoardContainer />
         </AppShell>
       </div>
-      {activeStoryId && <StoryFullView />}
+      {isViewingTask && <TaskWorkspacePage />}
+      {isViewingStory && !isViewingTask && <StoryFullView />}
       <Toaster />
     </>
   )
