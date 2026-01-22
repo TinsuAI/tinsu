@@ -1708,4 +1708,104 @@ export class GitService {
 
     return { files, summary }
   }
+
+  /**
+   * Stage a file for commit.
+   *
+   * Runs `git add <filePath>` in the specified repository/worktree.
+   *
+   * @param repoPath - Path to the repository or worktree
+   * @param filePath - Relative path to the file to stage
+   * @throws GitError if staging fails
+   *
+   * @see Story 8.8: AC 4 - Stage resolved files
+   *
+   * @example
+   * ```typescript
+   * await GitService.stageFile('/path/to/worktree', 'src/main.ts')
+   * ```
+   */
+  static async stageFile(repoPath: string, filePath: string): Promise<void> {
+    this.validatePath(repoPath, 'stageFile')
+
+    if (!filePath || typeof filePath !== 'string') {
+      throw new GitError('Invalid filePath: filePath must be a non-empty string', 'stageFile')
+    }
+
+    // Validate filePath doesn't contain dangerous characters
+    if (/[;&|`$<>]/.test(filePath)) {
+      throw new GitError('Invalid filePath: contains dangerous characters', 'stageFile')
+    }
+
+    const normalizedPath = resolve(repoPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Repository path does not exist: ${normalizedPath}`, 'stageFile')
+    }
+
+    try {
+      await this.execGit(['add', filePath], normalizedPath, GIT_COMMAND_TIMEOUT)
+    } catch (error) {
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(`Failed to stage file: ${errorMessage}`, 'git add', undefined, errorMessage)
+    }
+  }
+
+  /**
+   * Complete a merge commit after resolving conflicts.
+   *
+   * Runs `git commit --no-edit` to finish a merge that was started
+   * with `git merge --no-commit`. Git auto-generates the merge message.
+   *
+   * @param repoPath - Path to the repository or worktree
+   * @throws GitError if commit fails
+   *
+   * @see Story 8.8: AC 4 - Complete merge after resolution
+   *
+   * @example
+   * ```typescript
+   * await GitService.completeMergeCommit('/path/to/worktree')
+   * ```
+   */
+  static async completeMergeCommit(repoPath: string): Promise<void> {
+    this.validatePath(repoPath, 'completeMergeCommit')
+
+    const normalizedPath = resolve(repoPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'completeMergeCommit'
+      )
+    }
+
+    try {
+      // Stage all changes (in case any were missed)
+      await this.execGit(['add', '.'], normalizedPath, GIT_COMMAND_TIMEOUT)
+
+      // Complete the merge commit - Git auto-generates merge message
+      await this.execGit(['commit', '--no-edit'], normalizedPath, GIT_LARGE_OP_TIMEOUT)
+    } catch (error) {
+      if (error instanceof GitError) {
+        // Check if it's "nothing to commit" which can happen if already committed
+        if (error.stderr?.includes('nothing to commit')) {
+          // Not an error - merge was already completed
+          return
+        }
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to complete merge commit: ${errorMessage}`,
+        'git commit',
+        undefined,
+        errorMessage
+      )
+    }
+  }
 }

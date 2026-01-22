@@ -769,5 +769,345 @@ export const gitRouter = router({
           message: `Failed to check for conflicts: ${errorMessage}`
         })
       }
+    }),
+
+  /**
+   * Get the content of a conflicting file from a worktree.
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @param input.filePath - Relative path to the file within the worktree
+   * @returns The file content as a string
+   * @throws TRPCError if file doesn't exist or path is invalid
+   *
+   * @see Story 8.8: AC 1, 2 - Load conflict file content
+   *
+   * @example
+   * ```typescript
+   * const content = await trpc.git.getConflictFileContent.query({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123',
+   *   filePath: 'src/main.ts'
+   * })
+   * ```
+   */
+  getConflictFileContent: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        filePath: z.string().min(1, 'filePath is required')
+      })
+    )
+    .query(async ({ input }) => {
+      const { resolve, existsSync } = await import('path')
+      const { readFileSync } = await import('fs')
+
+      // Validate paths don't contain dangerous characters
+      if (/[;&|`$<>]/.test(input.worktreePath) || /[;&|`$<>]/.test(input.filePath)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: contains dangerous characters'
+        })
+      }
+
+      const fullPath = resolve(input.worktreePath, input.filePath)
+
+      // Ensure path is within worktree (prevent directory traversal)
+      const normalizedWorktree = resolve(input.worktreePath)
+      if (!fullPath.startsWith(normalizedWorktree)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: file path must be within worktree'
+        })
+      }
+
+      if (!existsSync(fullPath)) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `File not found: ${input.filePath}`
+        })
+      }
+
+      try {
+        return readFileSync(fullPath, 'utf-8')
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to read file: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Save resolved content to a conflict file in the worktree.
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @param input.filePath - Relative path to the file within the worktree
+   * @param input.content - The resolved content to write
+   * @returns Success status
+   * @throws TRPCError if path is invalid or write fails
+   *
+   * @see Story 8.8: AC 2, 3 - Save resolved content
+   *
+   * @example
+   * ```typescript
+   * await trpc.git.saveConflictFileContent.mutate({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123',
+   *   filePath: 'src/main.ts',
+   *   content: 'resolved content here'
+   * })
+   * ```
+   */
+  saveConflictFileContent: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        filePath: z.string().min(1, 'filePath is required'),
+        content: z.string()
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { resolve } = await import('path')
+      const { writeFileSync } = await import('fs')
+
+      // Validate paths don't contain dangerous characters
+      if (/[;&|`$<>]/.test(input.worktreePath) || /[;&|`$<>]/.test(input.filePath)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: contains dangerous characters'
+        })
+      }
+
+      const fullPath = resolve(input.worktreePath, input.filePath)
+
+      // Ensure path is within worktree (prevent directory traversal)
+      const normalizedWorktree = resolve(input.worktreePath)
+      if (!fullPath.startsWith(normalizedWorktree)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: file path must be within worktree'
+        })
+      }
+
+      try {
+        writeFileSync(fullPath, input.content, 'utf-8')
+        return { success: true }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to save file: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Stage a resolved file in the worktree.
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @param input.filePath - Relative path to the file to stage
+   * @returns Success status
+   * @throws TRPCError if staging fails
+   *
+   * @see Story 8.8: AC 4 - Stage resolved files for commit
+   *
+   * @example
+   * ```typescript
+   * await trpc.git.stageResolvedFile.mutate({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123',
+   *   filePath: 'src/main.ts'
+   * })
+   * ```
+   */
+  stageResolvedFile: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        filePath: z.string().min(1, 'filePath is required')
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { resolve, existsSync } = await import('path')
+
+      // Validate paths don't contain dangerous characters
+      if (/[;&|`$<>]/.test(input.worktreePath) || /[;&|`$<>]/.test(input.filePath)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: contains dangerous characters'
+        })
+      }
+
+      const normalizedWorktree = resolve(input.worktreePath)
+
+      if (!existsSync(normalizedWorktree)) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Worktree not found: ${input.worktreePath}`
+        })
+      }
+
+      try {
+        await GitService.stageFile(normalizedWorktree, input.filePath)
+        return { success: true }
+      } catch (error) {
+        if (error instanceof GitError) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to stage file: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Complete conflict resolution by committing the merge.
+   *
+   * After all conflicts are resolved and staged, this commits the merge
+   * and updates the task's conflict status in the database.
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @param input.taskId - Task ID for database update
+   * @returns Success status
+   * @throws TRPCError if commit fails
+   *
+   * @see Story 8.8: AC 4 - Complete merge after resolution
+   *
+   * @example
+   * ```typescript
+   * await trpc.git.completeConflictResolution.mutate({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123',
+   *   taskId: 'abc123'
+   * })
+   * ```
+   */
+  completeConflictResolution: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { resolve, existsSync } = await import('path')
+
+      // Validate paths don't contain dangerous characters
+      if (/[;&|`$<>]/.test(input.worktreePath)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: contains dangerous characters'
+        })
+      }
+
+      const normalizedWorktree = resolve(input.worktreePath)
+
+      if (!existsSync(normalizedWorktree)) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Worktree not found: ${input.worktreePath}`
+        })
+      }
+
+      try {
+        // Complete the merge commit
+        await GitService.completeMergeCommit(normalizedWorktree)
+
+        // Update task's conflict status in database
+        ctx.db
+          .update(tasks)
+          .set({
+            has_merge_conflict: 0,
+            conflict_files: null,
+            updated_at: new Date()
+          })
+          .where(eq(tasks.id, input.taskId))
+          .run()
+
+        return { success: true }
+      } catch (error) {
+        if (error instanceof GitError) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to complete merge: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Open the worktree directory in the system's default editor.
+   *
+   * Uses Electron's shell.openPath() to open the directory.
+   *
+   * @param input.path - Path to open in the system editor
+   * @returns Success status and any error message from the shell
+   *
+   * @see Story 8.8: AC 5 - Open in external editor
+   *
+   * @example
+   * ```typescript
+   * await trpc.git.openInSystemEditor.mutate({
+   *   path: '/project/.tinsu/worktrees/abc123'
+   * })
+   * ```
+   */
+  openInSystemEditor: publicProcedure
+    .input(
+      z.object({
+        path: z.string().min(1, 'path is required')
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { resolve, existsSync } = await import('path')
+      const { shell } = await import('electron')
+
+      // Validate path doesn't contain dangerous characters
+      if (/[;&|`$<>]/.test(input.path)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid path: contains dangerous characters'
+        })
+      }
+
+      const normalizedPath = resolve(input.path)
+
+      if (!existsSync(normalizedPath)) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Path not found: ${input.path}`
+        })
+      }
+
+      try {
+        const result = await shell.openPath(normalizedPath)
+        // shell.openPath returns empty string on success, error message on failure
+        if (result) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to open editor: ${result}`
+          })
+        }
+        return { success: true }
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to open editor: ${errorMessage}`
+        })
+      }
     })
 })

@@ -34,14 +34,22 @@ describe('ConflictWarningBanner', () => {
       expect(screen.getByText('README.md')).toBeInTheDocument()
     })
 
-    it('should show resolution instructions (AC: 3, Task 6.6)', () => {
+    it('should show Resolve Conflicts button when onResolveClick provided (Story 8.8)', () => {
+      const conflictFiles = ['src/main.ts']
+      const onResolveClick = vi.fn()
+      render(
+        <ConflictWarningBanner conflictFiles={conflictFiles} onResolveClick={onResolveClick} />
+      )
+
+      expect(screen.getByTestId('resolve-conflicts-btn')).toBeInTheDocument()
+      expect(screen.getByText('Resolve Conflicts')).toBeInTheDocument()
+    })
+
+    it('should not show Resolve Conflicts button when onResolveClick not provided', () => {
       const conflictFiles = ['src/main.ts']
       render(<ConflictWarningBanner conflictFiles={conflictFiles} />)
 
-      expect(
-        screen.getByText(/Open the task's terminal, resolve conflicts manually/i)
-      ).toBeInTheDocument()
-      expect(screen.getByText(/After resolving, move the task to Done again/i)).toBeInTheDocument()
+      expect(screen.queryByTestId('resolve-conflicts-btn')).not.toBeInTheDocument()
     })
 
     it('should render with amber warning styling', () => {
@@ -88,6 +96,19 @@ describe('ConflictWarningBanner', () => {
       fireEvent.click(screen.getByTestId('conflict-banner-dismiss'))
 
       expect(onDismiss).toHaveBeenCalledTimes(1)
+    })
+
+    it('should call onResolveClick when Resolve Conflicts button clicked (Story 8.8)', () => {
+      const conflictFiles = ['src/main.ts']
+      const onResolveClick = vi.fn()
+
+      render(
+        <ConflictWarningBanner conflictFiles={conflictFiles} onResolveClick={onResolveClick} />
+      )
+
+      fireEvent.click(screen.getByTestId('resolve-conflicts-btn'))
+
+      expect(onResolveClick).toHaveBeenCalledTimes(1)
     })
   })
 

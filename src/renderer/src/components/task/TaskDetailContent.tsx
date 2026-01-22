@@ -25,7 +25,7 @@ import { NotionEditor } from '@renderer/components/editor'
 import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
-import { ConflictWarningBanner } from '@renderer/components/conflict'
+import { ConflictWarningBanner, ConflictResolutionView } from '@renderer/components/conflict'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
@@ -78,6 +78,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
   // Story 8.7: Conflict banner dismissed state (resets when task changes)
   const [conflictBannerDismissed, setConflictBannerDismissed] = useState(false)
+
+  // Story 8.8: Conflict resolution view state
+  const [showConflictResolution, setShowConflictResolution] = useState(false)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -145,6 +148,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     setEditing(true)
     setHasChanges(false)
     setConflictBannerDismissed(false) // Story 8.7: Reset dismissed state when task changes
+    setShowConflictResolution(false) // Story 8.8: Close resolution view on task change
   }, [taskId])
 
   // Handle content changes
@@ -466,8 +470,31 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               }
             })()}
             onDismiss={() => setConflictBannerDismissed(true)}
+            onResolveClick={() => setShowConflictResolution(true)}
           />
         </div>
+      )}
+
+      {/* Story 8.8: Conflict Resolution View */}
+      {showConflictResolution && task.has_merge_conflict === 1 && task.worktree_path && task.branch_name && (
+        <ConflictResolutionView
+          taskId={task.id}
+          conflictFiles={(() => {
+            try {
+              return task.conflict_files ? JSON.parse(task.conflict_files) : []
+            } catch {
+              return []
+            }
+          })()}
+          worktreePath={task.worktree_path}
+          branchName={task.branch_name}
+          onClose={() => setShowConflictResolution(false)}
+          onResolved={() => {
+            setShowConflictResolution(false)
+            setConflictBannerDismissed(true)
+            // Task query will be invalidated by the mutation
+          }}
+        />
       )}
 
       {/* Desktop: 3-Column Resizable Layout */}

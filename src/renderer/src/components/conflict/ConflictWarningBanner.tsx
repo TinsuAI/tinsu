@@ -1,5 +1,5 @@
 import { cn } from '@renderer/lib/utils'
-import { AlertTriangle, X, FileCode2, Terminal } from 'lucide-react'
+import { AlertTriangle, X, FileCode2, Wrench } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 
 /**
@@ -10,6 +10,8 @@ interface ConflictWarningBannerProps {
   conflictFiles: string[]
   /** Optional callback when banner is dismissed */
   onDismiss?: () => void
+  /** Optional callback when "Resolve Conflicts" button is clicked (Story 8.8) */
+  onResolveClick?: () => void
   /** Optional additional CSS classes */
   className?: string
 }
@@ -33,8 +35,9 @@ interface ConflictWarningBannerProps {
 export function ConflictWarningBanner({
   conflictFiles,
   onDismiss,
+  onResolveClick,
   className
-}: ConflictWarningBannerProps) {
+}: ConflictWarningBannerProps): React.JSX.Element | null {
   if (conflictFiles.length === 0) {
     return null
   }
@@ -73,11 +76,10 @@ export function ConflictWarningBanner({
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-amber-200">
-                Merge Conflicts Detected
-              </h3>
+              <h3 className="text-sm font-semibold text-amber-200">Merge Conflicts Detected</h3>
               <p className="mt-1 text-xs text-amber-300/80">
-                This task has conflicts with the main branch that must be resolved before completing.
+                This task has conflicts with the main branch that must be resolved before
+                completing.
               </p>
             </div>
           </div>
@@ -128,15 +130,19 @@ export function ConflictWarningBanner({
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-700/30 p-2.5">
-          <Terminal className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-200/90">
-            <span className="font-medium">To resolve:</span>{' '}
-            Open the task's terminal, resolve conflicts manually, then commit the changes.
-            After resolving, move the task to Done again.
+        {/* Resolve button (Story 8.8) */}
+        {onResolveClick && (
+          <div className="mt-3">
+            <Button
+              onClick={onResolveClick}
+              className="w-full gap-2 bg-amber-600 text-white hover:bg-amber-700 font-medium shadow-lg shadow-amber-500/20"
+              data-testid="resolve-conflicts-btn"
+            >
+              <Wrench className="h-4 w-4" />
+              Resolve Conflicts
+            </Button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
