@@ -398,23 +398,38 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
                       )}
                     </button>
 
-                    {/* File path with refined typography */}
-                    <span
-                      className="min-w-0 truncate font-mono text-sm font-medium text-foreground"
-                      title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
-                    >
-                      {file.oldPath ? (
-                        <>
-                          <span className="text-muted-foreground/40 line-through">
-                            {file.oldPath}
-                          </span>
-                          <span className="mx-2 text-muted-foreground/30">→</span>
-                          <span>{file.path}</span>
-                        </>
-                      ) : (
-                        file.path
-                      )}
-                    </span>
+                    {/* File name and path with refined typography */}
+                    <div className="min-w-0 flex-1">
+                      {/* File name */}
+                      <div
+                        className="truncate font-mono text-sm font-medium text-foreground"
+                        title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+                      >
+                        {file.oldPath ? (
+                          <>
+                            <span className="text-muted-foreground/40 line-through">
+                              {file.oldPath.split('/').pop()}
+                            </span>
+                            <span className="mx-2 text-muted-foreground/30">→</span>
+                            <span>{file.path.split('/').pop()}</span>
+                          </>
+                        ) : (
+                          file.path.split('/').pop()
+                        )}
+                      </div>
+                      {/* Full file path - subtle, below filename */}
+                      <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground/50">
+                        {file.oldPath ? (
+                          <>
+                            <span className="line-through">{file.oldPath}</span>
+                            <span className="mx-1.5">→</span>
+                            <span>{file.path}</span>
+                          </>
+                        ) : (
+                          file.path
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Status badge and stats - GitHub style */}
@@ -517,6 +532,7 @@ interface FileDiffViewerProps {
  *
  * Story TES-4.4: Monaco Diff Viewer Integration
  * Story TES-4.5: Added viewMode prop for unified/split toggle
+ * Story TES-4.6: Dynamic height calculation for full content display
  */
 function FileDiffViewer({ hunks, filePath, viewMode }: FileDiffViewerProps): React.JSX.Element {
   // Memoize content reconstruction - expensive operation
@@ -524,6 +540,18 @@ function FileDiffViewer({ hunks, filePath, viewMode }: FileDiffViewerProps): Rea
 
   // Memoize language detection
   const language = useMemo(() => getLanguageFromPath(filePath), [filePath])
+
+  // Initial height estimate for Monaco - it will auto-calculate the exact height
+  // Monaco's getContentHeight() method provides the precise height (TES-4.6)
+  const estimatedHeight = useMemo(() => {
+    const modifiedLines = modified.split('\n').length
+    const originalLines = original.split('\n').length
+    const maxLines = Math.max(modifiedLines, originalLines)
+
+    // Rough estimate: 19px per line + some padding
+    // Monaco will calculate exact height after mounting
+    return Math.max(100, maxLines * 19 + 50)
+  }, [original, modified])
 
   // If no content, show a message instead of blank Monaco editor
   if (!original && !modified) {
@@ -541,7 +569,7 @@ function FileDiffViewer({ hunks, filePath, viewMode }: FileDiffViewerProps): Rea
         modified={modified}
         language={language}
         filePath={filePath}
-        height={300}
+        height={estimatedHeight}
         viewMode={viewMode}
       />
     </div>

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useState, useRef, useEffect } from 'react'
-import { DiffEditor, type Monaco, type OnMount, loader } from '@monaco-editor/react'
+import { DiffEditor, type Monaco, loader } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import type { DiffViewMode } from '@renderer/stores/diff.store'
 import { cn } from '@renderer/lib/utils'
@@ -82,6 +82,10 @@ export function MonacoDiffEditor({
 }: MonacoDiffEditorProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Dynamic height calculated from Monaco's getContentHeight() (TES-4.6)
+  const [calculatedHeight, setCalculatedHeight] = useState<number>(
+    typeof height === 'number' ? height : 300
+  )
 
   // Thread-safe theme registration tracking (per component instance)
   const themeRegisteredRef = useRef(false)
@@ -107,13 +111,47 @@ export function MonacoDiffEditor({
 
   /**
    * Handler called when the editor has mounted.
-   * Marks loading as complete, clears any errors, and captures editor ref.
+   * Sets up auto-height calculation using Monaco's getContentHeight() (TES-4.6)
    */
-  const handleMount: OnMount = useCallback((editor) => {
+  const handleMount = useCallback((editor: editor.IStandaloneDiffEditor) => {
     // Store editor reference for dynamic option updates (TES-4.5)
-    editorRef.current = editor as unknown as editor.IStandaloneDiffEditor
+    editorRef.current = editor
     setIsLoading(false)
     setError(null) // Clear errors on successful mount
+
+    // Get the modified editor to access content height (TES-4.6)
+    const modifiedEditor = editor.getModifiedEditor()
+
+    // Calculate initial height using Monaco's built-in method
+    const updateHeight = () => {
+      try {
+        const contentHeight = modifiedEditor.getContentHeight()
+        // Add buffer to prevent scrollbar (20px for borders, padding, rounding errors)
+        const finalHeight = contentHeight + 20
+        setCalculatedHeight(finalHeight)
+
+        // Force Monaco to layout with new height to prevent scrollbar
+        // Use setTimeout to ensure state update has completed
+        setTimeout(() => {
+          if (editorRef.current) {
+            editorRef.current.layout()
+          }
+        }, 0)
+      } catch (err) {
+        console.warn('Failed to get content height:', err)
+      }
+    }
+
+    // Set initial height
+    updateHeight()
+
+    // Listen for content size changes and update height dynamically
+    const disposable = modifiedEditor.onDidContentSizeChange(() => {
+      updateHeight()
+    })
+
+    // Cleanup listener on unmount
+    return () => disposable.dispose()
   }, [])
 
   /**
@@ -176,13 +214,18 @@ export function MonacoDiffEditor({
   return (
     <div
       className={cn(
-        'relative overflow-hidden',
+        'relative monaco-diff-wrapper',
         'rounded-md border border-border/20',
         'bg-[#0d1117]',
         'shadow-sm',
         className
       )}
-      style={{ minHeight: typeof height === 'number' ? `${height}px` : height }}
+      style={{
+        height: `${calculatedHeight}px`,
+        // Clip vertical scrollbar but allow horizontal
+        overflowY: 'hidden',
+        overflowX: 'visible'
+      }}
       data-testid="monaco-diff-editor"
       aria-label={`Diff viewer for ${filePath}`}
     >
@@ -231,7 +274,7 @@ export function MonacoDiffEditor({
         modified={modified}
         language={language}
         theme={TINSU_DARK_THEME}
-        height={height}
+        height={calculatedHeight}
         beforeMount={handleBeforeMount}
         onMount={handleMount}
         options={{
@@ -245,13 +288,30 @@ export function MonacoDiffEditor({
 
           // Line numbers visible (AC #4)
           lineNumbers: 'on',
+          lineNumbersMinChars: 4, // Balanced line number column width
 
           // UI options
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           wordWrap: 'off',
           renderIndicators: true,
-          glyphMargin: true,
+          glyphMargin: false, // Disable glyph margin for more compact layout
+          overviewRulerLanes: 0,
+          automaticLayout: true,
+          fixedOverflowWidgets: true,
+          // Disable vertical scrolling completely - height fits all content (TES-4.6)
+          scrollbar: {
+            verticalScrollbarSize: 0,
+            horizontalScrollbarSize: 10,
+            vertical: 'hidden',
+            horizontal: 'auto',
+            useShadows: false,
+            verticalHasArrows: false,
+            horizontalHasArrows: false,
+            // Don't capture mouse wheel events - let parent handle scrolling
+            handleMouseWheel: false,
+            alwaysConsumeMouseWheel: false
+          },
 
           // Collapse unchanged regions (AC #5)
           // Disabled to prevent blank diff view - Monaco was collapsing too aggressively

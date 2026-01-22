@@ -500,3 +500,52 @@ body {
     oklch(0.09 0.008 280 / 0.4) 100%
   );
 }
+
+/* =====================================================
+   MONACO DIFF EDITOR - Hide Scrollbars (TES-4.6)
+   ===================================================== */
+
+/*
+ * Hide ONLY vertical scrollbar in Monaco diff editor
+ * Height is calculated to fit all content, but keep horizontal scrollbar for wide content
+ */
+
+/* Aggressively hide ALL vertical scrollbar elements and prevent pointer events */
+.monaco-diff-wrapper .scrollbar.vertical,
+.monaco-diff-wrapper div.scrollbar.vertical,
+.monaco-diff-wrapper .monaco-scrollable-element > .scrollbar.vertical,
+.monaco-diff-wrapper .monaco-scrollable-element .scrollbar.vertical,
+.monaco-diff-wrapper .invisible.scrollbar.vertical,
+.monaco-diff-wrapper .monaco-diff-editor .scrollbar.vertical,
+.monaco-diff-wrapper .monaco-diff-editor .editor-scrollable .scrollbar.vertical,
+.monaco-diff-wrapper .monaco-editor .scrollbar.vertical,
+.monaco-diff-wrapper .monaco-editor .editor-scrollable .scrollbar.vertical {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide the vertical scrollbar slider specifically */
+.monaco-diff-wrapper .scrollbar.vertical .slider {
+  display: none !important;
+}
+
+/* Hide vertical shadows and decorations */
+.monaco-diff-wrapper .shadow.top,
+.monaco-diff-wrapper .shadow.top-left-corner,
+.monaco-diff-wrapper .decorationsOverviewRuler {
+  display: none !important;
+}
+
+/* Keep horizontal scrollbar visible and functional */
+.monaco-diff-wrapper .scrollbar.horizontal {
+  /* Horizontal scrollbar is visible and functional */
+}
+
+/* Refined line number styling - balanced spacing without forcing tight constraints */
+.monaco-diff-wrapper .line-numbers {
+  font-variant-numeric: tabular-nums;
+}
