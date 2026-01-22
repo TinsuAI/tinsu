@@ -141,8 +141,8 @@ development_status:
 
   # Epic 8: Git Integration & Version Control
   # Course Correction 2026-01-21: Updated 8-1, 8-2, 8-5; Added 8-11
-  epic-8: backlog
-  8-1-git-service-foundation: backlog  # Added AC: gitignore for .tinsu/worktrees/
+  epic-8: in-progress
+  8-1-git-service-foundation: done  # Code review complete - all AC violations fixed
   8-2-create-worktree-on-task-start: backlog  # Updated: worktree timing by task type
   8-3-branch-naming-convention: backlog
   8-4-agent-executes-in-worktree: backlog

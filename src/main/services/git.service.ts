@@ -1,24 +1,62 @@
 /**
- * Git Service - TES-4.1
+ * Git Service - TES-4.1, Story 8.1
  *
- * Service for fetching and parsing git diff data.
- * Runs git commands and parses unified diff format into structured TypeScript objects.
+ * Service for git operations including diff fetching/parsing and foundation methods.
+ * Runs git commands via child_process and provides consistent error handling.
  *
  * CRITICAL: This service runs in the main process only.
  * Never import this in the renderer process.
  *
  * @see TES-4.1: Git Diff Data Fetching
+ * @see Story 8.1: Git Service Foundation
  */
 
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { resolve, isAbsolute } from 'path'
-import { existsSync } from 'fs'
+import { resolve, join } from 'path'
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'fs'
 
 const execAsync = promisify(exec)
 
-/** Timeout for git commands in milliseconds */
+/** Timeout for git commands in milliseconds (default for most operations) */
 const GIT_COMMAND_TIMEOUT = 10000
+
+/** Timeout for branch operations - faster operations (AC: 5 - 5 seconds) */
+const GIT_BRANCH_TIMEOUT = 5000
+
+/** Timeout for large operations (AC: 5 - 30 seconds) */
+const GIT_LARGE_OP_TIMEOUT = 30000
+
+/** Max buffer for large repos (AC: 5 - 10MB) */
+const GIT_MAX_BUFFER = 10 * 1024 * 1024
+
+/** Pattern for dangerous shell metacharacters */
+const DANGEROUS_CHARS = /[;&|`$()<>]/
+
+/** Error type returned by promisified exec */
+interface ExecError extends Error {
+  code?: number
+  stderr?: string
+  cmd?: string
+}
+
+/**
+ * Custom error class for Git operations with command context.
+ * Provides detailed error information for debugging and logging.
+ *
+ * @see Story 8.1: AC 2 - Clear error messages with command context
+ */
+export class GitError extends Error {
+  constructor(
+    message: string,
+    public readonly command: string,
+    public readonly exitCode?: number,
+    public readonly stderr?: string
+  ) {
+    super(message)
+    this.name = 'GitError'
+  }
+}
 
 /**
  * Represents a single line in a diff hunk.
@@ -88,18 +126,263 @@ export interface GitDiffResult {
 }
 
 /**
- * Service for git diff operations.
+ * Service for git operations.
  *
- * Provides methods to fetch and parse git diffs for displaying
- * code changes in the UI.
+ * Provides methods for:
+ * - Git diff fetching and parsing (TES-4.1)
+ * - Git installation detection (Story 8.1)
+ * - Repository verification (Story 8.1)
+ * - Worktree gitignore management (Story 8.1)
  */
 export class GitService {
+  /**
+   * Validates a path for security, checking for dangerous shell metacharacters.
+   *
+   * @param path - The path to validate
+   * @param operationName - Name of the operation for error context
+   * @throws GitError if path contains dangerous characters
+   */
+  private static validatePath(path: string, operationName: string): void {
+    if (!path || typeof path !== 'string') {
+      throw new GitError(
+        'Invalid path: path must be a non-empty string',
+        operationName
+      )
+    }
+
+    if (DANGEROUS_CHARS.test(path)) {
+      throw new GitError(
+        'Invalid path: contains dangerous characters',
+        operationName
+      )
+    }
+  }
+
+  /**
+   * Executes a git command with proper error handling and timeout.
+   *
+   * @param args - Array of git command arguments
+   * @param cwd - Working directory for the command
+   * @param timeout - Timeout in milliseconds (default: GIT_COMMAND_TIMEOUT)
+   * @returns Promise with stdout and stderr
+   * @throws GitError on command failure
+   */
+  private static async execGit(
+    args: string[],
+    cwd: string,
+    timeout: number = GIT_COMMAND_TIMEOUT
+  ): Promise<{ stdout: string; stderr: string }> {
+    const command = `git ${args.join(' ')}`
+
+    try {
+      const result = await execAsync(command, {
+        cwd,
+        timeout,
+        maxBuffer: GIT_MAX_BUFFER
+      })
+      return { stdout: result.stdout, stderr: result.stderr }
+    } catch (error) {
+      const execError = error as ExecError
+      throw new GitError(
+        execError.message || 'Git command failed',
+        command,
+        execError.code,
+        execError.stderr
+      )
+    }
+  }
+
+  /**
+   * Checks if git is installed and available in PATH.
+   *
+   * @returns true if git is installed, false if not found
+   * @throws Error for other failures (permission denied, timeout, etc.)
+   *
+   * @see Story 8.1: AC 3 - Detect missing git dependency
+   *
+   * @example
+   * ```typescript
+   * const installed = await GitService.checkGitInstalled()
+   * if (!installed) {
+   *   throw new Error('Git not found. Please install git.')
+   * }
+   * ```
+   */
+  static async checkGitInstalled(): Promise<boolean> {
+    try {
+      await execAsync('git --version', { timeout: GIT_BRANCH_TIMEOUT })
+      return true
+    } catch (error) {
+      const execError = error as ExecError
+      // Exit code 127 = command not found (shell)
+      if (execError.code === 127) {
+        return false
+      }
+      // For other errors (permission denied, timeout, etc.), throw
+      throw error
+    }
+  }
+
+  /**
+   * Ensures git is installed, throwing a standard error if not.
+   *
+   * This is a convenience wrapper around checkGitInstalled() that throws
+   * the standard error message specified in AC 3.
+   *
+   * @throws GitError if git is not installed
+   *
+   * @see Story 8.1: AC 3 - Detect missing git dependency
+   *
+   * @example
+   * ```typescript
+   * await GitService.ensureGitInstalled()
+   * // Now safe to use git operations
+   * ```
+   */
+  static async ensureGitInstalled(): Promise<void> {
+    const installed = await this.checkGitInstalled()
+    if (!installed) {
+      throw new GitError(
+        'Git not found. Please install git.',
+        'git --version'
+      )
+    }
+  }
+
+  /**
+   * Checks if a path is a valid git repository.
+   *
+   * @param path - Path to check
+   * @returns true if path is a git repository, false otherwise
+   * @throws GitError if path is invalid or does not exist
+   *
+   * @see Story 8.1: AC 4 - Detect missing .git folder
+   *
+   * @example
+   * ```typescript
+   * const isRepo = await GitService.isGitRepository('/path/to/project')
+   * if (!isRepo) {
+   *   throw new Error('Not a git repository')
+   * }
+   * ```
+   */
+  static async isGitRepository(path: string): Promise<boolean> {
+    this.validatePath(path, 'isGitRepository')
+
+    const normalizedPath = resolve(path)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Path does not exist: ${normalizedPath}`,
+        'isGitRepository'
+      )
+    }
+
+    try {
+      // Use git rev-parse to check if we're in a git repo
+      await this.execGit(['rev-parse', '--is-inside-work-tree'], normalizedPath, GIT_BRANCH_TIMEOUT)
+      return true
+    } catch {
+      // If git rev-parse fails, it's not a git repository
+      return false
+    }
+  }
+
+  /**
+   * Ensures a path is a git repository, throwing a standard error if not.
+   *
+   * This is a convenience wrapper around isGitRepository() that throws
+   * the standard error message specified in AC 4.
+   *
+   * @param path - Path to check
+   * @throws GitError if path is not a git repository, invalid, or does not exist
+   *
+   * @see Story 8.1: AC 4 - Detect missing .git folder
+   *
+   * @example
+   * ```typescript
+   * await GitService.ensureGitRepository('/path/to/project')
+   * // Now safe to perform git operations
+   * ```
+   */
+  static async ensureGitRepository(path: string): Promise<void> {
+    const isRepo = await this.isGitRepository(path)
+    if (!isRepo) {
+      throw new GitError(
+        'Not a git repository',
+        'git rev-parse --is-inside-work-tree'
+      )
+    }
+  }
+
+  /**
+   * Ensures .tinsu/worktrees/ is added to .gitignore for the project.
+   *
+   * This must be called before any worktree operations to prevent
+   * tracking worktree contents in git.
+   *
+   * @param projectPath - Path to the project root
+   * @throws GitError if path is invalid or does not exist
+   *
+   * @see Story 8.1: AC 6 - Add worktrees to gitignore
+   *
+   * @example
+   * ```typescript
+   * await GitService.ensureWorktreesIgnored('/path/to/project')
+   * // Now safe to create worktrees in .tinsu/worktrees/
+   * ```
+   */
+  static async ensureWorktreesIgnored(projectPath: string): Promise<void> {
+    this.validatePath(projectPath, 'ensureWorktreesIgnored')
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Project path does not exist: ${normalizedPath}`,
+        'ensureWorktreesIgnored'
+      )
+    }
+
+    // AC 6: Only proceed if .tinsu/ folder exists
+    const tinsuPath = join(normalizedPath, '.tinsu')
+    if (!existsSync(tinsuPath)) {
+      // .tinsu/ doesn't exist yet, nothing to ignore
+      return
+    }
+
+    const gitignorePath = join(normalizedPath, '.gitignore')
+    const worktreePattern = '.tinsu/worktrees/'
+
+    if (existsSync(gitignorePath)) {
+      // Read existing .gitignore
+      const content = readFileSync(gitignorePath, 'utf-8')
+
+      // Check if pattern already exists
+      if (content.includes(worktreePattern)) {
+        return // Already present, nothing to do
+      }
+
+      // Append pattern with proper formatting
+      const newContent = content.endsWith('\n')
+        ? `\n# TinSu worktrees (auto-generated)\n${worktreePattern}\n`
+        : `\n\n# TinSu worktrees (auto-generated)\n${worktreePattern}\n`
+
+      appendFileSync(gitignorePath, newContent)
+    } else {
+      // Create new .gitignore with the pattern
+      writeFileSync(
+        gitignorePath,
+        `# TinSu worktrees (auto-generated)\n${worktreePattern}\n`
+      )
+    }
+  }
   /**
    * Gets the diff for a repository, including both staged and unstaged changes.
    *
    * @param repoPath - Path to the git repository
    * @returns Parsed diff result with files and summary
-   * @throws Error if git command fails (e.g., not a git repository)
+   * @throws GitError if git command fails (e.g., not a git repository)
    *
    * @example
    * ```typescript
@@ -108,24 +391,18 @@ export class GitService {
    * ```
    */
   static async getDiff(repoPath: string): Promise<GitDiffResult> {
-    // Validate and sanitize input path
-    if (!repoPath || typeof repoPath !== 'string') {
-      throw new Error('Invalid repository path: path must be a non-empty string')
-    }
-
-    // Check for shell metacharacters that could enable command injection
-    // Do this BEFORE any filesystem operations to prevent exploitation
-    const dangerousChars = /[;&|`$()<>]/
-    if (dangerousChars.test(repoPath)) {
-      throw new Error('Invalid repository path: contains dangerous characters')
-    }
+    // Validate path using shared validation logic
+    this.validatePath(repoPath, 'getDiff')
 
     // Resolve to absolute path and normalize
     const normalizedPath = resolve(repoPath)
 
     // Verify path exists
     if (!existsSync(normalizedPath)) {
-      throw new Error(`Repository path does not exist: ${normalizedPath}`)
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'getDiff'
+      )
     }
 
     try {
@@ -196,9 +473,14 @@ export class GitService {
 
       return trackedDiff
     } catch (error) {
-      const err = error as Error & { stderr?: string }
-      // Re-throw with meaningful message
-      throw new Error(err.stderr || err.message || 'Failed to get git diff')
+      const err = error as ExecError
+      // Re-throw as GitError with command context
+      throw new GitError(
+        err.stderr || err.message || 'Failed to get git diff',
+        'git diff HEAD',
+        err.code,
+        err.stderr
+      )
     }
   }
 

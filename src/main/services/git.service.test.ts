@@ -1,15 +1,135 @@
 /**
- * Git Service Tests - TES-4.1
+ * Git Service Tests - TES-4.1, Story 8.1
  *
- * Tests for GitService diff fetching and parsing functionality.
+ * Tests for GitService diff fetching, parsing, and foundation functionality.
  *
  * @see TES-4.1: Git Diff Data Fetching
+ * @see Story 8.1: Git Service Foundation
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { GitService } from './git.service'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { GitService, GitError } from './git.service'
 
 describe('GitService', () => {
+  describe('GitError', () => {
+    it('should create error with command context', () => {
+      const error = new GitError('Git command failed', 'git status', 128, 'fatal: not a git repository')
+
+      expect(error.message).toBe('Git command failed')
+      expect(error.command).toBe('git status')
+      expect(error.exitCode).toBe(128)
+      expect(error.stderr).toBe('fatal: not a git repository')
+      expect(error.name).toBe('GitError')
+      expect(error instanceof Error).toBe(true)
+    })
+
+    it('should work without optional parameters', () => {
+      const error = new GitError('Simple error', 'git diff')
+
+      expect(error.message).toBe('Simple error')
+      expect(error.command).toBe('git diff')
+      expect(error.exitCode).toBeUndefined()
+      expect(error.stderr).toBeUndefined()
+    })
+  })
+
+  describe('checkGitInstalled', () => {
+    it('should return true when git is installed (integration test)', async () => {
+      // Integration test - git should be installed on dev machine
+      const result = await GitService.checkGitInstalled()
+      expect(result).toBe(true)
+    })
+
+    it('should return boolean indicating git availability', async () => {
+      // This test verifies the return type and basic functionality
+      const result = await GitService.checkGitInstalled()
+      expect(typeof result).toBe('boolean')
+    })
+  })
+
+  describe('ensureGitInstalled', () => {
+    it('should not throw when git is installed (integration test)', async () => {
+      // Integration test - git should be installed on dev machine
+      await expect(GitService.ensureGitInstalled()).resolves.not.toThrow()
+    })
+
+    it('should complete successfully when git is available', async () => {
+      // This test verifies the method completes without errors
+      await GitService.ensureGitInstalled()
+      // If we reach here, git is installed and method didn't throw
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('isGitRepository', () => {
+    it('should return true for current directory (valid git repo - integration test)', async () => {
+      const result = await GitService.isGitRepository(process.cwd())
+      expect(result).toBe(true)
+    })
+
+    it('should return false for non-git directory', async () => {
+      // /tmp should exist but not be a git repository
+      const result = await GitService.isGitRepository('/tmp')
+      expect(result).toBe(false)
+    })
+
+    it('should throw GitError for invalid path with dangerous characters', async () => {
+      await expect(GitService.isGitRepository('/path; rm -rf /')).rejects.toThrow(GitError)
+      await expect(GitService.isGitRepository('/path; rm -rf /')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError when path does not exist', async () => {
+      await expect(GitService.isGitRepository('/nonexistent/path/that/does/not/exist')).rejects.toThrow(GitError)
+      await expect(GitService.isGitRepository('/nonexistent/path/that/does/not/exist')).rejects.toThrow('does not exist')
+    })
+  })
+
+  describe('ensureGitRepository', () => {
+    it('should not throw for valid git repository (integration test)', async () => {
+      await expect(GitService.ensureGitRepository(process.cwd())).resolves.not.toThrow()
+    })
+
+    it('should throw GitError with standard message for non-git directory', async () => {
+      await expect(GitService.ensureGitRepository('/tmp')).rejects.toThrow(GitError)
+      await expect(GitService.ensureGitRepository('/tmp')).rejects.toThrow('Not a git repository')
+    })
+
+    it('should throw GitError for dangerous characters', async () => {
+      await expect(GitService.ensureGitRepository('/path; rm -rf /')).rejects.toThrow(GitError)
+      await expect(GitService.ensureGitRepository('/path; rm -rf /')).rejects.toThrow('dangerous characters')
+    })
+  })
+
+  describe('validatePath (via public methods)', () => {
+    it('should reject paths with semicolons', async () => {
+      await expect(GitService.isGitRepository('/path;bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with ampersands', async () => {
+      await expect(GitService.isGitRepository('/path&&bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with pipes', async () => {
+      await expect(GitService.isGitRepository('/path|bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with backticks', async () => {
+      await expect(GitService.isGitRepository('/path`bad`')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with dollar signs', async () => {
+      await expect(GitService.isGitRepository('/path$bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with parentheses', async () => {
+      await expect(GitService.isGitRepository('/path(bad)')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should reject paths with angle brackets', async () => {
+      await expect(GitService.isGitRepository('/path<bad>')).rejects.toThrow('dangerous characters')
+    })
+  })
+
   describe('parseDiff', () => {
     it('should parse a unified diff with modified file', () => {
       const diffOutput = `diff --git a/src/index.ts b/src/index.ts
@@ -198,18 +318,6 @@ index abc1234..def5678 100644
   })
 
   describe('getDiff', () => {
-    // Store original exec implementation
-    let execAsyncMock: ReturnType<typeof vi.fn>
-
-    beforeEach(() => {
-      // Create a mock function for testing
-      execAsyncMock = vi.fn()
-    })
-
-    afterEach(() => {
-      vi.restoreAllMocks()
-    })
-
     it('should throw error when git command fails', async () => {
       // This test uses the real implementation to verify error handling
       // by pointing to a non-existent directory
@@ -245,17 +353,15 @@ index abc1234..def5678 100644
 
       for (const maliciousPath of maliciousPaths) {
         await expect(GitService.getDiff(maliciousPath)).rejects.toThrow(
-          'Invalid repository path: contains dangerous characters'
+          'Invalid path: contains dangerous characters'
         )
       }
     })
 
     it('should reject empty or invalid path', async () => {
-      await expect(GitService.getDiff('')).rejects.toThrow('Invalid repository path')
-      await expect(GitService.getDiff(null as any)).rejects.toThrow('Invalid repository path')
-      await expect(GitService.getDiff(undefined as any)).rejects.toThrow(
-        'Invalid repository path'
-      )
+      await expect(GitService.getDiff('')).rejects.toThrow('Invalid path')
+      await expect(GitService.getDiff(null as any)).rejects.toThrow('Invalid path')
+      await expect(GitService.getDiff(undefined as any)).rejects.toThrow('Invalid path')
     })
 
     it('should include untracked files in diff result', async () => {
@@ -277,6 +383,115 @@ index abc1234..def5678 100644
         expect(file).toHaveProperty('hunks')
         expect(Array.isArray(file.hunks)).toBe(true)
       })
+    })
+  })
+
+  describe('ensureWorktreesIgnored', () => {
+    const testDir = '/tmp/tinsu-git-test-' + Date.now()
+    const gitignorePath = testDir + '/.gitignore'
+    const tinsuPath = testDir + '/.tinsu'
+
+    beforeEach(async () => {
+      // Create test directory
+      const { mkdirSync, writeFileSync, rmSync } = await import('fs')
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Directory may not exist
+      }
+      mkdirSync(testDir, { recursive: true })
+    })
+
+    afterEach(async () => {
+      // Cleanup test directory
+      const { rmSync } = await import('fs')
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
+    })
+
+    it('should do nothing when .tinsu/ folder does not exist', async () => {
+      const { existsSync } = await import('fs')
+
+      // Verify .tinsu/ doesn't exist
+      expect(existsSync(tinsuPath)).toBe(false)
+
+      await GitService.ensureWorktreesIgnored(testDir)
+
+      // .gitignore should not be created
+      expect(existsSync(gitignorePath)).toBe(false)
+    })
+
+    it('should add .tinsu/worktrees/ to existing .gitignore when not present', async () => {
+      const { writeFileSync, readFileSync, mkdirSync } = await import('fs')
+
+      // Create .tinsu/ folder first (required by AC 6)
+      mkdirSync(tinsuPath)
+
+      writeFileSync(gitignorePath, 'node_modules/\ndist/\n')
+
+      await GitService.ensureWorktreesIgnored(testDir)
+
+      const content = readFileSync(gitignorePath, 'utf-8')
+      expect(content).toContain('.tinsu/worktrees/')
+      expect(content).toContain('node_modules/')
+    })
+
+    it('should not modify .gitignore when .tinsu/worktrees/ already present', async () => {
+      const { writeFileSync, readFileSync, mkdirSync } = await import('fs')
+
+      // Create .tinsu/ folder first (required by AC 6)
+      mkdirSync(tinsuPath)
+
+      const originalContent = 'node_modules/\n.tinsu/worktrees/\ndist/\n'
+      writeFileSync(gitignorePath, originalContent)
+
+      await GitService.ensureWorktreesIgnored(testDir)
+
+      const content = readFileSync(gitignorePath, 'utf-8')
+      // Content should be unchanged (only one occurrence of the pattern)
+      expect(content.split('.tinsu/worktrees/').length - 1).toBe(1)
+    })
+
+    it('should create .gitignore if it does not exist', async () => {
+      const { existsSync, readFileSync, mkdirSync } = await import('fs')
+
+      // Create .tinsu/ folder first (required by AC 6)
+      mkdirSync(tinsuPath)
+
+      expect(existsSync(gitignorePath)).toBe(false)
+
+      await GitService.ensureWorktreesIgnored(testDir)
+
+      expect(existsSync(gitignorePath)).toBe(true)
+      const content = readFileSync(gitignorePath, 'utf-8')
+      expect(content).toContain('.tinsu/worktrees/')
+    })
+
+    it('should throw GitError for path with dangerous characters', async () => {
+      await expect(GitService.ensureWorktreesIgnored('/path; rm -rf /')).rejects.toThrow(GitError)
+      await expect(GitService.ensureWorktreesIgnored('/path; rm -rf /')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError when project path does not exist', async () => {
+      await expect(GitService.ensureWorktreesIgnored('/nonexistent/path/xyz123')).rejects.toThrow(GitError)
+      await expect(GitService.ensureWorktreesIgnored('/nonexistent/path/xyz123')).rejects.toThrow('does not exist')
+    })
+  })
+
+  describe('execGit (tested via public methods)', () => {
+    it('should execute git commands successfully via isGitRepository', async () => {
+      // Test that execGit works by checking a valid repo
+      const result = await GitService.isGitRepository(process.cwd())
+      expect(result).toBe(true)
+    })
+
+    it('should handle git command failures gracefully', async () => {
+      // Test that non-repo directories are handled correctly
+      const result = await GitService.isGitRepository('/tmp')
+      expect(result).toBe(false)
     })
   })
 })
