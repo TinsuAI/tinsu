@@ -1472,4 +1472,318 @@ index abc1234..def5678 100644
       expect(diff.summary.filesChanged).toBe(2)
     })
   })
+
+  // Story 8.6: Remove Worktree Tests
+  describe('removeWorktree (Story 8.6)', () => {
+    const testDir = '/tmp/tinsu-removeworktree-test-' + Date.now()
+    const testTaskId = 'remove-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      execSync('git branch -M main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should remove worktree and delete branch successfully (AC: 1, 2, Task 6.1)', async () => {
+      const { existsSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree first
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Test Feature')
+      expect(existsSync(worktreeResult.worktreePath)).toBe(true)
+
+      // Verify branch exists
+      const branchesBefore = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branchesBefore).toContain(worktreeResult.branchName)
+
+      // Merge the branch first so it can be deleted with -d
+      execSync('git checkout main', { cwd: testDir })
+      execSync(`git merge ${worktreeResult.branchName}`, { cwd: testDir })
+
+      // Remove worktree
+      const result = await GitService.removeWorktree(
+        testDir,
+        worktreeResult.worktreePath,
+        worktreeResult.branchName
+      )
+
+      expect(result.success).toBe(true)
+      expect(result.worktreeRemoved).toBe(true)
+      expect(result.branchDeleted).toBe(true)
+      expect(result.error).toBeUndefined()
+
+      // Verify worktree is gone
+      expect(existsSync(worktreeResult.worktreePath)).toBe(false)
+
+      // Verify branch is deleted
+      const branchesAfter = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branchesAfter).not.toContain(worktreeResult.branchName)
+    })
+
+    it('should succeed when worktree does not exist (Task 6.2, Task 1.5)', async () => {
+      const { existsSync } = await import('fs')
+
+      const nonExistentWorktreePath = `${testDir}/.tinsu/worktrees/nonexistent`
+      expect(existsSync(nonExistentWorktreePath)).toBe(false)
+
+      const result = await GitService.removeWorktree(
+        testDir,
+        nonExistentWorktreePath,
+        'nonexistent-branch'
+      )
+
+      // Should succeed because worktree "doesn't need to be removed"
+      expect(result.success).toBe(true)
+      expect(result.worktreeRemoved).toBe(true) // Already "removed"
+    })
+
+    it('should succeed with warning when branch is not fully merged (Task 6.3, Task 1.6)', async () => {
+      const { writeFileSync, existsSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes (but don't merge)
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Unmerged Feature')
+
+      // Add a commit in the worktree
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      // Switch back to main (don't merge)
+      execSync('git checkout main', { cwd: testDir })
+
+      // Remove worktree (branch deletion will fail because not merged)
+      const result = await GitService.removeWorktree(
+        testDir,
+        worktreeResult.worktreePath,
+        worktreeResult.branchName
+      )
+
+      // Worktree removal should succeed even if branch deletion fails
+      expect(result.success).toBe(true)
+      expect(result.worktreeRemoved).toBe(true)
+      expect(result.branchDeleted).toBe(false) // Branch not deleted because not merged
+      expect(existsSync(worktreeResult.worktreePath)).toBe(false)
+    })
+
+    it('should throw GitError for invalid project path', async () => {
+      await expect(
+        GitService.removeWorktree('/path;bad', '/some/worktree', 'branch')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.removeWorktree('/path;bad', '/some/worktree', 'branch')
+      ).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for invalid worktree path', async () => {
+      await expect(
+        GitService.removeWorktree(testDir, '/path;bad', 'branch')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.removeWorktree(testDir, '/path;bad', 'branch')
+      ).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for empty branch name', async () => {
+      await expect(
+        GitService.removeWorktree(testDir, '/some/worktree', '')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.removeWorktree(testDir, '/some/worktree', '')
+      ).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for non-existent project path', async () => {
+      await expect(
+        GitService.removeWorktree('/nonexistent/path', '/some/worktree', 'branch')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.removeWorktree('/nonexistent/path', '/some/worktree', 'branch')
+      ).rejects.toThrow('does not exist')
+    })
+
+    it('should clear worktree path after successful cleanup (Task 6.5)', async () => {
+      const { existsSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Clear Path Test')
+
+      // Merge the branch
+      execSync('git checkout main', { cwd: testDir })
+      execSync(`git merge ${worktreeResult.branchName}`, { cwd: testDir })
+
+      // Remove worktree
+      const result = await GitService.removeWorktree(
+        testDir,
+        worktreeResult.worktreePath,
+        worktreeResult.branchName
+      )
+
+      expect(result.success).toBe(true)
+      // After removal, the worktree path should not exist
+      expect(existsSync(worktreeResult.worktreePath)).toBe(false)
+      // This verifies that DB update can safely set worktree_path to null
+    })
+  })
+
+  // Story 8.6: Orphaned Worktrees Tests
+  describe('listOrphanedWorktrees (Story 8.6)', () => {
+    const testDir = '/tmp/tinsu-orphaned-test-' + Date.now()
+    const testTaskId1 = 'orphan-task1-' + Date.now()
+    const testTaskId2 = 'orphan-task2-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      execSync('git branch -M main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return empty array when no worktrees exist', async () => {
+      const result = await GitService.listOrphanedWorktrees(testDir, [])
+      expect(result).toEqual([])
+    })
+
+    it('should return empty array when all worktrees are active', async () => {
+      // Create two worktrees
+      const wt1 = await GitService.createWorktree(testDir, testTaskId1, 'Feature 1')
+      const wt2 = await GitService.createWorktree(testDir, testTaskId2, 'Feature 2')
+
+      // Pass both as active
+      const result = await GitService.listOrphanedWorktrees(testDir, [
+        wt1.worktreePath,
+        wt2.worktreePath
+      ])
+
+      expect(result).toEqual([])
+    })
+
+    it('should identify orphaned worktrees (Task 4.4)', async () => {
+      // Create two worktrees
+      const wt1 = await GitService.createWorktree(testDir, testTaskId1, 'Active Feature')
+      const wt2 = await GitService.createWorktree(testDir, testTaskId2, 'Orphaned Feature')
+
+      // Only pass wt1 as active (simulating wt2 has no task in DB)
+      const result = await GitService.listOrphanedWorktrees(testDir, [wt1.worktreePath])
+
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe(wt2.worktreePath)
+      expect(result[0].branchName).toBe(wt2.branchName)
+      expect(result[0].isLocked).toBe(false)
+    })
+
+    it('should return worktree info with branch name (Task 4.5)', async () => {
+      // Create a worktree
+      const wt = await GitService.createWorktree(testDir, testTaskId1, 'Branch Info Test')
+
+      // List as orphaned (no active paths)
+      const result = await GitService.listOrphanedWorktrees(testDir, [])
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toHaveProperty('path')
+      expect(result[0]).toHaveProperty('branchName')
+      expect(result[0]).toHaveProperty('isLocked')
+      expect(result[0].path).toBe(wt.worktreePath)
+      expect(result[0].branchName).toBe(wt.branchName)
+    })
+
+    it('should throw GitError for invalid project path', async () => {
+      await expect(
+        GitService.listOrphanedWorktrees('/path;bad', [])
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.listOrphanedWorktrees('/path;bad', [])
+      ).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for non-existent project path', async () => {
+      await expect(
+        GitService.listOrphanedWorktrees('/nonexistent/path', [])
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.listOrphanedWorktrees('/nonexistent/path', [])
+      ).rejects.toThrow('does not exist')
+    })
+
+    it('should only include worktrees in .tinsu/worktrees/ directory', async () => {
+      const { execSync } = await import('child_process')
+
+      // Create a TinSu worktree
+      const wt = await GitService.createWorktree(testDir, testTaskId1, 'TinSu Worktree')
+
+      // Create a worktree outside .tinsu/worktrees/ (manual worktree)
+      const outsideWorktreePath = `${testDir}/manual-worktree`
+      execSync(`git worktree add ${outsideWorktreePath} -b manual-branch HEAD`, { cwd: testDir })
+
+      // List orphaned (no active paths)
+      const result = await GitService.listOrphanedWorktrees(testDir, [])
+
+      // Should only include the TinSu worktree, not the manual one
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe(wt.worktreePath)
+      expect(result.some(w => w.path === outsideWorktreePath)).toBe(false)
+    })
+  })
 })

@@ -20,7 +20,9 @@ export const ProjectConfigSchema = z.object({
   version: z.string().default('1.0.0'),
   planningTasksInitialized: z.boolean().default(false),
   devAgentModel: ClaudeModelSchema.optional().default('opus'),
-  reviewAgentModel: ClaudeModelSchema.optional().default('sonnet')
+  reviewAgentModel: ClaudeModelSchema.optional().default('sonnet'),
+  // Story 8.6 AC 4: Optional setting to preserve worktrees for inspection
+  preserveWorktrees: z.boolean().optional().default(false)
 })
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>
@@ -32,6 +34,7 @@ export const ProjectConfigUpdateSchema = ProjectConfigSchema.pick({
   version: true,
   planningTasksInitialized: true,
   devAgentModel: true,
-  reviewAgentModel: true
+  reviewAgentModel: true,
+  preserveWorktrees: true // Story 8.6 Task 2.2
 }).partial()
 export type ProjectConfigUpdate = z.infer<typeof ProjectConfigUpdateSchema>

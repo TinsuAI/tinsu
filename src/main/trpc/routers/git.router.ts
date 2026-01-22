@@ -11,6 +11,8 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { GitService, GitError } from '../../services/git.service'
+import { tasks } from '../../db/schema'
+import { isNotNull } from 'drizzle-orm'
 
 /**
  * Git router procedures.
@@ -557,6 +559,121 @@ export const gitRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to get task diff: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * List orphaned worktrees (worktrees without active tasks).
+   *
+   * Returns worktrees in .tinsu/worktrees/ that don't have a corresponding
+   * task with a matching worktree_path in the database.
+   *
+   * @returns Array of orphaned worktrees with path, branchName, and isLocked
+   * @throws TRPCError if listing fails
+   *
+   * @see Story 8.6: AC 5 - List worktrees without active tasks
+   *
+   * @example
+   * ```typescript
+   * const orphaned = await trpc.git.listOrphanedWorktrees.query()
+   * console.log(`Found ${orphaned.length} orphaned worktrees`)
+   * ```
+   */
+  listOrphanedWorktrees: publicProcedure.query(async ({ ctx }) => {
+    try {
+      // Story 8.6 Task 5.1: Query active worktree paths from tasks table
+      const activeTasks = ctx.db
+        .select({ worktree_path: tasks.worktree_path })
+        .from(tasks)
+        .where(isNotNull(tasks.worktree_path))
+        .all()
+
+      const activeWorktreePaths = activeTasks
+        .map((t) => t.worktree_path)
+        .filter((p): p is string => p !== null)
+
+      // Story 8.6 Task 4.1-4.5: Get orphaned worktrees
+      const orphaned = await GitService.listOrphanedWorktrees(ctx.projectRoot, activeWorktreePaths)
+
+      return orphaned
+    } catch (error) {
+      if (error instanceof GitError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        })
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to list orphaned worktrees: ${errorMessage}`
+      })
+    }
+  }),
+
+  /**
+   * Remove an orphaned worktree.
+   *
+   * Removes the specified worktree and its associated branch.
+   * This is called from the settings UI when user wants to clean up
+   * orphaned worktrees manually.
+   *
+   * @param input.worktreePath - Path to the orphaned worktree
+   * @param input.branchName - Branch name associated with the worktree
+   * @returns RemoveWorktreeResult with success status
+   * @throws TRPCError if removal fails
+   *
+   * @see Story 8.6: AC 5 - Delete orphaned worktrees manually
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.git.removeOrphanedWorktree.mutate({
+   *   worktreePath: '/project/.tinsu/worktrees/orphan-task',
+   *   branchName: 'tinsu/story-orphan-task-feature'
+   * })
+   * if (result.success) {
+   *   console.log('Orphaned worktree removed')
+   * }
+   * ```
+   */
+  removeOrphanedWorktree: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        branchName: z.string().min(1, 'branchName is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Story 8.6 Task 5.2: Remove the orphaned worktree
+        const result = await GitService.removeWorktree(
+          ctx.projectRoot,
+          input.worktreePath,
+          input.branchName
+        )
+
+        return result
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('dangerous characters')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid path: contains dangerous characters'
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to remove orphaned worktree: ${errorMessage}`
         })
       }
     })

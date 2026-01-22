@@ -38,11 +38,13 @@ vi.mock('../../services/story-sync.service', () => ({
 }))
 
 // Story 8.5: Mock GitService for merge workflow tests
+// Story 8.6: Added mockRemoveWorktree for cleanup tests
 const mockMergeWorktree = vi.fn()
 const mockHasWorktree = vi.fn()
 const mockGetWorktreePath = vi.fn()
 const mockGetBranchNameFromWorktree = vi.fn()
 const mockCreateWorktree = vi.fn()
+const mockRemoveWorktree = vi.fn()
 
 vi.mock('../../services/git.service', () => ({
   GitService: {
@@ -50,15 +52,19 @@ vi.mock('../../services/git.service', () => ({
     hasWorktree: (...args: unknown[]) => mockHasWorktree(...args),
     getWorktreePath: (...args: unknown[]) => mockGetWorktreePath(...args),
     getBranchNameFromWorktree: (...args: unknown[]) => mockGetBranchNameFromWorktree(...args),
-    createWorktree: (...args: unknown[]) => mockCreateWorktree(...args)
+    createWorktree: (...args: unknown[]) => mockCreateWorktree(...args),
+    removeWorktree: (...args: unknown[]) => mockRemoveWorktree(...args)
   }
 }))
 
 // Mock ConfigService to avoid file system operations
+// Story 8.6: Added preserveWorktrees setting support
+let mockPreserveWorktrees = false
+
 vi.mock('../../services/config.service', () => ({
   ConfigService: class MockConfigService {
     loadConfig() {
-      return { projectName: 'test-project' }
+      return { projectName: 'test-project', preserveWorktrees: mockPreserveWorktrees }
     }
   }
 }))
@@ -198,6 +204,9 @@ describe('taskRouter', () => {
     mockGetWorktreePath.mockReset()
     mockGetBranchNameFromWorktree.mockReset()
     mockCreateWorktree.mockReset()
+    mockRemoveWorktree.mockReset()
+    // Story 8.6: Reset preserveWorktrees setting
+    mockPreserveWorktrees = false
     // Default mock behaviors for worktree operations
     mockHasWorktree.mockResolvedValue(false)
     mockCreateWorktree.mockResolvedValue({ worktreePath: '/mock/worktree', branchName: 'mock-branch' })
@@ -207,6 +216,12 @@ describe('taskRouter', () => {
       commitSha: 'default-mock-sha',
       branchName: 'default-branch',
       mergeType: 'fast-forward'
+    })
+    // Story 8.6: Default cleanup behavior (success)
+    mockRemoveWorktree.mockResolvedValue({
+      success: true,
+      worktreeRemoved: true,
+      branchDeleted: true
     })
   })
 
@@ -1170,6 +1185,260 @@ describe('taskRouter', () => {
       // Assert
       expect(result.status).toBe('done')
       expect(result.merge_commit_sha).toBe('ff123abc')
+    })
+  })
+
+  // Story 8.6: Worktree Cleanup Integration Tests
+  describe('worktree cleanup (Story 8.6)', () => {
+    it('should cleanup worktree after successful merge (AC: 1, Task 3.1)', async () => {
+      // Arrange: Create a task in review with worktree
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-cleanup-1',
+          title: 'Task with Cleanup',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-cleanup-1',
+          branch_name: 'tinsu/story-task-cleanup-1-task-with-cleanup',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'cleanup123abc',
+        branchName: 'tinsu/story-task-cleanup-1-task-with-cleanup',
+        mergeType: 'fast-forward'
+      })
+
+      mockRemoveWorktree.mockResolvedValue({
+        success: true,
+        worktreeRemoved: true,
+        branchDeleted: true
+      })
+
+      // Act
+      await caller.updateStatus({ id: 'task-cleanup-1', status: 'done' })
+
+      // Assert: removeWorktree was called after merge
+      expect(mockRemoveWorktree).toHaveBeenCalledTimes(1)
+      expect(mockRemoveWorktree).toHaveBeenCalledWith(
+        expect.any(String), // projectRoot
+        '/project/.tinsu/worktrees/task-cleanup-1',
+        'tinsu/story-task-cleanup-1-task-with-cleanup'
+      )
+    })
+
+    it('should clear worktree_path in database after cleanup (AC: 1, Task 3.3)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-cleanup-db',
+          title: 'Task Cleanup DB',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-cleanup-db',
+          branch_name: 'tinsu/story-task-cleanup-db',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'db123abc',
+        branchName: 'tinsu/story-task-cleanup-db',
+        mergeType: 'fast-forward'
+      })
+
+      mockRemoveWorktree.mockResolvedValue({
+        success: true,
+        worktreeRemoved: true,
+        branchDeleted: true
+      })
+
+      // Act
+      const result = await caller.updateStatus({ id: 'task-cleanup-db', status: 'done' })
+
+      // Assert: worktree_path is cleared
+      expect(result.worktree_path).toBeNull()
+    })
+
+    it('should not cleanup worktree when preserveWorktrees is true (AC: 4, Task 3.2)', async () => {
+      // Arrange: Set preserveWorktrees to true
+      mockPreserveWorktrees = true
+
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-preserve',
+          title: 'Task Preserve Worktree',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-preserve',
+          branch_name: 'tinsu/story-task-preserve',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'preserve123abc',
+        branchName: 'tinsu/story-task-preserve',
+        mergeType: 'fast-forward'
+      })
+
+      // Act
+      const result = await caller.updateStatus({ id: 'task-preserve', status: 'done' })
+
+      // Assert: removeWorktree was NOT called
+      expect(mockRemoveWorktree).not.toHaveBeenCalled()
+      // worktree_path should still be set
+      expect(result.worktree_path).toBe('/project/.tinsu/worktrees/task-preserve')
+    })
+
+    it('should not fail status update if cleanup fails (AC: 3, Task 3.4)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-cleanup-fail',
+          title: 'Task Cleanup Fail',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-cleanup-fail',
+          branch_name: 'tinsu/story-task-cleanup-fail',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'fail123abc',
+        branchName: 'tinsu/story-task-cleanup-fail',
+        mergeType: 'fast-forward'
+      })
+
+      // Mock cleanup failure
+      mockRemoveWorktree.mockResolvedValue({
+        success: false,
+        worktreeRemoved: false,
+        branchDeleted: false,
+        error: 'Failed to remove worktree'
+      })
+
+      // Act: Should not throw despite cleanup failure
+      const result = await caller.updateStatus({ id: 'task-cleanup-fail', status: 'done' })
+
+      // Assert: Status was still updated to done
+      expect(result.status).toBe('done')
+      expect(result.merge_commit_sha).toBe('fail123abc')
+    })
+
+    it('should not fail status update if cleanup throws error (AC: 3)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-cleanup-error',
+          title: 'Task Cleanup Error',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-cleanup-error',
+          branch_name: 'tinsu/story-task-cleanup-error',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'error123abc',
+        branchName: 'tinsu/story-task-cleanup-error',
+        mergeType: 'fast-forward'
+      })
+
+      // Mock cleanup throwing error
+      mockRemoveWorktree.mockRejectedValue(new Error('Git command failed'))
+
+      // Act: Should not throw despite cleanup error
+      const result = await caller.updateStatus({ id: 'task-cleanup-error', status: 'done' })
+
+      // Assert: Status was still updated to done
+      expect(result.status).toBe('done')
+      expect(result.merge_commit_sha).toBe('error123abc')
+    })
+
+    it('should log cleanup activity on success (Task 3.5)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-cleanup-log',
+          title: 'Task Cleanup Log',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-cleanup-log',
+          branch_name: 'tinsu/story-task-cleanup-log',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'log123abc',
+        branchName: 'tinsu/story-task-cleanup-log',
+        mergeType: 'fast-forward'
+      })
+
+      mockRemoveWorktree.mockResolvedValue({
+        success: true,
+        worktreeRemoved: true,
+        branchDeleted: true
+      })
+
+      // Act
+      await caller.updateStatus({ id: 'task-cleanup-log', status: 'done' })
+
+      // Assert: Activity log includes cleanup details
+      expect(mockLogActivity).toHaveBeenCalledWith('task-cleanup-log', 'status_change', expect.objectContaining({
+        worktreeCleanup: expect.objectContaining({
+          success: true,
+          worktreeRemoved: true,
+          branchDeleted: true
+        })
+      }))
+    })
+
+    it('should not cleanup when merge fails', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-merge-fail-no-cleanup',
+          title: 'Task Merge Fail No Cleanup',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-merge-fail-no-cleanup',
+          branch_name: 'tinsu/story-task-merge-fail-no-cleanup',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Mock merge failure
+      mockMergeWorktree.mockResolvedValue({
+        success: false,
+        commitSha: '',
+        branchName: 'tinsu/story-task-merge-fail-no-cleanup',
+        mergeType: 'merge-commit',
+        conflictFiles: ['file.ts']
+      })
+
+      // Act
+      await expect(caller.updateStatus({ id: 'task-merge-fail-no-cleanup', status: 'done' })).rejects.toThrow()
+
+      // Assert: removeWorktree was NOT called
+      expect(mockRemoveWorktree).not.toHaveBeenCalled()
     })
   })
 })

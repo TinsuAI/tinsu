@@ -389,6 +389,71 @@ export const taskRouter = router({
                 `[Story 8.5] Merged branch ${result.branch_name} to main (${mergeResult.mergeType}): ${mergeResult.commitSha}`
               )
 
+              // Story 8.6: Cleanup worktree and branch after successful merge
+              // Story 8.6 Task 3.2: Check preserveWorktrees setting before cleanup
+              const configService = new ConfigService(ctx.projectRoot)
+              let preserveWorktrees = false
+              try {
+                const config = configService.loadConfig()
+                preserveWorktrees = config.preserveWorktrees ?? false
+              } catch {
+                // If config can't be loaded, default to not preserving
+                preserveWorktrees = false
+              }
+
+              if (!preserveWorktrees) {
+                // Story 8.6 Task 3.1, 3.3: Cleanup worktree after merge success
+                try {
+                  const cleanupResult = await GitService.removeWorktree(
+                    ctx.projectRoot,
+                    result.worktree_path!,
+                    result.branch_name!
+                  )
+
+                  if (cleanupResult.success) {
+                    // Story 8.6 Task 3.3: Clear worktree_path in task record
+                    ctx.db
+                      .update(tasks)
+                      .set({ worktree_path: null, updated_at: new Date() })
+                      .where(eq(tasks.id, input.id))
+                      .run()
+
+                    // Update result to reflect cleared worktree_path
+                    result.worktree_path = null
+
+                    console.log(
+                      `[Story 8.6] Worktree cleaned up successfully (worktree: ${cleanupResult.worktreeRemoved}, branch: ${cleanupResult.branchDeleted})`
+                    )
+
+                    // Story 8.6 Task 3.5: Log cleanup activity
+                    try {
+                      await activityLogService.logActivity(input.id, 'status_change', {
+                        from: 'review',
+                        to: 'done',
+                        worktreeCleanup: {
+                          success: true,
+                          worktreeRemoved: cleanupResult.worktreeRemoved,
+                          branchDeleted: cleanupResult.branchDeleted
+                        }
+                      })
+                    } catch (logError) {
+                      // Don't fail cleanup if activity logging fails
+                      console.error('[Story 8.6] Failed to log cleanup activity:', logError)
+                    }
+                  } else {
+                    // Story 8.6 Task 3.4: Log warning but don't rollback
+                    console.warn(`[Story 8.6] Worktree cleanup warning: ${cleanupResult.error}`)
+                  }
+                } catch (cleanupError) {
+                  // Story 8.6 AC 3: Best-effort cleanup - log warning but don't fail
+                  const errorMessage =
+                    cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
+                  console.warn('[Story 8.6] Worktree cleanup failed:', errorMessage)
+                }
+              } else {
+                console.log('[Story 8.6] Worktree preserved per settings')
+              }
+
               // Story 8.5 Task 3.5: Log merge activity
               try {
                 await activityLogService.logActivity(input.id, 'status_change', {

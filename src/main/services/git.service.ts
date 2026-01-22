@@ -150,6 +150,36 @@ export interface MergeResult {
 }
 
 /**
+ * Result of removing a worktree and its branch.
+ *
+ * @see Story 8.6: AC 1, 2
+ */
+export interface RemoveWorktreeResult {
+  /** Whether the overall operation succeeded */
+  success: boolean
+  /** Whether the worktree was removed */
+  worktreeRemoved: boolean
+  /** Whether the branch was deleted */
+  branchDeleted: boolean
+  /** Error message if success=false or partial failure */
+  error?: string
+}
+
+/**
+ * Information about an orphaned worktree.
+ *
+ * @see Story 8.6: AC 5
+ */
+export interface OrphanedWorktree {
+  /** Path to the worktree directory */
+  path: string
+  /** Branch name associated with the worktree */
+  branchName: string
+  /** Whether the worktree is locked */
+  isLocked: boolean
+}
+
+/**
  * Service for git operations.
  *
  * Provides methods for:
@@ -1125,6 +1155,233 @@ export class GitService {
         errorMessage
       )
     }
+  }
+
+  /**
+   * Removes a worktree and deletes its associated branch.
+   *
+   * This is called after a successful merge to clean up resources.
+   * The operation is best-effort: if worktree removal fails, it logs a warning
+   * but still returns success. If branch deletion fails because it's not
+   * fully merged, it logs a warning but still returns success.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param worktreePath - Path to the worktree to remove
+   * @param branchName - Name of the branch to delete
+   * @returns RemoveWorktreeResult with success status and details
+   *
+   * @see Story 8.6: AC 1, 2
+   *
+   * @example
+   * ```typescript
+   * const result = await GitService.removeWorktree(
+   *   '/path/to/project',
+   *   '/path/to/project/.tinsu/worktrees/task-123',
+   *   'tinsu/story-task-123-feature'
+   * )
+   * if (result.success) {
+   *   console.log('Worktree cleaned up successfully')
+   * }
+   * ```
+   */
+  static async removeWorktree(
+    projectPath: string,
+    worktreePath: string,
+    branchName: string
+  ): Promise<RemoveWorktreeResult> {
+    this.validatePath(projectPath, 'removeWorktree')
+    this.validatePath(worktreePath, 'removeWorktree')
+
+    if (!branchName || typeof branchName !== 'string') {
+      throw new GitError(
+        'Invalid branchName: branchName must be a non-empty string',
+        'removeWorktree'
+      )
+    }
+
+    const normalizedPath = resolve(projectPath)
+    const normalizedWorktreePath = resolve(worktreePath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'removeWorktree')
+    }
+
+    let worktreeRemoved = false
+    let branchDeleted = false
+    const errors: string[] = []
+
+    // Story 8.6 Task 1.5: Handle case where worktree doesn't exist gracefully
+    if (!existsSync(normalizedWorktreePath)) {
+      worktreeRemoved = true // Consider it already removed
+    } else {
+      // Story 8.6 Task 1.2: Remove worktree with --force to handle uncommitted changes
+      try {
+        await this.execGit(
+          ['worktree', 'remove', normalizedWorktreePath, '--force'],
+          normalizedPath,
+          GIT_LARGE_OP_TIMEOUT
+        )
+        worktreeRemoved = true
+      } catch (error) {
+        // Try pruning stale worktree references first, then try again
+        try {
+          await this.execGit(['worktree', 'prune'], normalizedPath, GIT_BRANCH_TIMEOUT)
+          // Check if worktree is actually gone now
+          if (!existsSync(normalizedWorktreePath)) {
+            worktreeRemoved = true
+          } else {
+            // Try one more time after prune
+            try {
+              await this.execGit(
+                ['worktree', 'remove', normalizedWorktreePath, '--force'],
+                normalizedPath,
+                GIT_LARGE_OP_TIMEOUT
+              )
+              worktreeRemoved = true
+            } catch (retryError) {
+              const msg = retryError instanceof Error ? retryError.message : 'Unknown error'
+              errors.push(`Failed to remove worktree: ${msg}`)
+              // Best effort: try to remove the directory manually
+              try {
+                rmSync(normalizedWorktreePath, { recursive: true, force: true })
+                await this.execGit(['worktree', 'prune'], normalizedPath, GIT_BRANCH_TIMEOUT)
+                worktreeRemoved = true
+              } catch {
+                // Couldn't remove manually either
+              }
+            }
+          }
+        } catch {
+          const msg = error instanceof Error ? error.message : 'Unknown error'
+          errors.push(`Failed to remove worktree: ${msg}`)
+        }
+      }
+    }
+
+    // Story 8.6 Task 1.3: Delete the merged branch with -d (not -D)
+    // Using -d will fail if branch is not fully merged - that's expected behavior
+    try {
+      await this.execGit(
+        ['branch', '-d', branchName],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+      branchDeleted = true
+    } catch (error) {
+      // Story 8.6 Task 1.6: Handle case where branch is not fully merged
+      const msg = error instanceof Error ? error.message : 'Unknown error'
+      if (msg.includes('not fully merged')) {
+        // This is expected for unmerged branches - log warning but succeed
+        console.warn(`[Story 8.6] Branch ${branchName} not fully merged, skipping deletion`)
+      } else if (msg.includes('not found') || msg.includes('error: branch')) {
+        // Branch doesn't exist - consider it already deleted
+        branchDeleted = true
+      } else {
+        errors.push(`Failed to delete branch: ${msg}`)
+      }
+    }
+
+    // Story 8.6: Return success if at least worktree was removed (best-effort cleanup)
+    const success = worktreeRemoved
+    return {
+      success,
+      worktreeRemoved,
+      branchDeleted,
+      error: errors.length > 0 ? errors.join('; ') : undefined
+    }
+  }
+
+  /**
+   * Lists orphaned worktrees - worktrees that exist on filesystem but have no
+   * corresponding task in the database.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param activeWorktreePaths - Array of worktree paths that are still active (from tasks table)
+   * @returns Array of OrphanedWorktree objects
+   *
+   * @see Story 8.6: AC 5
+   *
+   * @example
+   * ```typescript
+   * const orphaned = await GitService.listOrphanedWorktrees(
+   *   '/path/to/project',
+   *   ['/path/to/project/.tinsu/worktrees/task-123'] // Active worktree paths from DB
+   * )
+   * console.log(`Found ${orphaned.length} orphaned worktrees`)
+   * ```
+   */
+  static async listOrphanedWorktrees(
+    projectPath: string,
+    activeWorktreePaths: string[]
+  ): Promise<OrphanedWorktree[]> {
+    this.validatePath(projectPath, 'listOrphanedWorktrees')
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'listOrphanedWorktrees')
+    }
+
+    const orphaned: OrphanedWorktree[] = []
+
+    // Story 8.6 Task 4.2: Execute git worktree list --porcelain
+    try {
+      const { stdout } = await this.execGit(
+        ['worktree', 'list', '--porcelain'],
+        normalizedPath,
+        GIT_COMMAND_TIMEOUT
+      )
+
+      // Parse porcelain output
+      // Format:
+      // worktree /path/to/worktree
+      // HEAD abc123
+      // branch refs/heads/branch-name
+      // (blank line between entries)
+      // OR "locked" if worktree is locked
+
+      const entries = stdout.split('\n\n').filter(Boolean)
+      const tinsuWorktreesDir = join(normalizedPath, '.tinsu', 'worktrees')
+
+      for (const entry of entries) {
+        const lines = entry.trim().split('\n')
+        let worktreePath = ''
+        let branchName = ''
+        let isLocked = false
+
+        for (const line of lines) {
+          if (line.startsWith('worktree ')) {
+            worktreePath = line.replace('worktree ', '')
+          } else if (line.startsWith('branch ')) {
+            // Format: branch refs/heads/branch-name
+            branchName = line.replace('branch refs/heads/', '')
+          } else if (line === 'locked') {
+            isLocked = true
+          }
+        }
+
+        // Story 8.6 Task 4.3, 4.4: Only consider worktrees in .tinsu/worktrees/ directory
+        if (worktreePath && worktreePath.startsWith(tinsuWorktreesDir)) {
+          // Check if this worktree is NOT in the active list
+          const isActive = activeWorktreePaths.some(
+            activePath => resolve(activePath) === resolve(worktreePath)
+          )
+
+          if (!isActive) {
+            orphaned.push({
+              path: worktreePath,
+              branchName: branchName || 'unknown',
+              isLocked
+            })
+          }
+        }
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(`Failed to list worktrees: ${msg}`, 'git worktree list')
+    }
+
+    return orphaned
   }
 
   /**
