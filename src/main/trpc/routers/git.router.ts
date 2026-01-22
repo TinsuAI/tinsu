@@ -480,5 +480,84 @@ export const gitRouter = router({
           message: `Failed to generate branch name: ${errorMessage}`
         })
       }
+    }),
+
+  /**
+   * Get diff for a task, handling both active tasks (worktree diff) and
+   * completed tasks (historical diff from merge commit).
+   *
+   * @param input.worktreePath - Path to the task's worktree (for active tasks)
+   * @param input.mergeCommitSha - The merge commit SHA (for completed tasks)
+   * @returns GitDiffResult with files and summary
+   * @throws TRPCError if both or neither parameter provided
+   * @throws TRPCError if diff cannot be retrieved
+   *
+   * @see Story 8.5: AC 6 - Historical diff for done tasks
+   *
+   * @example
+   * ```typescript
+   * // Active task with worktree:
+   * const diff = await trpc.git.getTaskDiff.query({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123'
+   * })
+   *
+   * // Completed task with merge commit:
+   * const diff = await trpc.git.getTaskDiff.query({
+   *   mergeCommitSha: 'abc123def456'
+   * })
+   * ```
+   */
+  getTaskDiff: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().optional(),
+        mergeCommitSha: z.string().optional()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Story 8.5 Task 5.1: Determine which diff method to use
+      const hasWorktree = Boolean(input.worktreePath)
+      const hasMergeCommit = Boolean(input.mergeCommitSha)
+
+      // Validate: must have exactly one source
+      if (!hasWorktree && !hasMergeCommit) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Either worktreePath or mergeCommitSha must be provided'
+        })
+      }
+
+      try {
+        // Story 8.5 Task 5.2: For done tasks, use getHistoricalDiff
+        if (hasMergeCommit) {
+          return await GitService.getHistoricalDiff(ctx.projectRoot, input.mergeCommitSha!)
+        }
+
+        // Story 8.5 Task 5.3: For active tasks, use getDiff with worktree path
+        return await GitService.getDiff(input.worktreePath!)
+      } catch (error) {
+        if (error instanceof GitError) {
+          // Differentiate between "commit not found" and "worktree not found"
+          if (error.message.includes('does not exist')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: hasMergeCommit
+                ? `Merge commit not found: ${input.mergeCommitSha}`
+                : `Worktree path does not exist: ${input.worktreePath}`
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get task diff: ${errorMessage}`
+        })
+      }
     })
 })

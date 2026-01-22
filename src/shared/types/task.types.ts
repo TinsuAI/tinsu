@@ -77,6 +77,8 @@ export interface Task {
   worktree_path: string | null // Path to git worktree (.tinsu/worktrees/{task-id}/)
   // Story 8.3: Branch name for git worktree
   branch_name: string | null // e.g., tinsu/story-abc123-add-user-auth
+  // Story 8.5: SHA of merge commit when task is approved
+  merge_commit_sha: string | null
   created_at: Date
   updated_at: Date
 }
@@ -115,6 +117,8 @@ export interface NewTask {
   worktree_path?: string | null
   // Story 8.3: Branch name for git worktree
   branch_name?: string | null
+  // Story 8.5: SHA of merge commit when task is approved
+  merge_commit_sha?: string | null
   created_at?: Date
   updated_at?: Date
 }

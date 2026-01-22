@@ -149,6 +149,8 @@ export const tasks = sqliteTable(
     worktree_path: text('worktree_path'), // Path to git worktree (.tinsu/worktrees/{task-id}/)
     // Story 8.3: Branch name for git worktree
     branch_name: text('branch_name'), // e.g., tinsu/story-abc123-add-user-auth
+    // Story 8.5: SHA of merge commit when task is approved
+    merge_commit_sha: text('merge_commit_sha'),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

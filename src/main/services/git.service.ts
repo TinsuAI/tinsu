@@ -132,6 +132,24 @@ export interface GitDiffResult {
 }
 
 /**
+ * Result of merging a worktree branch to main.
+ *
+ * @see Story 8.5: AC 2
+ */
+export interface MergeResult {
+  /** Whether the merge succeeded */
+  success: boolean
+  /** The SHA of the merge commit (or FF result commit) */
+  commitSha: string
+  /** The branch that was merged */
+  branchName: string
+  /** Type of merge performed */
+  mergeType: 'fast-forward' | 'merge-commit'
+  /** Conflict files if merge failed due to conflicts */
+  conflictFiles?: string[]
+}
+
+/**
  * Service for git operations.
  *
  * Provides methods for:
@@ -883,6 +901,230 @@ export class GitService {
     }
 
     return candidate
+  }
+
+/**
+   * Gets the diff for a specific commit (historical diff for completed tasks).
+   *
+   * This is used to view what changed in a completed task after its worktree
+   * has been cleaned up. The diff is retrieved from the merge commit SHA.
+   *
+   * @param projectPath - Path to the git repository
+   * @param commitSha - The commit SHA to get the diff for
+   * @returns Parsed diff result with files and summary
+   * @throws GitError if commit doesn't exist or git command fails
+   *
+   * @see Story 8.5: AC 6 - Historical diff for done tasks
+   *
+   * @example
+   * ```typescript
+   * const diff = await GitService.getHistoricalDiff('/path/to/repo', 'abc123def')
+   * console.log(`Task changed ${diff.summary.filesChanged} files`)
+   * ```
+   */
+  static async getHistoricalDiff(projectPath: string, commitSha: string): Promise<GitDiffResult> {
+    this.validatePath(projectPath, 'getHistoricalDiff')
+
+    if (!commitSha || typeof commitSha !== 'string') {
+      throw new GitError('Invalid commitSha: commitSha must be a non-empty string', 'getHistoricalDiff')
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'getHistoricalDiff'
+      )
+    }
+
+    try {
+      // Story 8.5 AC 6: Get the diff that was introduced by a specific commit
+      // Using --format='' to suppress commit metadata, only show the patch
+      const { stdout: diffOutput } = await this.execGit(
+        ['show', commitSha, '--format=', '--patch'],
+        normalizedPath,
+        GIT_LARGE_OP_TIMEOUT
+      )
+
+      // Story 8.5 Task 4.3: Parse using existing parseDiff() method
+      return this.parseDiff(diffOutput)
+    } catch (error) {
+      const err = error as ExecError
+      throw new GitError(
+        err.stderr || err.message || `Failed to get diff for commit ${commitSha}`,
+        `git show ${commitSha}`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
+   * Merges a worktree branch to main when a task is approved.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param branchName - The branch name to merge
+   * @param taskId - Unique task identifier for commit message
+   * @param taskTitle - Task title for commit message
+   * @returns MergeResult with merge status and commit SHA
+   * @throws GitError if merge fails for non-conflict reasons
+   *
+   * @see Story 8.5: AC 1, 2, 3, 4, 5
+   *
+   * @example
+   * ```typescript
+   * const result = await GitService.mergeWorktree('/path/to/project', 'tinsu/story-123-auth', '123', 'Add Auth')
+   * if (result.success) {
+   *   console.log(`Merged with commit: ${result.commitSha}`)
+   * } else {
+   *   console.log(`Conflicts in: ${result.conflictFiles}`)
+   * }
+   * ```
+   */
+  static async mergeWorktree(
+    projectPath: string,
+    branchName: string,
+    taskId: string,
+    taskTitle: string
+  ): Promise<MergeResult> {
+    this.validatePath(projectPath, 'mergeWorktree')
+
+    if (!branchName || typeof branchName !== 'string') {
+      throw new GitError('Invalid branchName: branchName must be a non-empty string', 'mergeWorktree')
+    }
+
+    if (!taskId || typeof taskId !== 'string') {
+      throw new GitError('Invalid taskId: taskId must be a non-empty string', 'mergeWorktree')
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'mergeWorktree')
+    }
+
+    try {
+      // Story 8.5 AC 4: Checkout main branch first
+      // We need to ensure we're on main to perform the merge
+      await this.execGit(['checkout', 'main'], normalizedPath, GIT_COMMAND_TIMEOUT)
+
+      // Pull latest changes (handle no remote gracefully - Story 8.5 Task 2.2)
+      try {
+        await this.execGit(['pull', '--ff-only'], normalizedPath, GIT_LARGE_OP_TIMEOUT)
+      } catch (pullError) {
+        // No remote or pull failed - continue with local main
+        // This is expected for local-only repos
+        console.log('[Story 8.5] Pull from remote skipped (no remote or pull failed) - merging onto local main')
+      }
+
+      // Story 8.5 AC 2: Attempt fast-forward merge first
+      try {
+        const ffResult = await this.execGit(
+          ['merge', '--ff-only', branchName],
+          normalizedPath,
+          GIT_LARGE_OP_TIMEOUT
+        )
+
+        // Fast-forward succeeded - get the resulting commit SHA
+        const { stdout: commitSha } = await this.execGit(
+          ['rev-parse', 'HEAD'],
+          normalizedPath,
+          GIT_BRANCH_TIMEOUT
+        )
+
+        // Story 8.5 AC 5, 7: Fast-forward preserves all original commit attribution
+        return {
+          success: true,
+          commitSha: commitSha.trim(),
+          branchName,
+          mergeType: 'fast-forward'
+        }
+      } catch (ffError) {
+        // Fast-forward failed - try regular merge with commit message
+        // This happens when main has advanced since worktree creation (AC 4)
+      }
+
+      // Story 8.5 AC 3, 4: Perform regular merge with commit message
+      // AC 3 requires two-line format with task reference
+      const commitMessage = `Merge story ${taskId}: ${taskTitle}\n\nCloses TinSu task: ${taskId}`
+
+      try {
+        await this.execGit(
+          ['merge', branchName, '-m', commitMessage],
+          normalizedPath,
+          GIT_LARGE_OP_TIMEOUT
+        )
+
+        // Merge succeeded - get the merge commit SHA
+        const { stdout: commitSha } = await this.execGit(
+          ['rev-parse', 'HEAD'],
+          normalizedPath,
+          GIT_BRANCH_TIMEOUT
+        )
+
+        return {
+          success: true,
+          commitSha: commitSha.trim(),
+          branchName,
+          mergeType: 'merge-commit'
+        }
+      } catch (mergeError) {
+        // Story 8.5 AC 6: Handle merge conflicts by aborting and returning conflict info
+        // Check if this is a merge conflict
+        const err = mergeError as GitError
+
+        // Try to get list of conflicted files
+        try {
+          const { stdout: conflictOutput } = await this.execGit(
+            ['diff', '--name-only', '--diff-filter=U'],
+            normalizedPath,
+            GIT_BRANCH_TIMEOUT
+          )
+
+          const conflictFiles = conflictOutput.trim().split('\n').filter(Boolean)
+
+          // Abort the merge to restore clean state
+          try {
+            await this.execGit(['merge', '--abort'], normalizedPath, GIT_BRANCH_TIMEOUT)
+          } catch {
+            // Abort failed - might not be in merge state
+          }
+
+          if (conflictFiles.length > 0) {
+            return {
+              success: false,
+              commitSha: '',
+              branchName,
+              mergeType: 'merge-commit',
+              conflictFiles
+            }
+          }
+        } catch {
+          // Couldn't get conflict list - abort and re-throw
+          try {
+            await this.execGit(['merge', '--abort'], normalizedPath, GIT_BRANCH_TIMEOUT)
+          } catch {
+            // Ignore abort errors
+          }
+        }
+
+        // Re-throw non-conflict merge errors
+        throw err
+      }
+    } catch (error) {
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to merge worktree: ${errorMessage}`,
+        'git merge',
+        undefined,
+        errorMessage
+      )
+    }
   }
 
   /**

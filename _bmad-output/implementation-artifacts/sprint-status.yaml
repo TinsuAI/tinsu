@@ -146,7 +146,7 @@ development_status:
   8-2-create-worktree-on-task-start: done  # Code review complete - fixed AC 6 rollback, type mismatch, added integration tests
   8-3-branch-naming-convention: done
   8-4-agent-executes-in-worktree: done
-  8-5-merge-worktree-on-approval: backlog  # Added AC: save commit SHA to task
+  8-5-merge-worktree-on-approval: done  # Code review complete - fixed AC 3 commit format, quote handling, completed story documentation
   8-6-delete-worktree-after-merge: backlog
   8-7-merge-conflict-detection: backlog
   8-8-conflict-resolution-ui: backlog

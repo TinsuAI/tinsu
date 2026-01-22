@@ -359,6 +359,92 @@ export const taskRouter = router({
         }
       }
 
+      // Story 8.5: Merge worktree branch to main when task transitions from review → done
+      if (input.status === 'done' && oldTask.status === 'review') {
+        // Only merge if task has a worktree branch (Story 8.5 AC 1, 2)
+        if (result.worktree_path && result.branch_name) {
+          try {
+            const mergeResult = await GitService.mergeWorktree(
+              ctx.projectRoot,
+              result.branch_name,
+              input.id,
+              result.title
+            )
+
+            if (mergeResult.success) {
+              // Story 8.5 AC 2: Update task with merge_commit_sha
+              ctx.db
+                .update(tasks)
+                .set({
+                  merge_commit_sha: mergeResult.commitSha,
+                  updated_at: new Date()
+                })
+                .where(eq(tasks.id, input.id))
+                .run()
+
+              // Update result to include merge_commit_sha for return value
+              result.merge_commit_sha = mergeResult.commitSha
+
+              console.log(
+                `[Story 8.5] Merged branch ${result.branch_name} to main (${mergeResult.mergeType}): ${mergeResult.commitSha}`
+              )
+
+              // Story 8.5 Task 3.5: Log merge activity
+              try {
+                await activityLogService.logActivity(input.id, 'status_change', {
+                  from: 'review',
+                  to: 'done',
+                  merge: {
+                    success: true,
+                    commitSha: mergeResult.commitSha,
+                    mergeType: mergeResult.mergeType,
+                    branchName: mergeResult.branchName
+                  }
+                })
+              } catch (logError) {
+                // Don't fail merge if activity logging fails
+                console.error('[Story 8.5] Failed to log merge activity:', logError)
+              }
+            } else {
+              // Story 8.5 AC 6, Task 3.4: Merge failed (conflicts) - rollback status change
+              ctx.db
+                .update(tasks)
+                .set({ status: oldTask.status, updated_at: new Date() })
+                .where(eq(tasks.id, input.id))
+                .run()
+
+              const conflictList = mergeResult.conflictFiles?.join(', ') || 'unknown files'
+              console.error(`[Story 8.5] Merge conflict in files: ${conflictList}`)
+
+              throw new TRPCError({
+                code: 'PRECONDITION_FAILED',
+                message: `Cannot complete task: merge conflict in ${conflictList}. Resolve conflicts in Story 8.7.`
+              })
+            }
+          } catch (error) {
+            // Story 8.5 Task 3.4: On merge error, rollback status change
+            if (!(error instanceof TRPCError)) {
+              ctx.db
+                .update(tasks)
+                .set({ status: oldTask.status, updated_at: new Date() })
+                .where(eq(tasks.id, input.id))
+                .run()
+
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+              console.error('[Story 8.5] Merge failed:', errorMessage)
+
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to merge branch: ${errorMessage}`,
+                cause: error
+              })
+            }
+            // Re-throw TRPCError (conflict case)
+            throw error
+          }
+        }
+      }
+
       // Story 3.9: Sync status to story file if path exists (AC: 1)
       if (result.story_file_path) {
         try {

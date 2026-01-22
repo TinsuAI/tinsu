@@ -1152,4 +1152,324 @@ index abc1234..def5678 100644
       expect(branchName).toContain('add-user-authentication')
     })
   })
+
+  // Story 8.5: Merge Worktree Tests
+  describe('mergeWorktree (Story 8.5)', () => {
+    const testDir = '/tmp/tinsu-merge-test-' + Date.now()
+    const testTaskId = 'merge-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+
+      // Rename default branch to main for consistency
+      execSync('git branch -M main', { cwd: testDir })
+
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should perform fast-forward merge when main has not advanced (AC: 2, Task 6.1)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Test Feature')
+
+      // Add a commit in the worktree
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      // Merge back to main
+      const mergeResult = await GitService.mergeWorktree(
+        testDir,
+        worktreeResult.branchName,
+        testTaskId,
+        'Test Feature'
+      )
+
+      expect(mergeResult.success).toBe(true)
+      expect(mergeResult.mergeType).toBe('fast-forward')
+      expect(mergeResult.commitSha).toBeTruthy()
+      expect(mergeResult.branchName).toBe(worktreeResult.branchName)
+    })
+
+    it('should perform merge commit when main has advanced (AC: 4, Task 6.2)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Test Feature')
+
+      // Add a commit in the worktree
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      // Advance main branch with a different file
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/other.ts`, 'export const other = true')
+      execSync('git add other.ts', { cwd: testDir })
+      execSync('git commit -m "Other change on main"', { cwd: testDir })
+
+      // Merge back to main
+      const mergeResult = await GitService.mergeWorktree(
+        testDir,
+        worktreeResult.branchName,
+        testTaskId,
+        'Test Feature'
+      )
+
+      expect(mergeResult.success).toBe(true)
+      expect(mergeResult.mergeType).toBe('merge-commit')
+      expect(mergeResult.commitSha).toBeTruthy()
+    })
+
+    it('should include task ID and title in merge commit message (AC: 3, Task 6.3)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Add User Auth')
+
+      // Add a commit in the worktree
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      // Advance main to force merge commit (so we can check the commit message)
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/other.ts`, 'export const other = true')
+      execSync('git add other.ts', { cwd: testDir })
+      execSync('git commit -m "Other change"', { cwd: testDir })
+
+      // Merge back to main
+      const mergeResult = await GitService.mergeWorktree(
+        testDir,
+        worktreeResult.branchName,
+        testTaskId,
+        'Add User Auth'
+      )
+
+      // Check the commit message
+      const commitMessage = execSync(`git log -1 --format=%B ${mergeResult.commitSha}`, { cwd: testDir }).toString()
+
+      // Verify the commit message format: "Merge story {taskId}: {taskTitle}"
+      expect(commitMessage).toContain(`Merge story ${testTaskId}`)
+      expect(commitMessage).toContain('Add User Auth')
+    })
+
+    it('should detect merge conflicts and return conflict files (AC: 6, Task 6.4)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes to README.md
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Conflict Feature')
+
+      // Modify README.md in worktree
+      writeFileSync(`${worktreeResult.worktreePath}/README.md`, '# Modified in worktree\n')
+      execSync('git add README.md', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Modify README in worktree"', { cwd: worktreeResult.worktreePath })
+
+      // Modify the same file in main (create conflict)
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Modified in main\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Modify README in main"', { cwd: testDir })
+
+      // Try to merge - should fail with conflicts
+      const mergeResult = await GitService.mergeWorktree(
+        testDir,
+        worktreeResult.branchName,
+        testTaskId,
+        'Conflict Feature'
+      )
+
+      expect(mergeResult.success).toBe(false)
+      expect(mergeResult.conflictFiles).toBeDefined()
+      expect(mergeResult.conflictFiles).toContain('README.md')
+    })
+
+    it('should throw GitError for invalid branchName', async () => {
+      await expect(GitService.mergeWorktree(testDir, '', testTaskId, 'Test')).rejects.toThrow(GitError)
+      await expect(GitService.mergeWorktree(testDir, '', testTaskId, 'Test')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for invalid taskId', async () => {
+      await expect(GitService.mergeWorktree(testDir, 'some-branch', '', 'Test')).rejects.toThrow(GitError)
+      await expect(GitService.mergeWorktree(testDir, 'some-branch', '', 'Test')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for non-existent project path', async () => {
+      await expect(GitService.mergeWorktree('/nonexistent/path', 'branch', 'task', 'Test')).rejects.toThrow(GitError)
+      await expect(GitService.mergeWorktree('/nonexistent/path', 'branch', 'task', 'Test')).rejects.toThrow('does not exist')
+    })
+
+    it('should preserve commit attribution after merge (AC: 5, 7)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Attribution Test')
+
+      // Configure worktree git user (different from main repo)
+      execSync('git config user.email "worktree@test.com"', { cwd: worktreeResult.worktreePath })
+      execSync('git config user.name "Worktree User"', { cwd: worktreeResult.worktreePath })
+
+      // Add a commit in the worktree
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Feature by worktree user"', { cwd: worktreeResult.worktreePath })
+
+      // Merge back to main
+      await GitService.mergeWorktree(
+        testDir,
+        worktreeResult.branchName,
+        testTaskId,
+        'Attribution Test'
+      )
+
+      // Check that the original commit's author is preserved
+      const log = execSync('git log --format="%an <%ae>" -2', { cwd: testDir }).toString()
+      expect(log).toContain('Worktree User <worktree@test.com>')
+    })
+  })
+
+  // Story 8.5: Historical Diff Tests
+  describe('getHistoricalDiff (Story 8.5 AC: 6)', () => {
+    const testDir = '/tmp/tinsu-histdiff-test-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return diff for a specific commit', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a commit with changes
+      writeFileSync(`${testDir}/feature.ts`, 'export const feature = true\n')
+      execSync('git add feature.ts', { cwd: testDir })
+      execSync('git commit -m "Add feature"', { cwd: testDir })
+
+      // Get the commit SHA
+      const commitSha = execSync('git rev-parse HEAD', { cwd: testDir }).toString().trim()
+
+      // Get historical diff
+      const diff = await GitService.getHistoricalDiff(testDir, commitSha)
+
+      expect(diff.files).toHaveLength(1)
+      expect(diff.files[0].path).toBe('feature.ts')
+      expect(diff.files[0].status).toBe('added')
+      expect(diff.summary.filesChanged).toBe(1)
+      expect(diff.summary.linesAdded).toBe(1)
+    })
+
+    it('should parse modifications correctly', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Modify README.md
+      writeFileSync(`${testDir}/README.md`, '# Updated Test\nNew line\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Update README"', { cwd: testDir })
+
+      const commitSha = execSync('git rev-parse HEAD', { cwd: testDir }).toString().trim()
+
+      const diff = await GitService.getHistoricalDiff(testDir, commitSha)
+
+      expect(diff.files).toHaveLength(1)
+      expect(diff.files[0].path).toBe('README.md')
+      expect(diff.files[0].status).toBe('modified')
+      expect(diff.files[0].additions).toBeGreaterThan(0)
+    })
+
+    it('should throw GitError for invalid commit SHA', async () => {
+      await expect(GitService.getHistoricalDiff(testDir, 'invalidsha123')).rejects.toThrow(GitError)
+    })
+
+    it('should throw GitError for empty commit SHA', async () => {
+      await expect(GitService.getHistoricalDiff(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.getHistoricalDiff(testDir, '')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for non-existent repository path', async () => {
+      await expect(GitService.getHistoricalDiff('/nonexistent/path', 'abc123')).rejects.toThrow(GitError)
+      await expect(GitService.getHistoricalDiff('/nonexistent/path', 'abc123')).rejects.toThrow('does not exist')
+    })
+
+    it('should handle merge commits with multiple file changes', async () => {
+      const { writeFileSync, mkdirSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create multiple files in one commit
+      mkdirSync(`${testDir}/src`, { recursive: true })
+      writeFileSync(`${testDir}/src/index.ts`, 'export * from "./utils"\n')
+      writeFileSync(`${testDir}/src/utils.ts`, 'export const util = () => {}\n')
+      execSync('git add src/', { cwd: testDir })
+      execSync('git commit -m "Add source files"', { cwd: testDir })
+
+      const commitSha = execSync('git rev-parse HEAD', { cwd: testDir }).toString().trim()
+
+      const diff = await GitService.getHistoricalDiff(testDir, commitSha)
+
+      expect(diff.files.length).toBe(2)
+      expect(diff.summary.filesChanged).toBe(2)
+    })
+  })
 })
