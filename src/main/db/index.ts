@@ -265,6 +265,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN worktree_path TEXT')
   }
 
+  // Migration: Add branch_name column to tasks (Story 8.3)
+  if (!existingColumns.has('branch_name')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN branch_name TEXT')
+  }
+
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
   const epicColumnsCheck = sqlite
     .prepare("PRAGMA table_info(epics)")

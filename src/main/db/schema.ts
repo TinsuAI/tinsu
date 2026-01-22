@@ -147,6 +147,8 @@ export const tasks = sqliteTable(
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     // Story 8.2: Worktree path for git isolation
     worktree_path: text('worktree_path'), // Path to git worktree (.tinsu/worktrees/{task-id}/)
+    // Story 8.3: Branch name for git worktree
+    branch_name: text('branch_name'), // e.g., tinsu/story-abc123-add-user-auth
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

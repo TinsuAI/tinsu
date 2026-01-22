@@ -147,7 +147,9 @@ src/shared/types/  → Type definitions shared between processes
 
 Each task gets an isolated worktree:
 
-- Created when agent starts: `git worktree add .worktrees/{task-id} -b task/{task-id}`
+- Created when task moves to in_progress: `git worktree add .tinsu/worktrees/{task-id} -b tinsu/story-{task-id}-{slug} HEAD`
+- Branch naming: `tinsu/story-{task-id}-{slug}` where slug is derived from task title (lowercase, hyphens, max 50 chars)
+- Branch collision: Suffix `-2`, `-3` etc. appended if branch already exists
 - Removed after merge or rejection
 - Merge conflicts detected before merge attempt
 

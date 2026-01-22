@@ -289,21 +289,28 @@ export const gitRouter = router({
    * based on the current HEAD. Ensures worktrees are gitignored.
    *
    * @param input.taskId - Unique task identifier
-   * @returns Object with worktreePath on success
+   * @param input.taskTitle - Optional task title for descriptive branch naming (Story 8.3)
+   * @returns Object with worktreePath and branchName on success
    * @throws TRPCError if worktree creation fails
    *
    * @see Story 8.2: AC 1, 2, 4, 5, 6
+   * @see Story 8.3: AC 1, 2, 3, 4 - Descriptive branch naming
    *
    * @example
    * ```typescript
-   * const { worktreePath } = await trpc.git.createWorktree.mutate({ taskId: 'abc123' })
+   * const { worktreePath, branchName } = await trpc.git.createWorktree.mutate({
+   *   taskId: 'abc123',
+   *   taskTitle: 'Add User Authentication'
+   * })
    * // worktreePath = '/project/.tinsu/worktrees/abc123'
+   * // branchName = 'tinsu/story-abc123-add-user-authentication'
    * ```
    */
   createWorktree: publicProcedure
     .input(
       z.object({
-        taskId: z.string().min(1, 'taskId is required')
+        taskId: z.string().min(1, 'taskId is required'),
+        taskTitle: z.string().optional()
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -311,8 +318,9 @@ export const gitRouter = router({
         // Story 8.2: Ensure worktrees are gitignored before creating
         await GitService.ensureWorktreesIgnored(ctx.projectRoot)
 
-        const worktreePath = await GitService.createWorktree(ctx.projectRoot, input.taskId)
-        return { worktreePath }
+        // Story 8.3: Pass taskTitle for descriptive branch naming
+        const result = await GitService.createWorktree(ctx.projectRoot, input.taskId, input.taskTitle)
+        return { worktreePath: result.worktreePath, branchName: result.branchName }
       } catch (error) {
         if (error instanceof GitError) {
           if (error.message.includes('dangerous characters')) {
@@ -423,6 +431,53 @@ export const gitRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to get worktree path: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Generate a branch name for a task without creating a worktree.
+   *
+   * Useful for previewing what the branch name would be before creating.
+   *
+   * @param input.taskId - Unique task identifier
+   * @param input.taskTitle - Task title for slug generation
+   * @returns Object with generated branchName
+   *
+   * @see Story 8.3: AC 5 - Display branch name in task details
+   *
+   * @example
+   * ```typescript
+   * const { branchName } = await trpc.git.getBranchName.query({
+   *   taskId: 'abc123',
+   *   taskTitle: 'Add User Authentication'
+   * })
+   * // branchName = 'tinsu/story-abc123-add-user-authentication'
+   * ```
+   */
+  getBranchName: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required'),
+        taskTitle: z.string().min(1, 'taskTitle is required')
+      })
+    )
+    .query(({ input }) => {
+      try {
+        const branchName = GitService.generateBranchName(input.taskId, input.taskTitle)
+        return { branchName }
+      } catch (error) {
+        if (error instanceof GitError) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to generate branch name: ${errorMessage}`
         })
       }
     })

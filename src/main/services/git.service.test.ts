@@ -545,14 +545,18 @@ index abc1234..def5678 100644
     it('should create a worktree at the expected path (AC: 4, 5)', async () => {
       const { existsSync } = await import('fs')
 
-      const worktreePath = await GitService.createWorktree(testDir, testTaskId)
+      const result = await GitService.createWorktree(testDir, testTaskId)
+
+      // Story 8.3: createWorktree now returns {worktreePath, branchName}
+      expect(result).toHaveProperty('worktreePath')
+      expect(result).toHaveProperty('branchName')
 
       // AC 5: Worktree should be at .tinsu/worktrees/{task-id}/
-      expect(worktreePath).toBe(`${testDir}/.tinsu/worktrees/${testTaskId}`)
-      expect(existsSync(worktreePath)).toBe(true)
+      expect(result.worktreePath).toBe(`${testDir}/.tinsu/worktrees/${testTaskId}`)
+      expect(existsSync(result.worktreePath)).toBe(true)
 
       // AC 5: Should contain a full working copy
-      expect(existsSync(`${worktreePath}/README.md`)).toBe(true)
+      expect(existsSync(`${result.worktreePath}/README.md`)).toBe(true)
     })
 
     it('should add .tinsu/worktrees/ to .gitignore (AC: integrated with Story 8.1 AC 6)', async () => {
@@ -723,6 +727,429 @@ index abc1234..def5678 100644
 
     it('should throw GitError for invalid taskId', async () => {
       await expect(GitService.getWorktreePath(testDir, '')).rejects.toThrow(GitError)
+    })
+  })
+
+  // Story 8.3: Branch Naming Convention Tests
+  describe('generateSlug (Story 8.3)', () => {
+    it('should convert to lowercase', () => {
+      expect(GitService.generateSlug('Hello World')).toBe('hello-world')
+      expect(GitService.generateSlug('UPPERCASE TITLE')).toBe('uppercase-title')
+    })
+
+    it('should replace spaces with hyphens', () => {
+      expect(GitService.generateSlug('add user authentication')).toBe('add-user-authentication')
+    })
+
+    it('should remove special characters', () => {
+      expect(GitService.generateSlug("Fix the 'Login' Bug!")).toBe('fix-the-login-bug')
+      expect(GitService.generateSlug('Test (parentheses) & symbols')).toBe('test-parentheses-symbols')
+      expect(GitService.generateSlug('Price: $100 + tax')).toBe('price-100-tax')
+    })
+
+    it('should handle git-invalid characters by removing them', () => {
+      // Git-invalid characters are removed (not replaced), then collapsed
+      expect(GitService.generateSlug('feature~test^ref')).toBe('featuretestref')
+      expect(GitService.generateSlug('path:colon:test')).toBe('pathcolontest')
+      expect(GitService.generateSlug('question?mark')).toBe('questionmark')
+      expect(GitService.generateSlug('star*char')).toBe('starchar')
+      expect(GitService.generateSlug('bracket[test]')).toBe('brackettest')
+      // When special chars are between words with spaces, hyphens remain
+      expect(GitService.generateSlug('feature ~ test')).toBe('feature-test')
+      expect(GitService.generateSlug('path : colon')).toBe('path-colon')
+    })
+
+    it('should collapse multiple consecutive hyphens', () => {
+      expect(GitService.generateSlug('test - - - title')).toBe('test-title')
+      expect(GitService.generateSlug('a   b   c')).toBe('a-b-c')
+    })
+
+    it('should trim leading and trailing hyphens', () => {
+      expect(GitService.generateSlug('---test---')).toBe('test')
+      expect(GitService.generateSlug('  test  ')).toBe('test')
+    })
+
+    it('should truncate to 50 characters at word boundary', () => {
+      const longTitle = 'A Very Long Title That Definitely Exceeds Fifty Characters And Keeps Going'
+      const slug = GitService.generateSlug(longTitle)
+
+      expect(slug.length).toBeLessThanOrEqual(50)
+      expect(slug).not.toContain('--')
+      // Should truncate at a word boundary
+      expect(slug).toBe('a-very-long-title-that-definitely-exceeds-fifty')
+    })
+
+    it('should truncate without word boundary if no good break point', () => {
+      const noSpaces = 'abcdefghijklmnopqrstuvwxyz12345678901234567890123456789'
+      const slug = GitService.generateSlug(noSpaces)
+
+      expect(slug.length).toBeLessThanOrEqual(50)
+    })
+
+    it('should return "untitled" for empty string', () => {
+      expect(GitService.generateSlug('')).toBe('untitled')
+    })
+
+    it('should return "untitled" for only special characters', () => {
+      expect(GitService.generateSlug('!!!@@@###')).toBe('untitled')
+      expect(GitService.generateSlug('***???***')).toBe('untitled')
+    })
+
+    it('should return "untitled" for null or undefined', () => {
+      expect(GitService.generateSlug(null as any)).toBe('untitled')
+      expect(GitService.generateSlug(undefined as any)).toBe('untitled')
+    })
+
+    it('should handle OAuth 2.0 style titles', () => {
+      expect(GitService.generateSlug('Implement OAuth 2.0 Support')).toBe('implement-oauth-20-support')
+    })
+
+    it('should handle underscores by replacing with hyphens', () => {
+      expect(GitService.generateSlug('test_with_underscores')).toBe('test-with-underscores')
+    })
+  })
+
+  describe('generateBranchName (Story 8.3)', () => {
+    it('should generate branch name with correct pattern', () => {
+      const branchName = GitService.generateBranchName('abc123', 'Add User Authentication')
+      expect(branchName).toBe('tinsu/story-abc123-add-user-authentication')
+    })
+
+    it('should handle various task titles', () => {
+      expect(GitService.generateBranchName('task1', 'Fix Bug')).toBe('tinsu/story-task1-fix-bug')
+      expect(GitService.generateBranchName('xyz789', "Fix the 'Login' Bug!")).toBe('tinsu/story-xyz789-fix-the-login-bug')
+    })
+
+    it('should use "untitled" for empty title', () => {
+      expect(GitService.generateBranchName('abc123', '')).toBe('tinsu/story-abc123-untitled')
+    })
+
+    it('should throw GitError for empty taskId', () => {
+      expect(() => GitService.generateBranchName('', 'Test')).toThrow(GitError)
+      expect(() => GitService.generateBranchName('', 'Test')).toThrow('non-empty string')
+    })
+
+    it('should throw GitError for null/undefined taskId', () => {
+      expect(() => GitService.generateBranchName(null as any, 'Test')).toThrow(GitError)
+      expect(() => GitService.generateBranchName(undefined as any, 'Test')).toThrow(GitError)
+    })
+  })
+
+  describe('branchExists (Story 8.3)', () => {
+    const testDir = '/tmp/tinsu-branchexists-test-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return false for non-existent branch', async () => {
+      const result = await GitService.branchExists(testDir, 'tinsu/story-abc123-nonexistent')
+      expect(result).toBe(false)
+    })
+
+    it('should return true for existing branch', async () => {
+      const { execSync } = await import('child_process')
+
+      // Create a branch
+      execSync('git branch tinsu/story-abc123-test-branch', { cwd: testDir })
+
+      const result = await GitService.branchExists(testDir, 'tinsu/story-abc123-test-branch')
+      expect(result).toBe(true)
+    })
+
+    it('should return true for main/master branch', async () => {
+      const { execSync } = await import('child_process')
+
+      // Get the default branch name
+      const defaultBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: testDir })
+        .toString()
+        .trim()
+
+      const result = await GitService.branchExists(testDir, defaultBranch)
+      expect(result).toBe(true)
+    })
+
+    it('should throw GitError for empty branchName', async () => {
+      await expect(GitService.branchExists(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.branchExists(testDir, '')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for dangerous path characters', async () => {
+      await expect(GitService.branchExists('/path;bad', 'test')).rejects.toThrow(GitError)
+      await expect(GitService.branchExists('/path;bad', 'test')).rejects.toThrow('dangerous characters')
+    })
+  })
+
+  describe('getUniqueBranchName (Story 8.3)', () => {
+    const testDir = '/tmp/tinsu-uniquebranch-test-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return original name if branch does not exist', async () => {
+      const result = await GitService.getUniqueBranchName(testDir, 'tinsu/story-abc123-new-feature')
+      expect(result).toBe('tinsu/story-abc123-new-feature')
+    })
+
+    it('should append -2 suffix if branch exists', async () => {
+      const { execSync } = await import('child_process')
+
+      // Create the base branch
+      execSync('git branch tinsu/story-abc123-feature', { cwd: testDir })
+
+      const result = await GitService.getUniqueBranchName(testDir, 'tinsu/story-abc123-feature')
+      expect(result).toBe('tinsu/story-abc123-feature-2')
+    })
+
+    it('should increment suffix for multiple collisions', async () => {
+      const { execSync } = await import('child_process')
+
+      // Create base branch and -2 suffix branch
+      execSync('git branch tinsu/story-xyz-test', { cwd: testDir })
+      execSync('git branch tinsu/story-xyz-test-2', { cwd: testDir })
+
+      const result = await GitService.getUniqueBranchName(testDir, 'tinsu/story-xyz-test')
+      expect(result).toBe('tinsu/story-xyz-test-3')
+    })
+
+    it('should throw GitError for empty baseName', async () => {
+      await expect(GitService.getUniqueBranchName(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.getUniqueBranchName(testDir, '')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for dangerous path characters', async () => {
+      await expect(GitService.getUniqueBranchName('/path;bad', 'test')).rejects.toThrow(GitError)
+    })
+  })
+
+  describe('createWorktree with taskTitle (Story 8.3)', () => {
+    const testDir = '/tmp/tinsu-worktree-title-test-' + Date.now()
+    const testTaskId = 'title-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should create worktree with descriptive branch name when title provided', async () => {
+      const { execSync } = await import('child_process')
+
+      const result = await GitService.createWorktree(testDir, testTaskId, 'Add User Authentication')
+
+      // Should return both worktreePath and branchName
+      expect(result).toHaveProperty('worktreePath')
+      expect(result).toHaveProperty('branchName')
+      expect(result.worktreePath).toBe(`${testDir}/.tinsu/worktrees/${testTaskId}`)
+      expect(result.branchName).toBe(`tinsu/story-${testTaskId}-add-user-authentication`)
+
+      // Verify branch was created with descriptive name
+      const branches = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branches).toContain(`tinsu/story-${testTaskId}-add-user-authentication`)
+    })
+
+    it('should fall back to simple naming when no title provided', async () => {
+      const { execSync } = await import('child_process')
+
+      const result = await GitService.createWorktree(testDir, testTaskId)
+
+      expect(result).toHaveProperty('worktreePath')
+      expect(result).toHaveProperty('branchName')
+      expect(result.branchName).toBe(`task/${testTaskId}`)
+
+      // Verify branch was created with simple naming
+      const branches = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branches).toContain(`task/${testTaskId}`)
+    })
+
+    it('should handle special characters in title', async () => {
+      const { execSync } = await import('child_process')
+      const specialTaskId = 'special-' + Date.now()
+
+      const result = await GitService.createWorktree(testDir, specialTaskId, "Fix the 'Login' Bug!")
+
+      expect(result.branchName).toBe(`tinsu/story-${specialTaskId}-fix-the-login-bug`)
+
+      // Verify branch was created
+      const branches = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branches).toContain(`tinsu/story-${specialTaskId}-fix-the-login-bug`)
+    })
+
+    it('should handle branch name collision with suffix', async () => {
+      const { execSync } = await import('child_process')
+      const collisionTaskId = 'collision-' + Date.now()
+
+      // Create a branch that will collide
+      const expectedBranchName = `tinsu/story-${collisionTaskId}-test-feature`
+      execSync(`git branch ${expectedBranchName}`, { cwd: testDir })
+
+      const result = await GitService.createWorktree(testDir, collisionTaskId, 'Test Feature')
+
+      // Should have -2 suffix due to collision
+      expect(result.branchName).toBe(`${expectedBranchName}-2`)
+
+      // Verify both branches exist
+      const branches = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branches).toContain(expectedBranchName)
+      expect(branches).toContain(`${expectedBranchName}-2`)
+    })
+  })
+
+  describe('getBranchNameFromWorktree (Story 8.3 AC 5)', () => {
+    const testDir = '/tmp/tinsu-getbranch-test-' + Date.now()
+    const testTaskId = 'getbranch-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return branch name from existing worktree', async () => {
+      // Create a worktree first
+      const result = await GitService.createWorktree(testDir, testTaskId, 'Test Feature')
+
+      // Now retrieve the branch name from the worktree
+      const branchName = await GitService.getBranchNameFromWorktree(result.worktreePath)
+
+      expect(branchName).toBe(result.branchName)
+    })
+
+    it('should return null for non-existent path', async () => {
+      const branchName = await GitService.getBranchNameFromWorktree('/nonexistent/path')
+      expect(branchName).toBeNull()
+    })
+
+    it('should return null for non-git directory', async () => {
+      // Use /tmp which is outside any git repo
+      const branchName = await GitService.getBranchNameFromWorktree('/tmp')
+      expect(branchName).toBeNull()
+    })
+
+    it('should throw GitError for dangerous path characters', async () => {
+      await expect(GitService.getBranchNameFromWorktree('/path;bad')).rejects.toThrow(GitError)
+      await expect(GitService.getBranchNameFromWorktree('/path;bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should retrieve branch name with tinsu prefix', async () => {
+      const customTaskId = 'custom-' + Date.now()
+      const result = await GitService.createWorktree(testDir, customTaskId, 'Add User Authentication')
+
+      const branchName = await GitService.getBranchNameFromWorktree(result.worktreePath)
+
+      expect(branchName).toContain('tinsu/story-')
+      expect(branchName).toContain('add-user-authentication')
     })
   })
 })

@@ -11,7 +11,10 @@ import {
   Activity,
   GitCompareArrows,
   Pencil,
-  Save
+  Save,
+  GitBranch,
+  Copy,
+  Check
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
@@ -37,6 +40,9 @@ export interface TaskDetailContentProps {
     epic_id: string | null
     story_number: number | null
     full_content: string | null
+    // Story 8.3: Branch name for git worktree
+    branch_name?: string | null
+    worktree_path?: string | null
     created_at: Date
     updated_at: Date
   } | null
@@ -62,6 +68,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     'content'
   )
   const [isEditing, setEditing] = useState(true)
+
+  // Story 8.3: Branch name copy feedback state
+  const [branchCopied, setBranchCopied] = useState(false)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -150,6 +159,23 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     setEditing(false)
     setHasChanges(false)
   }, [])
+
+  // Story 8.3: Copy branch name to clipboard
+  const handleCopyBranchName = useCallback(async () => {
+    if (!task?.branch_name) return
+    try {
+      await navigator.clipboard.writeText(task.branch_name)
+      setBranchCopied(true)
+      toast.success('Branch name copied', {
+        description: task.branch_name,
+        duration: 2000
+      })
+      // Reset copied state after animation
+      setTimeout(() => setBranchCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy branch name')
+    }
+  }, [task?.branch_name])
 
   // Keyboard shortcuts (scoped to panel)
   useEffect(() => {
@@ -331,6 +357,32 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               {task.status === 'done' && <CheckCircle2 className="h-3 w-3" />}
               {statusLabel}
             </div>
+
+            {/* Story 8.3: Branch name display with copy button */}
+            {task.branch_name && (
+              <div className="group flex items-center gap-1.5">
+                <GitBranch className="h-3.5 w-3.5 text-orange-400/70" />
+                <code
+                  className="max-w-[200px] truncate rounded bg-orange-500/10 px-2 py-0.5 font-mono text-[11px] text-orange-300/90 transition-colors group-hover:bg-orange-500/15"
+                  title={task.branch_name}
+                >
+                  {task.branch_name}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopyBranchName}
+                  className="h-6 w-6 text-muted-foreground opacity-0 transition-opacity hover:bg-orange-500/10 hover:text-orange-400 group-hover:opacity-100"
+                  aria-label="Copy branch name"
+                >
+                  {branchCopied ? (
+                    <Check className="h-3 w-3 text-emerald-400" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Title */}

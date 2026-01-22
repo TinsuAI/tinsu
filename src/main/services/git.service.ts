@@ -33,6 +33,12 @@ const GIT_MAX_BUFFER = 10 * 1024 * 1024
 /** Pattern for dangerous shell metacharacters */
 const DANGEROUS_CHARS = /[;&|`$()<>]/
 
+/** Pattern for invalid git branch name characters (NFR23) */
+const INVALID_BRANCH_CHARS = /[~^:\\\?\*\[\]@{}|'"`!#$%&()+,;=<>]/g
+
+/** Maximum length for the slug portion of branch names */
+const MAX_SLUG_LENGTH = 50
+
 /** Error type returned by promisified exec */
 interface ExecError extends Error {
   code?: number
@@ -485,22 +491,35 @@ export class GitService {
   }
 
   /**
+   * Result of creating a worktree, including both path and branch name.
+   *
+   * @see Story 8.3: Updated createWorktree signature
+   */
+  // Note: WorktreeResult interface is defined inline to avoid export issues
+
+  /**
    * Creates a git worktree for isolated task execution.
    *
    * @param projectPath - Path to the main git repository
    * @param taskId - Unique task identifier
-   * @returns Path to the created worktree
+   * @param taskTitle - Optional task title for descriptive branch naming (Story 8.3)
+   * @returns Object containing worktreePath and branchName
    * @throws GitError if worktree creation fails
    *
    * @see Story 8.2: AC 1, 2, 4, 5, 6
+   * @see Story 8.3: AC 1, 2, 3, 4 - Descriptive branch naming
    *
    * @example
    * ```typescript
-   * const worktreePath = await GitService.createWorktree('/path/to/project', 'task-123')
-   * // Returns: '/path/to/project/.tinsu/worktrees/task-123'
+   * const result = await GitService.createWorktree('/path/to/project', 'task-123', 'Add User Auth')
+   * // Returns: { worktreePath: '/path/to/project/.tinsu/worktrees/task-123', branchName: 'tinsu/story-task-123-add-user-auth' }
    * ```
    */
-  static async createWorktree(projectPath: string, taskId: string): Promise<string> {
+  static async createWorktree(
+    projectPath: string,
+    taskId: string,
+    taskTitle?: string
+  ): Promise<{ worktreePath: string; branchName: string }> {
     this.validatePath(projectPath, 'createWorktree')
 
     // Validate taskId - should not contain dangerous characters
@@ -532,16 +551,26 @@ export class GitService {
       // Note: Must be called AFTER creating .tinsu/ directory so ensureWorktreesIgnored can detect it
       await this.ensureWorktreesIgnored(normalizedPath)
 
+      // Story 8.3: Generate descriptive branch name using task title
+      // Falls back to simple task/{taskId} if no title provided (backward compatibility)
+      let branchName: string
+      if (taskTitle) {
+        const baseBranchName = this.generateBranchName(taskId, taskTitle)
+        // Ensure branch name is unique (Story 8.3 AC 4)
+        branchName = await this.getUniqueBranchName(normalizedPath, baseBranchName)
+      } else {
+        // Backward compatibility: use simple naming if no title
+        branchName = `task/${taskId}`
+      }
+
       // Story 8.2 AC 4: Create git worktree with a new branch based on HEAD
-      // Use -b to create a new branch named task/{task-id}
-      const branchName = `task/${taskId}`
       await this.execGit(
         ['worktree', 'add', worktreePath, '-b', branchName, 'HEAD'],
         normalizedPath,
         GIT_LARGE_OP_TIMEOUT
       )
 
-      return worktreePath
+      return { worktreePath, branchName }
     } catch (error) {
       // Story 8.2 AC 6: Cleanup on failure - remove partial worktree (NFR12)
       if (existsSync(worktreePath)) {
@@ -646,6 +675,214 @@ export class GitService {
 
     const exists = await this.hasWorktree(projectPath, taskId)
     return exists ? worktreePath : null
+  }
+
+  /**
+   * Gets the current branch name from a worktree directory.
+   *
+   * @param worktreePath - Path to the git worktree
+   * @returns Branch name if worktree exists and has a branch, null otherwise
+   * @throws GitError if path is invalid
+   *
+   * @see Story 8.3: AC 5 - Retrieve branch name for display in task details
+   *
+   * @example
+   * ```typescript
+   * const branchName = await GitService.getBranchNameFromWorktree('/path/to/.tinsu/worktrees/task-123')
+   * // Returns: 'tinsu/story-task-123-add-user-auth'
+   * ```
+   */
+  static async getBranchNameFromWorktree(worktreePath: string): Promise<string | null> {
+    this.validatePath(worktreePath, 'getBranchNameFromWorktree')
+
+    const normalizedPath = resolve(worktreePath)
+
+    if (!existsSync(normalizedPath)) {
+      return null
+    }
+
+    try {
+      // Get the current branch name from the worktree
+      const { stdout } = await this.execGit(
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+      const branchName = stdout.trim()
+
+      // HEAD means detached state, no branch name
+      if (branchName === 'HEAD') {
+        return null
+      }
+
+      return branchName
+    } catch {
+      // If git command fails, return null (worktree may be invalid)
+      return null
+    }
+  }
+
+  /**
+   * Generates a URL-safe slug from a title string.
+   *
+   * @param title - The title to convert to a slug
+   * @returns A lowercase, hyphen-separated slug suitable for git branch names
+   *
+   * @see Story 8.3: AC 2, 3 - Slug generation rules
+   *
+   * @example
+   * ```typescript
+   * GitService.generateSlug('Add User Authentication') // 'add-user-authentication'
+   * GitService.generateSlug("Fix the 'Login' Bug!") // 'fix-the-login-bug'
+   * ```
+   */
+  static generateSlug(title: string): string {
+    if (!title || typeof title !== 'string') {
+      return 'untitled'
+    }
+
+    let slug = title
+      // Convert to lowercase
+      .toLowerCase()
+      // Remove invalid git branch characters
+      .replace(INVALID_BRANCH_CHARS, '')
+      // Replace spaces and underscores with hyphens
+      .replace(/[\s_]+/g, '-')
+      // Remove any remaining non-alphanumeric characters except hyphens
+      .replace(/[^a-z0-9-]/g, '')
+      // Collapse multiple consecutive hyphens into one
+      .replace(/-+/g, '-')
+      // Trim leading/trailing hyphens
+      .replace(/^-+|-+$/g, '')
+
+    // Handle empty result (title was only special characters)
+    if (!slug) {
+      return 'untitled'
+    }
+
+    // Truncate to max length at word boundary when possible
+    if (slug.length > MAX_SLUG_LENGTH) {
+      // Find the last hyphen within the max length
+      const truncated = slug.substring(0, MAX_SLUG_LENGTH)
+      const lastHyphen = truncated.lastIndexOf('-')
+
+      // If there's a hyphen in a reasonable position (at least half the length), use it
+      if (lastHyphen > MAX_SLUG_LENGTH / 2) {
+        slug = truncated.substring(0, lastHyphen)
+      } else {
+        // Otherwise just truncate at max length
+        slug = truncated
+      }
+
+      // Remove trailing hyphen if present
+      slug = slug.replace(/-+$/, '')
+    }
+
+    return slug
+  }
+
+  /**
+   * Generates a branch name following the convention: tinsu/story-{taskId}-{slug}
+   *
+   * @param taskId - The unique task identifier
+   * @param taskTitle - The task title to generate slug from
+   * @returns A valid git branch name
+   *
+   * @see Story 8.3: AC 1, 2 - Branch naming pattern
+   *
+   * @example
+   * ```typescript
+   * GitService.generateBranchName('abc123', 'Add User Authentication')
+   * // Returns: 'tinsu/story-abc123-add-user-authentication'
+   * ```
+   */
+  static generateBranchName(taskId: string, taskTitle: string): string {
+    if (!taskId || typeof taskId !== 'string') {
+      throw new GitError(
+        'Invalid taskId: taskId must be a non-empty string',
+        'generateBranchName'
+      )
+    }
+
+    const slug = this.generateSlug(taskTitle)
+    return `tinsu/story-${taskId}-${slug}`
+  }
+
+  /**
+   * Checks if a branch exists in the repository.
+   *
+   * @param projectPath - Path to the git repository
+   * @param branchName - The branch name to check
+   * @returns true if branch exists, false otherwise
+   *
+   * @see Story 8.3: AC 4 - Branch uniqueness check
+   *
+   * @example
+   * ```typescript
+   * const exists = await GitService.branchExists('/path/to/project', 'tinsu/story-abc123-add-user-auth')
+   * ```
+   */
+  static async branchExists(projectPath: string, branchName: string): Promise<boolean> {
+    this.validatePath(projectPath, 'branchExists')
+
+    if (!branchName || typeof branchName !== 'string') {
+      throw new GitError(
+        'Invalid branchName: branchName must be a non-empty string',
+        'branchExists'
+      )
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    try {
+      // Use git show-ref --verify to check if branch exists
+      await this.execGit(
+        ['show-ref', '--verify', `refs/heads/${branchName}`],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+      return true
+    } catch {
+      // Branch doesn't exist (git show-ref exits with non-zero when ref not found)
+      return false
+    }
+  }
+
+  /**
+   * Gets a unique branch name by appending a suffix if the base name already exists.
+   *
+   * @param projectPath - Path to the git repository
+   * @param baseName - The base branch name to check
+   * @returns A unique branch name (original or with -2, -3, etc. suffix)
+   *
+   * @see Story 8.3: AC 4 - Branch uniqueness guarantee
+   *
+   * @example
+   * ```typescript
+   * // If 'tinsu/story-abc123-add-auth' exists:
+   * const unique = await GitService.getUniqueBranchName('/path', 'tinsu/story-abc123-add-auth')
+   * // Returns: 'tinsu/story-abc123-add-auth-2'
+   * ```
+   */
+  static async getUniqueBranchName(projectPath: string, baseName: string): Promise<string> {
+    this.validatePath(projectPath, 'getUniqueBranchName')
+
+    if (!baseName || typeof baseName !== 'string') {
+      throw new GitError(
+        'Invalid baseName: baseName must be a non-empty string',
+        'getUniqueBranchName'
+      )
+    }
+
+    let candidate = baseName
+    let suffix = 1
+
+    while (await this.branchExists(projectPath, candidate)) {
+      suffix++
+      candidate = `${baseName}-${suffix}`
+    }
+
+    return candidate
   }
 
   /**

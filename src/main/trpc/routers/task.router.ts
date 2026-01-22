@@ -261,19 +261,57 @@ export const taskRouter = router({
               // Story 8.2 AC 3: Reuse existing worktree
               worktreePath = await GitService.getWorktreePath(ctx.projectRoot, input.id)
               console.log(`Reusing existing worktree: ${worktreePath}`)
+
+              // Story 8.3 AC 5: Retrieve branch name from existing worktree for display
+              if (worktreePath) {
+                const existingBranchName = await GitService.getBranchNameFromWorktree(worktreePath)
+                if (existingBranchName) {
+                  ctx.db
+                    .update(tasks)
+                    .set({
+                      worktree_path: worktreePath,
+                      branch_name: existingBranchName,
+                      updated_at: new Date()
+                    })
+                    .where(eq(tasks.id, input.id))
+                    .run()
+                  console.log(`Retrieved branch name from existing worktree: ${existingBranchName}`)
+                }
+              }
             } else {
               // Story 8.2 AC 1, 2, 4, 6: Create new worktree (failure triggers rollback per AC 6)
-              worktreePath = await GitService.createWorktree(ctx.projectRoot, input.id)
-              console.log(`Created git worktree: ${worktreePath}`)
-            }
+              // Story 8.3: Pass task title for descriptive branch naming
+              const worktreeResult = await GitService.createWorktree(ctx.projectRoot, input.id, result.title)
+              worktreePath = worktreeResult.worktreePath
+              console.log(`Created git worktree: ${worktreePath} with branch: ${worktreeResult.branchName}`)
 
-            // Story 8.2 AC 5: Update task record with worktree path
-            if (worktreePath) {
+              // Story 8.3 AC 5: Update task record with branch name
               ctx.db
                 .update(tasks)
-                .set({ worktree_path: worktreePath, updated_at: new Date() })
+                .set({
+                  worktree_path: worktreePath,
+                  branch_name: worktreeResult.branchName,
+                  updated_at: new Date()
+                })
                 .where(eq(tasks.id, input.id))
                 .run()
+            }
+          } else {
+            // Story 8.2 AC 5: Task already has worktree path in database
+            // Story 8.3 AC 5: Retrieve branch name if missing
+            if (!result.branch_name && worktreePath) {
+              const existingBranchName = await GitService.getBranchNameFromWorktree(worktreePath)
+              if (existingBranchName) {
+                ctx.db
+                  .update(tasks)
+                  .set({
+                    branch_name: existingBranchName,
+                    updated_at: new Date()
+                  })
+                  .where(eq(tasks.id, input.id))
+                  .run()
+                console.log(`Retrieved missing branch name: ${existingBranchName}`)
+              }
             }
           }
 

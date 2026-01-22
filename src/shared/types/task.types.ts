@@ -75,6 +75,8 @@ export interface Task {
   project_id: string | null
   // Story 8.2: Worktree path for git isolation
   worktree_path: string | null // Path to git worktree (.tinsu/worktrees/{task-id}/)
+  // Story 8.3: Branch name for git worktree
+  branch_name: string | null // e.g., tinsu/story-abc123-add-user-auth
   created_at: Date
   updated_at: Date
 }
@@ -111,6 +113,8 @@ export interface NewTask {
   project_id?: string | null
   // Story 8.2: Worktree path for git isolation
   worktree_path?: string | null
+  // Story 8.3: Branch name for git worktree
+  branch_name?: string | null
   created_at?: Date
   updated_at?: Date
 }
