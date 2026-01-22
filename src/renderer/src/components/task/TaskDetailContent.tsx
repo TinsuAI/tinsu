@@ -61,7 +61,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>(
     'content'
   )
-  const [isEditing, setEditing] = useState(false)
+  const [isEditing, setEditing] = useState(true)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -126,7 +126,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Reset state when taskId changes
   useEffect(() => {
     setActiveTab('content')
-    setEditing(false)
+    setEditing(true)
     setHasChanges(false)
   }, [taskId])
 
