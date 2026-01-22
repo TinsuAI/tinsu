@@ -191,4 +191,121 @@ project_name: 'TinSu'
       expect(context.contextNotes).toBe('')
     })
   })
+
+  // Story 8.4: Worktree path resolution tests
+  describe('resolvePathInWorktree (Story 8.4)', () => {
+    it('returns absolute path unchanged', () => {
+      const absolutePath = '/absolute/path/to/file.ts'
+
+      const result = ContextBuilderService.resolvePathInWorktree(absolutePath, '/some/worktree')
+
+      expect(result).toBe(absolutePath)
+    })
+
+    it('resolves relative path against worktree when provided', () => {
+      const relativePath = 'src/index.ts'
+      const worktreePath = '/project/.tinsu/worktrees/task-123'
+
+      const result = ContextBuilderService.resolvePathInWorktree(relativePath, worktreePath)
+
+      expect(result).toBe('/project/.tinsu/worktrees/task-123/src/index.ts')
+    })
+
+    it('returns relative path unchanged when no worktree provided', () => {
+      const relativePath = 'src/index.ts'
+
+      const result = ContextBuilderService.resolvePathInWorktree(relativePath, undefined)
+
+      expect(result).toBe(relativePath)
+    })
+
+    it('handles paths with ../ correctly', () => {
+      const relativePath = '../sibling/file.ts'
+      const worktreePath = '/project/.tinsu/worktrees/task-123'
+
+      const result = ContextBuilderService.resolvePathInWorktree(relativePath, worktreePath)
+
+      // path.join normalizes the path
+      expect(result).toBe('/project/.tinsu/worktrees/sibling/file.ts')
+    })
+  })
+
+  describe('buildContext (Story 8.4)', () => {
+    it('resolves story path relative to worktree', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockStoryContent)
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+
+      const worktreePath = '/project/.tinsu/worktrees/task-abc'
+      const context = ContextBuilderService.buildContext({
+        storyFilePath: 'stories/8-4-story.md',
+        worktreePath
+      })
+
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        '/project/.tinsu/worktrees/task-abc/stories/8-4-story.md',
+        'utf-8'
+      )
+      expect(context.worktreeBasePath).toBe(worktreePath)
+    })
+
+    it('uses absolute story path as-is', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockStoryContent)
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+
+      const absoluteStoryPath = '/project/_bmad-output/stories/8-4-story.md'
+      const context = ContextBuilderService.buildContext({
+        storyFilePath: absoluteStoryPath,
+        worktreePath: '/project/.tinsu/worktrees/task-abc'
+      })
+
+      expect(fs.readFileSync).toHaveBeenCalledWith(absoluteStoryPath, 'utf-8')
+      expect(context.storyFilePath).toBe(absoluteStoryPath)
+    })
+
+    it('loads project context from worktree when available', () => {
+      vi.mocked(fs.readFileSync).mockImplementation((filePath) => {
+        if (typeof filePath === 'string' && filePath.includes('story')) return mockStoryContent
+        if (typeof filePath === 'string' && filePath.includes('project-context')) return mockProjectContextContent
+        throw new Error('File not found')
+      })
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+
+      const worktreePath = '/project/.tinsu/worktrees/task-abc'
+      const context = ContextBuilderService.buildContext({
+        storyFilePath: '/abs/story.md',
+        projectContextPath: 'docs/project-context.md',
+        worktreePath
+      })
+
+      expect(fs.existsSync).toHaveBeenCalledWith(
+        '/project/.tinsu/worktrees/task-abc/docs/project-context.md'
+      )
+      expect(context.projectContextContent).toBe(mockProjectContextContent)
+    })
+
+    it('includes context notes when provided', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockStoryContent)
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+
+      const notes = 'Custom implementation notes'
+      const context = ContextBuilderService.buildContext({
+        storyFilePath: mockStoryPath,
+        contextNotes: notes
+      })
+
+      expect(context.contextNotes).toBe(notes)
+    })
+
+    it('works without worktree path', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockStoryContent)
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+
+      const context = ContextBuilderService.buildContext({
+        storyFilePath: mockStoryPath
+      })
+
+      expect(context.storyContent).toBe(mockStoryContent)
+      expect(context.worktreeBasePath).toBeUndefined()
+    })
+  })
 })

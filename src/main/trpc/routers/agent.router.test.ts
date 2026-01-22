@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { existsSync } from 'fs'
 import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
@@ -12,6 +13,22 @@ import { ActivityLogService } from '../../services/activity-log.service'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
+
+// Story 8.4: Mock fs for worktree path validation
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>()
+  return {
+    ...actual,
+    existsSync: vi.fn((path: string) => {
+      // By default, return false for worktree paths (to test validation)
+      // Tests can override this with mockReturnValueOnce
+      if (typeof path === 'string' && path.includes('.tinsu/worktrees')) {
+        return false
+      }
+      return actual.existsSync(path)
+    })
+  }
+})
 
 // Mock the services
 vi.mock('../../services/claude-cli-detector.service', () => ({
@@ -147,6 +164,7 @@ function createTestDb(): TestDb {
   `)
 
   // Create the tasks table matching Drizzle schema (Story 3.7: added story_number, story_file_path, full_content)
+  // Story 8.2-8.3: Added worktree_path and branch_name columns
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -168,6 +186,8 @@ function createTestDb(): TestDb {
       full_content TEXT,
       story_file_status TEXT,
       context_notes TEXT,
+      worktree_path TEXT,
+      branch_name TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -447,7 +467,8 @@ describe('agentRouter', () => {
         task.id,
         TEST_PROJECT_ROOT,
         '5.3', // Story identifier in format epic_number.story_number
-        'opus' // Story 5.1: Dev agent model from config
+        'opus', // Story 5.1: Dev agent model from config
+        undefined // Story 8.4: worktree path (undefined when not set)
       )
     })
 
@@ -467,7 +488,8 @@ describe('agentRouter', () => {
         task.id,
         TEST_PROJECT_ROOT,
         '7', // Story number only when no epic
-        'opus'
+        'opus',
+        undefined // Story 8.4: worktree path (undefined when not set)
       )
     })
   })
@@ -556,8 +578,61 @@ describe('agentRouter', () => {
         task.id,
         TEST_PROJECT_ROOT,
         mockStoryFilePath,
-        'opus' // Story 5.1: Dev agent model from config
+        'opus', // Story 5.1: Dev agent model from config
+        undefined // Story 8.4: worktree path (undefined when not set)
       )
+    })
+
+    // Story 8.4: Worktree path tests
+    it('passes worktree_path to launcher when task has one (Story 8.4)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      vi.mocked(BmadAgentLauncherService.launchDevStory).mockResolvedValue({
+        command: `cd "/home/user/test-project/.tinsu/worktrees/task-xyz" && claude --dangerously-skip-permissions "/bmad:bmm:workflows:dev-story ${mockStoryFilePath}"`,
+        success: true
+      })
+
+      const worktreePath = '/home/user/test-project/.tinsu/worktrees/task-xyz'
+      const task = createStoryTask({
+        story_number: '3',
+        story_file_status: 'story_ready',
+        story_file_path: mockStoryFilePath,
+        worktree_path: worktreePath
+      })
+
+      // Mock existsSync to return true for this worktree path
+      vi.mocked(existsSync).mockReturnValueOnce(true)
+
+      const result = await caller.startDevStory({ taskId: task.id })
+
+      expect(result.success).toBe(true)
+      expect(BmadAgentLauncherService.launchDevStory).toHaveBeenCalledWith(
+        task.id,
+        TEST_PROJECT_ROOT,
+        mockStoryFilePath,
+        'opus',
+        worktreePath
+      )
+    })
+
+    it('throws PRECONDITION_FAILED when worktree_path does not exist (Story 8.4)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+
+      const nonExistentWorktree = '/home/user/test-project/.tinsu/worktrees/deleted-task'
+      const task = createStoryTask({
+        story_number: '3',
+        story_file_status: 'story_ready',
+        story_file_path: mockStoryFilePath,
+        worktree_path: nonExistentWorktree
+      })
+
+      // existsSync will return false for the non-existent worktree
+      await expect(caller.startDevStory({ taskId: task.id })).rejects.toMatchObject({
+        code: 'PRECONDITION_FAILED',
+        message: expect.stringContaining('Worktree path does not exist')
+      })
+
+      // Launcher should NOT be called
+      expect(BmadAgentLauncherService.launchDevStory).not.toHaveBeenCalled()
     })
   })
 
@@ -713,8 +788,54 @@ describe('agentRouter', () => {
         TEST_PROJECT_ROOT,
         'Fix login bug',
         'The login button does not work on mobile Safari',
-        'opus' // Story 5.1: Dev agent model from config
+        'opus', // Story 5.1: Dev agent model from config
+        undefined // Story 8.4: worktree path (undefined when not set)
       )
+    })
+
+    // Story 8.4: Worktree path tests
+    it('passes worktree_path to launcher when task has one (Story 8.4)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+      vi.mocked(BmadAgentLauncherService.launchBasicTask).mockResolvedValue({
+        command: 'cd "/home/user/test-project/.tinsu/worktrees/task-basic" && claude --dangerously-skip-permissions "Fix login bug"',
+        success: true
+      })
+
+      const worktreePath = '/home/user/test-project/.tinsu/worktrees/task-basic'
+      const task = createBasicTask({
+        worktree_path: worktreePath
+      })
+
+      // Mock existsSync to return true for this worktree path
+      vi.mocked(existsSync).mockReturnValueOnce(true)
+
+      const result = await caller.startBasicTask({ taskId: task.id })
+
+      expect(result.success).toBe(true)
+      expect(BmadAgentLauncherService.launchBasicTask).toHaveBeenCalledWith(
+        task.id,
+        TEST_PROJECT_ROOT,
+        task.title,
+        task.description,
+        'opus',
+        worktreePath
+      )
+    })
+
+    it('throws PRECONDITION_FAILED when worktree_path does not exist (Story 8.4)', async () => {
+      vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+
+      const nonExistentWorktree = '/home/user/test-project/.tinsu/worktrees/deleted-basic'
+      const task = createBasicTask({
+        worktree_path: nonExistentWorktree
+      })
+
+      await expect(caller.startBasicTask({ taskId: task.id })).rejects.toMatchObject({
+        code: 'PRECONDITION_FAILED',
+        message: expect.stringContaining('Worktree path does not exist')
+      })
+
+      expect(BmadAgentLauncherService.launchBasicTask).not.toHaveBeenCalled()
     })
 
     it('handles task with no description', async () => {
@@ -736,7 +857,8 @@ describe('agentRouter', () => {
         TEST_PROJECT_ROOT,
         'Quick fix',
         undefined, // description is undefined when null
-        'opus'
+        'opus',
+        undefined // Story 8.4: worktree path (undefined when not set)
       )
     })
   })

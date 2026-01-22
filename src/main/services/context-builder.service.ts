@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from 'fs'
+import { join, isAbsolute } from 'path'
 
 /**
  * Context structure for DEV agent story implementation.
@@ -15,6 +16,8 @@ export interface StoryContext {
   projectContextContent?: string
   /** Optional context notes from task.context_notes */
   contextNotes?: string
+  /** Optional worktree base path for path resolution (Story 8.4) */
+  worktreeBasePath?: string
 }
 
 /**
@@ -46,11 +49,17 @@ export class ContextBuilderService {
    * ```
    */
   static buildStoryContext(storyFilePath: string): StoryContext {
-    const storyContent = readFileSync(storyFilePath, 'utf-8')
+    try {
+      const storyContent = readFileSync(storyFilePath, 'utf-8')
 
-    return {
-      storyContent,
-      storyFilePath
+      return {
+        storyContent,
+        storyFilePath
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to read story file at ${storyFilePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 
@@ -81,20 +90,33 @@ export class ContextBuilderService {
     storyFilePath: string,
     projectContextPath: string
   ): StoryContext {
-    const storyContent = readFileSync(storyFilePath, 'utf-8')
+    try {
+      const storyContent = readFileSync(storyFilePath, 'utf-8')
 
-    const context: StoryContext = {
-      storyContent,
-      storyFilePath
+      const context: StoryContext = {
+        storyContent,
+        storyFilePath
+      }
+
+      // Load project context if it exists
+      if (existsSync(projectContextPath)) {
+        try {
+          context.projectContextPath = projectContextPath
+          context.projectContextContent = readFileSync(projectContextPath, 'utf-8')
+        } catch (error) {
+          // Project context is optional - log but don't fail
+          console.warn(
+            `Failed to read project context at ${projectContextPath}: ${error instanceof Error ? error.message : String(error)}`
+          )
+        }
+      }
+
+      return context
+    } catch (error) {
+      throw new Error(
+        `Failed to read story file at ${storyFilePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
-
-    // Load project context if it exists
-    if (existsSync(projectContextPath)) {
-      context.projectContextPath = projectContextPath
-      context.projectContextContent = readFileSync(projectContextPath, 'utf-8')
-    }
-
-    return context
   }
 
   /**
@@ -121,12 +143,130 @@ export class ContextBuilderService {
     storyFilePath: string,
     contextNotes?: string
   ): StoryContext {
-    const storyContent = readFileSync(storyFilePath, 'utf-8')
+    try {
+      const storyContent = readFileSync(storyFilePath, 'utf-8')
 
-    return {
-      storyContent,
-      storyFilePath,
-      contextNotes
+      return {
+        storyContent,
+        storyFilePath,
+        contextNotes
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to read story file at ${storyFilePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
+
+  /**
+   * Resolves a file path relative to a worktree base path.
+   *
+   * Story 8.4 - AC: 4
+   *
+   * When a worktree path is provided, relative paths are resolved
+   * against the worktree instead of the original project root.
+   * Absolute paths are returned unchanged.
+   *
+   * @param filePath - The file path to resolve (absolute or relative)
+   * @param worktreePath - Optional worktree base path for resolution
+   * @returns The resolved absolute path
+   *
+   * @example
+   * ```typescript
+   * // With worktree
+   * const path = ContextBuilderService.resolvePathInWorktree(
+   *   'src/index.ts',
+   *   '/project/.tinsu/worktrees/task-123'
+   * )
+   * // Returns: '/project/.tinsu/worktrees/task-123/src/index.ts'
+   *
+   * // Without worktree (absolute path)
+   * const path = ContextBuilderService.resolvePathInWorktree('/abs/path.ts')
+   * // Returns: '/abs/path.ts'
+   * ```
+   */
+  static resolvePathInWorktree(filePath: string, worktreePath?: string): string {
+    // If path is absolute, return as-is
+    if (isAbsolute(filePath)) {
+      return filePath
+    }
+
+    // If no worktree path, return as-is (caller should handle relative paths)
+    if (!worktreePath) {
+      return filePath
+    }
+
+    // Resolve relative path against worktree
+    return join(worktreePath, filePath)
+  }
+
+  /**
+   * Builds complete story context with worktree support.
+   *
+   * Story 8.4 - AC: 4
+   *
+   * Loads story content and project context, resolving paths
+   * relative to the worktree when provided. This ensures agents
+   * working in isolated worktrees have correct file references.
+   *
+   * @param storyFilePath - Path to the story .md file
+   * @param projectContextPath - Path to project-context.md (optional)
+   * @param worktreePath - Worktree base path for isolated execution (optional)
+   * @param contextNotes - User-provided context notes (optional)
+   * @returns StoryContext with all available context
+   * @throws Error if story file cannot be read
+   *
+   * @example
+   * ```typescript
+   * const context = ContextBuilderService.buildContext({
+   *   storyFilePath: '/project/_bmad-output/stories/8-4-story.md',
+   *   worktreePath: '/project/.tinsu/worktrees/task-abc123'
+   * })
+   * ```
+   */
+  static buildContext(options: {
+    storyFilePath: string
+    projectContextPath?: string
+    worktreePath?: string
+    contextNotes?: string
+  }): StoryContext {
+    const { storyFilePath, projectContextPath, worktreePath, contextNotes } = options
+
+    // Resolve story file path (may be relative to worktree)
+    const resolvedStoryPath = this.resolvePathInWorktree(storyFilePath, worktreePath)
+
+    try {
+      const storyContent = readFileSync(resolvedStoryPath, 'utf-8')
+
+      const context: StoryContext = {
+        storyContent,
+        storyFilePath: resolvedStoryPath,
+        contextNotes,
+        worktreeBasePath: worktreePath
+      }
+
+      // Load project context if path provided and file exists
+      if (projectContextPath) {
+        const resolvedProjectContextPath = this.resolvePathInWorktree(projectContextPath, worktreePath)
+        if (existsSync(resolvedProjectContextPath)) {
+          try {
+            context.projectContextPath = resolvedProjectContextPath
+            context.projectContextContent = readFileSync(resolvedProjectContextPath, 'utf-8')
+          } catch (error) {
+            // Project context is optional - log but don't fail
+            console.warn(
+              `Failed to read project context at ${resolvedProjectContextPath}: ${error instanceof Error ? error.message : String(error)}`
+            )
+          }
+        }
+      }
+
+      return context
+    } catch (error) {
+      const worktreeNote = worktreePath ? ` (worktree: ${worktreePath})` : ''
+      throw new Error(
+        `Failed to read story file at ${resolvedStoryPath}${worktreeNote}: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 }

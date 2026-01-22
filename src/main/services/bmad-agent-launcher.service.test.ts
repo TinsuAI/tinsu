@@ -73,6 +73,37 @@ describe('BmadAgentLauncherService', () => {
       expect(result.success).toBe(true)
     })
 
+    // Story 8.4: Worktree path tests
+    it('uses worktree path in cd command when provided (Story 8.4)', async () => {
+      const task = createMockPlanningTask()
+      const worktreePath = '/home/user/my-project/.tinsu/worktrees/task-123'
+
+      const result = await BmadAgentLauncherService.launchPlanningAgent(
+        mockTaskId,
+        task,
+        mockProjectPath,
+        undefined,
+        worktreePath
+      )
+
+      expect(result.command).toContain(`cd "${worktreePath}"`)
+      expect(result.command).not.toContain(mockProjectPath)
+    })
+
+    it('falls back to project path when worktree path is undefined (Story 8.4)', async () => {
+      const task = createMockPlanningTask()
+
+      const result = await BmadAgentLauncherService.launchPlanningAgent(
+        mockTaskId,
+        task,
+        mockProjectPath,
+        undefined,
+        undefined
+      )
+
+      expect(result.command).toContain(`cd "${mockProjectPath}"`)
+    })
+
     it('includes --skill flag with agent identifier', async () => {
       const task = createMockPlanningTask({
         bmad_agent: 'bmad:bmm:agents:architect'
@@ -199,6 +230,32 @@ describe('BmadAgentLauncherService', () => {
         BmadAgentLauncherService.launchCreateStory(mockTaskId, mockProjectPath, mockStoryIdentifier)
       ).rejects.toThrow('tmux session not found')
     })
+
+    // Story 8.4: Worktree path tests
+    it('uses worktree path in cd command when provided (Story 8.4)', async () => {
+      const worktreePath = '/home/user/my-project/.tinsu/worktrees/task-456'
+
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryIdentifier,
+        undefined,
+        worktreePath
+      )
+
+      expect(result.command).toContain(`cd "${worktreePath}"`)
+      expect(result.command).not.toContain(mockProjectPath)
+    })
+
+    it('falls back to project path when worktree path is undefined (Story 8.4)', async () => {
+      const result = await BmadAgentLauncherService.launchCreateStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryIdentifier
+      )
+
+      expect(result.command).toContain(`cd "${mockProjectPath}"`)
+    })
   })
 
   describe('launchDevStory (Story 5.3 - AC: 3)', () => {
@@ -291,6 +348,32 @@ describe('BmadAgentLauncherService', () => {
       await expect(
         BmadAgentLauncherService.launchDevStory(mockTaskId, mockProjectPath, mockStoryFilePath)
       ).rejects.toThrow('Send failed')
+    })
+
+    // Story 8.4: Worktree path tests
+    it('uses worktree path in cd command when provided (Story 8.4)', async () => {
+      const worktreePath = '/home/user/my-project/.tinsu/worktrees/task-789'
+
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath,
+        undefined,
+        worktreePath
+      )
+
+      expect(result.command).toContain(`cd "${worktreePath}"`)
+      expect(result.command).not.toContain(mockProjectPath)
+    })
+
+    it('falls back to project path when worktree path is undefined (Story 8.4)', async () => {
+      const result = await BmadAgentLauncherService.launchDevStory(
+        mockTaskId,
+        mockProjectPath,
+        mockStoryFilePath
+      )
+
+      expect(result.command).toContain(`cd "${mockProjectPath}"`)
     })
   })
 
@@ -390,6 +473,33 @@ describe('BmadAgentLauncherService', () => {
       await expect(
         BmadAgentLauncherService.launchBasicTask(mockTaskId, mockProjectPath, mockTaskTitle)
       ).rejects.toThrow('Spawn failed')
+    })
+
+    // Story 8.4: Worktree path tests
+    it('uses worktree path in cd command when provided (Story 8.4)', async () => {
+      const worktreePath = '/home/user/my-project/.tinsu/worktrees/task-abc'
+
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
+        mockProjectPath,
+        mockTaskTitle,
+        mockTaskDescription,
+        undefined,
+        worktreePath
+      )
+
+      expect(result.command).toContain(`cd "${worktreePath}"`)
+      expect(result.command).not.toContain(mockProjectPath)
+    })
+
+    it('falls back to project path when worktree path is undefined (Story 8.4)', async () => {
+      const result = await BmadAgentLauncherService.launchBasicTask(
+        mockTaskId,
+        mockProjectPath,
+        mockTaskTitle
+      )
+
+      expect(result.command).toContain(`cd "${mockProjectPath}"`)
     })
   })
 })

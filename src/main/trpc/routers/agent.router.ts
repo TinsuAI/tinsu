@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { existsSync } from 'fs'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { observable } from '@trpc/server/observable'
 import { tasks, epics, task_sessions, sprints } from '../../db/schema'
@@ -25,6 +26,31 @@ import { ActivityLogService } from '../../services/activity-log.service'
  * Needed because PTY events only have processId, but stall detection needs taskId.
  */
 const processToTaskMap = new Map<string, string>()
+
+/**
+ * Story 8.4: Validate worktree path before agent launch.
+ *
+ * @param worktreePath - The worktree path from task record (may be null)
+ * @param taskId - Task ID for logging
+ * @returns The validated worktree path, or undefined if not set
+ * @throws TRPCError if worktree path is set but doesn't exist on filesystem
+ */
+function validateWorktreePath(worktreePath: string | null | undefined, taskId: string): string | undefined {
+  if (!worktreePath) {
+    // No worktree path set - will fall back to project root
+    console.log(`[agent.router] Task ${taskId} has no worktree_path, will use project root`)
+    return undefined
+  }
+
+  if (!existsSync(worktreePath)) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: `Worktree path does not exist: ${worktreePath}. The worktree may have been deleted or never created. Try restarting the task.`
+    })
+  }
+
+  return worktreePath
+}
 
 /**
  * TES-1.11: Listen to PTY output events for stall detection.
@@ -244,13 +270,17 @@ export const agentRouter = router({
       const configService = new ConfigService(ctx.projectRoot)
       const devAgentModel = configService.getDevAgentModel()
 
+      // Story 8.4: Validate and get worktree_path from task for isolated execution
+      const worktreePath = validateWorktreePath(typedTask.worktree_path, input.taskId)
+
       // Launch the create-story workflow with story identifier
       // Command is sent to the task's tmux session
       const result = await BmadAgentLauncherService.launchCreateStory(
         input.taskId,
         ctx.projectRoot,
         storyIdentifier,
-        devAgentModel
+        devAgentModel,
+        worktreePath
       )
 
       return result
@@ -333,14 +363,21 @@ export const agentRouter = router({
       // Story 5.5 - AC: 2: Set progress state to dev_implementing
       devAgentProgressService.setState('dev_implementing')
 
+      // Story 8.4: Validate and get worktree_path from task for isolated execution
+      const worktreePath = validateWorktreePath(typedTask.worktree_path, input.taskId)
+
       // Launch the dev-story workflow with story file path
       // Command is sent to the task's tmux session
-      console.log('[agent.router] startDevStory: Calling BmadAgentLauncherService.launchDevStory')
+      console.log('[agent.router] startDevStory: Calling BmadAgentLauncherService.launchDevStory', {
+        taskId: input.taskId,
+        worktreePath: worktreePath || '(using project root)'
+      })
       const result = await BmadAgentLauncherService.launchDevStory(
         input.taskId,
         ctx.projectRoot,
         typedTask.story_file_path,
-        devAgentModel
+        devAgentModel,
+        worktreePath
       )
 
       console.log('[agent.router] startDevStory: Complete, result:', result)
@@ -434,6 +471,9 @@ export const agentRouter = router({
       const configService = new ConfigService(ctx.projectRoot)
       const devAgentModel = configService.getDevAgentModel()
 
+      // Story 8.4: Validate and get worktree_path from task for isolated execution
+      const worktreePath = validateWorktreePath(typedTask.worktree_path, input.taskId)
+
       // Launch Claude Code directly with task title and description
       // Command is sent to the task's tmux session
       const result = await BmadAgentLauncherService.launchBasicTask(
@@ -441,7 +481,8 @@ export const agentRouter = router({
         ctx.projectRoot,
         typedTask.title,
         typedTask.description ?? undefined,
-        devAgentModel
+        devAgentModel,
+        worktreePath
       )
 
       return result

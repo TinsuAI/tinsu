@@ -87,8 +87,9 @@ export class BmadAgentLauncherService {
    *
    * @param taskId - The task ID (used to find tmux session)
    * @param task - The planning task to launch agent for (must be a valid PlanningTask)
-   * @param projectPath - Root path of the project (used as working directory via cd)
+   * @param projectPath - Root path of the project (fallback working directory)
    * @param model - Optional Claude model to use (opus, sonnet, haiku). If not specified, uses CLI default.
+   * @param worktreePath - Optional worktree path for isolated execution (Story 8.4). If provided, agent runs in worktree instead of project root.
    * @returns Result with command and success status
    * @throws Error if no tmux session exists for the task
    *
@@ -102,7 +103,8 @@ export class BmadAgentLauncherService {
     taskId: string,
     task: PlanningTask,
     projectPath: string,
-    model?: ClaudeModel
+    model?: ClaudeModel,
+    worktreePath?: string
   ): Promise<BmadAgentLaunchResult> {
     // Clear any stale session state before launching
     await this.clearStaleSessionIfNeeded(taskId, 'planning-agent')
@@ -116,8 +118,11 @@ export class BmadAgentLauncherService {
       args.push('--model', model)
     }
 
-    // Build full command: cd to project dir and run claude
-    const fullCommand = `cd ${JSON.stringify(projectPath)} && claude ${args.join(' ')}`
+    // Story 8.4: Use worktree path if provided, otherwise fall back to project root
+    const workingDirectory = worktreePath || projectPath
+
+    // Build full command: cd to working dir and run claude
+    const fullCommand = `cd ${JSON.stringify(workingDirectory)} && claude ${args.join(' ')}`
 
     // Send command to tmux session
     await TaskTerminalService.sendCommand(taskId, fullCommand)
@@ -137,9 +142,10 @@ export class BmadAgentLauncherService {
    * Passes the story identifier (e.g., "5.3") to target a specific story.
    *
    * @param taskId - The task ID (used to find tmux session)
-   * @param projectPath - Root path of the project (used as working directory)
+   * @param projectPath - Root path of the project (fallback working directory)
    * @param storyIdentifier - Story identifier in format "epic.story" (e.g., "5.3")
    * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @param worktreePath - Optional worktree path for isolated execution (Story 8.4). If provided, agent runs in worktree instead of project root.
    * @returns Result with command and success status
    * @throws Error if no tmux session exists for the task
    *
@@ -153,7 +159,8 @@ export class BmadAgentLauncherService {
     taskId: string,
     projectPath: string,
     storyIdentifier: string,
-    model?: ClaudeModel
+    model?: ClaudeModel,
+    worktreePath?: string
   ): Promise<BmadAgentLaunchResult> {
     // Clear any stale session state before launching
     await this.clearStaleSessionIfNeeded(taskId, 'create-story')
@@ -167,8 +174,11 @@ export class BmadAgentLauncherService {
       args.push('--model', model)
     }
 
-    // Build full command: cd to project dir and run claude
-    const fullCommand = `cd ${JSON.stringify(projectPath)} && claude ${args.join(' ')}`
+    // Story 8.4: Use worktree path if provided, otherwise fall back to project root
+    const workingDirectory = worktreePath || projectPath
+
+    // Build full command: cd to working dir and run claude
+    const fullCommand = `cd ${JSON.stringify(workingDirectory)} && claude ${args.join(' ')}`
 
     // Send command to tmux session
     await TaskTerminalService.sendCommand(taskId, fullCommand)
@@ -191,9 +201,10 @@ export class BmadAgentLauncherService {
    * to ensure a fresh start after the create-story workflow.
    *
    * @param taskId - The task ID (used to find tmux session)
-   * @param projectPath - Root path of the project (used as working directory)
+   * @param projectPath - Root path of the project (fallback working directory)
    * @param storyFilePath - Full path to the story file (.md) to implement
    * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @param worktreePath - Optional worktree path for isolated execution (Story 8.4). If provided, agent runs in worktree instead of project root.
    * @returns Result with command and success status
    * @throws Error if no tmux session exists for the task
    *
@@ -212,7 +223,8 @@ export class BmadAgentLauncherService {
     taskId: string,
     projectPath: string,
     storyFilePath: string,
-    model?: ClaudeModel
+    model?: ClaudeModel,
+    worktreePath?: string
   ): Promise<BmadAgentLaunchResult> {
     console.log('[BmadAgentLauncherService] launchDevStory called:', {
       taskId,
@@ -235,8 +247,11 @@ export class BmadAgentLauncherService {
       args.push('--model', model)
     }
 
-    // Build full command: cd to project dir and run claude
-    const fullCommand = `cd ${JSON.stringify(projectPath)} && claude ${args.join(' ')}`
+    // Story 8.4: Use worktree path if provided, otherwise fall back to project root
+    const workingDirectory = worktreePath || projectPath
+
+    // Build full command: cd to working dir and run claude
+    const fullCommand = `cd ${JSON.stringify(workingDirectory)} && claude ${args.join(' ')}`
 
     console.log('[BmadAgentLauncherService] Sending dev-story command to tmux:', fullCommand)
 
@@ -260,10 +275,11 @@ export class BmadAgentLauncherService {
    * Passes task title and description as the prompt.
    *
    * @param taskId - The task ID (used to find tmux session)
-   * @param projectPath - Root path of the project (used as working directory)
+   * @param projectPath - Root path of the project (fallback working directory)
    * @param taskTitle - Title of the task to execute
    * @param taskDescription - Optional detailed description of the task
    * @param model - Optional Claude model to use (opus, sonnet, haiku)
+   * @param worktreePath - Optional worktree path for isolated execution (Story 8.4). If provided, agent runs in worktree instead of project root.
    * @returns Result with command and success status
    * @throws Error if no tmux session exists for the task
    *
@@ -284,7 +300,8 @@ export class BmadAgentLauncherService {
     projectPath: string,
     taskTitle: string,
     taskDescription?: string,
-    model?: ClaudeModel
+    model?: ClaudeModel,
+    worktreePath?: string
   ): Promise<BmadAgentLaunchResult> {
     // Clear any stale session state before launching
     await this.clearStaleSessionIfNeeded(taskId, 'basic-task')
@@ -298,8 +315,11 @@ export class BmadAgentLauncherService {
       args.push('--model', model)
     }
 
-    // Build full command: cd to project dir and run claude
-    const fullCommand = `cd ${JSON.stringify(projectPath)} && claude ${args.join(' ')}`
+    // Story 8.4: Use worktree path if provided, otherwise fall back to project root
+    const workingDirectory = worktreePath || projectPath
+
+    // Build full command: cd to working dir and run claude
+    const fullCommand = `cd ${JSON.stringify(workingDirectory)} && claude ${args.join(' ')}`
 
     // Send command to tmux session
     await TaskTerminalService.sendCommand(taskId, fullCommand)
