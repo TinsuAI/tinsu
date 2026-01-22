@@ -145,6 +145,8 @@ export const tasks = sqliteTable(
     context_notes: text('context_notes'), // Optional notes to provide additional context to DEV agent
     // Story 3.1.5: Project scoping (nullable for migration safety)
     project_id: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    // Story 8.2: Worktree path for git isolation
+    worktree_path: text('worktree_path'), // Path to git worktree (.tinsu/worktrees/{task-id}/)
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

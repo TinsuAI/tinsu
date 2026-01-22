@@ -63,7 +63,7 @@ export interface Task {
   // Story 3.3: Artifact path for completed planning tasks
   artifact_path: string | null
   // Story 3.7: Story number for imported stories from epics.md
-  story_number: number | null // 1, 2, 3... within each epic
+  story_number: string | null // "1", "2", "2b", "3b"... within each epic (TEXT in DB)
   // Story 3.7: Full content from detailed story file in implementation-artifacts
   story_file_path: string | null // Path to detailed story .md file
   full_content: string | null // Full markdown content from detailed story file
@@ -73,6 +73,8 @@ export interface Task {
   context_notes: string | null // Optional notes to provide additional context to DEV agent
   // Story 3.1.5: Project scoping
   project_id: string | null
+  // Story 8.2: Worktree path for git isolation
+  worktree_path: string | null // Path to git worktree (.tinsu/worktrees/{task-id}/)
   created_at: Date
   updated_at: Date
 }
@@ -97,7 +99,7 @@ export interface NewTask {
   // Story 3.3: Artifact path for completed planning tasks
   artifact_path?: string | null
   // Story 3.7: Story number for imported stories
-  story_number?: number | null
+  story_number?: string | null
   // Story 3.7: Full content from detailed story file
   story_file_path?: string | null
   full_content?: string | null
@@ -107,6 +109,8 @@ export interface NewTask {
   context_notes?: string | null
   // Story 3.1.5: Project scoping
   project_id?: string | null
+  // Story 8.2: Worktree path for git isolation
+  worktree_path?: string | null
   created_at?: Date
   updated_at?: Date
 }
@@ -225,7 +229,7 @@ export interface StoryTaskFields {
   is_start_here: null // Story 3.2: always null for story tasks
   artifact_path: null // Story 3.3: always null for story tasks
   // Story 3.7: story_number is set for imported stories, null for manually created
-  story_number: number | null
+  story_number: string | null
   // Story 3.7: Full content from detailed story file
   story_file_path: string | null
   full_content: string | null

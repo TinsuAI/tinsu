@@ -13,8 +13,8 @@
 
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { resolve, join } from 'path'
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'fs'
+import { resolve, join, dirname } from 'path'
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, rmSync } from 'fs'
 
 const execAsync = promisify(exec)
 
@@ -482,6 +482,170 @@ export class GitService {
         err.stderr
       )
     }
+  }
+
+  /**
+   * Creates a git worktree for isolated task execution.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param taskId - Unique task identifier
+   * @returns Path to the created worktree
+   * @throws GitError if worktree creation fails
+   *
+   * @see Story 8.2: AC 1, 2, 4, 5, 6
+   *
+   * @example
+   * ```typescript
+   * const worktreePath = await GitService.createWorktree('/path/to/project', 'task-123')
+   * // Returns: '/path/to/project/.tinsu/worktrees/task-123'
+   * ```
+   */
+  static async createWorktree(projectPath: string, taskId: string): Promise<string> {
+    this.validatePath(projectPath, 'createWorktree')
+
+    // Validate taskId - should not contain dangerous characters
+    if (!taskId || typeof taskId !== 'string') {
+      throw new GitError('Invalid taskId: taskId must be a non-empty string', 'createWorktree')
+    }
+
+    if (DANGEROUS_CHARS.test(taskId)) {
+      throw new GitError('Invalid taskId: contains dangerous characters', 'createWorktree')
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'createWorktree')
+    }
+
+    // Story 8.2 AC 5: Worktree path convention: .tinsu/worktrees/{task-id}/
+    const worktreePath = join(normalizedPath, '.tinsu', 'worktrees', taskId)
+
+    try {
+      // Create worktree directory structure if it doesn't exist
+      const worktreesDir = dirname(worktreePath)
+      if (!existsSync(worktreesDir)) {
+        mkdirSync(worktreesDir, { recursive: true })
+      }
+
+      // Ensure .tinsu/worktrees/ is gitignored (Story 8.1 AC 6)
+      // Note: Must be called AFTER creating .tinsu/ directory so ensureWorktreesIgnored can detect it
+      await this.ensureWorktreesIgnored(normalizedPath)
+
+      // Story 8.2 AC 4: Create git worktree with a new branch based on HEAD
+      // Use -b to create a new branch named task/{task-id}
+      const branchName = `task/${taskId}`
+      await this.execGit(
+        ['worktree', 'add', worktreePath, '-b', branchName, 'HEAD'],
+        normalizedPath,
+        GIT_LARGE_OP_TIMEOUT
+      )
+
+      return worktreePath
+    } catch (error) {
+      // Story 8.2 AC 6: Cleanup on failure - remove partial worktree (NFR12)
+      if (existsSync(worktreePath)) {
+        try {
+          rmSync(worktreePath, { recursive: true, force: true })
+        } catch {
+          // Ignore cleanup errors - best effort
+        }
+      }
+
+      // Try to prune stale worktree references
+      try {
+        await this.execGit(['worktree', 'prune'], normalizedPath, GIT_BRANCH_TIMEOUT)
+      } catch {
+        // Ignore prune errors - best effort
+      }
+
+      // Re-throw the original error
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to create worktree: ${errorMessage}`,
+        'git worktree add',
+        undefined,
+        errorMessage
+      )
+    }
+  }
+
+  /**
+   * Checks if a worktree exists for a given task.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param taskId - Unique task identifier
+   * @returns true if worktree exists, false otherwise
+   * @throws GitError if path is invalid
+   *
+   * @see Story 8.2: AC 3
+   *
+   * @example
+   * ```typescript
+   * const exists = await GitService.hasWorktree('/path/to/project', 'task-123')
+   * if (exists) {
+   *   console.log('Worktree already exists, reusing')
+   * }
+   * ```
+   */
+  static async hasWorktree(projectPath: string, taskId: string): Promise<boolean> {
+    this.validatePath(projectPath, 'hasWorktree')
+
+    if (!taskId || typeof taskId !== 'string') {
+      throw new GitError('Invalid taskId: taskId must be a non-empty string', 'hasWorktree')
+    }
+
+    const normalizedPath = resolve(projectPath)
+    const worktreePath = join(normalizedPath, '.tinsu', 'worktrees', taskId)
+
+    // First check if directory exists on filesystem
+    if (!existsSync(worktreePath)) {
+      return false
+    }
+
+    // Verify it's a valid git worktree by checking with git worktree list
+    try {
+      const { stdout } = await this.execGit(['worktree', 'list'], normalizedPath, GIT_BRANCH_TIMEOUT)
+      // Check if our worktree path appears in the list
+      return stdout.includes(worktreePath)
+    } catch {
+      // If git command fails, fall back to filesystem check only
+      return existsSync(worktreePath)
+    }
+  }
+
+  /**
+   * Gets the path to an existing worktree for a task.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param taskId - Unique task identifier
+   * @returns Worktree path if it exists, null otherwise
+   * @throws GitError if path is invalid
+   *
+   * @example
+   * ```typescript
+   * const path = await GitService.getWorktreePath('/path/to/project', 'task-123')
+   * if (path) {
+   *   // Use existing worktree
+   * }
+   * ```
+   */
+  static async getWorktreePath(projectPath: string, taskId: string): Promise<string | null> {
+    this.validatePath(projectPath, 'getWorktreePath')
+
+    if (!taskId || typeof taskId !== 'string') {
+      throw new GitError('Invalid taskId: taskId must be a non-empty string', 'getWorktreePath')
+    }
+
+    const normalizedPath = resolve(projectPath)
+    const worktreePath = join(normalizedPath, '.tinsu', 'worktrees', taskId)
+
+    const exists = await this.hasWorktree(projectPath, taskId)
+    return exists ? worktreePath : null
   }
 
   /**

@@ -7,6 +7,7 @@ import { StorySyncService } from '../../services/story-sync.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
 import { ConfigService } from '../../services/config.service'
 import { activityLogService, AutomationService } from '../../services'
+import { GitService } from '../../services/git.service'
 
 /**
  * Map database status to file status format.
@@ -233,6 +234,7 @@ export const taskRouter = router({
       }
 
       // Story TES-1.3: Create tmux session when moving to in_progress or create_story (AC: 1)
+      // Story 8.2: Create git worktree for isolated task execution
       // Story tasks need session created at create_story phase for the create-story workflow
       if (input.status === 'in_progress' || input.status === 'create_story') {
         try {
@@ -247,6 +249,34 @@ export const taskRouter = router({
             projectName = ctx.projectRoot.split('/').pop() || 'project'
           }
 
+          // Story 8.2: Create git worktree for isolated agent execution (AC: 1, 2, 3)
+          // Check if task already has a worktree (AC: 3 - reuse existing)
+          let worktreePath = result.worktree_path
+
+          if (!worktreePath) {
+            // Check if worktree exists on filesystem (e.g., from previous run)
+            const hasExistingWorktree = await GitService.hasWorktree(ctx.projectRoot, input.id)
+
+            if (hasExistingWorktree) {
+              // Story 8.2 AC 3: Reuse existing worktree
+              worktreePath = await GitService.getWorktreePath(ctx.projectRoot, input.id)
+              console.log(`Reusing existing worktree: ${worktreePath}`)
+            } else {
+              // Story 8.2 AC 1, 2, 4, 6: Create new worktree (failure triggers rollback per AC 6)
+              worktreePath = await GitService.createWorktree(ctx.projectRoot, input.id)
+              console.log(`Created git worktree: ${worktreePath}`)
+            }
+
+            // Story 8.2 AC 5: Update task record with worktree path
+            if (worktreePath) {
+              ctx.db
+                .update(tasks)
+                .set({ worktree_path: worktreePath, updated_at: new Date() })
+                .where(eq(tasks.id, input.id))
+                .run()
+            }
+          }
+
           // Create tmux session (reuses existing if present - AC: 2)
           const sessionName = await TaskTerminalService.createSession(input.id, projectName)
           console.log(`Created tmux session: ${sessionName}`)
@@ -257,16 +287,30 @@ export const taskRouter = router({
             await AutomationService.onStatusInProgress(input.id, result.task_type)
           }
         } catch (error) {
+          // Story 8.2 AC 6: On failure, rollback status change
+          // Restore the previous status
+          ctx.db
+            .update(tasks)
+            .set({ status: oldTask.status, updated_at: new Date() })
+            .where(eq(tasks.id, input.id))
+            .run()
+
           // AC: 3 - Log error and propagate meaningful message for frontend toast
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          console.error('Failed to create terminal session:', errorMessage)
+          console.error('Failed to start task:', errorMessage)
 
           // Provide user-friendly error message based on error type
-          let userMessage = 'Failed to create terminal session'
+          let userMessage = 'Failed to start task'
           if (errorMessage.includes('tmux is not installed')) {
             userMessage = 'tmux is not installed. Please install tmux to use terminal sessions.'
           } else if (errorMessage.includes('Invalid taskId')) {
             userMessage = 'Invalid task ID format'
+          } else if (errorMessage.includes('Git not found')) {
+            userMessage = 'Git not found. Please install git.'
+          } else if (errorMessage.includes('Not a git repository')) {
+            userMessage = 'Project is not a git repository. Initialize git first.'
+          } else if (errorMessage.includes('worktree')) {
+            userMessage = `Failed to create git worktree: ${errorMessage}`
           }
 
           throw new TRPCError({

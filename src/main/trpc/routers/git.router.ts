@@ -280,5 +280,150 @@ export const gitRouter = router({
         message: `Failed to get git diff: ${errorMessage}`
       })
     }
-  })
+  }),
+
+  /**
+   * Create a git worktree for isolated task execution.
+   *
+   * Creates a worktree at .tinsu/worktrees/{taskId}/ with a new branch
+   * based on the current HEAD. Ensures worktrees are gitignored.
+   *
+   * @param input.taskId - Unique task identifier
+   * @returns Object with worktreePath on success
+   * @throws TRPCError if worktree creation fails
+   *
+   * @see Story 8.2: AC 1, 2, 4, 5, 6
+   *
+   * @example
+   * ```typescript
+   * const { worktreePath } = await trpc.git.createWorktree.mutate({ taskId: 'abc123' })
+   * // worktreePath = '/project/.tinsu/worktrees/abc123'
+   * ```
+   */
+  createWorktree: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Story 8.2: Ensure worktrees are gitignored before creating
+        await GitService.ensureWorktreesIgnored(ctx.projectRoot)
+
+        const worktreePath = await GitService.createWorktree(ctx.projectRoot, input.taskId)
+        return { worktreePath }
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('dangerous characters')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid taskId: contains dangerous characters'
+            })
+          }
+          if (error.message.includes('does not exist')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: `Project path does not exist: ${ctx.projectRoot}`
+            })
+          }
+          // Story 8.2 AC 6: Provide clear error message
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create worktree: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Check if a worktree exists for a task.
+   *
+   * @param input.taskId - Unique task identifier
+   * @returns true if worktree exists, false otherwise
+   *
+   * @see Story 8.2: AC 3
+   *
+   * @example
+   * ```typescript
+   * const exists = await trpc.git.hasWorktree.query({ taskId: 'abc123' })
+   * if (exists) {
+   *   console.log('Worktree already exists')
+   * }
+   * ```
+   */
+  hasWorktree: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await GitService.hasWorktree(ctx.projectRoot, input.taskId)
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('dangerous characters')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid taskId: contains dangerous characters'
+            })
+          }
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to check worktree: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Get the worktree path for a task if it exists.
+   *
+   * @param input.taskId - Unique task identifier
+   * @returns Object with worktreePath (null if doesn't exist)
+   *
+   * @example
+   * ```typescript
+   * const { worktreePath } = await trpc.git.getWorktreePath.query({ taskId: 'abc123' })
+   * if (worktreePath) {
+   *   console.log('Worktree at:', worktreePath)
+   * }
+   * ```
+   */
+  getWorktreePath: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const worktreePath = await GitService.getWorktreePath(ctx.projectRoot, input.taskId)
+        return { worktreePath }
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('dangerous characters')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid taskId: contains dangerous characters'
+            })
+          }
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get worktree path: ${errorMessage}`
+        })
+      }
+    })
 })

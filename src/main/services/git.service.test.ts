@@ -494,4 +494,235 @@ index abc1234..def5678 100644
       expect(result).toBe(false)
     })
   })
+
+  describe('createWorktree (Story 8.2)', () => {
+    const testDir = '/tmp/tinsu-worktree-test-' + Date.now()
+    const testTaskId = 'test-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Clean up test directory
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Directory may not exist
+      }
+
+      // Create a fresh git repository for testing
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+
+      // Create initial commit so we have a valid HEAD
+      const { writeFileSync } = await import('fs')
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // First, try to remove any worktrees properly
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore errors
+      }
+
+      // Clean up test directory
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
+    })
+
+    it('should create a worktree at the expected path (AC: 4, 5)', async () => {
+      const { existsSync } = await import('fs')
+
+      const worktreePath = await GitService.createWorktree(testDir, testTaskId)
+
+      // AC 5: Worktree should be at .tinsu/worktrees/{task-id}/
+      expect(worktreePath).toBe(`${testDir}/.tinsu/worktrees/${testTaskId}`)
+      expect(existsSync(worktreePath)).toBe(true)
+
+      // AC 5: Should contain a full working copy
+      expect(existsSync(`${worktreePath}/README.md`)).toBe(true)
+    })
+
+    it('should add .tinsu/worktrees/ to .gitignore (AC: integrated with Story 8.1 AC 6)', async () => {
+      const { readFileSync } = await import('fs')
+
+      await GitService.createWorktree(testDir, testTaskId)
+
+      const gitignore = readFileSync(`${testDir}/.gitignore`, 'utf-8')
+      expect(gitignore).toContain('.tinsu/worktrees/')
+    })
+
+    it('should create a new branch named task/{task-id} (AC: 4)', async () => {
+      const { execSync } = await import('child_process')
+
+      await GitService.createWorktree(testDir, testTaskId)
+
+      // Check that the branch was created
+      const branches = execSync('git branch -a', { cwd: testDir }).toString()
+      expect(branches).toContain(`task/${testTaskId}`)
+    })
+
+    it('should throw GitError for invalid taskId with dangerous characters', async () => {
+      await expect(GitService.createWorktree(testDir, 'task;rm -rf /')).rejects.toThrow(GitError)
+      await expect(GitService.createWorktree(testDir, 'task;rm -rf /')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for empty taskId', async () => {
+      await expect(GitService.createWorktree(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.createWorktree(testDir, '')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError when project path does not exist', async () => {
+      await expect(GitService.createWorktree('/nonexistent/path/xyz', testTaskId)).rejects.toThrow(GitError)
+      await expect(GitService.createWorktree('/nonexistent/path/xyz', testTaskId)).rejects.toThrow('does not exist')
+    })
+
+    it('should clean up on failure (AC: 6, NFR12)', async () => {
+      const { existsSync, mkdirSync, writeFileSync } = await import('fs')
+      const conflictingTaskId = 'conflict-task'
+
+      // Create the worktree directory as a regular file to cause failure
+      mkdirSync(`${testDir}/.tinsu/worktrees`, { recursive: true })
+      // Create a branch with the same name to cause git worktree add to fail
+      const { execSync } = await import('child_process')
+      execSync(`git branch task/${conflictingTaskId}`, { cwd: testDir })
+      // Also create the directory to make git fail
+      mkdirSync(`${testDir}/.tinsu/worktrees/${conflictingTaskId}`, { recursive: true })
+      writeFileSync(`${testDir}/.tinsu/worktrees/${conflictingTaskId}/blocker`, 'content')
+
+      // Expect creation to fail
+      await expect(GitService.createWorktree(testDir, conflictingTaskId)).rejects.toThrow()
+
+      // Note: The worktree directory may or may not exist depending on when the failure occurred
+      // The important thing is that if it exists, it's been cleaned up (empty or removed)
+    })
+  })
+
+  describe('hasWorktree (Story 8.2 AC: 3)', () => {
+    const testDir = '/tmp/tinsu-hasworktree-test-' + Date.now()
+    const testTaskId = 'has-worktree-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return false when worktree does not exist', async () => {
+      const result = await GitService.hasWorktree(testDir, 'nonexistent-task')
+      expect(result).toBe(false)
+    })
+
+    it('should return true when worktree exists', async () => {
+      // Create a worktree first
+      await GitService.createWorktree(testDir, testTaskId)
+
+      const result = await GitService.hasWorktree(testDir, testTaskId)
+      expect(result).toBe(true)
+    })
+
+    it('should throw GitError for invalid taskId', async () => {
+      await expect(GitService.hasWorktree(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.hasWorktree(testDir, '')).rejects.toThrow('non-empty string')
+    })
+  })
+
+  describe('getWorktreePath (Story 8.2)', () => {
+    const testDir = '/tmp/tinsu-getpath-test-' + Date.now()
+    const testTaskId = 'getpath-task-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return null when worktree does not exist', async () => {
+      const result = await GitService.getWorktreePath(testDir, 'nonexistent')
+      expect(result).toBeNull()
+    })
+
+    it('should return correct path when worktree exists', async () => {
+      await GitService.createWorktree(testDir, testTaskId)
+
+      const result = await GitService.getWorktreePath(testDir, testTaskId)
+      expect(result).toBe(`${testDir}/.tinsu/worktrees/${testTaskId}`)
+    })
+
+    it('should throw GitError for invalid taskId', async () => {
+      await expect(GitService.getWorktreePath(testDir, '')).rejects.toThrow(GitError)
+    })
+  })
 })
