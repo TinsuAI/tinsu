@@ -12,12 +12,13 @@
 import * as http from 'http'
 import * as fs from 'fs'
 import { z } from 'zod'
-import { eq, desc, and, isNull, ne } from 'drizzle-orm'
+import { eq, desc, and, isNull } from 'drizzle-orm'
 import { db } from '../db'
-import { task_sessions, taskActivities } from '../db/schema'
+import { tasks, task_sessions, taskActivities } from '../db/schema'
 import { ActivityLogService } from './activity-log.service'
 import { AutomationService } from './automation.service'
 import { TaskSessionService } from './task-session.service'
+import { GitService } from './git.service'
 
 /** Default port for the hook listener HTTP server */
 const DEFAULT_PORT = 3847
@@ -419,6 +420,15 @@ export class HookListenerService {
     const taskId = session.task_id
     const phase = session.current_phase ?? 'manual'
 
+    // Story 8.9 AC 3: Auto-commit uncommitted changes when agent finishes
+    // This preserves agent work before transitioning to next workflow step
+    try {
+      await this.autoCommitOnAgentComplete(taskId)
+    } catch (autoCommitError) {
+      // Log warning but don't fail the whole hook processing
+      console.warn('[HookListener] Auto-commit failed (non-critical):', autoCommitError)
+    }
+
     // TES-2.10: Detect error condition from payload
     // Error indicators: exit_code > 0, error field present, or error_code field present
     const hasError = this.detectAgentError(payload)
@@ -792,5 +802,55 @@ export class HookListenerService {
 
     // Show actual lines replaced (git-style: lines added, lines removed)
     return `+${newLines} -${oldLines}`
+  }
+
+  /**
+   * Auto-commit uncommitted changes in a task's worktree when agent completes.
+   *
+   * This preserves the agent's work by creating a "WIP: Agent changes" commit
+   * if there are any uncommitted changes in the worktree.
+   *
+   * @param taskId - Task ID to check for worktree and commit changes
+   *
+   * @see Story 8.9: AC 3 - Auto-commit on agent completion
+   */
+  private async autoCommitOnAgentComplete(taskId: string): Promise<void> {
+    // Get the task to find its worktree_path
+    const task = db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .get()
+
+    if (!task) {
+      console.log(`[HookListener] Auto-commit skipped: task ${taskId} not found`)
+      return
+    }
+
+    // Only tasks with worktrees can have uncommitted changes
+    if (!task.worktree_path) {
+      console.log(`[HookListener] Auto-commit skipped: task ${taskId} has no worktree`)
+      return
+    }
+
+    // Call GitService to auto-commit any uncommitted changes
+    console.log(`[HookListener] Auto-committing changes in worktree for task ${taskId}`)
+    const result = await GitService.autoCommitWorktreeChanges(task.worktree_path)
+
+    if (result.committed) {
+      console.log(`[HookListener] Auto-committed changes in worktree ${task.worktree_path}: ${result.commitSha}`)
+
+      // Log the auto-commit as an activity
+      try {
+        await ActivityLogService.logActivity(taskId, 'auto_commit', {
+          commit_sha: result.commitSha,
+          message: 'WIP: Agent changes'
+        })
+      } catch (logError) {
+        console.warn('[HookListener] Failed to log auto_commit activity:', logError)
+      }
+    } else {
+      console.log(`[HookListener] No uncommitted changes to auto-commit in worktree ${task.worktree_path}`)
+    }
   }
 }

@@ -2012,4 +2012,284 @@ index abc1234..def5678 100644
       expect(result.conflictFiles).toContain('src/index.ts')
     })
   })
+
+  // Story 8.9: Branch Status Tests
+  describe('getBranchStatus (Story 8.9)', () => {
+    const testDir = '/tmp/tinsu-branchstatus-test-' + Date.now()
+    const testTaskId = 'branchstatus-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      execSync('git branch -M main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return correct commits ahead count (AC: Task 9.1)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make commits
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Ahead Test')
+
+      // Add 3 commits in the worktree
+      for (let i = 1; i <= 3; i++) {
+        writeFileSync(`${worktreeResult.worktreePath}/file${i}.ts`, `export const file${i} = ${i}`)
+        execSync(`git add file${i}.ts`, { cwd: worktreeResult.worktreePath })
+        execSync(`git commit -m "Add file ${i}"`, { cwd: worktreeResult.worktreePath })
+      }
+
+      // Get branch status
+      const status = await GitService.getBranchStatus(testDir, worktreeResult.branchName, worktreeResult.worktreePath)
+
+      expect(status.commitsAhead).toBe(3)
+      expect(status.commitsBehind).toBe(0)
+    })
+
+    it('should return correct commits behind count (AC: Task 9.1)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Behind Test')
+
+      // Add 2 commits to main
+      execSync('git checkout main', { cwd: testDir })
+      for (let i = 1; i <= 2; i++) {
+        writeFileSync(`${testDir}/main${i}.ts`, `export const main${i} = ${i}`)
+        execSync(`git add main${i}.ts`, { cwd: testDir })
+        execSync(`git commit -m "Add main file ${i}"`, { cwd: testDir })
+      }
+
+      // Get branch status
+      const status = await GitService.getBranchStatus(testDir, worktreeResult.branchName, worktreeResult.worktreePath)
+
+      expect(status.commitsBehind).toBe(2)
+    })
+
+    it('should detect uncommitted changes (AC: Task 9.2)', async () => {
+      const { writeFileSync } = await import('fs')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Uncommitted Test')
+
+      // Add uncommitted changes
+      writeFileSync(`${worktreeResult.worktreePath}/uncommitted.ts`, 'export const uncommitted = true')
+
+      // Get branch status
+      const status = await GitService.getBranchStatus(testDir, worktreeResult.branchName, worktreeResult.worktreePath)
+
+      expect(status.hasUncommittedChanges).toBe(true)
+    })
+
+    it('should return hasUncommittedChanges: false for clean worktree (AC: Task 9.2)', async () => {
+      // Create a worktree (no uncommitted changes)
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Clean Test')
+
+      // Get branch status
+      const status = await GitService.getBranchStatus(testDir, worktreeResult.branchName, worktreeResult.worktreePath)
+
+      expect(status.hasUncommittedChanges).toBe(false)
+    })
+
+    it('should handle both ahead and behind at the same time', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make commits
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Diverged Test')
+
+      // Add commits in worktree
+      writeFileSync(`${worktreeResult.worktreePath}/worktree.ts`, 'export const worktree = true')
+      execSync('git add worktree.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Worktree commit"', { cwd: worktreeResult.worktreePath })
+
+      // Add commits to main
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/main.ts`, 'export const main = true')
+      execSync('git add main.ts', { cwd: testDir })
+      execSync('git commit -m "Main commit"', { cwd: testDir })
+
+      // Get branch status
+      const status = await GitService.getBranchStatus(testDir, worktreeResult.branchName, worktreeResult.worktreePath)
+
+      expect(status.commitsAhead).toBe(1)
+      expect(status.commitsBehind).toBe(1)
+    })
+
+    it('should throw GitError for empty branchName', async () => {
+      await expect(GitService.getBranchStatus(testDir, '')).rejects.toThrow(GitError)
+      await expect(GitService.getBranchStatus(testDir, '')).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for invalid project path', async () => {
+      await expect(GitService.getBranchStatus('/path;bad', 'some-branch')).rejects.toThrow(GitError)
+      await expect(GitService.getBranchStatus('/path;bad', 'some-branch')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for non-existent project path', async () => {
+      await expect(GitService.getBranchStatus('/nonexistent/path', 'some-branch')).rejects.toThrow(GitError)
+      await expect(GitService.getBranchStatus('/nonexistent/path', 'some-branch')).rejects.toThrow('does not exist')
+    })
+  })
+
+  // Story 8.9: Auto-Commit Tests
+  describe('autoCommitWorktreeChanges (Story 8.9)', () => {
+    const testDir = '/tmp/tinsu-autocommit-test-' + Date.now()
+    const testTaskId = 'autocommit-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      execSync('git branch -M main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should create WIP commit when uncommitted changes exist (AC: Task 9.3)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Auto Commit Test')
+
+      // Add uncommitted changes
+      writeFileSync(`${worktreeResult.worktreePath}/agent-changes.ts`, 'export const agentChanges = true')
+
+      // Auto-commit
+      const result = await GitService.autoCommitWorktreeChanges(worktreeResult.worktreePath)
+
+      expect(result.committed).toBe(true)
+      expect(result.commitSha).toBeTruthy()
+
+      // Verify the commit message
+      const commitMessage = execSync('git log -1 --format=%s', { cwd: worktreeResult.worktreePath }).toString().trim()
+      expect(commitMessage).toBe('WIP: Agent changes')
+    })
+
+    it('should return committed: false when no changes exist (AC: Task 9.4)', async () => {
+      // Create a worktree (no uncommitted changes)
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'No Changes Test')
+
+      // Auto-commit
+      const result = await GitService.autoCommitWorktreeChanges(worktreeResult.worktreePath)
+
+      expect(result.committed).toBe(false)
+      expect(result.commitSha).toBeUndefined()
+    })
+
+    it('should return committed: false for non-existent path', async () => {
+      const result = await GitService.autoCommitWorktreeChanges('/nonexistent/path')
+
+      expect(result.committed).toBe(false)
+      expect(result.commitSha).toBeUndefined()
+    })
+
+    it('should throw GitError for invalid path with dangerous characters', async () => {
+      await expect(GitService.autoCommitWorktreeChanges('/path;bad')).rejects.toThrow(GitError)
+      await expect(GitService.autoCommitWorktreeChanges('/path;bad')).rejects.toThrow('dangerous characters')
+    })
+
+    it('should stage all changes including new files (AC: Task 9.3)', async () => {
+      const { writeFileSync, mkdirSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'All Changes Test')
+
+      // Add various types of changes
+      mkdirSync(`${worktreeResult.worktreePath}/src`, { recursive: true })
+      writeFileSync(`${worktreeResult.worktreePath}/new-file.ts`, 'new file')
+      writeFileSync(`${worktreeResult.worktreePath}/src/utils.ts`, 'utils')
+      writeFileSync(`${worktreeResult.worktreePath}/README.md`, '# Updated README\n')
+
+      // Auto-commit
+      const result = await GitService.autoCommitWorktreeChanges(worktreeResult.worktreePath)
+
+      expect(result.committed).toBe(true)
+
+      // Verify all files were committed
+      const filesInCommit = execSync('git show --name-only --format=', { cwd: worktreeResult.worktreePath }).toString()
+      expect(filesInCommit).toContain('new-file.ts')
+      expect(filesInCommit).toContain('src/utils.ts')
+      expect(filesInCommit).toContain('README.md')
+    })
+
+    it('should return the correct commit SHA (AC: Task 9.3)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'SHA Test')
+
+      // Add uncommitted changes
+      writeFileSync(`${worktreeResult.worktreePath}/change.ts`, 'change')
+
+      // Auto-commit
+      const result = await GitService.autoCommitWorktreeChanges(worktreeResult.worktreePath)
+
+      // Verify SHA matches HEAD
+      const headSha = execSync('git rev-parse HEAD', { cwd: worktreeResult.worktreePath }).toString().trim()
+      expect(result.commitSha).toBe(headSha)
+    })
+  })
 })

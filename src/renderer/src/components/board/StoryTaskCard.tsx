@@ -3,10 +3,24 @@ import { BookOpen, Loader2, Trash2, Zap } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import { StoryFileStatusBadge } from '@renderer/components/ui/StoryFileStatusBadge'
+import { BranchStatusIndicator } from '@renderer/components/git'
 import { DevProgressIndicator, type ProgressStep } from '@renderer/components/agent/DevProgressIndicator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import type { StoryTask } from '@shared/types/task.types'
 import type { StoryFileStatus } from '@shared/types/story-file-status.types'
+
+/**
+ * Branch status data for displaying in StoryTaskCard.
+ * Story 8.9: AC 1, 2, 4
+ */
+export interface BranchStatus {
+  /** Number of commits ahead of main */
+  commitsAhead?: number
+  /** Number of commits behind main */
+  commitsBehind?: number
+  /** Whether there are uncommitted changes in the worktree */
+  hasUncommittedChanges?: boolean
+}
 
 export interface StoryTaskCardProps {
   task: StoryTask
@@ -14,6 +28,11 @@ export interface StoryTaskCardProps {
   epicName?: string
   /** Epic color for the badge styling */
   epicColor?: string
+  /**
+   * Branch status for displaying commits ahead/behind.
+   * Story 8.9: AC 1, 2, 4
+   */
+  branchStatus?: BranchStatus
   /** Callback for keyboard navigation - called with direction */
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right') => void
   /** Callback when the card is clicked */
@@ -47,6 +66,7 @@ export function StoryTaskCard({
   task,
   epicName,
   epicColor = 'blue',
+  branchStatus,
   onNavigate,
   onClick,
   isSyncing = false,
@@ -221,6 +241,19 @@ export function StoryTaskCard({
       {task.status === 'review' && !isAgentRunning && (
         <div className="mt-2" data-testid="task-review-summary">
           <DevProgressIndicator currentStep="review" showSummary />
+        </div>
+      )}
+
+      {/* Story 8.9: Branch status indicator */}
+      {task.branch_name && (
+        <div className="mt-2" data-testid="task-branch-status">
+          <BranchStatusIndicator
+            branchName={task.branch_name}
+            isMerged={task.merge_commit_sha !== null}
+            commitsAhead={branchStatus?.commitsAhead}
+            commitsBehind={branchStatus?.commitsBehind}
+            hasUncommittedChanges={branchStatus?.hasUncommittedChanges}
+          />
         </div>
       )}
     </div>

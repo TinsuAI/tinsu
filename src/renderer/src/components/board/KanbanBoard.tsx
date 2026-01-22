@@ -15,7 +15,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { cn } from '@renderer/lib/utils'
 import { KanbanColumn, COLUMN_CONFIG } from './KanbanColumn'
-import { TaskCard } from './TaskCard'
+import { TaskCard, type BranchStatus } from './TaskCard'
 import { SortableTaskCard } from './SortableTaskCard'
 import { PlanningTaskCard } from './PlanningTaskCard'
 import { SortablePlanningTaskCard } from './SortablePlanningTaskCard'
@@ -31,6 +31,8 @@ interface KanbanBoardProps {
   epicNames?: Record<string, string>
   /** Map of epic_id to epic color for badge styling */
   epicColors?: Record<string, string>
+  /** Story 8.9: Map of task_id to branch status for display on cards */
+  branchStatuses?: Record<string, BranchStatus>
   isLoading?: boolean
   className?: string
   /** Story 2.6: Whether any filters are currently active */
@@ -71,6 +73,7 @@ export function KanbanBoard({
   tasks,
   epicNames = {},
   epicColors = {},
+  branchStatuses = {},
   isLoading = false,
   className,
   hasActiveFilters = false,
@@ -500,6 +503,7 @@ export function KanbanBoard({
                             task={task}
                             epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
+                            branchStatus={branchStatuses[task.id]}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
                             onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
                             onStoryFileClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
@@ -513,6 +517,7 @@ export function KanbanBoard({
                             task={task}
                             epicName={task.epic_id ? epicNames[task.epic_id] : undefined}
                             epicColor={task.epic_id ? epicColors[task.epic_id] : undefined}
+                            branchStatus={branchStatuses[task.id]}
                             onNavigate={(direction) => handleNavigate(task.id, direction)}
                             onClick={onStoryClick ? () => onStoryClick(task.id) : undefined}
                             onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
@@ -546,6 +551,7 @@ export function KanbanBoard({
                 task={activeTask}
                 epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
                 epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
+                branchStatus={branchStatuses[activeTask.id]}
                 isSyncing={syncingTaskIds.has(activeTask.id)}
               />
             ) : (
@@ -553,6 +559,7 @@ export function KanbanBoard({
                 task={activeTask}
                 epicName={activeTask.epic_id ? epicNames[activeTask.epic_id] : undefined}
                 epicColor={activeTask.epic_id ? epicColors[activeTask.epic_id] : undefined}
+                branchStatus={branchStatuses[activeTask.id]}
               />
             )}
           </div>

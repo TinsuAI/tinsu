@@ -150,7 +150,7 @@ development_status:
   8-6-delete-worktree-after-merge: done  # Code review complete - all ACs verified, File List updated, 22 tests passing
   8-7-merge-conflict-detection: done  # Code review complete - all issues fixed, 46 tests passing (13 banner + 5 integration + 6 router + 9 git + 13 existing)
   8-8-conflict-resolution-ui: done  # Code review complete - all 10 tasks done, 47 tests (26 utils + 12 ConflictResolutionView + 9 ConflictFileEditor), Monaco ViewZones with inline resolution buttons
-  8-9-branch-status-indicators: backlog
+  8-9-branch-status-indicators: done
   8-10-git-operations-error-recovery: backlog
   8-11-historical-diff-view-for-completed-tasks: backlog  # NEW: view diff for done tasks
   epic-8-retrospective: optional

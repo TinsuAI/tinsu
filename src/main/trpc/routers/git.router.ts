@@ -1045,6 +1045,121 @@ export const gitRouter = router({
     }),
 
   /**
+   * Get branch status compared to main.
+   *
+   * Returns commits ahead, commits behind, and uncommitted changes status
+   * for a task's branch. Used by BranchStatusIndicator component.
+   *
+   * @param input.branchName - Branch name to compare against main
+   * @param input.worktreePath - Optional path to worktree for uncommitted changes check
+   * @returns BranchStatus with commitsAhead, commitsBehind, hasUncommittedChanges
+   * @throws TRPCError if branch doesn't exist or comparison fails
+   *
+   * @see Story 8.9: AC 2, 3 - Branch status indicators
+   *
+   * @example
+   * ```typescript
+   * const status = await trpc.git.getBranchStatus.query({
+   *   branchName: 'tinsu/story-abc123-feature',
+   *   worktreePath: '/project/.tinsu/worktrees/abc123'
+   * })
+   * if (status.commitsBehind > 0) {
+   *   console.log(`Branch is ${status.commitsBehind} commits behind main`)
+   * }
+   * ```
+   */
+  getBranchStatus: publicProcedure
+    .input(
+      z.object({
+        branchName: z.string().min(1, 'branchName is required'),
+        worktreePath: z.string().optional()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await GitService.getBranchStatus(
+          ctx.projectRoot,
+          input.branchName,
+          input.worktreePath
+        )
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('does not exist')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: error.message
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get branch status: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Auto-commit uncommitted changes in a worktree.
+   *
+   * Called when an agent finishes to preserve its work. If there are
+   * uncommitted changes, they are staged and committed with "WIP: Agent changes".
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @returns Object with committed flag and optional commitSha
+   * @throws TRPCError if path is invalid or commit fails
+   *
+   * @see Story 8.9: AC 3 - Auto-commit on agent completion
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.git.autoCommitWorktreeChanges.mutate({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123'
+   * })
+   * if (result.committed) {
+   *   console.log(`Auto-committed changes: ${result.commitSha}`)
+   * }
+   * ```
+   */
+  autoCommitWorktreeChanges: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required')
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        return await GitService.autoCommitWorktreeChanges(input.worktreePath)
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('dangerous characters')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid path: contains dangerous characters'
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to auto-commit changes: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
    * Open the worktree directory in the system's default editor.
    *
    * Uses Electron's shell.openPath() to open the directory.

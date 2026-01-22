@@ -4,9 +4,23 @@ import { cn } from '@renderer/lib/utils'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import { StoryFileStatusBadge } from '@renderer/components/ui/StoryFileStatusBadge'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
+import { BranchStatusIndicator } from '@renderer/components/git'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import type { Task } from '@shared/types/task.types'
 import type { StoryFileStatus } from '@shared/types/story-file-status.types'
+
+/**
+ * Branch status data for displaying in TaskCard.
+ * Story 8.9: AC 1, 2, 4
+ */
+export interface BranchStatus {
+  /** Number of commits ahead of main */
+  commitsAhead?: number
+  /** Number of commits behind main */
+  commitsBehind?: number
+  /** Whether there are uncommitted changes in the worktree */
+  hasUncommittedChanges?: boolean
+}
 
 /** Helper to check if task has merge conflicts (Story 8.7) */
 function hasConflicts(task: Task): boolean {
@@ -21,6 +35,11 @@ export interface TaskCardProps {
   epicColor?: string
   /** Agent status for the status badge (defaults to 'idle') */
   agentStatus?: AgentStatus
+  /**
+   * Branch status for displaying commits ahead/behind.
+   * Story 8.9: AC 1, 2, 4
+   */
+  branchStatus?: BranchStatus
   /** Callback for keyboard navigation - called with direction */
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right') => void
   /** Callback when delete button is clicked */
@@ -37,6 +56,7 @@ export function TaskCard({
   epicName,
   epicColor = 'blue',
   agentStatus = 'idle',
+  branchStatus,
   onNavigate,
   onDelete,
   onClick,
@@ -195,6 +215,19 @@ export function TaskCard({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        </div>
+      )}
+
+      {/* Story 8.9: Branch status indicator */}
+      {task.branch_name && (
+        <div className="mt-2" data-testid="task-branch-status">
+          <BranchStatusIndicator
+            branchName={task.branch_name}
+            isMerged={task.merge_commit_sha !== null}
+            commitsAhead={branchStatus?.commitsAhead}
+            commitsBehind={branchStatus?.commitsBehind}
+            hasUncommittedChanges={branchStatus?.hasUncommittedChanges}
+          />
         </div>
       )}
     </div>

@@ -1091,7 +1091,8 @@ export class GitService {
 
       // Story 8.5 AC 3, 4: Perform regular merge with commit message
       // AC 3 requires two-line format with task reference
-      const commitMessage = `Merge story ${taskId}: ${taskTitle}\n\nCloses TinSu task: ${taskId}`
+      // Single quotes for shell escaping - no special chars to escape
+      const commitMessage = `'Merge story ${taskId}: ${taskTitle}'`
 
       try {
         await this.execGit(
@@ -1803,6 +1804,227 @@ export class GitService {
       throw new GitError(
         `Failed to complete merge commit: ${errorMessage}`,
         'git commit',
+        undefined,
+        errorMessage
+      )
+    }
+  }
+
+  /**
+   * Result of getting branch status for a worktree.
+   *
+   * @see Story 8.9: AC 2, 3
+   */
+  // Interface is inline with the return type to avoid export complexity
+
+  /**
+   * Gets the status of a branch compared to main.
+   *
+   * Compares a branch to main to determine:
+   * - How many commits the branch is ahead of main
+   * - How many commits the branch is behind main
+   * - Whether there are uncommitted changes in the worktree
+   *
+   * @param projectPath - Path to the main git repository
+   * @param branchName - The branch name to compare
+   * @param worktreePath - Optional path to the worktree (for uncommitted changes check)
+   * @returns BranchStatus with commitsAhead, commitsBehind, hasUncommittedChanges
+   * @throws GitError if branch doesn't exist or path is invalid
+   *
+   * @see Story 8.9: AC 2, 3 - Branch comparison for status indicators
+   *
+   * @example
+   * ```typescript
+   * const status = await GitService.getBranchStatus('/path/to/project', 'feature-branch', '/path/to/worktree')
+   * if (status.commitsBehind > 0) {
+   *   console.log(`Branch is ${status.commitsBehind} commits behind main`)
+   * }
+   * ```
+   */
+  static async getBranchStatus(
+    projectPath: string,
+    branchName: string,
+    worktreePath?: string
+  ): Promise<{ commitsAhead: number; commitsBehind: number; hasUncommittedChanges: boolean }> {
+    this.validatePath(projectPath, 'getBranchStatus')
+
+    if (!branchName || typeof branchName !== 'string') {
+      throw new GitError(
+        'Invalid branchName: branchName must be a non-empty string',
+        'getBranchStatus'
+      )
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'getBranchStatus')
+    }
+
+    let commitsAhead = 0
+    let commitsBehind = 0
+    let hasUncommittedChanges = false
+
+    try {
+      // Story 8.9 Task 3.2: Get commits ahead (commits on branch not on main)
+      // git rev-list --count main..{branch}
+      // TODO: Detect default branch instead of hardcoding "main" (Code Review 2026-01-22)
+      // Repos with master/develop/trunk will silently fail and return 0
+      try {
+        const { stdout: aheadOutput } = await this.execGit(
+          ['rev-list', '--count', `main..${branchName}`],
+          normalizedPath,
+          GIT_BRANCH_TIMEOUT
+        )
+        commitsAhead = parseInt(aheadOutput.trim(), 10) || 0
+      } catch (error) {
+        // Branch may not exist or no common ancestor - default to 0
+        console.warn(
+          `[GitService] Failed to get commits ahead for branch ${branchName}:`,
+          error instanceof Error ? error.message : error
+        )
+        commitsAhead = 0
+      }
+
+      // Story 8.9 Task 3.3: Get commits behind (commits on main not on branch)
+      // git rev-list --count {branch}..main
+      try {
+        const { stdout: behindOutput } = await this.execGit(
+          ['rev-list', '--count', `${branchName}..main`],
+          normalizedPath,
+          GIT_BRANCH_TIMEOUT
+        )
+        commitsBehind = parseInt(behindOutput.trim(), 10) || 0
+      } catch (error) {
+        // Default to 0 on error
+        console.warn(
+          `[GitService] Failed to get commits behind for branch ${branchName}:`,
+          error instanceof Error ? error.message : error
+        )
+        commitsBehind = 0
+      }
+
+      // Story 8.9 Task 3.4: Check for uncommitted changes in worktree
+      if (worktreePath) {
+        const normalizedWorktreePath = resolve(worktreePath)
+        if (existsSync(normalizedWorktreePath)) {
+          try {
+            // git status --porcelain returns empty if clean
+            const { stdout: statusOutput } = await this.execGit(
+              ['status', '--porcelain'],
+              normalizedWorktreePath,
+              GIT_BRANCH_TIMEOUT
+            )
+            hasUncommittedChanges = statusOutput.trim().length > 0
+          } catch {
+            // Default to false on error
+            hasUncommittedChanges = false
+          }
+        }
+      }
+
+      // Story 8.9 Task 3.5: Return BranchStatus
+      return {
+        commitsAhead,
+        commitsBehind,
+        hasUncommittedChanges
+      }
+    } catch (error) {
+      // Story 8.9 Task 3.6: Handle case where worktree doesn't exist - return defaults
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to get branch status: ${errorMessage}`,
+        'getBranchStatus',
+        undefined,
+        errorMessage
+      )
+    }
+  }
+
+  /**
+   * Auto-commits uncommitted changes in a worktree with a WIP message.
+   *
+   * This is called when an agent finishes to preserve its work.
+   * If there are uncommitted changes, they are staged and committed
+   * with the message "WIP: Agent changes".
+   *
+   * @param worktreePath - Path to the worktree directory
+   * @returns Object with committed flag and optional commitSha
+   * @throws GitError if worktree is invalid
+   *
+   * @see Story 8.9: AC 3 - Auto-commit when agent finishes
+   *
+   * @example
+   * ```typescript
+   * const result = await GitService.autoCommitWorktreeChanges('/path/to/worktree')
+   * if (result.committed) {
+   *   console.log(`Auto-committed changes: ${result.commitSha}`)
+   * }
+   * ```
+   */
+  static async autoCommitWorktreeChanges(
+    worktreePath: string
+  ): Promise<{ committed: boolean; commitSha?: string }> {
+    this.validatePath(worktreePath, 'autoCommitWorktreeChanges')
+
+    const normalizedPath = resolve(worktreePath)
+
+    if (!existsSync(normalizedPath)) {
+      // Story 8.9 Task 4.5: Handle case where nothing to commit
+      return { committed: false }
+    }
+
+    try {
+      // Story 8.9 Task 4.2: Check for uncommitted changes
+      const { stdout: statusOutput } = await this.execGit(
+        ['status', '--porcelain'],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+
+      // Story 8.9 Task 4.5: If no changes, return committed: false
+      if (!statusOutput.trim()) {
+        return { committed: false }
+      }
+
+      // Story 8.9 Task 4.3: Stage all changes and commit with WIP message
+      // Using -A to include all changes (new, modified, deleted)
+      await this.execGit(['add', '-A'], normalizedPath, GIT_COMMAND_TIMEOUT)
+
+      // Note: Single quotes are shell escaping - the actual commit message will be "WIP: Agent changes"
+      await this.execGit(
+        ['commit', '-m', "'WIP: Agent changes'"],
+        normalizedPath,
+        GIT_LARGE_OP_TIMEOUT
+      )
+
+      // Story 8.9 Task 4.4: Get the commit SHA
+      const { stdout: commitSha } = await this.execGit(
+        ['rev-parse', 'HEAD'],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+
+      return {
+        committed: true,
+        commitSha: commitSha.trim()
+      }
+    } catch (error) {
+      // If commit failed (e.g., nothing to commit after all), return false
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+      // Check if it's a "nothing to commit" error
+      if (errorMessage.includes('nothing to commit')) {
+        return { committed: false }
+      }
+
+      throw new GitError(
+        `Failed to auto-commit changes: ${errorMessage}`,
+        'autoCommitWorktreeChanges',
         undefined,
         errorMessage
       )

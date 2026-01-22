@@ -11,6 +11,7 @@ import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
 import { useUIStore, useTerminalStore, useTaskWorkspaceStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
+import { useBranchStatus } from '@renderer/hooks/useBranchStatus'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 
 export function KanbanBoardContainer() {
@@ -25,6 +26,9 @@ export function KanbanBoardContainer() {
 
   // Story 3.9: Sync hook for bidirectional sync (AC: 5)
   const { syncingTaskIds } = useStorySync()
+
+  // Story 8.9: Branch status hook for displaying commits ahead/behind
+  const { branchStatuses } = useBranchStatus(tasks ?? [])
 
   // TES-3.1: Task workspace store for full-screen navigation
   const { openWorkspace, activeTaskId } = useTaskWorkspaceStore()
@@ -393,6 +397,7 @@ export function KanbanBoardContainer() {
         tasks={transformedTasks}
         epicNames={epicNames}
         epicColors={epicColors}
+        branchStatuses={branchStatuses}
         isLoading={isLoading}
         hasActiveFilters={hasActiveFilters}
         syncingTaskIds={syncingTaskIds}
