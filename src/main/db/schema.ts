@@ -154,6 +154,8 @@ export const tasks = sqliteTable(
     // Story 8.7: Merge conflict tracking
     has_merge_conflict: integer('has_merge_conflict').default(0),
     conflict_files: text('conflict_files'), // JSON array of file paths
+    // Story 8.10: Worktree skipped flag for error recovery
+    worktree_skipped: integer('worktree_skipped').default(0), // 1 if user chose to skip worktree creation
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

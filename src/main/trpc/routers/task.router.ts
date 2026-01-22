@@ -7,7 +7,8 @@ import { StorySyncService } from '../../services/story-sync.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
 import { ConfigService } from '../../services/config.service'
 import { activityLogService, AutomationService } from '../../services'
-import { GitService } from '../../services/git.service'
+import { GitService, GitError } from '../../services/git.service'
+import { categorizeGitError } from '../../../shared/types/git-error.types'
 
 /**
  * Map database status to file status format.
@@ -336,6 +337,19 @@ export const taskRouter = router({
           // AC: 3 - Log error and propagate meaningful message for frontend toast
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           console.error('Failed to start task:', errorMessage)
+
+          // Story 8.10 AC2: Categorize git errors for recovery dialog
+          if (error instanceof GitError) {
+            const recoverableError = categorizeGitError(error)
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: recoverableError.message,
+              cause: {
+                ...error,
+                recoverable: recoverableError // Attach categorized error for frontend
+              }
+            })
+          }
 
           // Provide user-friendly error message based on error type
           let userMessage = 'Failed to start task'

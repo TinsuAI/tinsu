@@ -11,8 +11,27 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { GitService, GitError } from '../../services/git.service'
+import { GitErrorRecoveryService } from '../../services/git-error-recovery.service'
+import { GitLogService } from '../../services/git-log.service'
+import { categorizeGitError, type GitRecoverableError } from '../../../shared/types/git-error.types'
 import { tasks } from '../../db/schema'
 import { eq, isNotNull } from 'drizzle-orm'
+import { rmSync, existsSync } from 'fs'
+import { join } from 'path'
+
+// Story 8.10: Type-safe return types for error recovery
+type CreateWorktreeSuccess = {
+  success: true
+  worktreePath: string
+  branchName: string
+}
+
+type CreateWorktreeFailure = {
+  success: false
+  error: GitRecoverableError
+}
+
+type CreateWorktreeResult = CreateWorktreeSuccess | CreateWorktreeFailure
 
 /**
  * Git router procedures.
@@ -315,41 +334,286 @@ export const gitRouter = router({
         taskTitle: z.string().optional()
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<CreateWorktreeResult> => {
+      const startTime = Date.now()
+
+      // Story 8.10: Record operation start for crash recovery
+      GitErrorRecoveryService.recordOperationStart(ctx.projectRoot, {
+        operationType: 'createWorktree',
+        taskId: input.taskId,
+        startedAt: startTime,
+        status: 'pending'
+      })
+
+      // Story 8.10 Task 6: Log operation start
+      GitLogService.logStart(ctx.projectRoot, 'createWorktree', input.taskId, 'git worktree add', {
+        taskTitle: input.taskTitle
+      })
+
       try {
         // Story 8.2: Ensure worktrees are gitignored before creating
         await GitService.ensureWorktreesIgnored(ctx.projectRoot)
 
         // Story 8.3: Pass taskTitle for descriptive branch naming
         const result = await GitService.createWorktree(ctx.projectRoot, input.taskId, input.taskTitle)
-        return { worktreePath: result.worktreePath, branchName: result.branchName }
+
+        // Story 8.10: Record operation complete
+        GitErrorRecoveryService.recordOperationComplete(ctx.projectRoot, 'createWorktree', input.taskId)
+
+        // Story 8.10 Task 6: Log operation success
+        const durationMs = Date.now() - startTime
+        GitLogService.logSuccess(ctx.projectRoot, 'createWorktree', input.taskId, durationMs, {
+          worktreePath: result.worktreePath,
+          branchName: result.branchName
+        })
+
+        return {
+          success: true as const,
+          worktreePath: result.worktreePath,
+          branchName: result.branchName
+        }
       } catch (error) {
+        const durationMs = Date.now() - startTime
+
+        // Story 8.10: Record operation failed and wrap with recoverable error
         if (error instanceof GitError) {
-          if (error.message.includes('dangerous characters')) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'Invalid taskId: contains dangerous characters'
-            })
+          GitErrorRecoveryService.recordOperationFailed(
+            ctx.projectRoot,
+            'createWorktree',
+            input.taskId,
+            error.message
+          )
+
+          // Story 8.10 Task 6: Log operation failure
+          GitLogService.logFailure(
+            ctx.projectRoot,
+            'createWorktree',
+            input.taskId,
+            error.message,
+            undefined,
+            'git worktree add',
+            durationMs
+          )
+
+          // Story 8.10 Task 3.1, 3.2: Wrap errors with GitRecoverableError
+          const recoverableError = categorizeGitError(error)
+
+          // Return structured error response instead of throwing
+          return {
+            success: false as const,
+            error: recoverableError
           }
-          if (error.message.includes('does not exist')) {
-            throw new TRPCError({
-              code: 'NOT_FOUND',
-              message: `Project path does not exist: ${ctx.projectRoot}`
-            })
-          }
-          // Story 8.2 AC 6: Provide clear error message
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: error.message
-          })
         }
 
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create worktree: ${errorMessage}`
+        GitErrorRecoveryService.recordOperationFailed(ctx.projectRoot, 'createWorktree', input.taskId, errorMessage)
+
+        // Story 8.10 Task 6: Log operation failure
+        GitLogService.logFailure(
+          ctx.projectRoot,
+          'createWorktree',
+          input.taskId,
+          errorMessage,
+          undefined,
+          'git worktree add',
+          durationMs
+        )
+
+        // Generic error - create a recoverable error
+        const fakeGitError = new GitError(errorMessage, 'createWorktree')
+        return {
+          success: false as const,
+          error: categorizeGitError(fakeGitError)
+        }
+      }
+    }),
+
+  /**
+   * Retry worktree creation after cleaning up partial state.
+   *
+   * Called when user clicks "Retry" after a worktree creation failure.
+   * Cleans up any partial worktree state before attempting again.
+   *
+   * @param input.taskId - Task ID to retry worktree for
+   * @param input.taskTitle - Optional task title for branch naming
+   * @returns Object with worktreePath and branchName on success, or error
+   *
+   * @see Story 8.10: AC 2, Task 3.3
+   */
+  retryWorktreeCreation: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required'),
+        taskTitle: z.string().optional()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const startTime = Date.now()
+
+      // Story 8.10 Task 3.3: Clean up partial state first
+      const worktreePath = join(ctx.projectRoot, '.tinsu', 'worktrees', input.taskId)
+
+      // Remove partial worktree directory if exists
+      if (existsSync(worktreePath)) {
+        try {
+          rmSync(worktreePath, { recursive: true, force: true })
+        } catch (error) {
+          // Best effort cleanup - log but don't fail
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'retryWorktreeCreation',
+            taskId: input.taskId,
+            status: 'failed',
+            error: `Cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            details: { phase: 'pre-retry-cleanup', worktreePath }
+          })
+        }
+      }
+
+      // Clear any incomplete operation records
+      GitErrorRecoveryService.removeOperation(ctx.projectRoot, 'createWorktree', input.taskId)
+
+      // Prune stale worktree references
+      try {
+        await GitService.ensureGitInstalled()
+        const { execSync } = await import('child_process')
+        execSync('git worktree prune', { cwd: ctx.projectRoot, timeout: 5000 })
+      } catch (error) {
+        // Best effort prune - log but don't fail
+        GitLogService.log(ctx.projectRoot, {
+          timestamp: new Date().toISOString(),
+          operationType: 'pruneWorktrees',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          details: { phase: 'pre-retry-prune' }
         })
       }
+
+      // Story 8.10: Record operation start
+      GitErrorRecoveryService.recordOperationStart(ctx.projectRoot, {
+        operationType: 'createWorktree',
+        taskId: input.taskId,
+        worktreePath,
+        startedAt: startTime,
+        status: 'pending'
+      })
+
+      // Story 8.10 Task 6: Log retry start
+      GitLogService.logStart(ctx.projectRoot, 'createWorktree', input.taskId, 'git worktree add (retry)', {
+        taskTitle: input.taskTitle,
+        isRetry: true
+      })
+
+      try {
+        await GitService.ensureWorktreesIgnored(ctx.projectRoot)
+        const result = await GitService.createWorktree(ctx.projectRoot, input.taskId, input.taskTitle)
+
+        GitErrorRecoveryService.recordOperationComplete(ctx.projectRoot, 'createWorktree', input.taskId)
+
+        // Story 8.10 Task 6: Log retry success
+        const durationMs = Date.now() - startTime
+        GitLogService.logSuccess(ctx.projectRoot, 'createWorktree', input.taskId, durationMs, {
+          worktreePath: result.worktreePath,
+          branchName: result.branchName,
+          isRetry: true,
+          outcome: 'Retry succeeded'
+        })
+
+        return {
+          success: true as const,
+          worktreePath: result.worktreePath,
+          branchName: result.branchName
+        }
+      } catch (error) {
+        const durationMs = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        GitErrorRecoveryService.recordOperationFailed(ctx.projectRoot, 'createWorktree', input.taskId, errorMessage)
+
+        // Story 8.10 Task 6: Log retry failure
+        GitLogService.logFailure(
+          ctx.projectRoot,
+          'createWorktree',
+          input.taskId,
+          errorMessage,
+          undefined,
+          'git worktree add (retry)',
+          durationMs
+        )
+
+        if (error instanceof GitError) {
+          return {
+            success: false as const,
+            error: categorizeGitError(error)
+          }
+        }
+
+        const fakeGitError = new GitError(errorMessage, 'createWorktree')
+        return {
+          success: false as const,
+          error: categorizeGitError(fakeGitError)
+        }
+      }
+    }),
+
+  /**
+   * Skip worktree creation and proceed without git isolation.
+   *
+   * Called when user clicks "Skip" after a worktree creation failure.
+   * Sets the worktree_skipped flag on the task for tracking.
+   *
+   * @param input.taskId - Task ID to skip worktree for
+   * @returns Success status
+   *
+   * @see Story 8.10: AC 2, Task 3.4
+   */
+  skipWorktreeCreation: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Story 8.10 Task 3.4: Set worktree_skipped flag
+      ctx.db
+        .update(tasks)
+        .set({
+          worktree_skipped: 1,
+          updated_at: new Date()
+        })
+        .where(eq(tasks.id, input.taskId))
+        .run()
+
+      // Clear operation record
+      GitErrorRecoveryService.removeOperation(ctx.projectRoot, 'createWorktree', input.taskId)
+
+      // Story 8.10 Task 6: Log user choice to skip
+      GitLogService.log(ctx.projectRoot, {
+        timestamp: new Date().toISOString(),
+        operationType: 'createWorktree',
+        taskId: input.taskId,
+        status: 'succeeded',
+        details: { skipped: true, userChoice: 'skip' }
+      })
+
+      // Clean up any partial state
+      const worktreePath = join(ctx.projectRoot, '.tinsu', 'worktrees', input.taskId)
+      if (existsSync(worktreePath)) {
+        try {
+          rmSync(worktreePath, { recursive: true, force: true })
+        } catch (error) {
+          // Best effort cleanup - log but don't fail the skip operation
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'skipWorktreeCreation',
+            taskId: input.taskId,
+            status: 'failed',
+            error: `Cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            details: { phase: 'post-skip-cleanup', worktreePath }
+          })
+        }
+      }
+
+      return { success: true }
     }),
 
   /**
@@ -797,8 +1061,8 @@ export const gitRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { resolve, existsSync } = await import('path')
-      const { readFileSync } = await import('fs')
+      const { resolve } = await import('path')
+      const { existsSync, readFileSync } = await import('fs')
 
       // Validate paths don't contain dangerous characters
       if (/[;&|`$<>]/.test(input.worktreePath) || /[;&|`$<>]/.test(input.filePath)) {
@@ -926,7 +1190,8 @@ export const gitRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { resolve, existsSync } = await import('path')
+      const { resolve } = await import('path')
+      const { existsSync: fsExistsSync } = await import('fs')
 
       // Validate paths don't contain dangerous characters
       if (/[;&|`$<>]/.test(input.worktreePath) || /[;&|`$<>]/.test(input.filePath)) {
@@ -938,7 +1203,7 @@ export const gitRouter = router({
 
       const normalizedWorktree = resolve(input.worktreePath)
 
-      if (!existsSync(normalizedWorktree)) {
+      if (!fsExistsSync(normalizedWorktree)) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Worktree not found: ${input.worktreePath}`
@@ -993,7 +1258,8 @@ export const gitRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { resolve, existsSync } = await import('path')
+      const { resolve } = await import('path')
+      const { existsSync: fsExistsSync2 } = await import('fs')
 
       // Validate paths don't contain dangerous characters
       if (/[;&|`$<>]/.test(input.worktreePath)) {
@@ -1005,7 +1271,7 @@ export const gitRouter = router({
 
       const normalizedWorktree = resolve(input.worktreePath)
 
-      if (!existsSync(normalizedWorktree)) {
+      if (!fsExistsSync2(normalizedWorktree)) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Worktree not found: ${input.worktreePath}`
@@ -1133,10 +1399,41 @@ export const gitRouter = router({
         worktreePath: z.string().min(1, 'worktreePath is required')
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const startTime = Date.now()
+
+      // Story 8.10 Task 6: Log auto-commit start
+      GitLogService.logStart(ctx.projectRoot, 'autoCommit', undefined, 'git commit -m "WIP: Agent changes"', {
+        worktreePath: input.worktreePath
+      })
+
       try {
-        return await GitService.autoCommitWorktreeChanges(input.worktreePath)
+        const result = await GitService.autoCommitWorktreeChanges(input.worktreePath)
+
+        // Story 8.10 Task 6: Log auto-commit result
+        const durationMs = Date.now() - startTime
+        GitLogService.logSuccess(ctx.projectRoot, 'autoCommit', undefined, durationMs, {
+          worktreePath: input.worktreePath,
+          committed: result.committed,
+          commitSha: result.commitSha
+        })
+
+        return result
       } catch (error) {
+        const durationMs = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+        // Story 8.10 Task 6: Log auto-commit failure
+        GitLogService.logFailure(
+          ctx.projectRoot,
+          'autoCommit',
+          undefined,
+          errorMessage,
+          undefined,
+          'git commit -m "WIP: Agent changes"',
+          durationMs
+        )
+
         if (error instanceof GitError) {
           if (error.message.includes('dangerous characters')) {
             throw new TRPCError({
@@ -1151,7 +1448,6 @@ export const gitRouter = router({
           })
         }
 
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to auto-commit changes: ${errorMessage}`
@@ -1183,7 +1479,8 @@ export const gitRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { resolve, existsSync } = await import('path')
+      const { resolve } = await import('path')
+      const { existsSync: fsExistsSync3 } = await import('fs')
       const { shell } = await import('electron')
 
       // Validate path doesn't contain dangerous characters
@@ -1196,7 +1493,7 @@ export const gitRouter = router({
 
       const normalizedPath = resolve(input.path)
 
-      if (!existsSync(normalizedPath)) {
+      if (!fsExistsSync3(normalizedPath)) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Path not found: ${input.path}`
@@ -1224,5 +1521,521 @@ export const gitRouter = router({
           message: `Failed to open editor: ${errorMessage}`
         })
       }
+    }),
+
+  /**
+   * Merge a task's worktree branch back to main with error recovery.
+   *
+   * This is an alternative to the task.updateStatus flow that provides
+   * detailed error handling with retry/skip options for merge failures.
+   *
+   * @param input.taskId - Task ID to merge
+   * @param input.branchName - Branch name to merge
+   * @param input.taskTitle - Task title for merge commit message
+   * @returns MergeResult with success status or error with recovery options
+   *
+   * @see Story 8.10: AC 3, Task 4.1, 4.2, 4.3
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.git.mergeTaskBranch.mutate({
+   *   taskId: 'abc123',
+   *   branchName: 'tinsu/story-abc123-feature',
+   *   taskTitle: 'Add authentication'
+   * })
+   * if (!result.success && result.error.category === 'merge_failed') {
+   *   // Show merge error dialog with retry option
+   * }
+   * ```
+   */
+  mergeTaskBranch: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required'),
+        branchName: z.string().min(1, 'branchName is required'),
+        taskTitle: z.string().min(1, 'taskTitle is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const startTime = Date.now()
+      const command = `git merge ${input.branchName}`
+
+      // Story 8.10 Task 4.1: Record merge operation start
+      GitErrorRecoveryService.recordOperationStart(ctx.projectRoot, {
+        operationType: 'merge',
+        taskId: input.taskId,
+        branchName: input.branchName,
+        startedAt: startTime,
+        status: 'pending'
+      })
+
+      // Story 8.10 Task 6: Log merge operation start
+      GitLogService.logStart(ctx.projectRoot, 'merge', input.taskId, command, {
+        branchName: input.branchName,
+        taskTitle: input.taskTitle
+      })
+
+      try {
+        const result = await GitService.mergeWorktree(
+          ctx.projectRoot,
+          input.branchName,
+          input.taskId,
+          input.taskTitle
+        )
+
+        // Story 8.10 Task 4.2: Record operation complete on success
+        GitErrorRecoveryService.recordOperationComplete(ctx.projectRoot, 'merge', input.taskId)
+
+        const durationMs = Date.now() - startTime
+
+        if (result.success) {
+          // Story 8.10 Task 6: Log merge success
+          GitLogService.logSuccess(ctx.projectRoot, 'merge', input.taskId, durationMs, {
+            commitSha: result.commitSha,
+            mergeType: result.mergeType
+          })
+
+          return {
+            success: true as const,
+            commitSha: result.commitSha,
+            mergeType: result.mergeType
+          }
+        } else {
+          // Merge conflict - log as succeeded with conflict details (conflicts are expected workflow state, not errors)
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'merge',
+            taskId: input.taskId,
+            status: 'succeeded',
+            command,
+            durationMs,
+            details: { hasConflict: true, conflictFiles: result.conflictFiles }
+          })
+
+          return {
+            success: false as const,
+            isConflict: true,
+            conflictFiles: result.conflictFiles || []
+          }
+        }
+      } catch (error) {
+        const durationMs = Date.now() - startTime
+
+        // Story 8.10 Task 4.3: Wrap errors with GitRecoverableError, preserve worktree
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        GitErrorRecoveryService.recordOperationFailed(ctx.projectRoot, 'merge', input.taskId, errorMessage)
+
+        // Story 8.10 Task 6: Log merge failure
+        GitLogService.logFailure(
+          ctx.projectRoot,
+          'merge',
+          input.taskId,
+          errorMessage,
+          undefined,
+          command,
+          durationMs
+        )
+
+        // Story 8.10 AC 3: Worktree preserved on merge failure (already logged above)
+
+        if (error instanceof GitError) {
+          return {
+            success: false as const,
+            isConflict: false,
+            error: categorizeGitError(error)
+          }
+        }
+
+        const fakeGitError = new GitError(errorMessage, 'git merge')
+        return {
+          success: false as const,
+          isConflict: false,
+          error: categorizeGitError(fakeGitError)
+        }
+      }
+    }),
+
+  /**
+   * Retry a failed merge operation.
+   *
+   * Clears the failed operation record and attempts the merge again.
+   * The worktree should be preserved from the original failure.
+   *
+   * @param input.taskId - Task ID to retry merge for
+   * @param input.branchName - Branch name to merge
+   * @param input.taskTitle - Task title for merge commit message
+   * @returns MergeResult with success status or error
+   *
+   * @see Story 8.10: AC 3, Task 4.4
+   */
+  retryMerge: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required'),
+        branchName: z.string().min(1, 'branchName is required'),
+        taskTitle: z.string().min(1, 'taskTitle is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const startTime = Date.now()
+      const command = `git merge ${input.branchName} (retry)`
+
+      // Story 8.10 Task 4.4: Clear previous failed operation
+      GitErrorRecoveryService.removeOperation(ctx.projectRoot, 'merge', input.taskId)
+
+      // Ensure no merge in progress
+      try {
+        const { execSync } = await import('child_process')
+        execSync('git merge --abort', { cwd: ctx.projectRoot, timeout: 5000, stdio: 'pipe' })
+      } catch {
+        // Ignore - may not be in merge state
+      }
+
+      // Story 8.10 Task 4.5: Record new operation start
+      GitErrorRecoveryService.recordOperationStart(ctx.projectRoot, {
+        operationType: 'merge',
+        taskId: input.taskId,
+        branchName: input.branchName,
+        startedAt: startTime,
+        status: 'pending'
+      })
+
+      // Story 8.10 Task 6: Log retry start
+      GitLogService.logStart(ctx.projectRoot, 'merge', input.taskId, command, {
+        branchName: input.branchName,
+        taskTitle: input.taskTitle,
+        isRetry: true
+      })
+
+      try {
+        const result = await GitService.mergeWorktree(
+          ctx.projectRoot,
+          input.branchName,
+          input.taskId,
+          input.taskTitle
+        )
+
+        GitErrorRecoveryService.recordOperationComplete(ctx.projectRoot, 'merge', input.taskId)
+
+        const durationMs = Date.now() - startTime
+
+        if (result.success) {
+          // Story 8.10 Task 6: Log retry success
+          GitLogService.logSuccess(ctx.projectRoot, 'merge', input.taskId, durationMs, {
+            commitSha: result.commitSha,
+            mergeType: result.mergeType,
+            isRetry: true
+          })
+
+          return {
+            success: true as const,
+            commitSha: result.commitSha,
+            mergeType: result.mergeType
+          }
+        } else {
+          // Merge conflict on retry
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'merge',
+            taskId: input.taskId,
+            status: 'failed',
+            command,
+            durationMs,
+            error: 'Merge conflict detected on retry',
+            details: { conflictFiles: result.conflictFiles, isRetry: true }
+          })
+
+          return {
+            success: false as const,
+            isConflict: true,
+            conflictFiles: result.conflictFiles || []
+          }
+        }
+      } catch (error) {
+        const durationMs = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        GitErrorRecoveryService.recordOperationFailed(ctx.projectRoot, 'merge', input.taskId, errorMessage)
+
+        // Story 8.10 Task 6: Log retry failure
+        GitLogService.logFailure(
+          ctx.projectRoot,
+          'merge',
+          input.taskId,
+          errorMessage,
+          undefined,
+          command,
+          durationMs
+        )
+
+        if (error instanceof GitError) {
+          return {
+            success: false as const,
+            isConflict: false,
+            error: categorizeGitError(error)
+          }
+        }
+
+        const fakeGitError = new GitError(errorMessage, 'git merge')
+        return {
+          success: false as const,
+          isConflict: false,
+          error: categorizeGitError(fakeGitError)
+        }
+      }
+    }),
+
+  /**
+   * Check for incomplete git operations that may need recovery.
+   *
+   * Called on project open to detect operations that were interrupted.
+   * Returns incomplete operations for user to resolve.
+   *
+   * @returns Array of incomplete operations with recovery options
+   *
+   * @see Story 8.10: AC 4, Task 5.1
+   */
+  getIncompleteOperations: publicProcedure.query(async ({ ctx }) => {
+    const incomplete = GitErrorRecoveryService.getIncompleteOperations(ctx.projectRoot)
+    const failed = GitErrorRecoveryService.getFailedOperations(ctx.projectRoot)
+
+    return {
+      incomplete,
+      failed,
+      hasIssues: incomplete.length > 0 || failed.length > 0
+    }
+  }),
+
+  /**
+   * Perform crash recovery check on project open.
+   *
+   * This is called when a project is opened to detect any incomplete
+   * git operations from a previous session that crashed or was interrupted.
+   *
+   * Story 8.10 Task 5.1, 5.2, 5.3, 5.4:
+   * - Reads git-operations.json on startup
+   * - Checks for pending operations (age > 5 minutes assumed crashed)
+   * - Returns operations needing user decision
+   *
+   * @returns Object with crash recovery info and options
+   *
+   * @see Story 8.10: AC 4 - Crash recovery detection
+   */
+  checkCrashRecovery: publicProcedure.query(async ({ ctx }) => {
+    // Story 8.10 Task 5.1: Read operations file
+    const incomplete = GitErrorRecoveryService.getIncompleteOperations(ctx.projectRoot)
+    const failed = GitErrorRecoveryService.getFailedOperations(ctx.projectRoot)
+
+    // Story 8.10 Task 5.2: Check age of pending operations
+    // Operations older than 5 minutes are considered crashed
+    // Rationale: Normal git operations complete in <1min. 5min threshold avoids false positives
+    // for large repos while still detecting genuine crashes quickly enough to be useful.
+    // NFR22: Branch operations complete within 5 seconds for repos up to 10GB
+    const CRASH_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+    const now = Date.now()
+
+    const crashedOperations = incomplete.filter((op) => {
+      const age = now - op.startedAt
+      return age > CRASH_THRESHOLD_MS
     })
+
+    // Story 8.10 Task 5.3: Validate filesystem state for crashed operations
+    const operationsNeedingRecovery = await Promise.all(
+      crashedOperations.map(async (op) => {
+        // Check if worktree still exists (partial state)
+        let hasPartialState = false
+        if (op.worktreePath) {
+          hasPartialState = existsSync(op.worktreePath)
+        } else if (op.taskId) {
+          const expectedPath = join(ctx.projectRoot, '.tinsu', 'worktrees', op.taskId)
+          hasPartialState = existsSync(expectedPath)
+        }
+
+        // Story 8.10 Task 5.4: Return operations needing user decision
+        return {
+          ...op,
+          hasPartialState,
+          // Suggest actions based on operation type
+          suggestedActions:
+            op.operationType === 'createWorktree'
+              ? hasPartialState
+                ? ['retry', 'skip', 'cleanup']
+                : ['retry', 'dismiss']
+              : op.operationType === 'merge'
+                ? ['retry', 'dismiss']
+                : ['dismiss']
+        }
+      })
+    )
+
+    return {
+      hasRecoveryNeeded: operationsNeedingRecovery.length > 0 || failed.length > 0,
+      crashedOperations: operationsNeedingRecovery,
+      failedOperations: failed,
+      summary:
+        operationsNeedingRecovery.length > 0 || failed.length > 0
+          ? `Found ${operationsNeedingRecovery.length} interrupted operation(s) and ${failed.length} failed operation(s) from a previous session.`
+          : null
+    }
+  }),
+
+  /**
+   * Cleanup partial worktree state from a crashed operation.
+   *
+   * Removes partial worktree directory and prunes git worktree references.
+   *
+   * @param input.taskId - Task ID with partial state
+   *
+   * @see Story 8.10: Task 5.5
+   */
+  cleanupPartialWorktree: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const worktreePath = join(ctx.projectRoot, '.tinsu', 'worktrees', input.taskId)
+
+      // Remove directory if exists
+      if (existsSync(worktreePath)) {
+        try {
+          rmSync(worktreePath, { recursive: true, force: true })
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'cleanupPartialWorktree',
+            taskId: input.taskId,
+            status: 'succeeded',
+            details: { worktreePath }
+          })
+        } catch (error) {
+          GitLogService.log(ctx.projectRoot, {
+            timestamp: new Date().toISOString(),
+            operationType: 'cleanupPartialWorktree',
+            taskId: input.taskId,
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            details: { worktreePath }
+          })
+        }
+      }
+
+      // Prune git worktree references
+      try {
+        const { execSync } = await import('child_process')
+        execSync('git worktree prune', { cwd: ctx.projectRoot, timeout: 5000, stdio: 'pipe' })
+        GitLogService.log(ctx.projectRoot, {
+          timestamp: new Date().toISOString(),
+          operationType: 'pruneWorktrees',
+          status: 'succeeded'
+        })
+      } catch (error) {
+        GitLogService.log(ctx.projectRoot, {
+          timestamp: new Date().toISOString(),
+          operationType: 'pruneWorktrees',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+
+      // Remove operation record
+      GitErrorRecoveryService.removeOperation(ctx.projectRoot, 'createWorktree', input.taskId)
+
+      return { success: true }
+    }),
+
+  /**
+   * Dismiss/clear an incomplete or failed operation.
+   *
+   * Called when user chooses to ignore a recovery prompt.
+   *
+   * @param input.operationType - Type of operation to dismiss
+   * @param input.taskId - Optional task ID to match specific operation
+   *
+   * @see Story 8.10: Task 5.6
+   */
+  dismissOperation: publicProcedure
+    .input(
+      z.object({
+        operationType: z.string().min(1, 'operationType is required'),
+        taskId: z.string().optional()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      GitErrorRecoveryService.removeOperation(ctx.projectRoot, input.operationType, input.taskId)
+      GitLogService.log(ctx.projectRoot, {
+        timestamp: new Date().toISOString(),
+        operationType: 'dismissOperation',
+        taskId: input.taskId,
+        status: 'succeeded',
+        details: { dismissedOperation: input.operationType }
+      })
+      return { success: true }
+    }),
+
+  /**
+   * Get git operation logs for a specific date.
+   *
+   * Returns detailed logs for debugging git issues.
+   *
+   * @param input.date - Optional date in YYYY-MM-DD format (defaults to today)
+   * @returns Array of log entries
+   *
+   * @see Story 8.10: Task 6.4, Task 8
+   */
+  getLogs: publicProcedure
+    .input(
+      z.object({
+        date: z.string().optional()
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const logs = GitLogService.readLogs(ctx.projectRoot, input?.date)
+      return logs
+    }),
+
+  /**
+   * List available log dates.
+   *
+   * @returns Array of available dates (most recent first)
+   *
+   * @see Story 8.10: Task 8
+   */
+  getLogDates: publicProcedure.query(async ({ ctx }) => {
+    return GitLogService.listLogDates(ctx.projectRoot)
+  }),
+
+  /**
+   * Get log storage statistics.
+   *
+   * @returns Object with log count and total size
+   *
+   * @see Story 8.10: Task 8
+   */
+  getLogStats: publicProcedure.query(async ({ ctx }) => {
+    const dates = GitLogService.listLogDates(ctx.projectRoot)
+    const totalSize = GitLogService.getLogsSize(ctx.projectRoot)
+
+    return {
+      fileCount: dates.length,
+      totalSizeBytes: totalSize,
+      totalSizeFormatted:
+        totalSize < 1024
+          ? `${totalSize} B`
+          : totalSize < 1024 * 1024
+            ? `${(totalSize / 1024).toFixed(1)} KB`
+            : `${(totalSize / (1024 * 1024)).toFixed(1)} MB`
+    }
+  }),
+
+  /**
+   * Cleanup old log files.
+   *
+   * Removes log files older than 7 days.
+   *
+   * @see Story 8.10: Task 6.5
+   */
+  cleanupLogs: publicProcedure.mutation(async ({ ctx }) => {
+    GitLogService.cleanupOldLogs(ctx.projectRoot)
+    return { success: true }
+  })
 })

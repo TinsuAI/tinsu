@@ -8,11 +8,13 @@ import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
 import { CreateStoryConfirmDialog } from '../dialogs/CreateStoryConfirmDialog'
 import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
 import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
+import { GitErrorDialog } from '../dialogs/GitErrorDialog'
 import { useUIStore, useTerminalStore, useTaskWorkspaceStore } from '@renderer/stores'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 import { useBranchStatus } from '@renderer/hooks/useBranchStatus'
 import type { Task, TaskStatus } from '@shared/types/task.types'
+import type { GitRecoverableError } from '@shared/types/git-error.types'
 
 export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
@@ -58,6 +60,12 @@ export function KanbanBoardContainer() {
   // Story 5.3b: Basic Task confirmation dialog state
   const [basicTaskDialogOpen, setBasicTaskDialogOpen] = useState(false)
   const [basicTask, setBasicTask] = useState<Task | null>(null)
+
+  // Story 8.10 AC2: Git error recovery dialog state
+  const [gitErrorDialogOpen, setGitErrorDialogOpen] = useState(false)
+  const [gitError, setGitError] = useState<GitRecoverableError | null>(null)
+  const [failedTaskId, setFailedTaskId] = useState<string | null>(null)
+  const [failedStatus, setFailedStatus] = useState<TaskStatus | null>(null)
 
   // Handle add task from column "+" button
   const handleAddTask = useCallback((status: TaskStatus) => {
@@ -114,13 +122,25 @@ export function KanbanBoardContainer() {
       return { previousTasks }
     },
     // Rollback on error and notify user
-    onError: (err, _variables, context) => {
+    onError: (err, variables, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
       }
-      toast.error('Failed to update task status', {
-        description: err.message
-      })
+
+      // Story 8.10 AC2: Check if this is a recoverable git error
+      const cause = (err as any).cause
+      if (cause && cause.recoverable) {
+        // Show GitErrorDialog instead of toast
+        setGitError(cause.recoverable as GitRecoverableError)
+        setFailedTaskId(variables.id)
+        setFailedStatus(variables.status)
+        setGitErrorDialogOpen(true)
+      } else {
+        // Show regular error toast
+        toast.error('Failed to update task status', {
+          description: err.message
+        })
+      }
     },
     // Refetch after success or error
     onSettled: () => {
@@ -310,6 +330,69 @@ export function KanbanBoardContainer() {
     setBasicTask(null)
   }, [basicTask, updateStatusMutation, launchBasicTask])
 
+  // Story 8.10 AC2: Handle git error retry
+  const retryWorktreeCreationMutation = trpc.git.retryWorktreeCreation.useMutation({
+    onSuccess: () => {
+      // Retry succeeded, try status update again
+      if (failedTaskId && failedStatus) {
+        updateStatusMutation.mutate({ id: failedTaskId, status: failedStatus })
+      }
+      setGitErrorDialogOpen(false)
+      setGitError(null)
+      setFailedTaskId(null)
+      setFailedStatus(null)
+    },
+    onError: (err) => {
+      // Retry also failed - keep dialog open, show toast
+      toast.error('Retry failed', {
+        description: err.message
+      })
+    }
+  })
+
+  const skipWorktreeCreationMutation = trpc.git.skipWorktreeCreation.useMutation({
+    onSuccess: () => {
+      // Skip succeeded, try status update again
+      if (failedTaskId && failedStatus) {
+        updateStatusMutation.mutate({ id: failedTaskId, status: failedStatus })
+      }
+      setGitErrorDialogOpen(false)
+      setGitError(null)
+      setFailedTaskId(null)
+      setFailedStatus(null)
+      toast.success('Proceeding without git worktree')
+    },
+    onError: (err) => {
+      toast.error('Skip failed', {
+        description: err.message
+      })
+    }
+  })
+
+  const handleGitErrorRetry = useCallback(() => {
+    if (failedTaskId) {
+      // Get task title for retry
+      const task = tasks?.find((t) => t.id === failedTaskId)
+      retryWorktreeCreationMutation.mutate({
+        taskId: failedTaskId,
+        taskTitle: task?.title
+      })
+    }
+  }, [failedTaskId, tasks, retryWorktreeCreationMutation])
+
+  const handleGitErrorSkip = useCallback(() => {
+    if (failedTaskId) {
+      skipWorktreeCreationMutation.mutate({ taskId: failedTaskId })
+    }
+  }, [failedTaskId, skipWorktreeCreationMutation])
+
+  const handleGitErrorDismiss = useCallback(() => {
+    setGitErrorDialogOpen(false)
+    setGitError(null)
+    setFailedTaskId(null)
+    setFailedStatus(null)
+  }, [])
+
   // Transform tasks to match the Task interface (handle date serialization from tRPC)
   // Story 2.6: Apply comprehensive filtering with AND logic between filter types
   const transformedTasks: Task[] = useMemo(() => {
@@ -458,6 +541,19 @@ export function KanbanBoardContainer() {
           onOpenChange={setBasicTaskDialogOpen}
           task={basicTask}
           onConfirm={handleBasicTaskConfirm}
+        />
+      )}
+      {/* Story 8.10 AC2: Git error recovery dialog */}
+      {gitError && (
+        <GitErrorDialog
+          open={gitErrorDialogOpen}
+          onOpenChange={setGitErrorDialogOpen}
+          error={gitError}
+          title="Worktree Creation Failed"
+          onRetry={handleGitErrorRetry}
+          onSkip={handleGitErrorSkip}
+          onDismiss={handleGitErrorDismiss}
+          isRetrying={retryWorktreeCreationMutation.isPending || skipWorktreeCreationMutation.isPending}
         />
       )}
     </>

@@ -4,6 +4,7 @@ import { Welcome } from './components/Welcome'
 import { KanbanBoardContainer } from './components/board'
 import { StoryFullView } from './components/story'
 import { TaskWorkspacePage } from './pages/TaskWorkspacePage'
+import { CrashRecoveryDialog } from './components/dialogs/CrashRecoveryDialog'
 import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
 import { useStoryViewStore, useTaskWorkspaceStore } from './stores'
@@ -25,11 +26,33 @@ function App(): React.JSX.Element {
     return !!projectPath && !projectName
   })
 
+  // Story 8.10 AC4: Crash recovery state
+  const [showCrashRecovery, setShowCrashRecovery] = useState(false)
+  const [crashRecoveryData, setCrashRecoveryData] = useState<{
+    crashedOperations: any[]
+    summary: string | null
+  } | null>(null)
+
+  // Story 8.10 AC4: Crash recovery check query
+  const crashRecoveryQuery = trpc.git.checkCrashRecovery.useQuery(undefined, {
+    enabled: false // Only run manually after project opens
+  })
+
   // Try to re-open last project on mount
   const openPathMutation = trpc.project.openPath.useMutation({
     onSuccess: (result) => {
       setProject(result.path, result.config.projectName)
       setIsReopening(false)
+      // Story 8.10 AC4: Check for crashed operations after project opens
+      crashRecoveryQuery.refetch().then((response) => {
+        if (response.data && response.data.crashedOperations.length > 0) {
+          setCrashRecoveryData({
+            crashedOperations: response.data.crashedOperations,
+            summary: response.data.summary
+          })
+          setShowCrashRecovery(true)
+        }
+      })
     },
     onError: () => {
       // Failed to open last project, clear stored path
@@ -51,8 +74,18 @@ function App(): React.JSX.Element {
   const handleProjectOpened = useCallback(
     (info: { path: string; projectName: string }): void => {
       setProject(info.path, info.projectName)
+      // Story 8.10 AC4: Check for crashed operations after project opens
+      crashRecoveryQuery.refetch().then((response) => {
+        if (response.data && response.data.crashedOperations.length > 0) {
+          setCrashRecoveryData({
+            crashedOperations: response.data.crashedOperations,
+            summary: response.data.summary
+          })
+          setShowCrashRecovery(true)
+        }
+      })
     },
-    [setProject]
+    [setProject, crashRecoveryQuery]
   )
 
   // Show loading state while attempting to reopen persisted project
@@ -100,6 +133,19 @@ function App(): React.JSX.Element {
       {isViewingTask && <TaskWorkspacePage />}
       {isViewingStory && !isViewingTask && <StoryFullView />}
       <Toaster />
+      {/* Story 8.10 AC4: Crash recovery dialog */}
+      {crashRecoveryData && (
+        <CrashRecoveryDialog
+          open={showCrashRecovery}
+          onOpenChange={setShowCrashRecovery}
+          crashedOperations={crashRecoveryData.crashedOperations}
+          summary={crashRecoveryData.summary}
+          onRecoveryComplete={() => {
+            setCrashRecoveryData(null)
+            setShowCrashRecovery(false)
+          }}
+        />
+      )}
     </>
   )
 }

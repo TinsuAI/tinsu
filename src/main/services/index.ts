@@ -52,6 +52,12 @@ export {
   type GitDiffLine
 } from './git.service'
 
+// Git error recovery service (Story 8.10)
+export { GitErrorRecoveryService, type GitOperationState } from './git-error-recovery.service'
+
+// Git log service (Story 8.10)
+export { GitLogService, type GitLogEntry } from './git-log.service'
+
 // Activity event emitter (TES-2.13)
 export { activityEmitter, ACTIVITY_EVENT_CHANNEL } from './activity-emitter'
 export type { ActivityEventPayload } from './activity-emitter'

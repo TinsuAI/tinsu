@@ -283,6 +283,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN conflict_files TEXT')
   }
 
+  // Migration: Add worktree_skipped column to tasks (Story 8.10)
+  if (!existingColumns.has('worktree_skipped')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN worktree_skipped INTEGER DEFAULT 0')
+  }
+
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
   const epicColumnsCheck = sqlite
     .prepare("PRAGMA table_info(epics)")
