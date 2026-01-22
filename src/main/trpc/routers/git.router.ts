@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { GitService, GitError } from '../../services/git.service'
 import { tasks } from '../../db/schema'
-import { isNotNull } from 'drizzle-orm'
+import { eq, isNotNull } from 'drizzle-orm'
 
 /**
  * Git router procedures.
@@ -674,6 +674,99 @@ export const gitRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to remove orphaned worktree: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Check for merge conflicts before merging a task branch.
+   *
+   * Uses `git merge --no-commit --no-ff` to test if a merge would succeed,
+   * then immediately aborts to restore clean state. Updates task's conflict
+   * status in the database.
+   *
+   * @param input.taskId - Task ID to check conflicts for
+   * @returns ConflictDetectionResult with conflict status and file list
+   * @throws TRPCError if task not found or branch doesn't exist
+   *
+   * @see Story 8.7: AC 1, 2, 4 - Conflict detection
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.git.checkForConflicts.mutate({ taskId: 'abc123' })
+   * if (result.hasConflicts) {
+   *   console.log(`Conflicts in: ${result.conflictFiles.join(', ')}`)
+   * }
+   * ```
+   */
+  checkForConflicts: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required')
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Story 8.7 Task 4.1: Get task and branch name from database
+        const task = ctx.db
+          .select()
+          .from(tasks)
+          .where(eq(tasks.id, input.taskId))
+          .get()
+
+        if (!task) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Task not found: ${input.taskId}`
+          })
+        }
+
+        if (!task.branch_name) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Task has no branch: ${input.taskId}`
+          })
+        }
+
+        // Story 8.7 Task 4.2: Call GitService.detectMergeConflicts
+        const result = await GitService.detectMergeConflicts(ctx.projectRoot, task.branch_name)
+
+        // Story 8.7 Task 4.3: Update task's conflict status in database
+        ctx.db
+          .update(tasks)
+          .set({
+            has_merge_conflict: result.hasConflicts ? 1 : 0,
+            conflict_files: result.conflictFiles.length > 0 ? JSON.stringify(result.conflictFiles) : null,
+            updated_at: new Date()
+          })
+          .where(eq(tasks.id, input.taskId))
+          .run()
+
+        // Story 8.7 Task 4.4: Return result
+        return result
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error
+        }
+
+        if (error instanceof GitError) {
+          if (error.message.includes('does not exist')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: error.message
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to check for conflicts: ${errorMessage}`
         })
       }
     })

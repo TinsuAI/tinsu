@@ -1,5 +1,5 @@
 import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
-import { Trash2, BookOpen, Zap } from 'lucide-react'
+import { Trash2, BookOpen, Zap, AlertTriangle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import { StoryFileStatusBadge } from '@renderer/components/ui/StoryFileStatusBadge'
@@ -7,6 +7,11 @@ import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import type { Task } from '@shared/types/task.types'
 import type { StoryFileStatus } from '@shared/types/story-file-status.types'
+
+/** Helper to check if task has merge conflicts (Story 8.7) */
+function hasConflicts(task: Task): boolean {
+  return task.has_merge_conflict === 1
+}
 
 export interface TaskCardProps {
   task: Task
@@ -171,6 +176,25 @@ export function TaskCard({
             status={task.story_file_status as StoryFileStatus}
             storyFilePath={task.story_file_path}
           />
+        </div>
+      )}
+
+      {/* Story 8.7: Merge conflict indicator */}
+      {hasConflicts(task) && (
+        <div className="mt-2" data-testid="task-conflict-indicator">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 border border-amber-600/30 px-2 py-1 text-xs font-medium text-amber-400">
+                  <AlertTriangle className="h-3 w-3 animate-pulse" />
+                  <span>Merge Conflict</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>This task has merge conflicts. Click to view details.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       )}
     </div>

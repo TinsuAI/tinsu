@@ -39,12 +39,14 @@ vi.mock('../../services/story-sync.service', () => ({
 
 // Story 8.5: Mock GitService for merge workflow tests
 // Story 8.6: Added mockRemoveWorktree for cleanup tests
+// Story 8.7: Added mockDetectMergeConflicts for conflict detection tests
 const mockMergeWorktree = vi.fn()
 const mockHasWorktree = vi.fn()
 const mockGetWorktreePath = vi.fn()
 const mockGetBranchNameFromWorktree = vi.fn()
 const mockCreateWorktree = vi.fn()
 const mockRemoveWorktree = vi.fn()
+const mockDetectMergeConflicts = vi.fn()
 
 vi.mock('../../services/git.service', () => ({
   GitService: {
@@ -53,7 +55,8 @@ vi.mock('../../services/git.service', () => ({
     getWorktreePath: (...args: unknown[]) => mockGetWorktreePath(...args),
     getBranchNameFromWorktree: (...args: unknown[]) => mockGetBranchNameFromWorktree(...args),
     createWorktree: (...args: unknown[]) => mockCreateWorktree(...args),
-    removeWorktree: (...args: unknown[]) => mockRemoveWorktree(...args)
+    removeWorktree: (...args: unknown[]) => mockRemoveWorktree(...args),
+    detectMergeConflicts: (...args: unknown[]) => mockDetectMergeConflicts(...args)
   }
 }))
 
@@ -122,6 +125,8 @@ function createTestDb(): TestDb {
       worktree_path TEXT,
       branch_name TEXT,
       merge_commit_sha TEXT,
+      has_merge_conflict INTEGER DEFAULT 0,
+      conflict_files TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -207,9 +212,16 @@ describe('taskRouter', () => {
     mockRemoveWorktree.mockReset()
     // Story 8.6: Reset preserveWorktrees setting
     mockPreserveWorktrees = false
+    // Story 8.7: Reset detectMergeConflicts mock
+    mockDetectMergeConflicts.mockReset()
     // Default mock behaviors for worktree operations
     mockHasWorktree.mockResolvedValue(false)
     mockCreateWorktree.mockResolvedValue({ worktreePath: '/mock/worktree', branchName: 'mock-branch' })
+    // Story 8.7: Default conflict detection behavior (no conflicts)
+    mockDetectMergeConflicts.mockResolvedValue({
+      hasConflicts: false,
+      conflictFiles: []
+    })
     // Story 8.5: Default merge behavior (success) for any tasks that happen to have worktree
     mockMergeWorktree.mockResolvedValue({
       success: true,
@@ -1439,6 +1451,217 @@ describe('taskRouter', () => {
 
       // Assert: removeWorktree was NOT called
       expect(mockRemoveWorktree).not.toHaveBeenCalled()
+    })
+  })
+
+  // Story 8.7: Conflict Detection Integration Tests
+  describe('conflict detection (Story 8.7)', () => {
+    it('should check for conflicts BEFORE merge when transitioning review → done (AC: 1, 4)', async () => {
+      // Arrange: Create a task in review with worktree
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-conflict-check-1',
+          title: 'Task Conflict Check',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-conflict-check-1',
+          branch_name: 'tinsu/story-task-conflict-check-1',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Mock: No conflicts detected
+      mockDetectMergeConflicts.mockResolvedValue({
+        hasConflicts: false,
+        conflictFiles: []
+      })
+
+      // Mock: Successful merge
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'abc123',
+        branchName: 'tinsu/story-task-conflict-check-1',
+        mergeType: 'fast-forward'
+      })
+
+      // Act
+      const result = await caller.updateStatus({ id: 'task-conflict-check-1', status: 'done' })
+
+      // Assert: detectMergeConflicts was called first
+      expect(mockDetectMergeConflicts).toHaveBeenCalledTimes(1)
+      expect(mockDetectMergeConflicts).toHaveBeenCalledWith(
+        expect.any(String), // projectRoot
+        'tinsu/story-task-conflict-check-1' // branch name
+      )
+
+      // Assert: mergeWorktree was called after conflict check passed
+      expect(mockMergeWorktree).toHaveBeenCalledTimes(1)
+
+      // Assert: Task was moved to done
+      expect(result.status).toBe('done')
+    })
+
+    it('should block move to done when conflicts detected (AC: 1, 2)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-blocked-conflict',
+          title: 'Task with Conflicts',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-blocked-conflict',
+          branch_name: 'tinsu/story-task-blocked-conflict',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Mock: Conflicts detected
+      mockDetectMergeConflicts.mockResolvedValue({
+        hasConflicts: true,
+        conflictFiles: ['src/index.ts', 'README.md']
+      })
+
+      // Act & Assert: Should throw error
+      await expect(
+        caller.updateStatus({ id: 'task-blocked-conflict', status: 'done' })
+      ).rejects.toThrow(TRPCError)
+
+      try {
+        await caller.updateStatus({ id: 'task-blocked-conflict', status: 'done' })
+      } catch (error) {
+        expect((error as TRPCError).code).toBe('PRECONDITION_FAILED')
+        expect((error as TRPCError).message).toContain('merge conflict')
+        expect((error as TRPCError).message).toContain('src/index.ts')
+      }
+
+      // Assert: mergeWorktree was NOT called (blocked by conflict check)
+      expect(mockMergeWorktree).not.toHaveBeenCalled()
+    })
+
+    it('should update has_merge_conflict flag when conflicts detected (AC: 2)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-conflict-flag',
+          title: 'Task Conflict Flag',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-conflict-flag',
+          branch_name: 'tinsu/story-task-conflict-flag',
+          has_merge_conflict: 0,
+          conflict_files: null,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Mock: Conflicts detected
+      mockDetectMergeConflicts.mockResolvedValue({
+        hasConflicts: true,
+        conflictFiles: ['package.json']
+      })
+
+      // Act: Attempt to move to done (will fail)
+      await expect(
+        caller.updateStatus({ id: 'task-conflict-flag', status: 'done' })
+      ).rejects.toThrow()
+
+      // Assert: Database was updated with conflict info
+      const task = await caller.getById({ id: 'task-conflict-flag' })
+      expect(task.has_merge_conflict).toBe(1)
+      expect(JSON.parse(task.conflict_files!)).toEqual(['package.json'])
+
+      // Assert: Status was rolled back to review
+      expect(task.status).toBe('review')
+    })
+
+    it('should clear conflict flags after successful merge (AC: 2)', async () => {
+      // Arrange: Create a task that previously had conflicts
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-clear-conflicts',
+          title: 'Task Clear Conflicts',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-clear-conflicts',
+          branch_name: 'tinsu/story-task-clear-conflicts',
+          has_merge_conflict: 1, // Previously had conflict
+          conflict_files: '["old-conflict.ts"]', // Old conflict files
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Mock: Now no conflicts (user resolved them)
+      mockDetectMergeConflicts.mockResolvedValue({
+        hasConflicts: false,
+        conflictFiles: []
+      })
+
+      mockMergeWorktree.mockResolvedValue({
+        success: true,
+        commitSha: 'resolved123',
+        branchName: 'tinsu/story-task-clear-conflicts',
+        mergeType: 'merge-commit'
+      })
+
+      // Act: Move to done
+      await caller.updateStatus({ id: 'task-clear-conflicts', status: 'done' })
+
+      // Assert: Conflict flags were cleared
+      const task = await caller.getById({ id: 'task-clear-conflicts' })
+      expect(task.has_merge_conflict).toBe(0)
+      expect(task.conflict_files).toBeNull()
+      expect(task.status).toBe('done')
+    })
+
+    it('should not check conflicts when no worktree exists', async () => {
+      // Arrange: Task without worktree
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-no-worktree-conflict',
+          title: 'Task No Worktree',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          // No worktree_path or branch_name
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act
+      const result = await caller.updateStatus({ id: 'task-no-worktree-conflict', status: 'done' })
+
+      // Assert: No conflict check or merge
+      expect(mockDetectMergeConflicts).not.toHaveBeenCalled()
+      expect(mockMergeWorktree).not.toHaveBeenCalled()
+      expect(result.status).toBe('done')
+    })
+
+    it('should not check conflicts when transitioning from non-review status', async () => {
+      // Arrange: Task in in_progress
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-in-progress-done',
+          title: 'Task In Progress to Done',
+          status: 'in_progress', // Not in review
+          project_id: TEST_PROJECT_ID,
+          worktree_path: '/project/.tinsu/worktrees/task-in-progress-done',
+          branch_name: 'tinsu/story-task-in-progress-done',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Move directly to done (skipping review)
+      const result = await caller.updateStatus({ id: 'task-in-progress-done', status: 'done' })
+
+      // Assert: No conflict check (only review→done triggers merge)
+      expect(mockDetectMergeConflicts).not.toHaveBeenCalled()
+      expect(mockMergeWorktree).not.toHaveBeenCalled()
+      expect(result.status).toBe('done')
     })
   })
 })

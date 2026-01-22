@@ -79,6 +79,9 @@ export interface Task {
   branch_name: string | null // e.g., tinsu/story-abc123-add-user-auth
   // Story 8.5: SHA of merge commit when task is approved
   merge_commit_sha: string | null
+  // Story 8.7: Merge conflict tracking
+  has_merge_conflict: number | null // 0 = no conflict, 1 = has conflict (SQLite boolean)
+  conflict_files: string | null // JSON array of file paths
   created_at: Date
   updated_at: Date
 }
@@ -119,6 +122,9 @@ export interface NewTask {
   branch_name?: string | null
   // Story 8.5: SHA of merge commit when task is approved
   merge_commit_sha?: string | null
+  // Story 8.7: Merge conflict tracking
+  has_merge_conflict?: number | null
+  conflict_files?: string | null
   created_at?: Date
   updated_at?: Date
 }

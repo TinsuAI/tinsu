@@ -246,4 +246,104 @@ describe('TaskDetailContent', () => {
     fireEvent.click(screen.getByLabelText('Close panel'))
     expect(defaultProps.onClose).toHaveBeenCalled()
   })
+
+  describe('Story 8.7: Conflict Warning Banner', () => {
+    it('should display conflict banner when has_merge_conflict is 1', () => {
+      const taskWithConflict = {
+        ...mockTask,
+        has_merge_conflict: 1,
+        conflict_files: '["src/main.ts", "package.json"]'
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithConflict,
+        isLoading: false
+      } as any)
+
+      render(<TaskDetailContent {...defaultProps} />)
+
+      expect(screen.getByTestId('conflict-warning-banner')).toBeInTheDocument()
+    })
+
+    it('should not display conflict banner when has_merge_conflict is 0', () => {
+      const taskWithoutConflict = {
+        ...mockTask,
+        has_merge_conflict: 0,
+        conflict_files: null
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithoutConflict,
+        isLoading: false
+      } as any)
+
+      render(<TaskDetailContent {...defaultProps} />)
+
+      expect(screen.queryByTestId('conflict-warning-banner')).not.toBeInTheDocument()
+    })
+
+    it('should handle corrupt conflict_files JSON gracefully (Issue #1)', () => {
+      const taskWithCorruptJson = {
+        ...mockTask,
+        has_merge_conflict: 1,
+        conflict_files: '{invalid json['
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithCorruptJson,
+        isLoading: false
+      } as any)
+
+      // Should not throw - component catches JSON parse error
+      expect(() => {
+        render(<TaskDetailContent {...defaultProps} />)
+      }).not.toThrow()
+
+      // Banner should NOT render when JSON is corrupt (empty file list = no banner)
+      // This is correct behavior - if we can't parse the files, don't show partial/broken info
+      expect(screen.queryByTestId('conflict-warning-banner')).not.toBeInTheDocument()
+    })
+
+    it('should handle null conflict_files gracefully', () => {
+      const taskWithNullFiles = {
+        ...mockTask,
+        has_merge_conflict: 1,
+        conflict_files: null
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithNullFiles,
+        isLoading: false
+      } as any)
+
+      render(<TaskDetailContent {...defaultProps} />)
+
+      // Banner should NOT render when conflict_files is null (empty file list = no banner)
+      // This is correct behavior - if there are no files to show, don't show the banner
+      expect(screen.queryByTestId('conflict-warning-banner')).not.toBeInTheDocument()
+    })
+
+    it('should allow dismissing conflict banner', () => {
+      const taskWithConflict = {
+        ...mockTask,
+        has_merge_conflict: 1,
+        conflict_files: '["src/main.ts"]'
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithConflict,
+        isLoading: false
+      } as any)
+
+      render(<TaskDetailContent {...defaultProps} />)
+
+      expect(screen.getByTestId('conflict-warning-banner')).toBeInTheDocument()
+
+      // Dismiss the banner
+      fireEvent.click(screen.getByTestId('conflict-banner-dismiss'))
+
+      // Banner should disappear
+      expect(screen.queryByTestId('conflict-warning-banner')).not.toBeInTheDocument()
+    })
+  })
 })

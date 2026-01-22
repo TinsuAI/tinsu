@@ -360,10 +360,46 @@ export const taskRouter = router({
       }
 
       // Story 8.5: Merge worktree branch to main when task transitions from review → done
+      // Story 8.7: Check for conflicts BEFORE merge attempt (AC 1, 4)
       if (input.status === 'done' && oldTask.status === 'review') {
         // Only merge if task has a worktree branch (Story 8.5 AC 1, 2)
         if (result.worktree_path && result.branch_name) {
           try {
+            // Story 8.7 AC 1, 4: Check for conflicts BEFORE attempting merge
+            const conflictCheck = await GitService.detectMergeConflicts(
+              ctx.projectRoot,
+              result.branch_name
+            )
+
+            if (conflictCheck.hasConflicts) {
+              // Story 8.7 AC 2: Update task with conflict status
+              ctx.db
+                .update(tasks)
+                .set({
+                  has_merge_conflict: 1,
+                  conflict_files: JSON.stringify(conflictCheck.conflictFiles),
+                  updated_at: new Date()
+                })
+                .where(eq(tasks.id, input.id))
+                .run()
+
+              // Story 8.7: Rollback status change - cannot complete with conflicts
+              ctx.db
+                .update(tasks)
+                .set({ status: oldTask.status, updated_at: new Date() })
+                .where(eq(tasks.id, input.id))
+                .run()
+
+              const conflictList = conflictCheck.conflictFiles.join(', ') || 'unknown files'
+              console.error(`[Story 8.7] Merge conflict detected in files: ${conflictList}`)
+
+              throw new TRPCError({
+                code: 'PRECONDITION_FAILED',
+                message: `Cannot complete task: merge conflict in ${conflictList}. Resolve conflicts before completing.`
+              })
+            }
+
+            // Story 8.7 AC 4: No conflicts detected, proceed with merge
             const mergeResult = await GitService.mergeWorktree(
               ctx.projectRoot,
               result.branch_name,
@@ -373,10 +409,13 @@ export const taskRouter = router({
 
             if (mergeResult.success) {
               // Story 8.5 AC 2: Update task with merge_commit_sha
+              // Story 8.7: Clear conflict status after successful merge
               ctx.db
                 .update(tasks)
                 .set({
                   merge_commit_sha: mergeResult.commitSha,
+                  has_merge_conflict: 0,
+                  conflict_files: null,
                   updated_at: new Date()
                 })
                 .where(eq(tasks.id, input.id))

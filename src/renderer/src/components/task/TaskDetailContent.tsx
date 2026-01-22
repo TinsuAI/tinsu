@@ -25,6 +25,7 @@ import { NotionEditor } from '@renderer/components/editor'
 import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
+import { ConflictWarningBanner } from '@renderer/components/conflict'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
@@ -43,6 +44,9 @@ export interface TaskDetailContentProps {
     // Story 8.3: Branch name for git worktree
     branch_name?: string | null
     worktree_path?: string | null
+    // Story 8.7: Merge conflict tracking
+    has_merge_conflict?: number | null
+    conflict_files?: string | null
     created_at: Date
     updated_at: Date
   } | null
@@ -71,6 +75,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
   // Story 8.3: Branch name copy feedback state
   const [branchCopied, setBranchCopied] = useState(false)
+
+  // Story 8.7: Conflict banner dismissed state (resets when task changes)
+  const [conflictBannerDismissed, setConflictBannerDismissed] = useState(false)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -137,6 +144,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     setActiveTab('content')
     setEditing(true)
     setHasChanges(false)
+    setConflictBannerDismissed(false) // Story 8.7: Reset dismissed state when task changes
   }, [taskId])
 
   // Handle content changes
@@ -445,6 +453,22 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
           )}
         </div>
       </header>
+
+      {/* Story 8.7: Merge conflict warning banner */}
+      {task.has_merge_conflict === 1 && !conflictBannerDismissed && (
+        <div className="px-6 pt-4">
+          <ConflictWarningBanner
+            conflictFiles={(() => {
+              try {
+                return task.conflict_files ? JSON.parse(task.conflict_files) : []
+              } catch {
+                return []
+              }
+            })()}
+            onDismiss={() => setConflictBannerDismissed(true)}
+          />
+        </div>
+      )}
 
       {/* Desktop: 3-Column Resizable Layout */}
       {isDesktop && (

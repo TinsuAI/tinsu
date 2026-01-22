@@ -151,6 +151,9 @@ export const tasks = sqliteTable(
     branch_name: text('branch_name'), // e.g., tinsu/story-abc123-add-user-auth
     // Story 8.5: SHA of merge commit when task is approved
     merge_commit_sha: text('merge_commit_sha'),
+    // Story 8.7: Merge conflict tracking
+    has_merge_conflict: integer('has_merge_conflict').default(0),
+    conflict_files: text('conflict_files'), // JSON array of file paths
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

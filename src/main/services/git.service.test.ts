@@ -1786,4 +1786,230 @@ index abc1234..def5678 100644
       expect(result.some(w => w.path === outsideWorktreePath)).toBe(false)
     })
   })
+
+  // Story 8.7: Detect Merge Conflicts Tests
+  describe('detectMergeConflicts (Story 8.7)', () => {
+    const testDir = '/tmp/tinsu-detectconflict-test-' + Date.now()
+    const testTaskId = 'conflict-detect-' + Date.now()
+
+    beforeEach(async () => {
+      const { mkdirSync, rmSync, writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+
+      mkdirSync(testDir, { recursive: true })
+      execSync('git init', { cwd: testDir })
+      execSync('git config user.email "test@test.com"', { cwd: testDir })
+      execSync('git config user.name "Test"', { cwd: testDir })
+      execSync('git branch -M main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Test\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Initial commit"', { cwd: testDir })
+    })
+
+    afterEach(async () => {
+      const { rmSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      try {
+        execSync('git worktree prune', { cwd: testDir })
+      } catch {
+        // Ignore
+      }
+
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Ignore
+      }
+    })
+
+    it('should return hasConflicts: false when no conflicts (AC: 1, Task 9.1)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and make changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'No Conflict Feature')
+
+      // Add a new file in the worktree (no conflict with main)
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      // Make sure we're on main
+      execSync('git checkout main', { cwd: testDir })
+
+      // Detect conflicts
+      const result = await GitService.detectMergeConflicts(testDir, worktreeResult.branchName)
+
+      expect(result.hasConflicts).toBe(false)
+      expect(result.conflictFiles).toEqual([])
+      expect(result.error).toBeUndefined()
+    })
+
+    it('should return hasConflicts: true with file list when conflicts exist (AC: 2, Task 9.2)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and modify README.md
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Conflict Feature')
+
+      // Modify README.md in worktree
+      writeFileSync(`${worktreeResult.worktreePath}/README.md`, '# Modified in worktree\n')
+      execSync('git add README.md', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Modify README in worktree"', { cwd: worktreeResult.worktreePath })
+
+      // Modify the same file in main (create conflict)
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Modified in main\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Modify README in main"', { cwd: testDir })
+
+      // Detect conflicts
+      const result = await GitService.detectMergeConflicts(testDir, worktreeResult.branchName)
+
+      expect(result.hasConflicts).toBe(true)
+      expect(result.conflictFiles).toContain('README.md')
+      expect(result.conflictFiles.length).toBeGreaterThan(0)
+    })
+
+    it('should abort merge and restore clean state (AC: 4, Task 9.3)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree and modify README.md
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Clean State Test')
+
+      // Commit .gitignore so it doesn't show as untracked
+      execSync('git add .gitignore', { cwd: testDir })
+      execSync('git commit -m "Add gitignore"', { cwd: testDir })
+
+      // Modify README.md in worktree
+      writeFileSync(`${worktreeResult.worktreePath}/README.md`, '# Modified in worktree\n')
+      execSync('git add README.md', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Modify README in worktree"', { cwd: worktreeResult.worktreePath })
+
+      // Modify the same file in main (create conflict)
+      execSync('git checkout main', { cwd: testDir })
+      writeFileSync(`${testDir}/README.md`, '# Modified in main\n')
+      execSync('git add README.md', { cwd: testDir })
+      execSync('git commit -m "Modify README in main"', { cwd: testDir })
+
+      // Detect conflicts
+      await GitService.detectMergeConflicts(testDir, worktreeResult.branchName)
+
+      // Verify main is still clean (no merge in progress, no merge conflict markers)
+      const status = execSync('git status --porcelain', { cwd: testDir }).toString()
+      // Status should not contain 'UU' (unmerged) entries or merge conflict markers
+      expect(status).not.toContain('UU')
+      expect(status).not.toContain('AA')
+      expect(status).not.toContain('DD')
+
+      // Verify we're still on main
+      const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: testDir }).toString().trim()
+      expect(currentBranch).toBe('main')
+    })
+
+    it('should throw GitError for non-existent branch (AC: Task 9.4)', async () => {
+      const { execSync } = await import('child_process')
+
+      // Make sure we're on main
+      execSync('git checkout main', { cwd: testDir })
+
+      // Try to detect conflicts for non-existent branch
+      await expect(
+        GitService.detectMergeConflicts(testDir, 'nonexistent-branch')
+      ).rejects.toThrow(GitError)
+    })
+
+    it('should throw GitError for invalid project path', async () => {
+      await expect(
+        GitService.detectMergeConflicts('/path;bad', 'some-branch')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.detectMergeConflicts('/path;bad', 'some-branch')
+      ).rejects.toThrow('dangerous characters')
+    })
+
+    it('should throw GitError for empty branch name', async () => {
+      await expect(
+        GitService.detectMergeConflicts(testDir, '')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.detectMergeConflicts(testDir, '')
+      ).rejects.toThrow('non-empty string')
+    })
+
+    it('should throw GitError for non-existent project path', async () => {
+      await expect(
+        GitService.detectMergeConflicts('/nonexistent/path', 'some-branch')
+      ).rejects.toThrow(GitError)
+      await expect(
+        GitService.detectMergeConflicts('/nonexistent/path', 'some-branch')
+      ).rejects.toThrow('does not exist')
+    })
+
+    it('should use git merge --no-commit --no-ff to test merge (AC: 4)', async () => {
+      const { writeFileSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree with clean changes
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Test Merge Command')
+
+      // Add a new file (no conflict)
+      writeFileSync(`${worktreeResult.worktreePath}/feature.ts`, 'export const feature = true')
+      execSync('git add feature.ts', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Add feature"', { cwd: worktreeResult.worktreePath })
+
+      execSync('git checkout main', { cwd: testDir })
+
+      // Record HEAD before detection
+      const headBefore = execSync('git rev-parse HEAD', { cwd: testDir }).toString().trim()
+
+      // Detect conflicts (should succeed with no conflicts)
+      const result = await GitService.detectMergeConflicts(testDir, worktreeResult.branchName)
+
+      // HEAD should be unchanged (merge was aborted)
+      const headAfter = execSync('git rev-parse HEAD', { cwd: testDir }).toString().trim()
+      expect(headAfter).toBe(headBefore)
+
+      expect(result.hasConflicts).toBe(false)
+    })
+
+    it('should detect multiple conflicting files', async () => {
+      const { writeFileSync, mkdirSync } = await import('fs')
+      const { execSync } = await import('child_process')
+
+      // Create a worktree
+      const worktreeResult = await GitService.createWorktree(testDir, testTaskId, 'Multi Conflict')
+
+      // Create and modify multiple files in worktree
+      mkdirSync(`${worktreeResult.worktreePath}/src`, { recursive: true })
+      writeFileSync(`${worktreeResult.worktreePath}/README.md`, '# Worktree README\n')
+      writeFileSync(`${worktreeResult.worktreePath}/src/index.ts`, 'worktree code')
+      execSync('git add .', { cwd: worktreeResult.worktreePath })
+      execSync('git commit -m "Worktree changes"', { cwd: worktreeResult.worktreePath })
+
+      // Modify the same files in main (create conflicts)
+      execSync('git checkout main', { cwd: testDir })
+      mkdirSync(`${testDir}/src`, { recursive: true })
+      writeFileSync(`${testDir}/README.md`, '# Main README\n')
+      writeFileSync(`${testDir}/src/index.ts`, 'main code')
+      execSync('git add .', { cwd: testDir })
+      execSync('git commit -m "Main changes"', { cwd: testDir })
+
+      // Detect conflicts
+      const result = await GitService.detectMergeConflicts(testDir, worktreeResult.branchName)
+
+      expect(result.hasConflicts).toBe(true)
+      expect(result.conflictFiles.length).toBe(2)
+      expect(result.conflictFiles).toContain('README.md')
+      expect(result.conflictFiles).toContain('src/index.ts')
+    })
+  })
 })

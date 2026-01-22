@@ -180,6 +180,20 @@ export interface OrphanedWorktree {
 }
 
 /**
+ * Result of detecting merge conflicts before actual merge.
+ *
+ * @see Story 8.7: AC 2
+ */
+export interface ConflictDetectionResult {
+  /** Whether merge conflicts were detected */
+  hasConflicts: boolean
+  /** List of files with conflicts (empty if no conflicts) */
+  conflictFiles: string[]
+  /** Error message if detection failed for other reasons */
+  error?: string
+}
+
+/**
  * Service for git operations.
  *
  * Provides methods for:
@@ -1382,6 +1396,144 @@ export class GitService {
     }
 
     return orphaned
+  }
+
+  /**
+   * Detects merge conflicts before attempting actual merge.
+   *
+   * Uses `git merge --no-commit --no-ff` to test if a merge would succeed,
+   * then immediately aborts to restore clean state. This allows checking
+   * for conflicts without affecting the repository.
+   *
+   * @param projectPath - Path to the main git repository
+   * @param branchName - The branch name to test merging
+   * @returns ConflictDetectionResult with conflict status and file list
+   * @throws GitError if branch doesn't exist or path is invalid
+   *
+   * @see Story 8.7: AC 1, 2, 4
+   *
+   * @example
+   * ```typescript
+   * const result = await GitService.detectMergeConflicts('/path/to/project', 'feature-branch')
+   * if (result.hasConflicts) {
+   *   console.log(`Conflicts in: ${result.conflictFiles.join(', ')}`)
+   * }
+   * ```
+   */
+  static async detectMergeConflicts(
+    projectPath: string,
+    branchName: string
+  ): Promise<ConflictDetectionResult> {
+    this.validatePath(projectPath, 'detectMergeConflicts')
+
+    if (!branchName || typeof branchName !== 'string') {
+      throw new GitError(
+        'Invalid branchName: branchName must be a non-empty string',
+        'detectMergeConflicts'
+      )
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Project path does not exist: ${normalizedPath}`, 'detectMergeConflicts')
+    }
+
+    // Story 8.7 Task 1.7: Check if branch exists first
+    const branchExistsCheck = await this.branchExists(projectPath, branchName)
+    if (!branchExistsCheck) {
+      throw new GitError(
+        `Branch '${branchName}' does not exist`,
+        `git show-ref --verify refs/heads/${branchName}`
+      )
+    }
+
+    try {
+      // Ensure we're on main branch before testing merge
+      await this.execGit(['checkout', 'main'], normalizedPath, GIT_COMMAND_TIMEOUT)
+
+      // Story 8.7 AC 4, Task 1.2: Test merge with --no-commit --no-ff
+      try {
+        await this.execGit(
+          ['merge', '--no-commit', '--no-ff', branchName],
+          normalizedPath,
+          GIT_LARGE_OP_TIMEOUT
+        )
+
+        // Story 8.7 Task 1.3: Merge succeeded (no conflicts) - abort to restore clean state
+        try {
+          await this.execGit(['merge', '--abort'], normalizedPath, GIT_BRANCH_TIMEOUT)
+        } catch {
+          // If abort fails, try reset to restore state
+          try {
+            await this.execGit(['reset', '--hard', 'HEAD'], normalizedPath, GIT_COMMAND_TIMEOUT)
+          } catch {
+            // Ignore reset errors
+          }
+        }
+
+        // Story 8.7 Task 1.6: Return no conflicts
+        return {
+          hasConflicts: false,
+          conflictFiles: []
+        }
+      } catch (mergeError) {
+        // Merge failed - likely conflicts
+        // Story 8.7 Task 1.4: Get list of conflicting files
+        let conflictFiles: string[] = []
+        try {
+          const { stdout } = await this.execGit(
+            ['diff', '--name-only', '--diff-filter=U'],
+            normalizedPath,
+            GIT_BRANCH_TIMEOUT
+          )
+          conflictFiles = stdout.trim().split('\n').filter(Boolean)
+        } catch {
+          // Couldn't get conflict list - continue with empty list
+        }
+
+        // Story 8.7 Task 1.5: Always abort to restore clean state
+        try {
+          await this.execGit(['merge', '--abort'], normalizedPath, GIT_BRANCH_TIMEOUT)
+        } catch {
+          // If abort fails, try reset
+          try {
+            await this.execGit(['reset', '--hard', 'HEAD'], normalizedPath, GIT_COMMAND_TIMEOUT)
+          } catch {
+            // Ignore reset errors
+          }
+        }
+
+        // Story 8.7 Task 1.6: Return conflict result if we found conflict files
+        if (conflictFiles.length > 0) {
+          return {
+            hasConflicts: true,
+            conflictFiles
+          }
+        }
+
+        // If merge failed but no conflicts detected, it's a different error
+        const err = mergeError as GitError
+        throw new GitError(
+          `Merge test failed: ${err.message}`,
+          'git merge --no-commit --no-ff',
+          err.exitCode,
+          err.stderr
+        )
+      }
+    } catch (error) {
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to detect merge conflicts: ${errorMessage}`,
+        'detectMergeConflicts',
+        undefined,
+        errorMessage
+      )
+    }
   }
 
   /**
