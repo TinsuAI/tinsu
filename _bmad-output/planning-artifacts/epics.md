@@ -248,13 +248,15 @@ Detect agent stalls, provide visual indicators, and enable Pause/Resume interven
 
 ### Epic 7: Review & Approval Workflow
 
-Deliver the Manager-in-the-Loop experience with diff view, approve/reject actions, and feedback loop re-execution.
+Deliver the Manager-in-the-Loop experience with approve/reject actions and feedback loop re-execution.
 **FRs covered:** FR17, FR18, FR19, FR20, FR21
+**Note (2026-01-21):** Stories 7-1, 7-2, 7-8, 7-9 superseded by TES epics (diff viewer, workspace, keyboard nav, notifications)
 
 ### Epic 8: Git Integration & Version Control
 
-Manage git worktrees for task isolation, branch naming, merge on approve, and conflict detection.
+Manage git worktrees for task isolation (by task type), branch naming, merge on approve, conflict detection, and historical diff viewing.
 **FRs covered:** FR22, FR23, FR24, FR25, FR26, FR27
+**Note (2026-01-21):** Updated 8-1, 8-2, 8-5; Added 8-11 for historical diff view
 
 ---
 
@@ -2334,7 +2336,15 @@ So that I can monitor multiple stories and spot issues.
 **FRs covered:** FR17, FR18, FR19, FR20, FR21
 **Dependencies:** Epic 5 (requires agent completion), Epic 8 (requires git worktree)
 
-### Story 7.1: Review Panel Slide-over
+**Course Correction (2026-01-21):** The following stories are SUPERSEDED by TES (Task Execution Sandbox) implementation:
+- Story 7-1 (Review Panel Slide-over) → TES 3-1/3-2 implemented full-screen 3-column workspace
+- Story 7-2 (Monaco Diff Viewer) → TES 4-1 through 4-6 implemented complete diff viewer
+- Story 7-8 (Keyboard Navigation) → TES 3-11 covers keyboard navigation
+- Story 7-9 (Review Notifications) → TES 5-7 covers notifications
+
+### Story 7.1: Review Panel Slide-over ⚠️ SUPERSEDED
+
+> **Superseded by:** TES 3-1/3-2 (Full-screen 3-column task workspace)
 
 As a founder,
 I want a slide-over panel to review agent work,
@@ -2369,7 +2379,9 @@ So that I can see changes without leaving the Kanban board.
 
 ---
 
-### Story 7.2: Monaco Diff Viewer Integration
+### Story 7.2: Monaco Diff Viewer Integration ⚠️ SUPERSEDED
+
+> **Superseded by:** TES 4-1 through 4-6 (Git Diff Viewer epic)
 
 As a founder,
 I want to see all changes in a VS Code-quality diff view,
@@ -2583,7 +2595,9 @@ So that I can see what changed after my feedback.
 
 ---
 
-### Story 7.8: Keyboard-First Review Navigation
+### Story 7.8: Keyboard-First Review Navigation ⚠️ SUPERSEDED
+
+> **Superseded by:** TES 3-11 (Keyboard Navigation in task workspace)
 
 As a founder,
 I want to navigate and act on reviews entirely with keyboard,
@@ -2619,7 +2633,9 @@ So that I can maintain the 60-second velocity loop (UX spec).
 
 ---
 
-### Story 7.9: Review Notifications
+### Story 7.9: Review Notifications ⚠️ SUPERSEDED
+
+> **Superseded by:** TES 5-7 (Code-Review Complete Notification)
 
 As a founder,
 I want to be notified when tasks need my review,
@@ -2694,6 +2710,11 @@ So that all git interactions go through a consistent, error-handled interface.
 **Then** they complete within reasonable time for repos up to 10GB (NFR21)
 **And** branch operations complete within 5 seconds (NFR22)
 
+**Given** GitService initializes for a project
+**When** the .tinsu/ folder exists
+**Then** `.tinsu/worktrees/` is added to .gitignore if not already present
+**And** this happens before any worktree operations
+
 ---
 
 ### Story 8.2: Create Worktree on Task Start
@@ -2704,10 +2725,22 @@ So that agent work is isolated from the main branch (FR22).
 
 **Acceptance Criteria:**
 
-**Given** a story task is dragged to In Progress
+**Given** a Story Task is dragged to "Create Story" column
 **When** the drop completes
 **Then** GitService creates a new worktree
 **And** the worktree is located at .tinsu/worktrees/{task-id}/
+**And** the agent executes in this worktree for story creation
+
+**Given** a Basic Task is dragged to "In Progress" column
+**When** the drop completes
+**Then** GitService creates a new worktree
+**And** the worktree is located at .tinsu/worktrees/{task-id}/
+**And** the agent executes in this worktree for direct execution
+
+**Given** a Story Task with existing worktree is dragged from "Create Story" to "In Progress"
+**When** the drop completes
+**Then** the existing worktree is reused
+**And** no new worktree is created
 
 **Given** worktree creation
 **When** it runs
@@ -2721,14 +2754,9 @@ So that agent work is isolated from the main branch (FR22).
 
 **Given** worktree creation fails
 **When** an error occurs (e.g., disk full)
-**Then** the task stays in Backlog
+**Then** the task stays in previous column
 **And** a clear error message is shown
 **And** no partial worktree is left behind (NFR12)
-
-**Given** a worktree already exists for this task
-**When** task is moved to In Progress again
-**Then** the existing worktree is reused
-**And** no duplicate is created
 
 ---
 
@@ -2819,6 +2847,8 @@ So that completed work is integrated automatically (FR25).
 **When** it completes
 **Then** main branch contains all changes from the worktree
 **And** the merge is a fast-forward if possible, otherwise merge commit
+**And** the resulting commit SHA is saved to the task record (merge_commit_sha)
+**And** the original branch name is saved to the task record (branch_name)
 
 **Given** the merge
 **When** commit message is generated
@@ -2834,6 +2864,15 @@ So that completed work is integrated automatically (FR25).
 **When** I check git log
 **Then** the story branch commits are in main history
 **And** attribution is preserved
+
+**Given** a task has merge_commit_sha stored
+**When** I view the task detail (even after Done)
+**Then** I can view the historical diff for that commit
+**And** the diff shows exactly what this task changed
+
+**Schema Addition (tasks table):**
+- `merge_commit_sha`: TEXT nullable
+- `branch_name`: TEXT nullable
 
 ---
 
@@ -2999,3 +3038,40 @@ So that I can fix issues without losing work.
 **When** git errors occur
 **Then** full command and output are logged
 **And** I can view detailed logs in settings
+
+---
+
+### Story 8.11: Historical Diff View for Completed Tasks
+
+As a founder,
+I want to view the git diff for completed tasks,
+So that I can review what changes a task made even after it's done.
+
+**Acceptance Criteria:**
+
+**Given** a task in Done status with merge_commit_sha stored
+**When** I open the task detail view
+**Then** the Diff section displays the historical diff for that commit
+**And** the diff shows all files changed by that task
+
+**Given** a completed task's diff is displayed
+**When** I view it
+**Then** it uses the same Monaco diff viewer as in-progress tasks (TES 4-4)
+**And** file tree, summary bar, and unified/split toggle work identically
+
+**Given** a task in Done status
+**When** merge_commit_sha is null (legacy task or worktree skipped)
+**Then** the Diff section shows "No diff available for this task"
+**And** a tooltip explains why
+
+**Given** I want to see the exact commit
+**When** I view the diff header
+**Then** the commit SHA is displayed (truncated, copyable)
+**And** the original branch name is shown for reference
+
+**Given** I want to compare with current main
+**When** I click "Compare with current"
+**Then** a diff shows changes between task's commit and current HEAD
+**And** this helps identify if the task's changes were later modified
+
+**Dependencies:** Story 8-5, TES Epic 4
