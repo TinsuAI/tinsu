@@ -26,7 +26,10 @@ import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
 import { ConflictWarningBanner, ConflictResolutionView } from '@renderer/components/conflict'
+import { ApproveButton } from '@renderer/components/review'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
+import { useApprovalMutation } from '@renderer/hooks/useApprovalMutation'
+import { useTaskDetailPanelStore } from '@renderer/stores/task-detail-panel.store'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
 import { markdownComponents } from '@renderer/components/task/MarkdownComponents'
@@ -116,6 +119,48 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Local edit state
   const [editContent, setEditContent] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
+
+  // Story 7.3: Fetch all tasks to find next review task after approval
+  const { data: allTasks } = trpc.tasks.getAllWithEpics.useQuery()
+
+  // Story 7.3: Get store actions for task navigation
+  const { switchTask } = useTaskDetailPanelStore()
+
+  // Story 7.3: Approval mutation hook for the 60-Second Velocity Loop
+  const { approve, isPending: isApproving } = useApprovalMutation({
+    taskId,
+    storyNumber: task?.story_number,
+    onSuccess: () => {
+      // Story 7.3 AC 4: Auto-focus next review task if available
+      try {
+        const nextReviewTask = allTasks?.find((t) => t.status === 'review' && t.id !== taskId)
+        if (nextReviewTask) {
+          // Navigate to next review task using switchTask (instant, no animation)
+          toast.info('Next task ready', {
+            description: 'Navigating to next review task...'
+          })
+          switchTask(nextReviewTask.id)
+        } else {
+          // No more review tasks, close panel and return to board
+          toast.info('All tasks reviewed', {
+            description: 'No more tasks awaiting review'
+          })
+          onClose()
+        }
+      } catch (error) {
+        // MEDIUM-3: Handle navigation errors gracefully
+        console.error('Failed to navigate to next task:', error)
+        toast.error('Navigation failed', {
+          description: 'Could not open next task. Please select manually.'
+        })
+        onClose()
+      }
+    },
+    onConflict: () => {
+      // Story 7.3 AC 3: Show conflict resolution view on conflict
+      setShowConflictResolution(true)
+    }
+  })
 
   // Update full content mutation
   const utils = trpc.useUtils()
@@ -246,11 +291,21 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
           terminalRef.current?.focusInput()
         }
       }
+
+      // Story 7.3 AC 5: "A" key to approve (only when task is in review status)
+      // MEDIUM-2: Check modifiers first to avoid interfering with Cmd/Ctrl+A (select all)
+      if ((e.key === 'a' || e.key === 'A') && !isTyping && task?.status === 'review' && !isApproving) {
+        // Only trigger if NO modifier keys are pressed (allow Cmd+A, Ctrl+A to work normally)
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault()
+          approve()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isDesktop])
+  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isDesktop, task?.status, isApproving, approve])
 
   if (isLoading) {
     return (
@@ -410,6 +465,16 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-2">
+          {/* Story 7.3: Approve button (only visible when status is 'review') */}
+          {task.status === 'review' && (
+            <ApproveButton
+              onClick={approve}
+              isPending={isApproving}
+              disabled={task.has_merge_conflict === 1}
+              hasConflict={task.has_merge_conflict === 1}
+            />
+          )}
+
           {isEditing ? (
             <>
               <Button
