@@ -4,6 +4,7 @@ import { cn } from '@renderer/lib/utils'
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 
@@ -88,12 +89,14 @@ export function RequestChangesButton({
   // Wrap in tooltip when disabled due to no comments
   if (!hasComments && !disabled) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p className="text-xs">Add inline comments first</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-xs">Add inline comments first</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 

@@ -22,6 +22,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 import type { VersionStatusOutcome } from '@shared/types/task.types'
@@ -158,16 +159,18 @@ function TimelineNode({
 
         {/* Feedback preview for rejected/changes_requested */}
         {feedbackPreview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground/80 italic cursor-help">
-                "{feedbackPreview}"
-              </p>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-md">
-              <p className="text-xs whitespace-pre-wrap">"{feedbackPreview}"</p>
-            </TooltipContent>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground/80 italic cursor-help">
+                  "{feedbackPreview}"
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-md">
+                <p className="text-xs whitespace-pre-wrap">"{feedbackPreview}"</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
     </button>

@@ -3,6 +3,7 @@ import { cn } from '@renderer/lib/utils'
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 
@@ -52,55 +53,57 @@ export function InlineCommentIndicator({
       : firstCommentPreview
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={onClick}
-          className={cn(
-            'inline-flex items-center gap-0.5 rounded px-1 py-0.5',
-            'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
-            'transition-colors duration-150',
-            'focus:outline-none focus:ring-1 focus:ring-amber-500/50',
-            className
-          )}
-          data-testid="inline-comment-indicator"
-          aria-label={`${commentCount} comment${commentCount !== 1 ? 's' : ''} on this line`}
-          aria-expanded={isExpanded}
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onClick}
+            className={cn(
+              'inline-flex items-center gap-0.5 rounded px-1 py-0.5',
+              'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
+              'transition-colors duration-150',
+              'focus:outline-none focus:ring-1 focus:ring-amber-500/50',
+              className
+            )}
+            data-testid="inline-comment-indicator"
+            aria-label={`${commentCount} comment${commentCount !== 1 ? 's' : ''} on this line`}
+            aria-expanded={isExpanded}
+          >
+            <MessageSquare className="h-3 w-3" />
+            {commentCount > 1 && (
+              <span
+                className="text-[10px] font-medium"
+                data-testid="comment-count-badge"
+              >
+                {commentCount}
+              </span>
+            )}
+            {isExpanded ? (
+              <ChevronDown className="h-3 w-3" data-testid="chevron-expanded" />
+            ) : (
+              <ChevronRight className="h-3 w-3" data-testid="chevron-collapsed" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="right"
+          className="max-w-xs bg-popover/95 text-xs"
         >
-          <MessageSquare className="h-3 w-3" />
-          {commentCount > 1 && (
-            <span
-              className="text-[10px] font-medium"
-              data-testid="comment-count-badge"
-            >
-              {commentCount}
+          <div className="flex flex-col gap-1">
+            <span className="font-medium text-amber-400">
+              {commentCount} comment{commentCount !== 1 ? 's' : ''}
             </span>
-          )}
-          {isExpanded ? (
-            <ChevronDown className="h-3 w-3" data-testid="chevron-expanded" />
-          ) : (
-            <ChevronRight className="h-3 w-3" data-testid="chevron-collapsed" />
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        className="max-w-xs bg-popover/95 text-xs"
-      >
-        <div className="flex flex-col gap-1">
-          <span className="font-medium text-amber-400">
-            {commentCount} comment{commentCount !== 1 ? 's' : ''}
-          </span>
-          {tooltipPreview && (
-            <span className="text-muted-foreground italic">
-              "{tooltipPreview}"
+            {tooltipPreview && (
+              <span className="text-muted-foreground italic">
+                "{tooltipPreview}"
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground/70">
+              Click to {isExpanded ? 'collapse' : 'expand'}
             </span>
-          )}
-          <span className="text-[10px] text-muted-foreground/70">
-            Click to {isExpanded ? 'collapse' : 'expand'}
-          </span>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

@@ -124,7 +124,7 @@ function App(): React.JSX.Element {
       <div
         className={isViewingTask || isViewingStory ? 'hidden' : undefined}
         aria-hidden={isViewingTask || isViewingStory}
-        inert={isViewingTask || isViewingStory ? ('' as any) : undefined}
+        inert={isViewingTask || isViewingStory ? true : undefined}
       >
         <AppShell>
           <KanbanBoardContainer />

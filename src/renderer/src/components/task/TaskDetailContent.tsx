@@ -22,6 +22,7 @@ import { Button } from '@renderer/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
@@ -613,22 +614,24 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
                 onCompareSelect={handleCompareSelect}
                 className="mr-1"
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowFeedbackHistory(true)}
-                    className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    <Activity className="h-4 w-4" />
-                    <span className="hidden sm:inline">History</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  View feedback history
-                </TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFeedbackHistory(true)}
+                      className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                    >
+                      <Activity className="h-4 w-4" />
+                      <span className="hidden sm:inline">History</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    View feedback history
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="mx-2 h-6 w-px bg-border/40" />
             </>
           )}
@@ -655,36 +658,38 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
                 hasConflict={task.has_merge_conflict === 1}
               />
               {/* Story 7.5 Fix Issue #5: Keyboard shortcuts help */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground"
-                  >
-                    <Keyboard className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  <div className="flex flex-col gap-1">
-                    <div className="font-semibold mb-1">Keyboard Shortcuts</div>
-                    <div className="flex justify-between gap-4">
-                      <span>Approve</span>
-                      <kbd className="rounded bg-muted px-1.5 py-0.5">A</kbd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span>Reject</span>
-                      <kbd className="rounded bg-muted px-1.5 py-0.5">R</kbd>
-                    </div>
-                    {inlineComments.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground"
+                    >
+                      <Keyboard className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <div className="flex flex-col gap-1">
+                      <div className="font-semibold mb-1">Keyboard Shortcuts</div>
                       <div className="flex justify-between gap-4">
-                        <span>Request Changes</span>
-                        <kbd className="rounded bg-muted px-1.5 py-0.5">C</kbd>
+                        <span>Approve</span>
+                        <kbd className="rounded bg-muted px-1.5 py-0.5">A</kbd>
                       </div>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                      <div className="flex justify-between gap-4">
+                        <span>Reject</span>
+                        <kbd className="rounded bg-muted px-1.5 py-0.5">R</kbd>
+                      </div>
+                      {inlineComments.length > 0 && (
+                        <div className="flex justify-between gap-4">
+                          <span>Request Changes</span>
+                          <kbd className="rounded bg-muted px-1.5 py-0.5">C</kbd>
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </>
           )}
 
