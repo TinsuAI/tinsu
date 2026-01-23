@@ -2,6 +2,17 @@ import { readFileSync, existsSync } from 'fs'
 import { join, isAbsolute } from 'path'
 
 /**
+ * Inline comment structure for request changes workflow (Story 7.5).
+ */
+export interface InlineComment {
+  id: string
+  filePath: string
+  lineNumber: number
+  content: string
+  createdAt: number
+}
+
+/**
  * Context structure for DEV agent story implementation.
  * Contains story content and optional project context information.
  */
@@ -18,6 +29,8 @@ export interface StoryContext {
   contextNotes?: string
   /** Optional worktree base path for path resolution (Story 8.4) */
   worktreeBasePath?: string
+  /** Optional inline comments from request changes (Story 7.5) */
+  inlineComments?: InlineComment[]
 }
 
 /**
@@ -268,5 +281,66 @@ export class ContextBuilderService {
         `Failed to read story file at ${resolvedStoryPath}${worktreeNote}: ${error instanceof Error ? error.message : String(error)}`
       )
     }
+  }
+
+  /**
+   * Formats inline comments as markdown for agent context (Story 7.5).
+   *
+   * Groups comments by file path and includes line number references
+   * so the agent can easily locate and address each piece of feedback.
+   *
+   * @param comments - Array of inline comments
+   * @returns Formatted markdown string
+   *
+   * @example
+   * ```typescript
+   * const markdown = ContextBuilderService.formatInlineCommentsAsMarkdown([
+   *   { id: '1', filePath: 'src/App.tsx', lineNumber: 42, content: 'Add error handling', createdAt: Date.now() },
+   *   { id: '2', filePath: 'src/App.tsx', lineNumber: 55, content: 'Use async/await', createdAt: Date.now() }
+   * ])
+   * // Returns:
+   * // ## Inline Review Comments
+   * //
+   * // ### src/App.tsx
+   * //
+   * // - **Line 42**: Add error handling
+   * // - **Line 55**: Use async/await
+   * ```
+   */
+  static formatInlineCommentsAsMarkdown(comments: InlineComment[]): string {
+    if (!comments || comments.length === 0) {
+      return ''
+    }
+
+    // Group comments by file path
+    const commentsByFile = new Map<string, InlineComment[]>()
+    for (const comment of comments) {
+      const existing = commentsByFile.get(comment.filePath) || []
+      existing.push(comment)
+      commentsByFile.set(comment.filePath, existing)
+    }
+
+    // Build markdown
+    const lines: string[] = []
+    lines.push('## Inline Review Comments')
+    lines.push('')
+    lines.push('The following feedback was provided during code review. Please address each comment:')
+    lines.push('')
+
+    for (const [filePath, fileComments] of commentsByFile) {
+      lines.push(`### ${filePath}`)
+      lines.push('')
+
+      // Sort comments by line number within each file
+      const sortedComments = [...fileComments].sort((a, b) => a.lineNumber - b.lineNumber)
+
+      for (const comment of sortedComments) {
+        lines.push(`- **Line ${comment.lineNumber}**: ${comment.content}`)
+      }
+
+      lines.push('')
+    }
+
+    return lines.join('\n')
   }
 }

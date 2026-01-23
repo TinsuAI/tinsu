@@ -132,7 +132,7 @@ development_status:
   7-2-monaco-diff-viewer-integration: superseded  # → TES 4-1 through 4-6 (diff viewer)
   7-3-approve-changes-action: done
   7-4-reject-changes-with-feedback: done
-  7-5-request-changes-with-inline-comments: backlog
+  7-5-request-changes-with-inline-comments: done  # Code review complete - AC5 implemented, all critical/medium issues fixed, 6 auto-fixes applied
   7-6-agent-re-execution-with-feedback-context: backlog
   7-7-review-history-and-comparison: backlog
   7-8-keyboard-first-review-navigation: superseded  # → TES 3-11 (keyboard nav)

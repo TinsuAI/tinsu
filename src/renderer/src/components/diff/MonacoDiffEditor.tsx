@@ -14,6 +14,7 @@ import { useCallback, useState, useRef, useEffect } from 'react'
 import { DiffEditor, type Monaco, loader } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import type { DiffViewMode } from '@renderer/stores/diff.store'
+import type { InlineComment } from '@shared/types/task.types'
 import { cn } from '@renderer/lib/utils'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { Button } from '@renderer/components/ui/button'
@@ -27,6 +28,13 @@ loader.config({
     vs: '/monaco/vs'
   }
 })
+
+/**
+ * Side of the diff editor where a gutter click occurred.
+ * - 'original': Left side showing the old content
+ * - 'modified': Right side showing the new content (typically where comments are added)
+ */
+export type DiffEditorSide = 'original' | 'modified'
 
 /**
  * Props for the MonacoDiffEditor component.
@@ -50,6 +58,23 @@ export interface MonacoDiffEditorProps {
    * - 'unified': Interleaved view with changes shown in single column
    */
   viewMode?: DiffViewMode
+  /**
+   * Callback when user clicks on the gutter (line numbers or glyph margin) (Story 7.5)
+   * Only fires for the modified editor side where inline comments are added.
+   * @param lineNumber - The 1-indexed line number that was clicked
+   * @param side - Which editor side was clicked ('original' or 'modified')
+   */
+  onGutterClick?: (lineNumber: number, side: DiffEditorSide) => void
+  /**
+   * Whether gutter click for comments is enabled (Story 7.5)
+   * When true, enables the glyph margin and shows hover indicator
+   */
+  enableCommentGutter?: boolean
+  /**
+   * Inline comments to display as gutter decorations (Story 7.5 Task 8)
+   * Comments are displayed as amber glyph margin indicators
+   */
+  comments?: InlineComment[]
 }
 
 /**
@@ -78,7 +103,10 @@ export function MonacoDiffEditor({
   filePath,
   className,
   height = 300,
-  viewMode = 'split'
+  viewMode = 'split',
+  onGutterClick,
+  enableCommentGutter = false,
+  comments = []
 }: MonacoDiffEditorProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,6 +120,12 @@ export function MonacoDiffEditor({
 
   // Ref to the Monaco diff editor instance for dynamic option updates (TES-4.5)
   const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
+
+  // Ref to Monaco instance for decoration updates (Story 7.5 Task 8)
+  const monacoRef = useRef<Monaco | null>(null)
+
+  // Ref for decorations collection (Story 7.5 Task 8)
+  const decorationsRef = useRef<editor.IEditorDecorationsCollection | null>(null)
 
   /**
    * Handler called before Monaco mounts.
@@ -112,47 +146,99 @@ export function MonacoDiffEditor({
   /**
    * Handler called when the editor has mounted.
    * Sets up auto-height calculation using Monaco's getContentHeight() (TES-4.6)
+   * Sets up gutter click handlers for inline comments (Story 7.5)
    */
-  const handleMount = useCallback((editor: editor.IStandaloneDiffEditor) => {
-    // Store editor reference for dynamic option updates (TES-4.5)
-    editorRef.current = editor
-    setIsLoading(false)
-    setError(null) // Clear errors on successful mount
+  const handleMount = useCallback(
+    (editor: editor.IStandaloneDiffEditor, monaco: Monaco) => {
+      // Store editor reference for dynamic option updates (TES-4.5)
+      editorRef.current = editor
+      // Store Monaco instance for decoration updates (Story 7.5 Task 8)
+      monacoRef.current = monaco
+      setIsLoading(false)
+      setError(null) // Clear errors on successful mount
 
-    // Get the modified editor to access content height (TES-4.6)
-    const modifiedEditor = editor.getModifiedEditor()
+      // Get the modified editor to access content height (TES-4.6)
+      const modifiedEditor = editor.getModifiedEditor()
+      const originalEditor = editor.getOriginalEditor()
 
-    // Calculate initial height using Monaco's built-in method
-    const updateHeight = () => {
-      try {
-        const contentHeight = modifiedEditor.getContentHeight()
-        // Add buffer to prevent scrollbar (20px for borders, padding, rounding errors)
-        const finalHeight = contentHeight + 20
-        setCalculatedHeight(finalHeight)
+      // Calculate initial height using Monaco's built-in method
+      const updateHeight = () => {
+        try {
+          const contentHeight = modifiedEditor.getContentHeight()
+          // Add buffer to prevent scrollbar (20px for borders, padding, rounding errors)
+          const finalHeight = contentHeight + 20
+          setCalculatedHeight(finalHeight)
 
-        // Force Monaco to layout with new height to prevent scrollbar
-        // Use setTimeout to ensure state update has completed
-        setTimeout(() => {
-          if (editorRef.current) {
-            editorRef.current.layout()
-          }
-        }, 0)
-      } catch (err) {
-        console.warn('Failed to get content height:', err)
+          // Force Monaco to layout with new height to prevent scrollbar
+          // Use setTimeout to ensure state update has completed
+          setTimeout(() => {
+            if (editorRef.current) {
+              editorRef.current.layout()
+            }
+          }, 0)
+        } catch (err) {
+          console.warn('Failed to get content height:', err)
+        }
       }
-    }
 
-    // Set initial height
-    updateHeight()
-
-    // Listen for content size changes and update height dynamically
-    const disposable = modifiedEditor.onDidContentSizeChange(() => {
+      // Set initial height
       updateHeight()
-    })
 
-    // Cleanup listener on unmount
-    return () => disposable.dispose()
-  }, [])
+      // Disposables to clean up on unmount
+      const disposables: { dispose(): void }[] = []
+
+      // Listen for content size changes and update height dynamically
+      disposables.push(
+        modifiedEditor.onDidContentSizeChange(() => {
+          updateHeight()
+        })
+      )
+
+      // Story 7.5: Set up gutter click handlers for inline comments
+      if (onGutterClick && enableCommentGutter) {
+        // Handler for modified editor (right side) - where comments are typically added
+        disposables.push(
+          modifiedEditor.onMouseDown((e: editor.IEditorMouseEvent) => {
+            // Check if click was on gutter (line numbers or glyph margin)
+            const targetType = e.target.type
+            if (
+              targetType === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+              targetType === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS ||
+              targetType === monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS
+            ) {
+              const lineNumber = e.target.position?.lineNumber
+              if (lineNumber !== undefined && lineNumber > 0) {
+                onGutterClick(lineNumber, 'modified')
+              }
+            }
+          })
+        )
+
+        // Handler for original editor (left side) - optional, for viewing context
+        disposables.push(
+          originalEditor.onMouseDown((e: editor.IEditorMouseEvent) => {
+            const targetType = e.target.type
+            if (
+              targetType === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+              targetType === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS ||
+              targetType === monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS
+            ) {
+              const lineNumber = e.target.position?.lineNumber
+              if (lineNumber !== undefined && lineNumber > 0) {
+                onGutterClick(lineNumber, 'original')
+              }
+            }
+          })
+        )
+      }
+
+      // Cleanup all listeners on unmount
+      return () => {
+        disposables.forEach((d) => d.dispose())
+      }
+    },
+    [onGutterClick, enableCommentGutter]
+  )
 
   /**
    * Retry loading the editor after an error.
@@ -210,6 +296,90 @@ export function MonacoDiffEditor({
       })
     }
   }, [viewMode])
+
+  /**
+   * Story 7.5 Task 8: Update gutter decorations when comments change
+   * Uses Monaco's IEditorDecorationsCollection for efficient updates
+   */
+  useEffect(() => {
+    const editor = editorRef.current
+    const monaco = monacoRef.current
+
+    if (!editor || !monaco || !enableCommentGutter) return
+
+    const modifiedEditor = editor.getModifiedEditor()
+    const model = modifiedEditor.getModel()
+
+    // Story 7.5 Fix Issue #6: Validate comments belong to current file and are within bounds
+    // Filter comments for this exact file path (strict equality)
+    const fileComments = comments.filter((c) => {
+      // Ensure comment has valid structure
+      if (!c.filePath || !c.lineNumber || !c.content) {
+        return false
+      }
+      // Ensure file path matches exactly
+      if (c.filePath !== filePath) {
+        return false
+      }
+      // Ensure line number is within file bounds
+      if (model && (c.lineNumber < 1 || c.lineNumber > model.getLineCount())) {
+        console.warn(
+          `Skipping comment for ${c.filePath}:${c.lineNumber} - line out of bounds (max: ${model.getLineCount()})`
+        )
+        return false
+      }
+      return true
+    })
+
+    // Group comments by line number
+    const commentsByLine = new Map<number, InlineComment[]>()
+    for (const comment of fileComments) {
+      const existing = commentsByLine.get(comment.lineNumber) || []
+      existing.push(comment)
+      commentsByLine.set(comment.lineNumber, existing)
+    }
+
+    // Create decorations for each line with comments
+    const decorations: editor.IModelDeltaDecoration[] = []
+    for (const [lineNumber, lineComments] of commentsByLine) {
+      const firstComment = lineComments[0]
+      const previewText =
+        firstComment.content.length > 50
+          ? `${firstComment.content.slice(0, 50)}...`
+          : firstComment.content
+      const countText =
+        lineComments.length > 1 ? ` (+${lineComments.length - 1} more)` : ''
+
+      decorations.push({
+        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+        options: {
+          isWholeLine: true,
+          glyphMarginClassName: 'inline-comment-glyph',
+          glyphMarginHoverMessage: {
+            value: `**${lineComments.length} comment${lineComments.length > 1 ? 's' : ''}**\n\n"${previewText}"${countText}`
+          }
+        }
+      })
+    }
+
+    // Clean up previous decorations
+    if (decorationsRef.current) {
+      decorationsRef.current.clear()
+    }
+
+    // Create new decorations collection
+    if (decorations.length > 0) {
+      decorationsRef.current = modifiedEditor.createDecorationsCollection(decorations)
+    }
+
+    // Cleanup on unmount (Story 7.5 Task 8.5)
+    return () => {
+      if (decorationsRef.current) {
+        decorationsRef.current.clear()
+        decorationsRef.current = null
+      }
+    }
+  }, [comments, filePath, enableCommentGutter])
 
   return (
     <div
@@ -295,7 +465,8 @@ export function MonacoDiffEditor({
           scrollBeyondLastLine: false,
           wordWrap: 'off',
           renderIndicators: true,
-          glyphMargin: false, // Disable glyph margin for more compact layout
+          // Story 7.5: Enable glyph margin when comment gutter is active for inline comments
+          glyphMargin: enableCommentGutter,
           overviewRulerLanes: 0,
           automaticLayout: true,
           fixedOverflowWidgets: true,

@@ -14,10 +14,16 @@ import {
   Save,
   GitBranch,
   Copy,
-  Check
+  Check,
+  Keyboard
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@renderer/components/ui/tooltip'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
 import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
 import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
@@ -26,10 +32,12 @@ import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
 import { ConflictWarningBanner, ConflictResolutionView } from '@renderer/components/conflict'
-import { ApproveButton, RejectButton, type RejectButtonHandle } from '@renderer/components/review'
+import { ApproveButton, RejectButton, RequestChangesButton, type RejectButtonHandle } from '@renderer/components/review'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
 import { useApprovalMutation } from '@renderer/hooks/useApprovalMutation'
 import { useRejectionMutation } from '@renderer/hooks/useRejectionMutation'
+import { useRequestChangesMutation } from '@renderer/hooks/useRequestChangesMutation'
+import { useInlineCommentsStore } from '@renderer/stores/inline-comments.store'
 import { useTaskDetailPanelStore } from '@renderer/stores/task-detail-panel.store'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
@@ -176,6 +184,25 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
       // No need to navigate elsewhere - user stays on the same task
     }
   })
+
+  // Story 7.5: Inline comments store and mutation for request changes
+  const { getCommentsForTask, clearComments, loadComments } = useInlineCommentsStore()
+  const inlineComments = getCommentsForTask(taskId)
+  const { requestChanges, isPending: isRequestingChanges } = useRequestChangesMutation({
+    taskId,
+    storyNumber: task?.story_number?.toString(),
+    onSuccess: () => {
+      // Clear comments from store after successful request
+      clearComments(taskId)
+    }
+  })
+
+  // Story 7.5 Fix Issue #2: Load inline comments from database into store when task loads
+  useEffect(() => {
+    if (task?.inline_comments && Array.isArray(task.inline_comments)) {
+      loadComments(taskId, task.inline_comments)
+    }
+  }, [task?.inline_comments, taskId, loadComments])
 
   // Update full content mutation
   const utils = trpc.useUtils()
@@ -325,11 +352,20 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
           rejectButtonRef.current?.openDialog()
         }
       }
+
+      // Story 7.5 Task 12.5: "C" key to request changes (only when has comments and in review)
+      if ((e.key === 'c' || e.key === 'C') && !isTyping && task?.status === 'review' && inlineComments.length > 0) {
+        // Only trigger if NO modifier keys are pressed
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault()
+          requestChanges(inlineComments)
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isDesktop, task?.status, isApproving, approve])
+  }, [isEditing, handleCancel, handleSave, hasActiveSession, activeTab, isDesktop, task?.status, isApproving, approve, inlineComments, requestChanges])
 
   if (isLoading) {
     return (
@@ -489,21 +525,59 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* Story 7.3, 7.4: Approve/Reject buttons (only visible when status is 'review') */}
+          {/* Story 7.3, 7.4, 7.5: Approve/Reject/RequestChanges buttons (only visible when status is 'review') */}
           {task.status === 'review' && (
             <>
               <RejectButton
                 ref={rejectButtonRef}
                 onReject={reject}
                 isPending={isRejecting}
-                disabled={isApproving}
+                disabled={isApproving || isRequestingChanges}
+              />
+              {/* Story 7.5: Request Changes button between Reject and Approve */}
+              <RequestChangesButton
+                onClick={() => requestChanges(inlineComments)}
+                isPending={isRequestingChanges}
+                commentCount={inlineComments.length}
+                disabled={isApproving || isRejecting}
               />
               <ApproveButton
                 onClick={approve}
                 isPending={isApproving}
-                disabled={task.has_merge_conflict === 1 || isRejecting}
+                disabled={task.has_merge_conflict === 1 || isRejecting || isRequestingChanges}
                 hasConflict={task.has_merge_conflict === 1}
               />
+              {/* Story 7.5 Fix Issue #5: Keyboard shortcuts help */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="flex flex-col gap-1">
+                    <div className="font-semibold mb-1">Keyboard Shortcuts</div>
+                    <div className="flex justify-between gap-4">
+                      <span>Approve</span>
+                      <kbd className="rounded bg-muted px-1.5 py-0.5">A</kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Reject</span>
+                      <kbd className="rounded bg-muted px-1.5 py-0.5">R</kbd>
+                    </div>
+                    {inlineComments.length > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span>Request Changes</span>
+                        <kbd className="rounded bg-muted px-1.5 py-0.5">C</kbd>
+                      </div>
+                    )}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             </>
           )}
 

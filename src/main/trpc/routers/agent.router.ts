@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { observable } from '@trpc/server/observable'
 import { tasks, epics, task_sessions, sprints } from '../../db/schema'
@@ -8,6 +8,7 @@ import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.ser
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
 import { ConfigService } from '../../services/config.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
+import { ContextBuilderService } from '../../services/context-builder.service'
 import {
   devAgentProgressService,
   type DevAgentProgressInfo
@@ -16,7 +17,7 @@ import { TaskTerminalService } from '../../services/task-terminal.service'
 import { ScrollbackBackupService, type BackupMetadata } from '../../services/scrollback-backup.service'
 import { TaskSessionService } from '../../services/task-session.service'
 import { ptyService } from '../../services/pty.service'
-import { isPlanningTask, isStoryTask, isBasicTask, type Task } from '../../../shared/types/task.types'
+import { isPlanningTask, isStoryTask, isBasicTask, type Task, type InlineComment } from '../../../shared/types/task.types'
 import { sessionEventEmitter, type SessionEndedEventData, type SessionStalledEventData, type SessionEventData } from '../../lib/session-events'
 import { StallDetectorService } from '../../services/stall-detector.service'
 import { ActivityLogService } from '../../services/activity-log.service'
@@ -366,6 +367,31 @@ export const agentRouter = router({
       // Story 8.4: Validate and get worktree_path from task for isolated execution
       const worktreePath = validateWorktreePath(typedTask.worktree_path, input.taskId)
 
+      // Story 7.5 AC5: Prepend inline comments to story file if they exist
+      if (typedTask.inline_comments) {
+        try {
+          const comments = JSON.parse(typedTask.inline_comments) as InlineComment[]
+          if (comments && comments.length > 0) {
+            const formattedComments = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
+            const storyFilePath = typedTask.story_file_path
+
+            // Read current story content
+            const currentContent = readFileSync(storyFilePath, 'utf-8')
+
+            // Prepend inline comments section
+            const updatedContent = `${formattedComments}\n\n---\n\n${currentContent}`
+
+            // Write back to story file
+            writeFileSync(storyFilePath, updatedContent, 'utf-8')
+
+            console.log(`[agent.router] Prepended ${comments.length} inline comments to story file`)
+          }
+        } catch (error) {
+          console.error('[agent.router] Failed to prepend inline comments:', error)
+          // Continue anyway - don't fail the launch
+        }
+      }
+
       // Launch the dev-story workflow with story file path
       // Command is sent to the task's tmux session
       console.log('[agent.router] startDevStory: Calling BmadAgentLauncherService.launchDevStory', {
@@ -513,8 +539,13 @@ export const agentRouter = router({
         return { success: false, error: 'Task not found' }
       }
 
-      // Update task status to 'review'
-      ctx.db.update(tasks).set({ status: 'review', updated_at: new Date() }).where(eq(tasks.id, input.taskId)).run()
+      // Update task status to 'review' and clear inline_comments (Story 7.5 Task 13.3)
+      // Inline comments are cleared after successful agent re-run so they don't persist
+      ctx.db.update(tasks).set({
+        status: 'review',
+        inline_comments: null,
+        updated_at: new Date()
+      }).where(eq(tasks.id, input.taskId)).run()
 
       return { success: true, newStatus: 'review' }
     }),
@@ -547,8 +578,13 @@ export const agentRouter = router({
         return { success: false, error: 'Task not found' }
       }
 
-      // Update task status to 'review'
-      ctx.db.update(tasks).set({ status: 'review', updated_at: new Date() }).where(eq(tasks.id, input.taskId)).run()
+      // Update task status to 'review' and clear inline_comments (Story 7.5 Task 13.3)
+      // Inline comments are cleared after successful agent re-run so they don't persist
+      ctx.db.update(tasks).set({
+        status: 'review',
+        inline_comments: null,
+        updated_at: new Date()
+      }).where(eq(tasks.id, input.taskId)).run()
 
       return { success: true, newStatus: 'review' }
     }),

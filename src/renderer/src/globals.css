@@ -659,3 +659,31 @@ body {
   background: rgba(168, 85, 247, 0.25);
   border-color: rgba(168, 85, 247, 0.5);
 }
+
+/* =====================================================
+   INLINE COMMENT INDICATORS - Monaco Glyph Margin (Story 7.5 Task 8)
+   ===================================================== */
+
+/* Inline comment glyph indicator in Monaco gutter */
+.inline-comment-glyph {
+  /* Amber/yellow circle indicator - matches RequestChangesButton color */
+  background: rgba(245, 158, 11, 0.8);
+  border-radius: 50%;
+  /* Size the indicator relative to the line height */
+  width: 10px !important;
+  height: 10px !important;
+  /* Center within the glyph margin */
+  margin-left: 4px;
+  margin-top: 4px;
+  /* Subtle glow effect */
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+  /* Smooth hover transition */
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.inline-comment-glyph:hover {
+  background: rgba(245, 158, 11, 1);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+  transform: scale(1.2);
+}

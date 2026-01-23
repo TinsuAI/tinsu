@@ -37,12 +37,20 @@ export const taskRouter = router({
     if (!ctx.projectId) {
       return []
     }
-    return ctx.db
+    const allTasks = ctx.db
       .select()
       .from(tasks)
       .where(eq(tasks.project_id, ctx.projectId))
       .orderBy(asc(tasks.sort_order))
       .all()
+
+    // Story 7.5: Parse inline_comments JSON string to array
+    return allTasks.map((task) => ({
+      ...task,
+      inline_comments: task.inline_comments
+        ? JSON.parse(task.inline_comments)
+        : null
+    }))
   }),
 
   // Story 3.2: Get planning tasks ordered by phase_number
@@ -75,7 +83,14 @@ export const taskRouter = router({
     if (!task) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
     }
-    return task
+
+    // Story 7.5: Parse inline_comments JSON string to array
+    return {
+      ...task,
+      inline_comments: task.inline_comments
+        ? JSON.parse(task.inline_comments)
+        : null
+    }
   }),
 
   // Get task with epic and sprint relations (Story 2.5)
@@ -129,9 +144,13 @@ export const taskRouter = router({
     // Create a map for quick epic lookup
     const epicMap = new Map(allEpics.map((e) => [e.id, e]))
 
+    // Story 7.5: Parse inline_comments JSON string to array
     return allTasks.map((task) => ({
       ...task,
-      epic: task.epic_id ? epicMap.get(task.epic_id) ?? null : null
+      epic: task.epic_id ? epicMap.get(task.epic_id) ?? null : null,
+      inline_comments: task.inline_comments
+        ? JSON.parse(task.inline_comments)
+        : null
     }))
   }),
 
@@ -648,6 +667,72 @@ export const taskRouter = router({
       }
 
       return result
+    }),
+
+  // Story 7.5: Request changes with inline comments
+  // AC 4: Collect inline comments as structured feedback
+  // AC 4: Move task back to In Progress
+  // AC 5: Store comments for agent to receive in context
+  requestChanges: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        inlineComments: z.array(
+          z.object({
+            id: z.string(),
+            filePath: z.string(),
+            lineNumber: z.number(),
+            content: z.string(),
+            createdAt: z.number()
+          })
+        )
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Capture current status before update
+      const oldTask = ctx.db
+        .select({ status: tasks.status })
+        .from(tasks)
+        .where(eq(tasks.id, input.id))
+        .get()
+
+      if (!oldTask) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story 7.5 AC 4: Update status to in_progress and store inline comments as JSON
+      const result = ctx.db
+        .update(tasks)
+        .set({
+          status: 'in_progress',
+          inline_comments: JSON.stringify(input.inlineComments),
+          updated_at: new Date()
+        })
+        .where(eq(tasks.id, input.id))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story 7.5 Task 10.5: Log 'request_changes' activity event
+      try {
+        await activityLogService.logActivity(input.id, 'status_change', {
+          from: oldTask.status,
+          to: 'in_progress',
+          reason: 'request_changes',
+          commentCount: input.inlineComments.length
+        })
+      } catch (error) {
+        console.error('[Story 7.5] Failed to log request_changes activity:', error)
+      }
+
+      // Return task with comment count for toast message
+      return {
+        ...result,
+        commentCount: input.inlineComments.length
+      }
     }),
 
   // Update task (including epic/sprint assignment) - Story 2.5

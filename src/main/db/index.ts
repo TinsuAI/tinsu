@@ -298,6 +298,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN rejected_agent_run_id TEXT REFERENCES agent_runs(id)')
   }
 
+  // Migration: Add inline_comments column to tasks (Story 7.5)
+  if (!existingColumns.has('inline_comments')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN inline_comments TEXT')
+  }
+
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
   const epicColumnsCheck = sqlite
     .prepare("PRAGMA table_info(epics)")

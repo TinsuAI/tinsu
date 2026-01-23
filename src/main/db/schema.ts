@@ -160,6 +160,8 @@ export const tasks = sqliteTable(
     rejection_feedback: text('rejection_feedback'), // Feedback provided when rejecting task
     // Story 7.4 AC 3: Link rejection to specific agent run
     rejected_agent_run_id: text('rejected_agent_run_id').references(() => agent_runs.id),
+    // Story 7.5: Inline comments for request changes workflow
+    inline_comments: text('inline_comments'), // JSON array of InlineComment objects
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

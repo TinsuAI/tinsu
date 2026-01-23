@@ -3,6 +3,15 @@
 export const TASK_STATUS = ['backlog', 'create_story', 'in_progress', 'review', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUS)[number]
 
+// Story 7.5: Inline comment type for request changes workflow
+export interface InlineComment {
+  id: string // UUID
+  filePath: string // e.g., "src/components/App.tsx"
+  lineNumber: number // 1-indexed line number
+  content: string // Comment text
+  createdAt: number // Unix timestamp
+}
+
 // Task type enum values (Story 3.1 - AC1)
 export const TASK_TYPE = ['planning', 'story'] as const
 export type TaskType = (typeof TASK_TYPE)[number]
@@ -86,6 +95,8 @@ export interface Task {
   rejection_feedback: string | null // Feedback provided when rejecting task
   // Story 7.4 AC 3: Link rejection to specific agent run
   rejected_agent_run_id: string | null // ID of agent_run that was rejected
+  // Story 7.5: Inline comments for request changes workflow
+  inline_comments: InlineComment[] | null // Array of inline comments (stored as JSON in DB)
   created_at: Date
   updated_at: Date
 }
@@ -133,6 +144,8 @@ export interface NewTask {
   rejection_feedback?: string | null
   // Story 7.4 AC 3: Link rejection to specific agent run
   rejected_agent_run_id?: string | null
+  // Story 7.5: Inline comments for request changes workflow
+  inline_comments?: InlineComment[] | null
   created_at?: Date
   updated_at?: Date
 }
