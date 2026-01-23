@@ -127,6 +127,8 @@ function createTestDb(): TestDb {
       merge_commit_sha TEXT,
       has_merge_conflict INTEGER DEFAULT 0,
       conflict_files TEXT,
+      worktree_skipped INTEGER DEFAULT 0,
+      rejection_feedback TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -1662,6 +1664,176 @@ describe('taskRouter', () => {
       expect(mockDetectMergeConflicts).not.toHaveBeenCalled()
       expect(mockMergeWorktree).not.toHaveBeenCalled()
       expect(result.status).toBe('done')
+    })
+  })
+
+  // Story 7.4: Reject with Feedback Integration Tests
+  describe('rejectWithFeedback (Story 7.4)', () => {
+    it('should update task status to in_progress and store feedback (AC: 2, 3)', async () => {
+      // Arrange: Create a task in review status
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-1',
+          title: 'Task to Reject',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Reject with feedback
+      const result = await caller.rejectWithFeedback({
+        id: 'task-reject-1',
+        feedback: 'Please fix the validation logic'
+      })
+
+      // Assert: Status changed to in_progress and feedback stored
+      expect(result.status).toBe('in_progress')
+      expect(result.rejection_feedback).toBe('Please fix the validation logic')
+    })
+
+    it('should accept null feedback (AC: 5)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-null',
+          title: 'Task with Null Feedback',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Reject without feedback
+      const result = await caller.rejectWithFeedback({
+        id: 'task-reject-null',
+        feedback: null
+      })
+
+      // Assert
+      expect(result.status).toBe('in_progress')
+      expect(result.rejection_feedback).toBeNull()
+    })
+
+    it('should log rejection activity (Task 3.5)', async () => {
+      // Arrange
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-log',
+          title: 'Task for Rejection Log',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act
+      await caller.rejectWithFeedback({
+        id: 'task-reject-log',
+        feedback: 'Test feedback for logging'
+      })
+
+      // Assert: Activity log was called with rejection event
+      expect(mockLogActivity).toHaveBeenCalledWith('task-reject-log', 'rejection', {
+        feedback: 'Test feedback for logging',
+        previousStatus: 'review'
+      })
+
+      // Assert: Also logs status_change event
+      expect(mockLogActivity).toHaveBeenCalledWith('task-reject-log', 'status_change', {
+        from: 'review',
+        to: 'in_progress',
+        reason: 'rejection'
+      })
+    })
+
+    it('should throw NOT_FOUND when task does not exist', async () => {
+      await expect(
+        caller.rejectWithFeedback({ id: 'nonexistent', feedback: 'feedback' })
+      ).rejects.toThrow(TRPCError)
+
+      try {
+        await caller.rejectWithFeedback({ id: 'nonexistent', feedback: 'feedback' })
+      } catch (error) {
+        expect((error as TRPCError).code).toBe('NOT_FOUND')
+      }
+    })
+
+    it('should not fail if activity logging fails', async () => {
+      // Arrange: Make activity logging fail
+      mockLogActivity.mockRejectedValue(new Error('Activity log failed'))
+
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-log-fail',
+          title: 'Task Log Fail',
+          status: 'review',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Should succeed even if activity log fails
+      const result = await caller.rejectWithFeedback({
+        id: 'task-reject-log-fail',
+        feedback: 'feedback despite log failure'
+      })
+
+      // Assert: Rejection succeeded
+      expect(result.status).toBe('in_progress')
+      expect(result.rejection_feedback).toBe('feedback despite log failure')
+    })
+
+    it('should overwrite previous rejection_feedback', async () => {
+      // Arrange: Create a task with existing rejection feedback
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-overwrite',
+          title: 'Task with Existing Feedback',
+          status: 'review',
+          rejection_feedback: 'Old feedback',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Reject with new feedback
+      const result = await caller.rejectWithFeedback({
+        id: 'task-reject-overwrite',
+        feedback: 'New feedback'
+      })
+
+      // Assert: Feedback was overwritten
+      expect(result.rejection_feedback).toBe('New feedback')
+    })
+
+    it('should work with tasks in any status (not just review)', async () => {
+      // Arrange: Create a task in done status (edge case)
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-reject-done',
+          title: 'Task in Done',
+          status: 'done',
+          project_id: TEST_PROJECT_ID,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Act: Reject even though it was done
+      const result = await caller.rejectWithFeedback({
+        id: 'task-reject-done',
+        feedback: 'Actually need more changes'
+      })
+
+      // Assert: Status changed to in_progress
+      expect(result.status).toBe('in_progress')
+      expect(result.rejection_feedback).toBe('Actually need more changes')
     })
   })
 })

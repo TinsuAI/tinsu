@@ -131,7 +131,7 @@ development_status:
   7-1-review-panel-slide-over: superseded  # → TES 3-1/3-2 (full-screen workspace)
   7-2-monaco-diff-viewer-integration: superseded  # → TES 4-1 through 4-6 (diff viewer)
   7-3-approve-changes-action: done
-  7-4-reject-changes-with-feedback: backlog
+  7-4-reject-changes-with-feedback: done
   7-5-request-changes-with-inline-comments: backlog
   7-6-agent-re-execution-with-feedback-context: backlog
   7-7-review-history-and-comparison: backlog

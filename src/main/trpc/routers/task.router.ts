@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { tasks, epics, sprints, TASK_STATUS } from '../../db/schema'
-import { eq, asc, and, sql } from 'drizzle-orm'
+import { tasks, epics, sprints, agent_runs, TASK_STATUS } from '../../db/schema'
+import { eq, asc, desc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { StorySyncService } from '../../services/story-sync.service'
 import { TaskTerminalService } from '../../services/task-terminal.service'
@@ -572,6 +572,79 @@ export const taskRouter = router({
           // Log but don't fail the status update if file sync fails
           console.error('Failed to sync status to file:', error)
         }
+      }
+
+      return result
+    }),
+
+  // Story 7.4: Reject task with feedback and return to in_progress
+  // AC 2: Move task back to In Progress with feedback stored
+  // AC 3: Store feedback in rejection_feedback column, linked to agent run
+  rejectWithFeedback: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        feedback: z.string().nullable()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Capture current status before update
+      const oldTask = ctx.db
+        .select({ status: tasks.status })
+        .from(tasks)
+        .where(eq(tasks.id, input.id))
+        .get()
+
+      if (!oldTask) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story 7.4 AC 3: Find the most recent agent run for this task
+      const latestAgentRun = ctx.db
+        .select({ id: agent_runs.id })
+        .from(agent_runs)
+        .where(eq(agent_runs.task_id, input.id))
+        .orderBy(desc(agent_runs.start_time))
+        .limit(1)
+        .get()
+
+      // Story 7.4 AC 2, 3: Update status to in_progress and store feedback linked to agent run
+      const result = ctx.db
+        .update(tasks)
+        .set({
+          status: 'in_progress',
+          rejection_feedback: input.feedback,
+          rejected_agent_run_id: latestAgentRun?.id || null,
+          updated_at: new Date()
+        })
+        .where(eq(tasks.id, input.id))
+        .returning()
+        .get()
+
+      if (!result) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story 7.4 Task 3.5: Log 'rejection' activity event
+      try {
+        await activityLogService.logActivity(input.id, 'rejection', {
+          feedback: input.feedback,
+          previousStatus: oldTask.status
+        })
+      } catch (error) {
+        // Don't fail rejection if activity logging fails
+        console.error('[Story 7.4] Failed to log rejection activity:', error)
+      }
+
+      // Also log the status_change event
+      try {
+        await activityLogService.logActivity(input.id, 'status_change', {
+          from: oldTask.status,
+          to: 'in_progress',
+          reason: 'rejection'
+        })
+      } catch (error) {
+        console.error('[Story 7.4] Failed to log status_change activity:', error)
       }
 
       return result

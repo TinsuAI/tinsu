@@ -1,6 +1,7 @@
 // Activity event type enum values
 // Story TES-2.1: Activity event type enum for task event tracking
 // Story 8.9: Added auto_commit event type
+// Story 7.4: Added rejection event for tracking task rejections with feedback
 export const ACTIVITY_EVENT_TYPE = [
   'status_change',
   'agent_start',
@@ -12,7 +13,8 @@ export const ACTIVITY_EVENT_TYPE = [
   'session_ended',
   'stall_detected',
   'stall_recovered',
-  'auto_commit' // Story 8.9: AC 3 - Auto-commit on agent completion
+  'auto_commit', // Story 8.9: AC 3 - Auto-commit on agent completion
+  'rejection' // Story 7.4: Task rejection with feedback
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPE)[number]
 

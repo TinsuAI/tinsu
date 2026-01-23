@@ -26,9 +26,10 @@ import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
 import { ConflictWarningBanner, ConflictResolutionView } from '@renderer/components/conflict'
-import { ApproveButton } from '@renderer/components/review'
+import { ApproveButton, RejectButton, type RejectButtonHandle } from '@renderer/components/review'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
 import { useApprovalMutation } from '@renderer/hooks/useApprovalMutation'
+import { useRejectionMutation } from '@renderer/hooks/useRejectionMutation'
 import { useTaskDetailPanelStore } from '@renderer/stores/task-detail-panel.store'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
@@ -89,6 +90,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
+
+  // Story 7.4 AC 1: Ref for RejectButton to enable keyboard shortcut
+  const rejectButtonRef = useRef<RejectButtonHandle>(null)
 
   // Fetch task data only if not provided via props
   const { data: fetchedTask, isLoading } = trpc.tasks.getById.useQuery(
@@ -159,6 +163,17 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     onConflict: () => {
       // Story 7.3 AC 3: Show conflict resolution view on conflict
       setShowConflictResolution(true)
+    }
+  })
+
+  // Story 7.4: Rejection mutation hook for the 60-Second Velocity Loop
+  const { reject, isPending: isRejecting } = useRejectionMutation({
+    taskId,
+    storyNumber: task?.story_number?.toString(),
+    onSuccess: () => {
+      // Story 7.4 AC 2: On success, task moves back to In Progress
+      // The task query will be invalidated by the mutation, so the UI will update
+      // No need to navigate elsewhere - user stays on the same task
     }
   })
 
@@ -299,6 +314,15 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
           e.preventDefault()
           approve()
+        }
+      }
+
+      // Story 7.4 AC 1: "R" key to open reject dialog (only when task is in review status)
+      if ((e.key === 'r' || e.key === 'R') && !isTyping && task?.status === 'review') {
+        // Only trigger if NO modifier keys are pressed
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault()
+          rejectButtonRef.current?.openDialog()
         }
       }
     }
@@ -465,14 +489,22 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* Story 7.3: Approve button (only visible when status is 'review') */}
+          {/* Story 7.3, 7.4: Approve/Reject buttons (only visible when status is 'review') */}
           {task.status === 'review' && (
-            <ApproveButton
-              onClick={approve}
-              isPending={isApproving}
-              disabled={task.has_merge_conflict === 1}
-              hasConflict={task.has_merge_conflict === 1}
-            />
+            <>
+              <RejectButton
+                ref={rejectButtonRef}
+                onReject={reject}
+                isPending={isRejecting}
+                disabled={isApproving}
+              />
+              <ApproveButton
+                onClick={approve}
+                isPending={isApproving}
+                disabled={task.has_merge_conflict === 1 || isRejecting}
+                hasConflict={task.has_merge_conflict === 1}
+              />
+            </>
           )}
 
           {isEditing ? (

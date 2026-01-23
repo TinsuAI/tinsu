@@ -156,6 +156,10 @@ export const tasks = sqliteTable(
     conflict_files: text('conflict_files'), // JSON array of file paths
     // Story 8.10: Worktree skipped flag for error recovery
     worktree_skipped: integer('worktree_skipped').default(0), // 1 if user chose to skip worktree creation
+    // Story 7.4: Rejection feedback for re-execution
+    rejection_feedback: text('rejection_feedback'), // Feedback provided when rejecting task
+    // Story 7.4 AC 3: Link rejection to specific agent run
+    rejected_agent_run_id: text('rejected_agent_run_id').references(() => agent_runs.id),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -294,6 +298,7 @@ export type SessionHistory = InferSelectModel<typeof sessionHistory>
 export type NewSessionHistory = InferInsertModel<typeof sessionHistory>
 
 // Story TES-2.1: Activity event type enum for task event tracking
+// Story 7.4: Added 'rejection' event for tracking task rejections with feedback
 export const ACTIVITY_EVENT_TYPE = [
   'status_change',
   'agent_start',
@@ -304,7 +309,8 @@ export const ACTIVITY_EVENT_TYPE = [
   'error',
   'session_ended',
   'stall_detected',
-  'stall_recovered'
+  'stall_recovered',
+  'rejection'
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPE)[number]
 

@@ -82,6 +82,10 @@ export interface Task {
   // Story 8.7: Merge conflict tracking
   has_merge_conflict: number | null // 0 = no conflict, 1 = has conflict (SQLite boolean)
   conflict_files: string | null // JSON array of file paths
+  // Story 7.4: Rejection feedback for re-execution
+  rejection_feedback: string | null // Feedback provided when rejecting task
+  // Story 7.4 AC 3: Link rejection to specific agent run
+  rejected_agent_run_id: string | null // ID of agent_run that was rejected
   created_at: Date
   updated_at: Date
 }
@@ -125,6 +129,10 @@ export interface NewTask {
   // Story 8.7: Merge conflict tracking
   has_merge_conflict?: number | null
   conflict_files?: string | null
+  // Story 7.4: Rejection feedback for re-execution
+  rejection_feedback?: string | null
+  // Story 7.4 AC 3: Link rejection to specific agent run
+  rejected_agent_run_id?: string | null
   created_at?: Date
   updated_at?: Date
 }
