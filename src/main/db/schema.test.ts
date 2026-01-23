@@ -24,7 +24,22 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at);
   `)
 
-  // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content, Story 5.2b story_file_status)
+  // Create the agent_runs table (required for task foreign key)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY NOT NULL,
+      task_id TEXT NOT NULL,
+      start_time INTEGER NOT NULL,
+      end_time INTEGER,
+      duration_ms INTEGER,
+      token_usage INTEGER,
+      exit_status TEXT,
+      log_path TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_task_id ON agent_runs(task_id);
+  `)
+
+  // Create the tasks table matching Drizzle schema (including all columns through Story 7.7)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -47,6 +62,17 @@ function createTestDb(): TestDb {
       story_file_status TEXT,
       context_notes TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      worktree_path TEXT,
+      branch_name TEXT,
+      merge_commit_sha TEXT,
+      has_merge_conflict INTEGER DEFAULT 0,
+      conflict_files TEXT,
+      worktree_skipped INTEGER DEFAULT 0,
+      rejection_feedback TEXT,
+      rejected_agent_run_id TEXT REFERENCES agent_runs(id),
+      inline_comments TEXT,
+      rejection_count INTEGER DEFAULT 0,
+      last_review_commit TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -84,6 +110,21 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type);
     CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at);
     CREATE INDEX IF NOT EXISTS idx_task_activities_task_id_created_at ON task_activities(task_id, created_at);
+  `)
+
+  // Story 7.7: Create task_versions table for review history tracking
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_versions (
+      id TEXT PRIMARY KEY NOT NULL,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      version_number INTEGER NOT NULL,
+      commit_sha TEXT,
+      rejection_feedback TEXT,
+      inline_comments TEXT,
+      status_outcome TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_versions_task_id ON task_versions(task_id);
   `)
 
   return drizzle({ client: sqlite, schema })
@@ -762,6 +803,361 @@ describe('Task Activities Schema (TES-2.1)', () => {
       expect(schema.ACTIVITY_EVENT_TYPE).toContain('session_ended')
       expect(schema.ACTIVITY_EVENT_TYPE).toContain('stall_detected')
       expect(schema.ACTIVITY_EVENT_TYPE).toContain('stall_recovered')
+    })
+  })
+})
+
+// Story 7.7: Task Versions Schema Tests
+describe('Task Versions Schema (Story 7.7)', () => {
+  let db: TestDb
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  describe('table creation (AC: 1, 3, 4)', () => {
+    it('creates task_versions table with correct columns', () => {
+      // Insert a task first (required for foreign key)
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Insert a version
+      db.insert(schema.taskVersions)
+        .values({
+          id: 'version-1',
+          task_id: 'task-1',
+          version_number: 1,
+          commit_sha: 'abc123def456',
+          status_outcome: 'pending',
+          created_at: new Date()
+        })
+        .run()
+
+      const version = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.id, 'version-1'))
+        .get()
+
+      expect(version).toBeDefined()
+      expect(version?.id).toBe('version-1')
+      expect(version?.task_id).toBe('task-1')
+      expect(version?.version_number).toBe(1)
+      expect(version?.commit_sha).toBe('abc123def456')
+      expect(version?.status_outcome).toBe('pending')
+    })
+
+    it('allows null commit_sha for worktrees that may be cleaned up', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      db.insert(schema.taskVersions)
+        .values({
+          id: 'version-1',
+          task_id: 'task-1',
+          version_number: 1,
+          commit_sha: null,
+          status_outcome: 'pending',
+          created_at: new Date()
+        })
+        .run()
+
+      const version = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.id, 'version-1'))
+        .get()
+
+      expect(version?.commit_sha).toBeNull()
+    })
+
+    it('supports all status_outcome values', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const outcomes = ['pending', 'rejected', 'changes_requested', 'approved']
+
+      outcomes.forEach((outcome, idx) => {
+        db.insert(schema.taskVersions)
+          .values({
+            id: `version-${idx}`,
+            task_id: 'task-1',
+            version_number: idx + 1,
+            status_outcome: outcome,
+            created_at: new Date()
+          })
+          .run()
+      })
+
+      const versions = db.select().from(schema.taskVersions).all()
+      expect(versions).toHaveLength(4)
+      expect(versions.map((v) => v.status_outcome).sort()).toEqual(outcomes.sort())
+    })
+
+    it('defaults status_outcome to pending', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      db.insert(schema.taskVersions)
+        .values({
+          id: 'version-1',
+          task_id: 'task-1',
+          version_number: 1,
+          created_at: new Date()
+        })
+        .run()
+
+      const version = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.id, 'version-1'))
+        .get()
+
+      expect(version?.status_outcome).toBe('pending')
+    })
+  })
+
+  describe('rejection feedback storage (AC: 3, 4)', () => {
+    it('stores rejection feedback for rejected versions', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      db.insert(schema.taskVersions)
+        .values({
+          id: 'version-1',
+          task_id: 'task-1',
+          version_number: 1,
+          rejection_feedback: 'Missing error handling in auth module',
+          status_outcome: 'rejected',
+          created_at: new Date()
+        })
+        .run()
+
+      const version = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.id, 'version-1'))
+        .get()
+
+      expect(version?.rejection_feedback).toBe('Missing error handling in auth module')
+      expect(version?.status_outcome).toBe('rejected')
+    })
+
+    it('stores inline comments as JSON for changes_requested versions', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      const inlineComments = JSON.stringify([
+        { id: 'c1', filePath: 'src/auth.ts', lineNumber: 42, content: 'Add null check' },
+        { id: 'c2', filePath: 'src/db.ts', lineNumber: 15, content: 'Use parameterized query' }
+      ])
+
+      db.insert(schema.taskVersions)
+        .values({
+          id: 'version-1',
+          task_id: 'task-1',
+          version_number: 1,
+          inline_comments: inlineComments,
+          status_outcome: 'changes_requested',
+          created_at: new Date()
+        })
+        .run()
+
+      const version = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.id, 'version-1'))
+        .get()
+
+      expect(version?.inline_comments).toBe(inlineComments)
+      const comments = JSON.parse(version?.inline_comments || '[]')
+      expect(comments).toHaveLength(2)
+      expect(comments[0].filePath).toBe('src/auth.ts')
+    })
+  })
+
+  describe('cascade delete behavior', () => {
+    it('deletes versions when task is deleted', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-to-delete',
+          title: 'Task to Delete',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      db.insert(schema.taskVersions)
+        .values([
+          { id: 'v1', task_id: 'task-to-delete', version_number: 1, created_at: new Date() },
+          { id: 'v2', task_id: 'task-to-delete', version_number: 2, created_at: new Date() },
+          { id: 'v3', task_id: 'task-to-delete', version_number: 3, created_at: new Date() }
+        ])
+        .run()
+
+      // Verify versions exist
+      let versions = db.select().from(schema.taskVersions).all()
+      expect(versions).toHaveLength(3)
+
+      // Delete the task
+      db.delete(schema.tasks).where(eq(schema.tasks.id, 'task-to-delete')).run()
+
+      // Verify versions are deleted (cascade)
+      versions = db.select().from(schema.taskVersions).all()
+      expect(versions).toHaveLength(0)
+    })
+
+    it('only deletes versions for the deleted task', () => {
+      db.insert(schema.tasks)
+        .values([
+          { id: 'task-1', title: 'Task 1', created_at: new Date(), updated_at: new Date() },
+          { id: 'task-2', title: 'Task 2', created_at: new Date(), updated_at: new Date() }
+        ])
+        .run()
+
+      db.insert(schema.taskVersions)
+        .values([
+          { id: 'v1-1', task_id: 'task-1', version_number: 1, created_at: new Date() },
+          { id: 'v1-2', task_id: 'task-1', version_number: 2, created_at: new Date() },
+          { id: 'v2-1', task_id: 'task-2', version_number: 1, created_at: new Date() }
+        ])
+        .run()
+
+      // Delete only task-1
+      db.delete(schema.tasks).where(eq(schema.tasks.id, 'task-1')).run()
+
+      // Verify only task-2's versions remain
+      const versions = db.select().from(schema.taskVersions).all()
+      expect(versions).toHaveLength(1)
+      expect(versions[0].task_id).toBe('task-2')
+    })
+  })
+
+  describe('version numbering (AC: 1)', () => {
+    it('supports auto-incrementing version numbers across rejections', () => {
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Task',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .run()
+
+      // Simulate rejection cycle: v1 rejected -> v2 changes_requested -> v3 approved
+      db.insert(schema.taskVersions)
+        .values([
+          {
+            id: 'v1',
+            task_id: 'task-1',
+            version_number: 1,
+            commit_sha: 'sha-1',
+            rejection_feedback: 'Missing tests',
+            status_outcome: 'rejected',
+            created_at: new Date()
+          },
+          {
+            id: 'v2',
+            task_id: 'task-1',
+            version_number: 2,
+            commit_sha: 'sha-2',
+            inline_comments: '[]',
+            status_outcome: 'changes_requested',
+            created_at: new Date()
+          },
+          {
+            id: 'v3',
+            task_id: 'task-1',
+            version_number: 3,
+            commit_sha: 'sha-3',
+            status_outcome: 'approved',
+            created_at: new Date()
+          }
+        ])
+        .run()
+
+      const versions = db
+        .select()
+        .from(schema.taskVersions)
+        .where(eq(schema.taskVersions.task_id, 'task-1'))
+        .orderBy(schema.taskVersions.version_number)
+        .all()
+
+      expect(versions).toHaveLength(3)
+      expect(versions[0].version_number).toBe(1)
+      expect(versions[0].status_outcome).toBe('rejected')
+      expect(versions[1].version_number).toBe(2)
+      expect(versions[1].status_outcome).toBe('changes_requested')
+      expect(versions[2].version_number).toBe(3)
+      expect(versions[2].status_outcome).toBe('approved')
+    })
+  })
+
+  describe('type exports', () => {
+    it('exports TaskVersion type', () => {
+      const version: schema.TaskVersion = {
+        id: 'test',
+        task_id: 'task-1',
+        version_number: 1,
+        commit_sha: 'abc123',
+        rejection_feedback: null,
+        inline_comments: null,
+        status_outcome: 'pending',
+        created_at: new Date()
+      }
+      expect(version.id).toBe('test')
+    })
+
+    it('exports NewTaskVersion type', () => {
+      const newVersion: schema.NewTaskVersion = {
+        id: 'test',
+        task_id: 'task-1',
+        version_number: 1
+      }
+      expect(newVersion.version_number).toBe(1)
+    })
+
+    it('exports VERSION_STATUS_OUTCOME enum', () => {
+      expect(schema.VERSION_STATUS_OUTCOME).toContain('pending')
+      expect(schema.VERSION_STATUS_OUTCOME).toContain('rejected')
+      expect(schema.VERSION_STATUS_OUTCOME).toContain('changes_requested')
+      expect(schema.VERSION_STATUS_OUTCOME).toContain('approved')
     })
   })
 })

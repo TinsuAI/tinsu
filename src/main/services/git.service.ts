@@ -2315,4 +2315,73 @@ export class GitService {
       )
     }
   }
+
+  /**
+   * Compare two commits and return the diff between them.
+   *
+   * Story 7.7 AC 2 - Compare code changes between review iterations.
+   *
+   * @param repoPath - Path to the git repository
+   * @param fromCommitSha - The older commit SHA
+   * @param toCommitSha - The newer commit SHA
+   * @returns GitDiffResult with files and summary showing changes between commits
+   * @throws GitError if commits not found or comparison fails
+   *
+   * @example
+   * ```typescript
+   * const diff = await GitService.compareTwoCommits('/repo', 'sha1', 'sha2')
+   * console.log(`${diff.summary.filesChanged} files changed between commits`)
+   * ```
+   */
+  static async compareTwoCommits(
+    repoPath: string,
+    fromCommitSha: string,
+    toCommitSha: string
+  ): Promise<GitDiffResult> {
+    this.validatePath(repoPath, 'compareTwoCommits')
+
+    if (!fromCommitSha || typeof fromCommitSha !== 'string') {
+      throw new GitError(
+        'Invalid fromCommitSha: must be a non-empty string',
+        'compareTwoCommits'
+      )
+    }
+
+    if (!toCommitSha || typeof toCommitSha !== 'string') {
+      throw new GitError(
+        'Invalid toCommitSha: must be a non-empty string',
+        'compareTwoCommits'
+      )
+    }
+
+    const normalizedPath = resolve(repoPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Repository path does not exist: ${normalizedPath}`, 'compareTwoCommits')
+    }
+
+    try {
+      // Run git diff between the two commits
+      const { stdout: diffOutput } = await this.execGit(
+        ['diff', fromCommitSha, toCommitSha],
+        normalizedPath,
+        GIT_LARGE_OP_TIMEOUT
+      )
+
+      // Parse the diff output
+      return this.parseDiffOutput(diffOutput)
+    } catch (error) {
+      if (error instanceof GitError) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new GitError(
+        `Failed to compare commits: ${errorMessage}`,
+        'git diff',
+        undefined,
+        errorMessage
+      )
+    }
+  }
 }

@@ -346,3 +346,32 @@ export const taskActivities = sqliteTable(
 // Story TES-2.1: Task activity type exports
 export type TaskActivity = InferSelectModel<typeof taskActivities>
 export type NewTaskActivity = InferInsertModel<typeof taskActivities>
+
+// Story 7.7: Version status outcome enum values
+export const VERSION_STATUS_OUTCOME = ['pending', 'rejected', 'changes_requested', 'approved'] as const
+export type VersionStatusOutcome = (typeof VERSION_STATUS_OUTCOME)[number]
+
+// Story 7.7: Task versions table for review history tracking
+// Each version represents a snapshot when task enters 'review' status
+export const taskVersions = sqliteTable(
+  'task_versions',
+  {
+    id: text('id').primaryKey(),
+    task_id: text('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    version_number: integer('version_number').notNull(),
+    commit_sha: text('commit_sha'), // HEAD SHA when version created
+    rejection_feedback: text('rejection_feedback'), // Feedback if rejected
+    inline_comments: text('inline_comments'), // JSON array if changes requested
+    status_outcome: text('status_outcome').notNull().default('pending'), // 'pending' | 'rejected' | 'changes_requested' | 'approved'
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [index('idx_task_versions_task_id').on(table.task_id)]
+)
+
+// Story 7.7: Task version type exports
+export type TaskVersion = InferSelectModel<typeof taskVersions>
+export type NewTaskVersion = InferInsertModel<typeof taskVersions>

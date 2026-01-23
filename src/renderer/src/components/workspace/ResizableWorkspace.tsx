@@ -6,6 +6,7 @@ import { SectionHeader } from './SectionHeader'
 import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/TaskTerminal'
 import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
+import type { VersionComparisonParams } from '@renderer/hooks/useDiff'
 
 /**
  * Task data type for the workspace
@@ -35,6 +36,8 @@ export interface ResizableWorkspaceProps {
   contentSection: React.ReactNode
   /** Ref for the terminal component to control focus */
   terminalRef?: React.RefObject<TaskTerminalRef | null>
+  /** Story 7.7: Version comparison parameters for diff viewer */
+  versionComparison?: VersionComparisonParams | null
 }
 
 /**
@@ -100,7 +103,8 @@ function loadSavedLayout(): {
 export function ResizableWorkspace({
   task,
   contentSection,
-  terminalRef
+  terminalRef,
+  versionComparison
 }: ResizableWorkspaceProps) {
   // Track which section is expanded (null = normal 3-column view)
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null)
@@ -306,7 +310,7 @@ export function ResizableWorkspace({
               onCollapse={handleCollapse}
             />
             <div className="min-h-0 flex-1">
-              <DiffPlaceholder task={task} />
+              <DiffPlaceholder task={task} versionComparison={versionComparison} />
             </div>
           </div>
         )}
@@ -437,7 +441,7 @@ export function ResizableWorkspace({
             onExpand={() => handleExpand('diff')}
           />
           <div className="min-h-0 flex-1">
-            <DiffPlaceholder task={task} />
+            <DiffPlaceholder task={task} versionComparison={versionComparison} />
           </div>
         </Panel>
       </Group>

@@ -392,6 +392,22 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     'CREATE INDEX IF NOT EXISTS idx_task_activities_task_id_created_at ON task_activities(task_id, created_at)'
   )
 
+  // Story 7.7: Task versions table for review history tracking
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS task_versions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      version_number INTEGER NOT NULL,
+      commit_sha TEXT,
+      rejection_feedback TEXT,
+      inline_comments TEXT,
+      status_outcome TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_versions_task_id ON task_versions(task_id)')
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

@@ -345,3 +345,32 @@ export interface NewTaskSession {
   current_phase?: SessionPhase | null
   created_at?: Date
 }
+
+// Story 7.7: Version status outcome enum values for review history
+export const VERSION_STATUS_OUTCOME = ['pending', 'rejected', 'changes_requested', 'approved'] as const
+export type VersionStatusOutcome = (typeof VERSION_STATUS_OUTCOME)[number]
+
+// Story 7.7: Task version entity type for review history tracking
+// Each version represents a snapshot when task enters 'review' status
+export interface TaskVersion {
+  id: string
+  task_id: string
+  version_number: number
+  commit_sha: string | null // HEAD SHA when version created
+  rejection_feedback: string | null // Feedback if rejected
+  inline_comments: string | null // JSON array if changes requested
+  status_outcome: VersionStatusOutcome // 'pending' | 'rejected' | 'changes_requested' | 'approved'
+  created_at: Date
+}
+
+// Story 7.7: Input type for creating a new task version
+export interface NewTaskVersion {
+  id: string
+  task_id: string
+  version_number: number
+  commit_sha?: string | null
+  rejection_feedback?: string | null
+  inline_comments?: string | null
+  status_outcome?: VersionStatusOutcome
+  created_at?: Date
+}

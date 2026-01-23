@@ -32,7 +32,16 @@ import { QuadPaneSection } from '@renderer/components/task/QuadPaneSection'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { ResizableWorkspace } from '@renderer/components/workspace'
 import { ConflictWarningBanner, ConflictResolutionView } from '@renderer/components/conflict'
-import { ApproveButton, RejectButton, RequestChangesButton, type RejectButtonHandle } from '@renderer/components/review'
+import {
+  ApproveButton,
+  RejectButton,
+  RequestChangesButton,
+  VersionSelector,
+  ReviewTimeline,
+  FeedbackHistory,
+  type RejectButtonHandle
+} from '@renderer/components/review'
+import type { VersionComparisonParams } from '@renderer/hooks/useDiff'
 import { useQuadPaneLayout } from '@renderer/hooks/useQuadPaneLayout'
 import { useApprovalMutation } from '@renderer/hooks/useApprovalMutation'
 import { useRejectionMutation } from '@renderer/hooks/useRejectionMutation'
@@ -61,6 +70,10 @@ export interface TaskDetailContentProps {
     conflict_files?: string | null
     // Story 8.11: Merge commit SHA for historical diffs
     merge_commit_sha?: string | null
+    // Story 7.5: Inline comments
+    inline_comments?: unknown[] | null
+    // Story 7.6: Last review commit for baseline diff
+    last_review_commit?: string | null
     created_at: Date
     updated_at: Date
   } | null
@@ -95,6 +108,11 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
   // Story 8.8: Conflict resolution view state
   const [showConflictResolution, setShowConflictResolution] = useState(false)
+
+  // Story 7.7: Version comparison state
+  const [showFeedbackHistory, setShowFeedbackHistory] = useState(false)
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
+  const [compareVersion, setCompareVersion] = useState<number | null>(null)
 
   // Ref for TaskTerminal to enable focus control
   const terminalRef = useRef<TaskTerminalRef>(null)
@@ -238,6 +256,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
     setHasChanges(false)
     setConflictBannerDismissed(false) // Story 8.7: Reset dismissed state when task changes
     setShowConflictResolution(false) // Story 8.8: Close resolution view on task change
+    setShowFeedbackHistory(false) // Story 7.7: Close feedback history panel
+    setSelectedVersion(null) // Story 7.7: Reset selected version
+    setCompareVersion(null) // Story 7.7: Reset compare version (versionComparison derived via useMemo)
   }, [taskId])
 
   // Handle content changes
@@ -259,6 +280,61 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const handleCancel = useCallback(() => {
     setEditing(false)
     setHasChanges(false)
+  }, [])
+
+  // Story 7.7: Fetch task versions for version comparison
+  const { data: taskVersions } = trpc.task.getTaskVersions.useQuery(
+    { taskId },
+    { enabled: !!taskId && task?.status === 'review' }
+  )
+
+  // Story 7.7: Derive versionComparison from selectedVersion and compareVersion
+  // This ensures state is always synchronized and prevents stale data
+  const versionComparison = useMemo<VersionComparisonParams | null>(() => {
+    // Only build comparison if compareVersion is set
+    if (compareVersion === null || !taskVersions) {
+      return null
+    }
+
+    // Determine the effective selected version (default to latest if not explicitly set)
+    const effectiveSelected = selectedVersion ?? Math.max(...taskVersions.map((v) => v.version_number))
+
+    // Find the version objects
+    const fromVersion = taskVersions.find((v) => v.version_number === compareVersion)
+    const toVersion = taskVersions.find((v) => v.version_number === effectiveSelected)
+
+    // Build comparison params if both versions exist
+    if (fromVersion && toVersion && toVersion.commit_sha) {
+      return {
+        taskId,
+        fromCommitSha: fromVersion.commit_sha,
+        toCommitSha: toVersion.commit_sha,
+        fromVersionNumber: compareVersion,
+        toVersionNumber: effectiveSelected
+      }
+    }
+
+    return null
+  }, [taskId, selectedVersion, compareVersion, taskVersions])
+
+  // Story 7.7: Handle version selection
+  const handleVersionSelect = useCallback((versionNumber: number) => {
+    setSelectedVersion(versionNumber)
+    // versionComparison is derived via useMemo, no manual sync needed
+  }, [])
+
+  // Story 7.7: Handle comparison version selection
+  const handleCompareSelect = useCallback((versionNumber: number | null) => {
+    setCompareVersion(versionNumber)
+    // versionComparison is derived via useMemo, no manual sync needed
+  }, [])
+
+  // Story 7.7: Handle version navigate from timeline/feedback history
+  const handleVersionNavigate = useCallback((versionNumber: number) => {
+    // Select the version and clear any comparison
+    setSelectedVersion(versionNumber)
+    setCompareVersion(null)
+    // versionComparison will be automatically null when compareVersion is null (via useMemo)
   }, [])
 
   // Story 8.3: Copy branch name to clipboard
@@ -525,6 +601,37 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-2">
+          {/* Story 7.7: Version selector and comparison (only visible when status is 'review') */}
+          {task.status === 'review' && (
+            <>
+              <VersionSelector
+                taskId={taskId}
+                taskStatus={task.status}
+                selectedVersion={selectedVersion}
+                compareVersion={compareVersion}
+                onVersionSelect={handleVersionSelect}
+                onCompareSelect={handleCompareSelect}
+                className="mr-1"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFeedbackHistory(true)}
+                    className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <Activity className="h-4 w-4" />
+                    <span className="hidden sm:inline">History</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  View feedback history
+                </TooltipContent>
+              </Tooltip>
+              <div className="mx-2 h-6 w-px bg-border/40" />
+            </>
+          )}
           {/* Story 7.3, 7.4, 7.5: Approve/Reject/RequestChanges buttons (only visible when status is 'review') */}
           {task.status === 'review' && (
             <>
@@ -670,6 +777,40 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         />
       )}
 
+      {/* Story 7.7: Review Timeline (collapsible, shown when in review status) */}
+      {task.status === 'review' && (
+        <div className="border-b border-border/30 px-6 py-3">
+          <ReviewTimeline
+            taskId={taskId}
+            currentVersionNumber={null}
+            onVersionClick={handleVersionNavigate}
+          />
+        </div>
+      )}
+
+      {/* Story 7.7: Feedback History Panel (overlay when open) */}
+      {showFeedbackHistory && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-border/40 bg-background shadow-xl">
+          <div className="flex items-center justify-between border-b border-border/30 px-6 py-4">
+            <h3 className="text-lg font-semibold">Feedback History</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowFeedbackHistory(false)}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+            <FeedbackHistory
+              taskId={taskId}
+              onVersionNavigate={handleVersionNavigate}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Desktop: 3-Column Resizable Layout */}
       {isDesktop && (
         <div className="min-h-0 flex-1 p-4">
@@ -677,6 +818,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
             task={task}
             contentSection={contentSection}
             terminalRef={terminalRef}
+            versionComparison={versionComparison}
           />
         </div>
       )}
@@ -796,7 +938,8 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               className={cn('h-full', !isVisible('diff') && 'hidden')}
             >
               {/* Story 8.11 Task 5.2: Pass task for mobile layout diff mode determination */}
-              <DiffPlaceholder task={task ?? undefined} />
+              {/* Story 7.7: Pass versionComparison for version comparison mode */}
+              <DiffPlaceholder task={task ?? undefined} versionComparison={versionComparison} />
             </QuadPaneSection>
           </div>
         </>

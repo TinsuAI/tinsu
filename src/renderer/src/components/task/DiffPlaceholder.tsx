@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useLayoutEffect } from 'react'
-import { GitCompareArrows, RefreshCw, AlertCircle, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, History } from 'lucide-react'
+import { GitCompareArrows, RefreshCw, AlertCircle, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, History, GitMerge } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { useDiff } from '@renderer/hooks/useDiff'
+import { useDiff, type VersionComparisonParams } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import {
@@ -92,12 +92,18 @@ export interface DiffPlaceholderTask {
 /**
  * Props for DiffPlaceholder component
  * Story 8.11: Updated to accept task object for mode determination
+ * Story 7.7: Added versionComparison for comparing two versions
  */
 export interface DiffPlaceholderProps {
   /** Task ID to fetch diff for (deprecated, use task.id instead) */
   taskId?: string | null
   /** Task object with status and git metadata for determining diff mode */
   task?: DiffPlaceholderTask | null
+  /**
+   * Story 7.7: Version comparison parameters for comparing two version snapshots.
+   * When provided, the component switches to version comparison mode.
+   */
+  versionComparison?: VersionComparisonParams | null
 }
 
 /**
@@ -109,23 +115,44 @@ export interface DiffPlaceholderProps {
  * Story TES-4.1: Git Diff Data Fetching
  * Story TES-4.6: Added dynamic compact mode based on container width
  * Story 8.11: Added support for historical diffs on completed tasks
+ * Story 7.7: Added support for version comparison mode
  */
-export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.JSX.Element {
+export function DiffPlaceholder({ taskId, task, versionComparison }: DiffPlaceholderProps): React.JSX.Element {
   // Story 8.11 Task 2.2: Determine diff mode from task status and available data
   const effectiveTaskId = task?.id ?? taskId ?? null
   const isDoneTask = task?.status === 'done'
   const hasMergeCommit = !!task?.merge_commit_sha
 
-  // Determine mode: historical for done tasks with merge commit, worktree for active tasks
-  const diffMode: 'worktree' | 'historical' = isDoneTask && hasMergeCommit ? 'historical' : 'worktree'
+  // Story 7.7: Determine if we're in version comparison mode
+  const isVersionComparisonMode = !!versionComparison?.toCommitSha
+
+  // Determine mode: version for comparison, historical for done tasks, worktree for active tasks
+  const diffMode: 'worktree' | 'historical' | 'version' = isVersionComparisonMode
+    ? 'version'
+    : isDoneTask && hasMergeCommit
+      ? 'historical'
+      : 'worktree'
 
   // Story 7.6: Use last_review_commit as baseline for "changes since last review" diff
-  const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary, isBaselineDiff } = useDiff({
+  // Story 7.7: Pass versionComparison when in version mode
+  const {
+    diff,
+    isLoading,
+    isRefreshing,
+    error,
+    refresh,
+    hasChanges,
+    summary,
+    isBaselineDiff,
+    isVersionComparison,
+    versionComparisonInfo
+  } = useDiff({
     taskId: effectiveTaskId,
     mode: diffMode,
     worktreePath: task?.worktree_path,
     mergeCommitSha: task?.merge_commit_sha,
-    baselineCommit: task?.last_review_commit
+    baselineCommit: task?.last_review_commit,
+    versionComparison: versionComparison
   })
 
   // Story 8.11 Task 3.2: Fetch commit info for historical diffs
@@ -393,7 +420,7 @@ export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.J
         if (sizeRef) (sizeRef as React.MutableRefObject<HTMLDivElement | null>).current = el
       }}
       className={cn(
-        'flex h-full flex-col overflow-hidden',
+        'relative flex h-full flex-col overflow-hidden',
         'bg-background',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#58a6ff]/30 focus-visible:ring-offset-1'
       )}
@@ -404,13 +431,47 @@ export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.J
       onKeyDown={handleKeyDown}
       aria-label="Diff viewer. Press V to toggle between unified and split view."
     >
+      {/* Loading overlay when refreshing (e.g., switching versions) */}
+      {isRefreshing && (
+        <div
+          className="absolute inset-0 z-50 flex items-start justify-center bg-background/60 backdrop-blur-sm"
+          data-testid="diff-refreshing-overlay"
+        >
+          <div className="mt-20 flex items-center gap-2 rounded-lg border border-border/40 bg-background px-4 py-2 shadow-lg">
+            <RefreshCw className="h-4 w-4 animate-spin text-[#58a6ff]" />
+            <span className="text-sm font-medium text-muted-foreground">Loading version...</span>
+          </div>
+        </div>
+      )}
       {/* Story 8.11 Task 3.4: Show commit header for historical diffs */}
       {diffMode === 'historical' && commitInfo && (
         <DiffCommitHeader commit={commitInfo} branchName={task?.branch_name} />
       )}
 
+      {/* Story 7.7 Task 8.2: Show indicator when comparing two versions */}
+      {isVersionComparison && versionComparisonInfo && (
+        <div
+          className="flex items-center gap-2 border-b border-border/10 bg-[#a371f7]/5 px-5 py-2.5"
+          data-testid="version-comparison-indicator"
+        >
+          <GitMerge className="h-4 w-4 text-[#a371f7]" />
+          <span className="text-sm font-medium text-[#a371f7]">
+            Comparing{' '}
+            {versionComparisonInfo.fromVersionNumber !== null
+              ? `v${versionComparisonInfo.fromVersionNumber}`
+              : 'Base'}
+            {' → '}v{versionComparisonInfo.toVersionNumber}
+          </span>
+          <span className="text-xs text-muted-foreground/60">
+            {versionComparisonInfo.fromVersionNumber !== null
+              ? `Changes between version ${versionComparisonInfo.fromVersionNumber} and version ${versionComparisonInfo.toVersionNumber}`
+              : `All changes in version ${versionComparisonInfo.toVersionNumber} from the base branch`}
+          </span>
+        </div>
+      )}
+
       {/* Story 7.6 Task 8.4: Show indicator when showing changes since last review */}
-      {isBaselineDiff && (
+      {isBaselineDiff && !isVersionComparison && (
         <div
           className="flex items-center gap-2 border-b border-border/10 bg-[#58a6ff]/5 px-5 py-2.5"
           data-testid="baseline-diff-indicator"

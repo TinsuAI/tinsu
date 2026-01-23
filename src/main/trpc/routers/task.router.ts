@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { tasks, epics, sprints, agent_runs, TASK_STATUS } from '../../db/schema'
+import { tasks, epics, sprints, agent_runs, taskVersions, TASK_STATUS } from '../../db/schema'
 import { eq, asc, desc, and, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { StorySyncService } from '../../services/story-sync.service'
@@ -392,6 +392,32 @@ export const taskRouter = router({
         }
       }
 
+      // Story 7.7: Update current pending version's status_outcome to 'approved' on approval
+      // This happens when task transitions from review → done
+      if (input.status === 'done' && oldTask.status === 'review') {
+        try {
+          const currentVersion = ctx.db
+            .select()
+            .from(taskVersions)
+            .where(and(eq(taskVersions.task_id, input.id), eq(taskVersions.status_outcome, 'pending')))
+            .get()
+
+          if (currentVersion) {
+            ctx.db
+              .update(taskVersions)
+              .set({ status_outcome: 'approved' })
+              .where(eq(taskVersions.id, currentVersion.id))
+              .run()
+            console.log(
+              `[Story 7.7] Updated version ${currentVersion.version_number} outcome to 'approved'`
+            )
+          }
+        } catch (error) {
+          // Don't fail approval if version update fails
+          console.error('[Story 7.7] Failed to update version status_outcome to approved:', error)
+        }
+      }
+
       // Story 8.5: Merge worktree branch to main when task transitions from review → done
       // Story 8.7: Check for conflicts BEFORE merge attempt (AC 1, 4)
       if (input.status === 'done' && oldTask.status === 'review') {
@@ -589,6 +615,57 @@ export const taskRouter = router({
         }
       }
 
+      // Story 7.7: Create version snapshot when task enters 'review' status
+      // This captures the state at each review submission for history/comparison
+      if (input.status === 'review') {
+        try {
+          // Get existing versions for this task to determine version number
+          const existingVersions = ctx.db
+            .select()
+            .from(taskVersions)
+            .where(eq(taskVersions.task_id, input.id))
+            .all()
+
+          const versionNumber = existingVersions.length + 1
+
+          // Capture current commit SHA from worktree (if available)
+          let commitSha: string | null = null
+          if (result.worktree_path) {
+            try {
+              commitSha = await GitService.getHeadCommit(result.worktree_path)
+            } catch (error) {
+              // Worktree may have been cleaned up - log but continue
+              console.warn('[Story 7.7] Failed to get commit SHA from worktree:', error)
+            }
+          }
+
+          // Create version snapshot
+          ctx.db
+            .insert(taskVersions)
+            .values({
+              id: randomUUID(),
+              task_id: input.id,
+              version_number: versionNumber,
+              commit_sha: commitSha,
+              status_outcome: 'pending', // Will be updated when reviewer decides
+              created_at: new Date()
+            })
+            .run()
+
+          // Update task's last_review_commit for diff baseline (Story 7.6 compatibility)
+          ctx.db
+            .update(tasks)
+            .set({ last_review_commit: commitSha, updated_at: new Date() })
+            .where(eq(tasks.id, input.id))
+            .run()
+
+          console.log(`[Story 7.7] Created version ${versionNumber} snapshot for task ${input.id}`)
+        } catch (error) {
+          // Don't fail status update if version creation fails
+          console.error('[Story 7.7] Failed to create version snapshot:', error)
+        }
+      }
+
       // Story 3.9: Sync status to story file if path exists (AC: 1)
       if (result.story_file_path) {
         try {
@@ -607,6 +684,7 @@ export const taskRouter = router({
   // AC 2: Move task back to In Progress with feedback stored
   // AC 3: Store feedback in rejection_feedback column, linked to agent run
   // Story 7.6: Store feedback as JSON with timestamp, increment rejection_count
+  // Story 7.7: Update current version's status_outcome to 'rejected' and store feedback
   rejectWithFeedback: publicProcedure
     .input(
       z.object({
@@ -648,6 +726,33 @@ export const taskRouter = router({
             timestamp: Date.now()
           })
         : null
+
+      // Story 7.7: Update current pending version's status_outcome to 'rejected'
+      // and store rejection feedback in the version record
+      try {
+        const currentVersion = ctx.db
+          .select()
+          .from(taskVersions)
+          .where(and(eq(taskVersions.task_id, input.id), eq(taskVersions.status_outcome, 'pending')))
+          .get()
+
+        if (currentVersion) {
+          ctx.db
+            .update(taskVersions)
+            .set({
+              rejection_feedback: input.feedback,
+              status_outcome: 'rejected'
+            })
+            .where(eq(taskVersions.id, currentVersion.id))
+            .run()
+          console.log(
+            `[Story 7.7] Updated version ${currentVersion.version_number} outcome to 'rejected'`
+          )
+        }
+      } catch (error) {
+        // Don't fail rejection if version update fails
+        console.error('[Story 7.7] Failed to update version status_outcome:', error)
+      }
 
       // Story 7.4 AC 2, 3: Update status to in_progress and store feedback linked to agent run
       // Story 7.6: Store feedback as JSON with timestamp, update rejection_count
@@ -700,6 +805,7 @@ export const taskRouter = router({
   // AC 4: Collect inline comments as structured feedback
   // AC 4: Move task back to In Progress
   // AC 5: Store comments for agent to receive in context
+  // Story 7.7: Update current version's status_outcome to 'changes_requested' and store inline comments
   requestChanges: publicProcedure
     .input(
       z.object({
@@ -725,6 +831,33 @@ export const taskRouter = router({
 
       if (!oldTask) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
+      }
+
+      // Story 7.7: Update current pending version's status_outcome to 'changes_requested'
+      // and store inline comments in the version record
+      try {
+        const currentVersion = ctx.db
+          .select()
+          .from(taskVersions)
+          .where(and(eq(taskVersions.task_id, input.id), eq(taskVersions.status_outcome, 'pending')))
+          .get()
+
+        if (currentVersion) {
+          ctx.db
+            .update(taskVersions)
+            .set({
+              inline_comments: JSON.stringify(input.inlineComments),
+              status_outcome: 'changes_requested'
+            })
+            .where(eq(taskVersions.id, currentVersion.id))
+            .run()
+          console.log(
+            `[Story 7.7] Updated version ${currentVersion.version_number} outcome to 'changes_requested'`
+          )
+        }
+      } catch (error) {
+        // Don't fail request changes if version update fails
+        console.error('[Story 7.7] Failed to update version status_outcome:', error)
       }
 
       // Story 7.5 AC 4: Update status to in_progress and store inline comments as JSON
@@ -931,6 +1064,46 @@ export const taskRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Task not found' })
       }
       return result
+    }),
+
+  // Story 7.7: Get all versions for a task (AC: 1, 2, 3, 4)
+  // Returns version history ordered by version_number ascending
+  getTaskVersions: publicProcedure
+    .input(z.object({ taskId: z.string() }))
+    .query(({ ctx, input }) => {
+      const versions = ctx.db
+        .select()
+        .from(taskVersions)
+        .where(eq(taskVersions.task_id, input.taskId))
+        .orderBy(asc(taskVersions.version_number))
+        .all()
+
+      // Parse inline_comments JSON for each version
+      return versions.map((v) => ({
+        ...v,
+        inline_comments: v.inline_comments ? JSON.parse(v.inline_comments) : null
+      }))
+    }),
+
+  // Story 7.7: Get feedback for a specific version (AC: 4)
+  // Returns rejection feedback and inline comments for a version
+  getVersionFeedback: publicProcedure
+    .input(z.object({ versionId: z.string() }))
+    .query(({ ctx, input }) => {
+      const version = ctx.db
+        .select()
+        .from(taskVersions)
+        .where(eq(taskVersions.id, input.versionId))
+        .get()
+
+      if (!version) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Version not found' })
+      }
+
+      return {
+        ...version,
+        inline_comments: version.inline_comments ? JSON.parse(version.inline_comments) : null
+      }
     }),
 
   // Reorder tasks within a column (batch update sort_order)

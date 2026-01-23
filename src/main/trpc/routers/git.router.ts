@@ -14,7 +14,7 @@ import { GitService, GitError } from '../../services/git.service'
 import { GitErrorRecoveryService } from '../../services/git-error-recovery.service'
 import { GitLogService } from '../../services/git-log.service'
 import { categorizeGitError, type GitRecoverableError } from '../../../shared/types/git-error.types'
-import { tasks } from '../../db/schema'
+import { tasks, taskVersions } from '../../db/schema'
 import { eq, isNotNull } from 'drizzle-orm'
 import { rmSync, existsSync } from 'fs'
 import { join } from 'path'
@@ -2195,5 +2195,72 @@ export const gitRouter = router({
   cleanupLogs: publicProcedure.mutation(async ({ ctx }) => {
     GitLogService.cleanupOldLogs(ctx.projectRoot)
     return { success: true }
-  })
+  }),
+
+  /**
+   * Get diff between two version commit SHAs for review history comparison.
+   *
+   * Story 7.7 AC 2 - Compare code changes between review iterations.
+   *
+   * @param input.fromCommitSha - The older commit SHA (null to compare with base)
+   * @param input.toCommitSha - The newer commit SHA
+   * @param input.taskId - Task ID to look up version commits
+   * @returns GitDiffResult with files and summary showing changes between versions
+   * @throws TRPCError if commits not found or comparison fails
+   *
+   * @example
+   * ```typescript
+   * // Compare version 1 to version 2
+   * const diff = await trpc.git.getVersionDiff.query({
+   *   taskId: 'abc123',
+   *   fromCommitSha: 'sha1',
+   *   toCommitSha: 'sha2'
+   * })
+   * console.log(`${diff.summary.filesChanged} files changed between versions`)
+   * ```
+   */
+  getVersionDiff: publicProcedure
+    .input(
+      z.object({
+        taskId: z.string().min(1, 'taskId is required'),
+        fromCommitSha: z.string().nullable(),
+        toCommitSha: z.string().min(1, 'toCommitSha is required')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        // If fromCommitSha is null, compare toCommitSha against main
+        // (shows all changes in that version from the branch point)
+        if (!input.fromCommitSha) {
+          return await GitService.getHistoricalDiff(ctx.projectRoot, input.toCommitSha)
+        }
+
+        // Compare the two specific commits
+        return await GitService.compareTwoCommits(
+          ctx.projectRoot,
+          input.fromCommitSha,
+          input.toCommitSha
+        )
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('unknown revision') || error.message.includes('bad object')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Version commit no longer available. The worktree may have been cleaned up or the commit was pruned from git history.'
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get version diff: ${errorMessage}`
+        })
+      }
+    })
 })
