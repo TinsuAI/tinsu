@@ -133,7 +133,7 @@ development_status:
   7-3-approve-changes-action: done
   7-4-reject-changes-with-feedback: done
   7-5-request-changes-with-inline-comments: done  # Code review complete - AC5 implemented, all critical/medium issues fixed, 6 auto-fixes applied
-  7-6-agent-re-execution-with-feedback-context: backlog
+  7-6-agent-re-execution-with-feedback-context: done  # Completed 2026-01-22: rejection feedback formatting, context injection, diff baseline, clear on approve
   7-7-review-history-and-comparison: backlog
   7-8-keyboard-first-review-navigation: superseded  # → TES 3-11 (keyboard nav)
   7-9-review-notifications: superseded  # → TES 5-7 (notifications)

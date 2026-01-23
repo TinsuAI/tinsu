@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ContextBuilderService } from './context-builder.service'
+import type { InlineComment } from '@shared/types/task.types'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -227,6 +228,132 @@ project_name: 'TinSu'
 
       // path.join normalizes the path
       expect(result).toBe('/project/.tinsu/worktrees/sibling/file.ts')
+    })
+  })
+
+  // Story 7.5: Inline comments formatting tests
+  describe('formatInlineCommentsAsMarkdown (Story 7.5)', () => {
+    it('returns empty string for empty comments array', () => {
+      const result = ContextBuilderService.formatInlineCommentsAsMarkdown([])
+
+      expect(result).toBe('')
+    })
+
+    it('returns empty string for null comments', () => {
+      const result = ContextBuilderService.formatInlineCommentsAsMarkdown(null as unknown as InlineComment[])
+
+      expect(result).toBe('')
+    })
+
+    it('formats single comment correctly', () => {
+      const comments: InlineComment[] = [
+        { id: '1', filePath: 'src/App.tsx', lineNumber: 42, content: 'Add error handling', createdAt: Date.now() }
+      ]
+
+      const result = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
+
+      expect(result).toContain('## Inline Review Comments')
+      expect(result).toContain('### src/App.tsx')
+      expect(result).toContain('- **Line 42**: Add error handling')
+    })
+
+    it('groups comments by file path', () => {
+      const comments: InlineComment[] = [
+        { id: '1', filePath: 'src/App.tsx', lineNumber: 42, content: 'Add error handling', createdAt: Date.now() },
+        { id: '2', filePath: 'src/App.tsx', lineNumber: 55, content: 'Use async/await', createdAt: Date.now() },
+        { id: '3', filePath: 'src/utils.ts', lineNumber: 10, content: 'Add type annotation', createdAt: Date.now() }
+      ]
+
+      const result = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
+
+      expect(result).toContain('### src/App.tsx')
+      expect(result).toContain('### src/utils.ts')
+      expect(result).toContain('- **Line 42**: Add error handling')
+      expect(result).toContain('- **Line 55**: Use async/await')
+      expect(result).toContain('- **Line 10**: Add type annotation')
+    })
+
+    it('sorts comments by line number within each file', () => {
+      const comments: InlineComment[] = [
+        { id: '1', filePath: 'src/App.tsx', lineNumber: 100, content: 'Comment C', createdAt: Date.now() },
+        { id: '2', filePath: 'src/App.tsx', lineNumber: 10, content: 'Comment A', createdAt: Date.now() },
+        { id: '3', filePath: 'src/App.tsx', lineNumber: 50, content: 'Comment B', createdAt: Date.now() }
+      ]
+
+      const result = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
+
+      const lines = result.split('\n')
+      const commentLines = lines.filter(line => line.startsWith('- **Line'))
+
+      // Should be ordered: Line 10, Line 50, Line 100
+      expect(commentLines[0]).toContain('Line 10')
+      expect(commentLines[1]).toContain('Line 50')
+      expect(commentLines[2]).toContain('Line 100')
+    })
+  })
+
+  // Story 7.6: Rejection feedback formatting tests
+  describe('formatRejectionFeedbackAsMarkdown (Story 7.6)', () => {
+    it('formats feedback with prominent Revision Required section', () => {
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+        'Please fix the error handling',
+        1
+      )
+
+      expect(result).toContain('## Revision Required')
+      expect(result).toContain('> **Human Reviewer Feedback:**')
+      expect(result).toContain('> Please fix the error handling')
+      expect(result).toContain('Please address all feedback points before proceeding')
+    })
+
+    it('includes revision attempt number when count > 1', () => {
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+        'The fix still has issues',
+        2
+      )
+
+      expect(result).toContain('**Revision attempt:** #2')
+      expect(result).toContain('Previous attempts did not fully address the requirements')
+    })
+
+    it('does not include revision count message for first rejection', () => {
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+        'Please fix this',
+        1
+      )
+
+      expect(result).not.toContain('**Revision attempt:**')
+      expect(result).not.toContain('Previous attempts')
+    })
+
+    it('handles multi-line feedback correctly', () => {
+      const feedback = `Please fix the following:
+1. Add error handling
+2. Use async/await
+3. Add unit tests`
+
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown(feedback, 1)
+
+      expect(result).toContain('> Please fix the following:')
+      expect(result).toContain('> 1. Add error handling')
+      expect(result).toContain('> 2. Use async/await')
+      expect(result).toContain('> 3. Add unit tests')
+    })
+
+    it('handles empty feedback gracefully', () => {
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown('', 1)
+
+      expect(result).toContain('## Revision Required')
+      expect(result).toContain('> **Human Reviewer Feedback:**')
+    })
+
+    it('shows high revision count correctly', () => {
+      const result = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+        'Still not fixed',
+        5
+      )
+
+      expect(result).toContain('**Revision attempt:** #5')
     })
   })
 

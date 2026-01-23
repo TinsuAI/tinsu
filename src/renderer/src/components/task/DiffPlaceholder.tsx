@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useLayoutEffect } from 'react'
-import { GitCompareArrows, RefreshCw, AlertCircle, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react'
+import { GitCompareArrows, RefreshCw, AlertCircle, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, History } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
@@ -69,6 +69,7 @@ function useContainerWidth() {
 /**
  * Task data type for DiffPlaceholder
  * Story 8.11: Add task prop to handle completed tasks
+ * Story 7.6: Add last_review_commit for baseline diff
  */
 export interface DiffPlaceholderTask {
   /** Task ID */
@@ -81,6 +82,11 @@ export interface DiffPlaceholderTask {
   merge_commit_sha?: string | null
   /** Branch name associated with the task */
   branch_name?: string | null
+  /**
+   * Story 7.6: SHA of HEAD when task last entered Review status.
+   * When present, shows "changes since last review" instead of all changes.
+   */
+  last_review_commit?: string | null
 }
 
 /**
@@ -113,11 +119,13 @@ export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.J
   // Determine mode: historical for done tasks with merge commit, worktree for active tasks
   const diffMode: 'worktree' | 'historical' = isDoneTask && hasMergeCommit ? 'historical' : 'worktree'
 
-  const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary } = useDiff({
+  // Story 7.6: Use last_review_commit as baseline for "changes since last review" diff
+  const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary, isBaselineDiff } = useDiff({
     taskId: effectiveTaskId,
     mode: diffMode,
     worktreePath: task?.worktree_path,
-    mergeCommitSha: task?.merge_commit_sha
+    mergeCommitSha: task?.merge_commit_sha,
+    baselineCommit: task?.last_review_commit
   })
 
   // Story 8.11 Task 3.2: Fetch commit info for historical diffs
@@ -399,6 +407,22 @@ export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.J
       {/* Story 8.11 Task 3.4: Show commit header for historical diffs */}
       {diffMode === 'historical' && commitInfo && (
         <DiffCommitHeader commit={commitInfo} branchName={task?.branch_name} />
+      )}
+
+      {/* Story 7.6 Task 8.4: Show indicator when showing changes since last review */}
+      {isBaselineDiff && (
+        <div
+          className="flex items-center gap-2 border-b border-border/10 bg-[#58a6ff]/5 px-5 py-2.5"
+          data-testid="baseline-diff-indicator"
+        >
+          <History className="h-4 w-4 text-[#58a6ff]" />
+          <span className="text-sm font-medium text-[#58a6ff]">
+            Showing changes since last review
+          </span>
+          <span className="text-xs text-muted-foreground/60">
+            Only new changes after the previous review cycle are shown
+          </span>
+        </div>
       )}
 
       {/* GitHub-style header with refined controls */}

@@ -443,12 +443,19 @@ export const taskRouter = router({
             if (mergeResult.success) {
               // Story 8.5 AC 2: Update task with merge_commit_sha
               // Story 8.7: Clear conflict status after successful merge
+              // Story 7.6 Task 9: Clear all review-related fields on approve
+              // (rejection_feedback, inline_comments, rejection_count, last_review_commit)
               ctx.db
                 .update(tasks)
                 .set({
                   merge_commit_sha: mergeResult.commitSha,
                   has_merge_conflict: 0,
                   conflict_files: null,
+                  // Story 7.6 Task 9: Clear all review feedback on successful approve/merge
+                  rejection_feedback: null,
+                  inline_comments: null,
+                  rejection_count: 0,
+                  last_review_commit: null,
                   updated_at: new Date()
                 })
                 .where(eq(tasks.id, input.id))
@@ -599,6 +606,7 @@ export const taskRouter = router({
   // Story 7.4: Reject task with feedback and return to in_progress
   // AC 2: Move task back to In Progress with feedback stored
   // AC 3: Store feedback in rejection_feedback column, linked to agent run
+  // Story 7.6: Store feedback as JSON with timestamp, increment rejection_count
   rejectWithFeedback: publicProcedure
     .input(
       z.object({
@@ -607,9 +615,12 @@ export const taskRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Capture current status before update
+      // Capture current status and rejection_count before update
       const oldTask = ctx.db
-        .select({ status: tasks.status })
+        .select({
+          status: tasks.status,
+          rejection_count: tasks.rejection_count
+        })
         .from(tasks)
         .where(eq(tasks.id, input.id))
         .get()
@@ -627,12 +638,25 @@ export const taskRouter = router({
         .limit(1)
         .get()
 
+      // Story 7.6 AC 4: Increment rejection count (replace previous feedback, not accumulate)
+      const newRejectionCount = (oldTask.rejection_count ?? 0) + 1
+
+      // Story 7.6 AC 2: Store feedback with timestamp as JSON
+      const feedbackPayload = input.feedback
+        ? JSON.stringify({
+            feedback: input.feedback,
+            timestamp: Date.now()
+          })
+        : null
+
       // Story 7.4 AC 2, 3: Update status to in_progress and store feedback linked to agent run
+      // Story 7.6: Store feedback as JSON with timestamp, update rejection_count
       const result = ctx.db
         .update(tasks)
         .set({
           status: 'in_progress',
-          rejection_feedback: input.feedback,
+          rejection_feedback: feedbackPayload,
+          rejection_count: newRejectionCount,
           rejected_agent_run_id: latestAgentRun?.id || null,
           updated_at: new Date()
         })
@@ -645,10 +669,13 @@ export const taskRouter = router({
       }
 
       // Story 7.4 Task 3.5: Log 'rejection' activity event
+      // Story 7.6: Include hasInlineComments and rejectionCount in payload
       try {
         await activityLogService.logActivity(input.id, 'rejection', {
           feedback: input.feedback,
-          previousStatus: oldTask.status
+          previousStatus: oldTask.status,
+          hasInlineComments: !!(result as Record<string, unknown>).inline_comments,
+          rejectionCount: newRejectionCount
         })
       } catch (error) {
         // Don't fail rejection if activity logging fails

@@ -553,6 +553,75 @@ export class GitService {
   }
 
   /**
+   * Gets the diff from a specific commit (baseline) to HEAD.
+   *
+   * Story 7.6 - AC: 5
+   *
+   * This is used to show "changes since last review" when a task has been
+   * rejected and re-executed. The baseCommit is the HEAD when the task
+   * was last in Review status.
+   *
+   * @param repoPath - Path to the git repository or worktree
+   * @param baseCommit - The commit SHA to diff from (baseline)
+   * @returns Parsed diff result with files and summary
+   * @throws GitError if commit doesn't exist or git command fails
+   *
+   * @example
+   * ```typescript
+   * // Get diff showing changes since last review
+   * const diff = await GitService.getDiffFromCommit('/path/to/worktree', 'abc123def')
+   * console.log(`${diff.summary.filesChanged} files changed since last review`)
+   * ```
+   */
+  static async getDiffFromCommit(repoPath: string, baseCommit: string): Promise<GitDiffResult> {
+    this.validatePath(repoPath, 'getDiffFromCommit')
+
+    if (!baseCommit || typeof baseCommit !== 'string') {
+      throw new GitError('Invalid baseCommit: baseCommit must be a non-empty string', 'getDiffFromCommit')
+    }
+
+    const normalizedPath = resolve(repoPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Repository path does not exist: ${normalizedPath}`, 'getDiffFromCommit')
+    }
+
+    try {
+      // Get diff from baseCommit to HEAD
+      const { stdout: diffOutput } = await execAsync(
+        `git diff ${baseCommit}..HEAD --unified=3`,
+        {
+          cwd: normalizedPath,
+          timeout: GIT_COMMAND_TIMEOUT,
+          maxBuffer: 10 * 1024 * 1024 // 10MB for large diffs
+        }
+      )
+
+      // Parse the diff
+      return this.parseDiff(diffOutput)
+    } catch (error) {
+      const err = error as ExecError
+
+      // Handle unknown commit SHA
+      if (err.stderr?.includes('unknown revision') || err.stderr?.includes('bad object')) {
+        throw new GitError(
+          `Base commit not found: ${baseCommit}`,
+          `git diff ${baseCommit}..HEAD`,
+          err.code,
+          err.stderr
+        )
+      }
+
+      throw new GitError(
+        err.stderr || err.message || 'Failed to get git diff from commit',
+        `git diff ${baseCommit}..HEAD`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
    * Result of creating a worktree, including both path and branch name.
    *
    * @see Story 8.3: Updated createWorktree signature
@@ -1171,6 +1240,49 @@ export class GitService {
       throw new GitError(
         err.stderr || err.message || `Failed to get commit info for ${commitSha}`,
         `git show -s ${commitSha}`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
+   * Gets the current HEAD commit SHA from a worktree or repository.
+   *
+   * Story 7.6 - AC: 5
+   *
+   * @param repoPath - Path to the git repository or worktree
+   * @returns The full 40-character SHA of HEAD
+   * @throws GitError if not a git repository or command fails
+   *
+   * @example
+   * ```typescript
+   * const sha = await GitService.getHeadCommit('/path/to/worktree')
+   * console.log(`Current HEAD: ${sha}`)
+   * ```
+   */
+  static async getHeadCommit(repoPath: string): Promise<string> {
+    this.validatePath(repoPath, 'getHeadCommit')
+
+    const normalizedPath = resolve(repoPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(`Path does not exist: ${normalizedPath}`, 'getHeadCommit')
+    }
+
+    try {
+      const { stdout: sha } = await this.execGit(
+        ['rev-parse', 'HEAD'],
+        normalizedPath,
+        GIT_BRANCH_TIMEOUT
+      )
+
+      return sha.trim()
+    } catch (error) {
+      const err = error as ExecError
+      throw new GitError(
+        err.stderr || err.message || 'Failed to get HEAD commit',
+        'git rev-parse HEAD',
         err.code,
         err.stderr
       )

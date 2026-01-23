@@ -303,6 +303,16 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE tasks ADD COLUMN inline_comments TEXT')
   }
 
+  // Migration: Add rejection_count column to tasks (Story 7.6)
+  if (!existingColumns.has('rejection_count')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN rejection_count INTEGER DEFAULT 0 NOT NULL')
+  }
+
+  // Migration: Add last_review_commit column to tasks (Story 7.6)
+  if (!existingColumns.has('last_review_commit')) {
+    sqlite.exec('ALTER TABLE tasks ADD COLUMN last_review_commit TEXT')
+  }
+
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
   const epicColumnsCheck = sqlite
     .prepare("PRAGMA table_info(epics)")

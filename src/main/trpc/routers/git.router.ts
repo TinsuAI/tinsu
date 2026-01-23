@@ -828,6 +828,61 @@ export const gitRouter = router({
     }),
 
   /**
+   * Get diff from a specific baseline commit to current HEAD.
+   *
+   * Story 7.6 - AC: 5
+   *
+   * Used to show "changes since last review" when a task has been rejected
+   * and re-executed. The baseline is the HEAD when task last entered Review.
+   *
+   * @param input.worktreePath - Path to the task's worktree
+   * @param input.baseCommit - The commit SHA to diff from (last_review_commit)
+   * @returns GitDiffResult with files and summary
+   * @throws TRPCError if commit not found or path invalid
+   *
+   * @example
+   * ```typescript
+   * const diff = await trpc.git.getTaskDiffWithBaseline.query({
+   *   worktreePath: '/project/.tinsu/worktrees/abc123',
+   *   baseCommit: 'abc123def456'
+   * })
+   * console.log(`${diff.summary.filesChanged} files changed since last review`)
+   * ```
+   */
+  getTaskDiffWithBaseline: publicProcedure
+    .input(
+      z.object({
+        worktreePath: z.string().min(1, 'worktreePath is required'),
+        baseCommit: z.string().min(1, 'baseCommit is required')
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        return await GitService.getDiffFromCommit(input.worktreePath, input.baseCommit)
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('not found') || error.message.includes('unknown revision')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: error.message
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get diff from baseline: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
    * Compare a commit with current HEAD.
    *
    * Shows what changed between a task's merge commit and the current HEAD.

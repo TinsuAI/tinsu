@@ -9,6 +9,7 @@ import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.ser
 import { ConfigService } from '../../services/config.service'
 import { StoryCompletionService } from '../../services/story-completion.service'
 import { ContextBuilderService } from '../../services/context-builder.service'
+import { GitService } from '../../services/git.service'
 import {
   devAgentProgressService,
   type DevAgentProgressInfo
@@ -367,29 +368,59 @@ export const agentRouter = router({
       // Story 8.4: Validate and get worktree_path from task for isolated execution
       const worktreePath = validateWorktreePath(typedTask.worktree_path, input.taskId)
 
+      // Story 7.6: Prepend rejection feedback and inline comments to story file
+      // Order: Revision Required section → Inline Comments → Original story
+      let storyContent = readFileSync(typedTask.story_file_path, 'utf-8')
+      let contentModified = false
+
       // Story 7.5 AC5: Prepend inline comments to story file if they exist
       if (typedTask.inline_comments) {
         try {
           const comments = JSON.parse(typedTask.inline_comments) as InlineComment[]
           if (comments && comments.length > 0) {
             const formattedComments = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
-            const storyFilePath = typedTask.story_file_path
-
-            // Read current story content
-            const currentContent = readFileSync(storyFilePath, 'utf-8')
-
-            // Prepend inline comments section
-            const updatedContent = `${formattedComments}\n\n---\n\n${currentContent}`
-
-            // Write back to story file
-            writeFileSync(storyFilePath, updatedContent, 'utf-8')
-
+            storyContent = `${formattedComments}\n\n---\n\n${storyContent}`
+            contentModified = true
             console.log(`[agent.router] Prepended ${comments.length} inline comments to story file`)
           }
         } catch (error) {
           console.error('[agent.router] Failed to prepend inline comments:', error)
           // Continue anyway - don't fail the launch
         }
+      }
+
+      // Story 7.6 AC2: Prepend rejection feedback if exists (before inline comments)
+      if (typedTask.rejection_feedback) {
+        try {
+          const feedbackData = JSON.parse(typedTask.rejection_feedback) as { feedback: string; timestamp: number }
+
+          // Validate parsed feedback structure
+          if (!feedbackData || typeof feedbackData.feedback !== 'string' || !feedbackData.feedback.trim()) {
+            throw new Error('Invalid feedback structure: feedback field is missing or empty')
+          }
+
+          const rejectionCount = typedTask.rejection_count ?? 1
+
+          const formattedFeedback = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+            feedbackData.feedback,
+            rejectionCount
+          )
+
+          // Prepend before inline comments (which are already prepended)
+          storyContent = `${formattedFeedback}\n\n---\n\n${storyContent}`
+          contentModified = true
+
+          console.log(`[agent.router] Prepended rejection feedback (attempt #${rejectionCount}) to story file`)
+        } catch (error) {
+          console.error('[agent.router] Failed to parse or prepend rejection feedback:', error)
+          // Continue anyway - don't fail the launch, but log the issue prominently
+          console.warn('[agent.router] Agent launching WITHOUT rejection feedback context due to parse error')
+        }
+      }
+
+      // Write modified content back to story file
+      if (contentModified) {
+        writeFileSync(typedTask.story_file_path, storyContent, 'utf-8')
       }
 
       // Launch the dev-story workflow with story file path
@@ -539,11 +570,30 @@ export const agentRouter = router({
         return { success: false, error: 'Task not found' }
       }
 
+      // Story 7.6 AC 5: Capture HEAD commit as review baseline for "changes since last review" diff
+      let lastReviewCommit: string | null = null
+      const typedTask = task as Task
+      if (typedTask.worktree_path) {
+        try {
+          lastReviewCommit = await GitService.getHeadCommit(typedTask.worktree_path)
+          console.log(`[agent.router] Captured last_review_commit: ${lastReviewCommit}`)
+        } catch (error) {
+          // Don't fail the mutation if we can't get the commit
+          console.error('[agent.router] Failed to get HEAD commit for review baseline:', error)
+        }
+      }
+
       // Update task status to 'review' and clear inline_comments (Story 7.5 Task 13.3)
-      // Inline comments are cleared after successful agent re-run so they don't persist
+      // Story 7.6 Task 5.4: Clear rejection_feedback after successful agent completion
+      // Story 7.6 AC 5: Store last_review_commit for diff baseline
+      // Story 7.6: Reset rejection_count to 0 after successful completion (new review cycle starts fresh)
+      // Inline comments and rejection feedback are cleared after successful agent re-run so they don't persist
       ctx.db.update(tasks).set({
         status: 'review',
         inline_comments: null,
+        rejection_feedback: null,
+        rejection_count: 0,
+        last_review_commit: lastReviewCommit,
         updated_at: new Date()
       }).where(eq(tasks.id, input.taskId)).run()
 
@@ -578,11 +628,30 @@ export const agentRouter = router({
         return { success: false, error: 'Task not found' }
       }
 
+      // Story 7.6 AC 5: Capture HEAD commit as review baseline for "changes since last review" diff
+      let lastReviewCommit: string | null = null
+      const typedTask = task as Task
+      if (typedTask.worktree_path) {
+        try {
+          lastReviewCommit = await GitService.getHeadCommit(typedTask.worktree_path)
+          console.log(`[agent.router] Captured last_review_commit: ${lastReviewCommit}`)
+        } catch (error) {
+          // Don't fail the mutation if we can't get the commit
+          console.error('[agent.router] Failed to get HEAD commit for review baseline:', error)
+        }
+      }
+
       // Update task status to 'review' and clear inline_comments (Story 7.5 Task 13.3)
-      // Inline comments are cleared after successful agent re-run so they don't persist
+      // Story 7.6 Task 5.4: Clear rejection_feedback after successful agent completion
+      // Story 7.6 AC 5: Store last_review_commit for diff baseline
+      // Story 7.6: Reset rejection_count to 0 after successful completion (new review cycle starts fresh)
+      // Inline comments and rejection feedback are cleared after successful agent re-run so they don't persist
       ctx.db.update(tasks).set({
         status: 'review',
         inline_comments: null,
+        rejection_feedback: null,
+        rejection_count: 0,
+        last_review_commit: lastReviewCommit,
         updated_at: new Date()
       }).where(eq(tasks.id, input.taskId)).run()
 

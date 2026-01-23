@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
@@ -15,6 +15,7 @@ import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../../db/schema'
 
 // Story 8.4: Mock fs for worktree path validation
+// Story 7.6: Mock readFileSync/writeFileSync for feedback injection tests
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>()
   return {
@@ -26,7 +27,9 @@ vi.mock('fs', async (importOriginal) => {
         return false
       }
       return actual.existsSync(path)
-    })
+    }),
+    readFileSync: vi.fn().mockReturnValue('# Story Content\n\nOriginal story content.'),
+    writeFileSync: vi.fn()
   }
 })
 
@@ -165,6 +168,8 @@ function createTestDb(): TestDb {
 
   // Create the tasks table matching Drizzle schema (Story 3.7: added story_number, story_file_path, full_content)
   // Story 8.2-8.3: Added worktree_path and branch_name columns
+  // Story 7.4-7.6: Added rejection_feedback, inline_comments, rejection_count, last_review_commit
+  // Story 8.5-8.10: Added merge_commit_sha, has_merge_conflict, conflict_files, worktree_skipped
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -188,6 +193,15 @@ function createTestDb(): TestDb {
       context_notes TEXT,
       worktree_path TEXT,
       branch_name TEXT,
+      merge_commit_sha TEXT,
+      has_merge_conflict INTEGER DEFAULT 0,
+      conflict_files TEXT,
+      worktree_skipped INTEGER DEFAULT 0,
+      rejection_feedback TEXT,
+      rejected_agent_run_id TEXT,
+      inline_comments TEXT,
+      rejection_count INTEGER DEFAULT 0,
+      last_review_commit TEXT,
       project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -633,6 +647,125 @@ describe('agentRouter', () => {
 
       // Launcher should NOT be called
       expect(BmadAgentLauncherService.launchDevStory).not.toHaveBeenCalled()
+    })
+
+    // Story 7.6: Rejection feedback integration tests
+    describe('Story 7.6: Rejection feedback context injection', () => {
+      it('prepends rejection feedback to story file when present', async () => {
+        vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+        vi.mocked(BmadAgentLauncherService.launchDevStory).mockResolvedValue({
+          command: 'claude test',
+          success: true
+        })
+
+        const rejectionFeedback = JSON.stringify({
+          feedback: 'Please add error handling to the API calls',
+          timestamp: Date.now()
+        })
+
+        const task = createStoryTask({
+          story_number: '5',
+          story_file_status: 'story_ready',
+          story_file_path: mockStoryFilePath,
+          rejection_feedback: rejectionFeedback,
+          rejection_count: 2
+        })
+
+        // Mock existsSync to return true for story file path
+        vi.mocked(existsSync).mockImplementation((path: string) => {
+          if (typeof path === 'string' && path === mockStoryFilePath) return true
+          if (typeof path === 'string' && path.includes('.tinsu/worktrees')) return false
+          return true
+        })
+
+        await caller.startDevStory({ taskId: task.id })
+
+        // Verify writeFileSync was called (file was modified)
+        const { writeFileSync } = await import('fs')
+        expect(writeFileSync).toHaveBeenCalled()
+
+        // Check that the written content contains revision required section
+        const writeCall = vi.mocked(writeFileSync).mock.calls[0]
+        const writtenContent = writeCall[1] as string
+        expect(writtenContent).toContain('## Revision Required')
+        expect(writtenContent).toContain('Please add error handling to the API calls')
+        expect(writtenContent).toContain('**Revision attempt:** #2')
+      })
+
+      it('does not modify story file when no feedback present', async () => {
+        vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+        vi.mocked(BmadAgentLauncherService.launchDevStory).mockResolvedValue({
+          command: 'claude test',
+          success: true
+        })
+
+        const task = createStoryTask({
+          story_number: '6',
+          story_file_status: 'story_ready',
+          story_file_path: mockStoryFilePath,
+          rejection_feedback: null,
+          inline_comments: null
+        })
+
+        vi.mocked(existsSync).mockImplementation((path: string) => {
+          if (typeof path === 'string' && path === mockStoryFilePath) return true
+          return false
+        })
+
+        // Clear any previous calls
+        const { writeFileSync } = await import('fs')
+        vi.mocked(writeFileSync).mockClear()
+
+        await caller.startDevStory({ taskId: task.id })
+
+        // writeFileSync should NOT be called when no feedback/comments
+        expect(writeFileSync).not.toHaveBeenCalled()
+      })
+
+      it('prepends both rejection feedback and inline comments when both present', async () => {
+        vi.mocked(ClaudeCliDetectorService.isClaudeCodeInstalled).mockResolvedValue(true)
+        vi.mocked(BmadAgentLauncherService.launchDevStory).mockResolvedValue({
+          command: 'claude test',
+          success: true
+        })
+
+        const rejectionFeedback = JSON.stringify({
+          feedback: 'Fix the authentication bug',
+          timestamp: Date.now()
+        })
+
+        const inlineComments = JSON.stringify([
+          { id: '1', filePath: 'src/auth.ts', lineNumber: 42, content: 'Add null check', createdAt: Date.now() }
+        ])
+
+        const task = createStoryTask({
+          story_number: '7',
+          story_file_status: 'story_ready',
+          story_file_path: mockStoryFilePath,
+          rejection_feedback: rejectionFeedback,
+          rejection_count: 1,
+          inline_comments: inlineComments
+        })
+
+        vi.mocked(existsSync).mockImplementation((path: string) => {
+          if (typeof path === 'string' && path === mockStoryFilePath) return true
+          return false
+        })
+
+        await caller.startDevStory({ taskId: task.id })
+
+        const { writeFileSync } = await import('fs')
+        expect(writeFileSync).toHaveBeenCalled()
+
+        const writeCall = vi.mocked(writeFileSync).mock.calls[0]
+        const writtenContent = writeCall[1] as string
+
+        // Rejection feedback should appear before inline comments (both present)
+        expect(writtenContent).toContain('## Revision Required')
+        expect(writtenContent).toContain('Fix the authentication bug')
+        expect(writtenContent).toContain('## Inline Review Comments')
+        expect(writtenContent).toContain('**Line 42**: Add null check')
+      })
     })
   })
 

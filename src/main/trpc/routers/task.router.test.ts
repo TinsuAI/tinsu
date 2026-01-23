@@ -100,6 +100,7 @@ function createTestDb(): TestDb {
   `)
 
   // Create the tasks table matching Drizzle schema (including Story 3.1 planning fields, Story 3.2 is_start_here, Story 3.1.5 project_id, Story 3.7 story_number, story_file_path, full_content, Story 5.2b story_file_status, Story 5.5 context_notes)
+  // Story 7.4: Added rejected_agent_run_id, Story 7.5: inline_comments, Story 7.6: rejection_count, last_review_commit
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY NOT NULL,
@@ -129,6 +130,10 @@ function createTestDb(): TestDb {
       conflict_files TEXT,
       worktree_skipped INTEGER DEFAULT 0,
       rejection_feedback TEXT,
+      rejected_agent_run_id TEXT,
+      inline_comments TEXT,
+      rejection_count INTEGER DEFAULT 0,
+      last_review_commit TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
@@ -167,6 +172,20 @@ function createTestDb(): TestDb {
     CREATE INDEX IF NOT EXISTS idx_task_activities_task_id ON task_activities(task_id);
     CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type);
     CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at);
+  `)
+
+  // Story 7.4: Create agent_runs table for rejected_agent_run_id foreign key
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      start_time INTEGER NOT NULL,
+      end_time INTEGER,
+      duration_ms INTEGER,
+      token_usage INTEGER,
+      exit_status TEXT,
+      log_path TEXT
+    )
   `)
 
   const db = drizzle({ client: sqlite, schema })
@@ -1688,9 +1707,11 @@ describe('taskRouter', () => {
         feedback: 'Please fix the validation logic'
       })
 
-      // Assert: Status changed to in_progress and feedback stored
+      // Assert: Status changed to in_progress and feedback stored (Story 7.6: JSON format with timestamp)
       expect(result.status).toBe('in_progress')
-      expect(result.rejection_feedback).toBe('Please fix the validation logic')
+      const feedbackData = JSON.parse(result.rejection_feedback as string)
+      expect(feedbackData.feedback).toBe('Please fix the validation logic')
+      expect(feedbackData.timestamp).toBeDefined()
     })
 
     it('should accept null feedback (AC: 5)', async () => {
@@ -1736,11 +1757,12 @@ describe('taskRouter', () => {
         feedback: 'Test feedback for logging'
       })
 
-      // Assert: Activity log was called with rejection event
-      expect(mockLogActivity).toHaveBeenCalledWith('task-reject-log', 'rejection', {
+      // Assert: Activity log was called with rejection event (Story 7.6: includes hasInlineComments and rejectionCount)
+      expect(mockLogActivity).toHaveBeenCalledWith('task-reject-log', 'rejection', expect.objectContaining({
         feedback: 'Test feedback for logging',
-        previousStatus: 'review'
-      })
+        previousStatus: 'review',
+        rejectionCount: 1
+      }))
 
       // Assert: Also logs status_change event
       expect(mockLogActivity).toHaveBeenCalledWith('task-reject-log', 'status_change', {
@@ -1785,7 +1807,10 @@ describe('taskRouter', () => {
 
       // Assert: Rejection succeeded
       expect(result.status).toBe('in_progress')
-      expect(result.rejection_feedback).toBe('feedback despite log failure')
+      // Story 7.6: rejection_feedback is now JSON with timestamp
+      const feedbackData = JSON.parse(result.rejection_feedback as string)
+      expect(feedbackData.feedback).toBe('feedback despite log failure')
+      expect(feedbackData.timestamp).toBeDefined()
     })
 
     it('should overwrite previous rejection_feedback', async () => {
@@ -1808,8 +1833,10 @@ describe('taskRouter', () => {
         feedback: 'New feedback'
       })
 
-      // Assert: Feedback was overwritten
-      expect(result.rejection_feedback).toBe('New feedback')
+      // Assert: Feedback was overwritten (Story 7.6: now JSON format)
+      const feedbackData = JSON.parse(result.rejection_feedback as string)
+      expect(feedbackData.feedback).toBe('New feedback')
+      expect(feedbackData.timestamp).toBeDefined()
     })
 
     it('should work with tasks in any status (not just review)', async () => {
@@ -1831,9 +1858,11 @@ describe('taskRouter', () => {
         feedback: 'Actually need more changes'
       })
 
-      // Assert: Status changed to in_progress
+      // Assert: Status changed to in_progress (Story 7.6: JSON format for feedback)
       expect(result.status).toBe('in_progress')
-      expect(result.rejection_feedback).toBe('Actually need more changes')
+      const feedbackData = JSON.parse(result.rejection_feedback as string)
+      expect(feedbackData.feedback).toBe('Actually need more changes')
+      expect(feedbackData.timestamp).toBeDefined()
     })
   })
 })

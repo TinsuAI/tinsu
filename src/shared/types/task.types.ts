@@ -97,6 +97,10 @@ export interface Task {
   rejected_agent_run_id: string | null // ID of agent_run that was rejected
   // Story 7.5: Inline comments for request changes workflow
   inline_comments: InlineComment[] | null // Array of inline comments (stored as JSON in DB)
+  // Story 7.6: Rejection count for tracking multiple cycles (AC: 4)
+  rejection_count: number | null // Number of rejection cycles
+  // Story 7.6: Last review commit for diff baseline (AC: 5)
+  last_review_commit: string | null // SHA of HEAD when task entered Review status
   created_at: Date
   updated_at: Date
 }
@@ -146,6 +150,10 @@ export interface NewTask {
   rejected_agent_run_id?: string | null
   // Story 7.5: Inline comments for request changes workflow
   inline_comments?: InlineComment[] | null
+  // Story 7.6: Rejection count for tracking multiple cycles (AC: 4)
+  rejection_count?: number | null
+  // Story 7.6: Last review commit for diff baseline (AC: 5)
+  last_review_commit?: string | null
   created_at?: Date
   updated_at?: Date
 }

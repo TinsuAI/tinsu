@@ -343,4 +343,61 @@ export class ContextBuilderService {
 
     return lines.join('\n')
   }
+
+  /**
+   * Formats rejection feedback as markdown for agent context (Story 7.6).
+   *
+   * Creates a prominent "Revision Required" section that the agent sees first.
+   * This ensures the agent understands what needs to be fixed before proceeding.
+   *
+   * @param feedback - The human reviewer's feedback text
+   * @param rejectionCount - Number of rejection cycles (for context)
+   * @returns Formatted markdown string
+   *
+   * @example
+   * ```typescript
+   * const markdown = ContextBuilderService.formatRejectionFeedbackAsMarkdown(
+   *   'The error handling is missing for the edge case when user is offline.',
+   *   2
+   * )
+   * // Returns:
+   * // ## Revision Required
+   * //
+   * // > **Human Reviewer Feedback:**
+   * // >
+   * // > The error handling is missing for the edge case when user is offline.
+   * //
+   * // **Revision attempt:** #2
+   * //
+   * // *Previous attempts did not fully address the requirements. Please review feedback carefully.*
+   * //
+   * // Please address all feedback points before proceeding with implementation.
+   * ```
+   */
+  static formatRejectionFeedbackAsMarkdown(feedback: string, rejectionCount: number): string {
+    const lines: string[] = []
+    lines.push('## Revision Required')
+    lines.push('')
+    lines.push('> **Human Reviewer Feedback:**')
+    lines.push('>')
+
+    // Indent feedback lines with blockquote
+    for (const line of feedback.split('\n')) {
+      lines.push(`> ${line}`)
+    }
+
+    lines.push('')
+
+    if (rejectionCount > 1) {
+      lines.push(`**Revision attempt:** #${rejectionCount}`)
+      lines.push('')
+      lines.push('*Previous attempts did not fully address the requirements. Please review feedback carefully.*')
+      lines.push('')
+    }
+
+    lines.push('Please address all feedback points before proceeding with implementation.')
+    lines.push('')
+
+    return lines.join('\n')
+  }
 }

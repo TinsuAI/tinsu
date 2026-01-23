@@ -162,6 +162,10 @@ export const tasks = sqliteTable(
     rejected_agent_run_id: text('rejected_agent_run_id').references(() => agent_runs.id),
     // Story 7.5: Inline comments for request changes workflow
     inline_comments: text('inline_comments'), // JSON array of InlineComment objects
+    // Story 7.6: Rejection count for tracking multiple cycles (AC: 4)
+    rejection_count: integer('rejection_count').default(0),
+    // Story 7.6: Last review commit for diff baseline (AC: 5)
+    last_review_commit: text('last_review_commit'), // SHA of HEAD when task entered Review status
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
