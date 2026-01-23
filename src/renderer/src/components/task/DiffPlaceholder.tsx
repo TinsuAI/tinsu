@@ -6,14 +6,16 @@ import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import {
   DiffSummaryBar,
+  DiffCommitHeader,
   FileTree,
   MonacoDiffEditor,
   ViewModeToggle,
   getLanguageFromPath,
   reconstructFileContent
 } from '@renderer/components/diff'
+import { trpc } from '@renderer/lib/trpc'
 import { useDiffStore } from '@renderer/stores/diff.store'
-import type { GitDiffHunk } from '@main/services/git.service'
+import type { GitDiffHunk } from '@shared/types/git-diff.types'
 
 /** Threshold width (px) below which compact mode is enabled */
 const COMPACT_WIDTH_THRESHOLD = 400
@@ -65,11 +67,31 @@ function useContainerWidth() {
 }
 
 /**
+ * Task data type for DiffPlaceholder
+ * Story 8.11: Add task prop to handle completed tasks
+ */
+export interface DiffPlaceholderTask {
+  /** Task ID */
+  id: string
+  /** Task status (backlog, create_story, in_progress, review, done) */
+  status: string
+  /** Path to the task's worktree (for active tasks) */
+  worktree_path?: string | null
+  /** The merge commit SHA (for completed tasks) */
+  merge_commit_sha?: string | null
+  /** Branch name associated with the task */
+  branch_name?: string | null
+}
+
+/**
  * Props for DiffPlaceholder component
+ * Story 8.11: Updated to accept task object for mode determination
  */
 export interface DiffPlaceholderProps {
-  /** Task ID to fetch diff for */
+  /** Task ID to fetch diff for (deprecated, use task.id instead) */
   taskId?: string | null
+  /** Task object with status and git metadata for determining diff mode */
+  task?: DiffPlaceholderTask | null
 }
 
 /**
@@ -80,10 +102,33 @@ export interface DiffPlaceholderProps {
  *
  * Story TES-4.1: Git Diff Data Fetching
  * Story TES-4.6: Added dynamic compact mode based on container width
+ * Story 8.11: Added support for historical diffs on completed tasks
  */
-export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Element {
-  const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary } = useDiff(
-    taskId ?? null
+export function DiffPlaceholder({ taskId, task }: DiffPlaceholderProps): React.JSX.Element {
+  // Story 8.11 Task 2.2: Determine diff mode from task status and available data
+  const effectiveTaskId = task?.id ?? taskId ?? null
+  const isDoneTask = task?.status === 'done'
+  const hasMergeCommit = !!task?.merge_commit_sha
+
+  // Determine mode: historical for done tasks with merge commit, worktree for active tasks
+  const diffMode: 'worktree' | 'historical' = isDoneTask && hasMergeCommit ? 'historical' : 'worktree'
+
+  const { diff, isLoading, isRefreshing, error, refresh, hasChanges, summary } = useDiff({
+    taskId: effectiveTaskId,
+    mode: diffMode,
+    worktreePath: task?.worktree_path,
+    mergeCommitSha: task?.merge_commit_sha
+  })
+
+  // Story 8.11 Task 3.2: Fetch commit info for historical diffs
+  // Only construct query input when merge_commit_sha exists (avoid wasteful empty string)
+  const commitInfoQueryEnabled = diffMode === 'historical' && !!task?.merge_commit_sha
+  const { data: commitInfo } = trpc.git.getCommitInfo.useQuery(
+    { commitSha: task?.merge_commit_sha! }, // Non-null assertion safe due to enabled check
+    {
+      enabled: commitInfoQueryEnabled,
+      staleTime: 10 * 60 * 1000 // Cache commit info for 10 minutes (it's immutable)
+    }
   )
 
   // Get view mode from store (TES-4.5)
@@ -256,6 +301,42 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
     )
   }
 
+  // Story 8.11 Task 2.3, 2.4: Show "No diff available" for done tasks without merge_commit_sha
+  if (isDoneTask && !hasMergeCommit) {
+    return (
+      <div
+        className={cn(
+          'flex h-full flex-col items-center justify-center',
+          'p-8',
+          'bg-background'
+        )}
+        data-testid="diff-unavailable"
+      >
+        <div className={cn(
+          'mb-4 rounded-lg p-5',
+          'bg-muted/10',
+          'border border-border/10'
+        )}>
+          <GitCompareArrows className="h-10 w-10 text-muted-foreground/40" />
+        </div>
+
+        <h4 className="mb-2 text-base font-semibold text-foreground/80">No diff available</h4>
+
+        <p className="mb-2 max-w-[280px] text-center text-sm text-muted-foreground/60 leading-relaxed">
+          This task was completed without a recorded commit.
+        </p>
+
+        {/* Story 8.11 Task 2.4: Tooltip explaining why diff is unavailable */}
+        <button
+          className="text-xs text-muted-foreground/40 underline decoration-dotted underline-offset-2 hover:text-muted-foreground/60 transition-colors"
+          title="Tasks completed before git integration or with worktree skipped don't have diff history"
+        >
+          Why is this?
+        </button>
+      </div>
+    )
+  }
+
   // GitHub-style empty state
   if (!hasChanges) {
     return (
@@ -310,10 +391,16 @@ export function DiffPlaceholder({ taskId }: DiffPlaceholderProps): React.JSX.Ele
       )}
       data-testid="diff-content"
       data-compact={isCompactMode}
+      data-mode={diffMode}
       tabIndex={0}
       onKeyDown={handleKeyDown}
       aria-label="Diff viewer. Press V to toggle between unified and split view."
     >
+      {/* Story 8.11 Task 3.4: Show commit header for historical diffs */}
+      {diffMode === 'historical' && commitInfo && (
+        <DiffCommitHeader commit={commitInfo} branchName={task?.branch_name} />
+      )}
+
       {/* GitHub-style header with refined controls */}
       <div className="flex items-center justify-between gap-3 border-b border-border/10 bg-background px-5 py-3.5">
         <DiffSummaryBar

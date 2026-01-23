@@ -47,6 +47,8 @@ export interface TaskDetailContentProps {
     // Story 8.7: Merge conflict tracking
     has_merge_conflict?: number | null
     conflict_files?: string | null
+    // Story 8.11: Merge commit SHA for historical diffs
+    merge_commit_sha?: string | null
     created_at: Date
     updated_at: Date
   } | null
@@ -622,7 +624,8 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               showHeader={false}
               className={cn('h-full', !isVisible('diff') && 'hidden')}
             >
-              <DiffPlaceholder taskId={taskId} />
+              {/* Story 8.11 Task 5.2: Pass task for mobile layout diff mode determination */}
+              <DiffPlaceholder task={task ?? undefined} />
             </QuadPaneSection>
           </div>
         </>

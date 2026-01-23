@@ -828,6 +828,109 @@ export const gitRouter = router({
     }),
 
   /**
+   * Compare a commit with current HEAD.
+   *
+   * Shows what changed between a task's merge commit and the current HEAD.
+   * Useful for seeing if a task's changes were later modified.
+   *
+   * @param input.commitSha - The commit SHA to compare against HEAD
+   * @returns GitDiffResult with files and summary, plus isAncestor flag
+   * @throws TRPCError if commit doesn't exist or git command fails
+   *
+   * @see Story 8.11: AC 5 - Compare with current feature
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.git.compareWithHead.query({ commitSha: 'abc123def' })
+   * if (result.isAncestor && result.files.length === 0) {
+   *   console.log('No changes since this commit')
+   * }
+   * ```
+   */
+  compareWithHead: publicProcedure
+    .input(
+      z.object({
+        commitSha: z.string().min(1, 'commitSha is required')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await GitService.compareWithHead(ctx.projectRoot, input.commitSha)
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('unknown revision') || error.message.includes('bad object')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: `Commit not found: ${input.commitSha}`
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to compare with HEAD: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
+   * Get commit information for a merge commit SHA.
+   *
+   * Returns metadata about a commit including SHA, message, author, and date.
+   * Used by DiffCommitHeader to display context for historical diffs.
+   *
+   * @param input.commitSha - The commit SHA to get info for
+   * @returns CommitInfo with sha, message, author, and date
+   * @throws TRPCError if commit doesn't exist or git command fails
+   *
+   * @see Story 8.11: Task 3.2 - Commit info header for historical diffs
+   *
+   * @example
+   * ```typescript
+   * const commit = await trpc.git.getCommitInfo.query({ commitSha: 'abc123def' })
+   * console.log(`Commit by ${commit.author}: ${commit.message}`)
+   * ```
+   */
+  getCommitInfo: publicProcedure
+    .input(
+      z.object({
+        commitSha: z.string().min(1, 'commitSha is required')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        // Story 8.11 Task 3.2: Get commit info using GitService (secure, no injection risk)
+        return await GitService.getCommitInfo(ctx.projectRoot, input.commitSha)
+      } catch (error) {
+        if (error instanceof GitError) {
+          if (error.message.includes('Commit not found')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: error.message
+            })
+          }
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message
+          })
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get commit info: ${errorMessage}`
+        })
+      }
+    }),
+
+  /**
    * List orphaned worktrees (worktrees without active tasks).
    *
    * Returns worktrees in .tinsu/worktrees/ that don't have a corresponding

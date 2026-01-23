@@ -14,3 +14,6 @@ export { registerTinsuTheme, TINSU_DARK_THEME, tinsuDarkTheme } from './theme'
 
 export { ViewModeToggle } from './ViewModeToggle'
 export type { ViewModeToggleProps } from './ViewModeToggle'
+
+export { DiffCommitHeader } from './DiffCommitHeader'
+export type { DiffCommitHeaderProps, CommitInfo } from './DiffCommitHeader'

@@ -4,7 +4,7 @@
  * Story TES-4.4: Monaco Diff Viewer Integration
  */
 
-import type { GitDiffHunk } from '@main/services/git.service'
+import type { GitDiffHunk } from '@shared/types/git-diff.types'
 
 /**
  * Language mapping from file extension to Monaco language identifier.

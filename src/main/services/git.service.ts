@@ -1005,6 +1005,179 @@ export class GitService {
   }
 
   /**
+   * Compares a commit with the current HEAD to see what changed since then.
+   *
+   * This is useful for viewing what happened to a task's changes after completion.
+   * Shows files that were modified between the task's merge commit and current HEAD.
+   *
+   * @param projectPath - Path to the git repository
+   * @param commitSha - The commit SHA to compare against HEAD
+   * @returns Parsed diff result with files and summary, plus metadata about ancestor status
+   * @throws GitError if commit doesn't exist or git command fails
+   *
+   * @see Story 8.11: AC 5 - Compare with current feature
+   *
+   * @example
+   * ```typescript
+   * const result = await GitService.compareWithHead('/path/to/repo', 'abc123def')
+   * if (result.isAncestor && result.files.length === 0) {
+   *   console.log('No changes since this commit')
+   * } else {
+   *   console.log(`${result.summary.filesChanged} files changed since this commit`)
+   * }
+   * ```
+   */
+  static async compareWithHead(
+    projectPath: string,
+    commitSha: string
+  ): Promise<GitDiffResult & { isAncestor: boolean }> {
+    this.validatePath(projectPath, 'compareWithHead')
+
+    if (!commitSha || typeof commitSha !== 'string') {
+      throw new GitError('Invalid commitSha: commitSha must be a non-empty string', 'compareWithHead')
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'compareWithHead'
+      )
+    }
+
+    try {
+      // Story 8.11 Task 4.5: Check if commit is ancestor of HEAD
+      let isAncestor = false
+      try {
+        await this.execGit(
+          ['merge-base', '--is-ancestor', commitSha, 'HEAD'],
+          normalizedPath,
+          GIT_BRANCH_TIMEOUT
+        )
+        isAncestor = true
+      } catch {
+        // Not an ancestor - commit may have been rebased or on different branch
+        isAncestor = false
+      }
+
+      // Story 8.11 Task 4.2: Get diff between commit and HEAD
+      const { stdout: diffOutput } = await this.execGit(
+        ['diff', `${commitSha}..HEAD`, '--unified=3'],
+        normalizedPath,
+        GIT_LARGE_OP_TIMEOUT
+      )
+
+      // Parse the diff
+      const diffResult = this.parseDiff(diffOutput)
+
+      return {
+        ...diffResult,
+        isAncestor
+      }
+    } catch (error) {
+      const err = error as ExecError
+      throw new GitError(
+        err.stderr || err.message || `Failed to compare ${commitSha} with HEAD`,
+        `git diff ${commitSha}..HEAD`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
+   * Get commit information for a specific commit SHA.
+   *
+   * Returns metadata about a commit including SHA, message, author, and date.
+   * Used by historical diff views to display commit context.
+   *
+   * @param projectPath - Path to the git repository
+   * @param commitSha - The commit SHA to get info for
+   * @returns Commit information object
+   * @throws GitError if commit not found or git operation fails
+   *
+   * @see Story 8.11: Historical Diff View - AC 4 (commit header)
+   *
+   * @example
+   * ```typescript
+   * const info = await GitService.getCommitInfo('/path/to/project', 'abc123def')
+   * console.log(`${info.author}: ${info.message}`)
+   * ```
+   */
+  static async getCommitInfo(
+    projectPath: string,
+    commitSha: string
+  ): Promise<{
+    sha: string
+    message?: string
+    author?: string
+    date?: string
+  }> {
+    this.validatePath(projectPath, 'getCommitInfo')
+
+    if (!commitSha || typeof commitSha !== 'string') {
+      throw new GitError('Invalid commitSha: commitSha must be a non-empty string', 'getCommitInfo')
+    }
+
+    const normalizedPath = resolve(projectPath)
+
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'getCommitInfo'
+      )
+    }
+
+    try {
+      // Story 8.11: Get commit info using git show
+      // Format: %H|%s|%an|%aI (full sha, subject, author name, author date ISO)
+      const { stdout: output } = await this.execGit(
+        ['show', '-s', '--format=%H|%s|%an|%aI', commitSha],
+        normalizedPath,
+        GIT_COMMAND_TIMEOUT
+      )
+
+      const trimmedOutput = output.trim()
+      const [sha, message, author, date] = trimmedOutput.split('|')
+
+      // Validate we got expected output structure
+      if (!sha) {
+        throw new GitError(
+          `Invalid git show output format for commit ${commitSha}`,
+          `git show -s --format=%H|%s|%an|%aI ${commitSha}`
+        )
+      }
+
+      return {
+        sha: sha.trim(),
+        message: message?.trim() || undefined,
+        author: author?.trim() || undefined,
+        date: date?.trim() || undefined
+      }
+    } catch (error) {
+      const err = error as ExecError
+
+      // Handle unknown commit SHA
+      if (err.stderr?.includes('unknown revision') || err.stderr?.includes('bad object')) {
+        throw new GitError(
+          `Commit not found: ${commitSha}`,
+          `git show -s ${commitSha}`,
+          err.code,
+          err.stderr
+        )
+      }
+
+      throw new GitError(
+        err.stderr || err.message || `Failed to get commit info for ${commitSha}`,
+        `git show -s ${commitSha}`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
    * Merges a worktree branch to main when a task is approved.
    *
    * @param projectPath - Path to the main git repository

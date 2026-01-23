@@ -10,6 +10,7 @@ import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 /**
  * Task data type for the workspace
  * Uses permissive types to accept both tRPC responses and prop-passed tasks
+ * Story 8.11: Added git metadata fields for historical diff support
  */
 export interface WorkspaceTask {
   id: string
@@ -21,6 +22,10 @@ export interface WorkspaceTask {
   full_content: string | null
   created_at: Date | string
   updated_at: Date | string
+  // Story 8.11: Git metadata for diff mode determination
+  worktree_path?: string | null
+  merge_commit_sha?: string | null
+  branch_name?: string | null
 }
 
 export interface ResizableWorkspaceProps {
@@ -301,7 +306,7 @@ export function ResizableWorkspace({
               onCollapse={handleCollapse}
             />
             <div className="min-h-0 flex-1">
-              <DiffPlaceholder taskId={task.id} />
+              <DiffPlaceholder task={task} />
             </div>
           </div>
         )}
@@ -432,7 +437,7 @@ export function ResizableWorkspace({
             onExpand={() => handleExpand('diff')}
           />
           <div className="min-h-0 flex-1">
-            <DiffPlaceholder taskId={task.id} />
+            <DiffPlaceholder task={task} />
           </div>
         </Panel>
       </Group>
