@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ArrowLeft, Pencil, Save, X, BookOpen, CheckCircle2, Copy, Check, Eye, Terminal, Activity, GitCompareArrows } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
@@ -11,15 +11,18 @@ import { TaskTerminal, type TaskTerminalRef } from '@renderer/components/task/Ta
 import { ActivitiesTab } from '@renderer/components/task/ActivitiesTab'
 import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { NotionEditor } from '@renderer/components/editor'
-import { useStoryViewStore } from '@renderer/stores'
+import { useStoryViewStore, useThemeStore } from '@renderer/stores'
 import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
 
 /**
  * Code block component with syntax highlighting and copy button.
+ * Theme-aware: adapts to light/dark mode.
  */
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false)
+  const theme = useThemeStore((state) => state.theme)
+  const isDark = theme === 'dark'
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(code)
@@ -27,25 +30,34 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     setTimeout(() => setCopied(false), 2000)
   }, [code])
 
-  // Custom theme based on oneDark but with cyan accents
+  // Select base theme based on current mode
+  const baseTheme = isDark ? oneDark : oneLight
+
+  // Custom theme with transparent background
   const customStyle = {
-    ...oneDark,
+    ...baseTheme,
     'pre[class*="language-"]': {
-      ...oneDark['pre[class*="language-"]'],
+      ...baseTheme['pre[class*="language-"]'],
       background: 'transparent',
       margin: 0,
       padding: 0
     },
     'code[class*="language-"]': {
-      ...oneDark['code[class*="language-"]'],
+      ...baseTheme['code[class*="language-"]'],
       background: 'transparent'
     }
   }
 
   return (
-    <div className="group relative my-4 overflow-hidden rounded-lg border border-border/30 bg-[#1a1b26]">
+    <div className={cn(
+      "group relative my-4 overflow-hidden rounded-lg border border-border/30",
+      isDark ? "bg-[#1a1b26]" : "bg-[#fdfcfa]"
+    )}>
       {/* Header with language label and copy button */}
-      <div className="flex items-center justify-between border-b border-border/20 bg-[#1a1b26] px-4 py-2">
+      <div className={cn(
+        "flex items-center justify-between border-b border-border/20 px-4 py-2",
+        isDark ? "bg-[#1a1b26]" : "bg-[#f6f5f3]"
+      )}>
         <span className="text-xs font-medium text-muted-foreground">
           {language || 'plaintext'}
         </span>

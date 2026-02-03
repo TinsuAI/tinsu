@@ -12,7 +12,7 @@ import { FeedbackHistory } from './FeedbackHistory'
 // Mock trpc
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
-    task: {
+    tasks: {
       getTaskVersions: {
         useQuery: vi.fn()
       }
@@ -75,10 +75,10 @@ describe('FeedbackHistory', () => {
 
   describe('loading state', () => {
     it('shows skeleton loaders when loading', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: undefined,
         isLoading: true
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<FeedbackHistory {...defaultProps} />)
 
@@ -89,10 +89,10 @@ describe('FeedbackHistory', () => {
 
   describe('empty state (AC: 4 - handle no prior rejections)', () => {
     it('shows empty state when no feedback exists', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: [],
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<FeedbackHistory {...defaultProps} />)
 
@@ -100,14 +100,14 @@ describe('FeedbackHistory', () => {
     })
 
     it('shows empty state when versions exist but none have feedback', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: [
           {
             ...mockVersionsWithFeedback[2] // pending version with no feedback
           }
         ],
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<FeedbackHistory {...defaultProps} />)
 
@@ -117,10 +117,10 @@ describe('FeedbackHistory', () => {
 
   describe('feedback display (AC: 4)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersionsWithFeedback,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('shows feedback entry count in header', () => {
@@ -159,10 +159,10 @@ describe('FeedbackHistory', () => {
 
   describe('inline comments expansion (AC: 4)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersionsWithFeedback,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('expands to show inline comments on click', async () => {
@@ -218,10 +218,10 @@ describe('FeedbackHistory', () => {
 
   describe('version navigation (AC: 4)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersionsWithFeedback,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('calls onVersionNavigate when "View diff" is clicked', async () => {
@@ -252,10 +252,10 @@ describe('FeedbackHistory', () => {
 
   describe('chronological ordering', () => {
     it('displays feedback in version order', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersionsWithFeedback,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<FeedbackHistory {...defaultProps} />)
 

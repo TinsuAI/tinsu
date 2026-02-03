@@ -284,7 +284,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   }, [])
 
   // Story 7.7: Fetch task versions for version comparison
-  const { data: taskVersions } = trpc.task.getTaskVersions.useQuery(
+  const { data: taskVersions } = trpc.tasks.getTaskVersions.useQuery(
     { taskId },
     { enabled: !!taskId && task?.status === 'review' }
   )

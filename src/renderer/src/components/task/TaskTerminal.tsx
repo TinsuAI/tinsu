@@ -62,7 +62,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500">
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         {isRestoringScrollback ? 'Restoring terminal history...' : 'Connecting to terminal...'}
       </div>
     )
@@ -81,7 +81,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   // TES-1.11: Show terminal for ended sessions to display historical content
   if (!isAttached && sessionState === 'none') {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500">No active session</div>
+      <div className="flex items-center justify-center h-full text-muted-foreground">No active session</div>
     )
   }
 
@@ -107,7 +107,7 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
     }
     if (sessionState === 'ended') {
       return (
-        <Badge variant="secondary" className="bg-zinc-600/20 text-zinc-400 border-zinc-600/30">
+        <Badge variant="secondary" className="bg-muted text-muted-foreground border-border">
           Session ended
         </Badge>
       )
@@ -131,8 +131,8 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   return (
     <div className="flex flex-col w-full h-full">
       {/* TES-1.10: Terminal header with session state indicator */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800 bg-zinc-900/50">
-        <span className="text-xs text-zinc-500">Terminal</span>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
+        <span className="text-xs text-muted-foreground">Terminal</span>
         {renderSessionBadge()}
       </div>
       <div className="flex-1 min-h-0">
@@ -142,11 +142,11 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
       {isInteractive || sessionState === 'stalled' ? (
         <TerminalInput ref={inputRef} taskId={taskId} />
       ) : sessionState === 'ended' ? (
-        <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500">
+        <div className="px-3 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground">
           Session ended — Move task to In Progress to start a new session
         </div>
       ) : (
-        <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500">
+        <div className="px-3 py-2 border-t border-border bg-muted/30 text-xs text-muted-foreground">
           Session inactive — Move task to In Progress to start a new session
         </div>
       )}

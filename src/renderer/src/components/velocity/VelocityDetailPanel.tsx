@@ -27,9 +27,9 @@ function DetailTooltip({
 
   const item = payload[0].payload
   return (
-    <div className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs shadow-lg">
-      <div className="font-medium">{item.count} tasks</div>
-      <div className="text-zinc-400">{format(new Date(item.date), 'EEE, MMM d')}</div>
+    <div className="rounded border border-border bg-popover px-2 py-1 text-xs shadow-lg">
+      <div className="font-medium text-foreground">{item.count} tasks</div>
+      <div className="text-muted-foreground">{format(new Date(item.date), 'EEE, MMM d')}</div>
     </div>
   )
 }
@@ -99,7 +99,7 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
                     ? 'text-green-500'
                     : percentChange < 0
                       ? 'text-red-500'
-                      : 'text-zinc-500'
+                      : 'text-muted-foreground'
                 }`}
                 data-testid="detail-percent-change"
               >
@@ -122,21 +122,21 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
                   <BarChart data={dailyChartData} margin={{ top: 5, right: 5, bottom: 20, left: 0 }}>
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      tick={{ fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#71717a' : '#64748b' }}
                       tickLine={false}
                       axisLine={false}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      tick={{ fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#71717a' : '#64748b' }}
                       tickLine={false}
                       axisLine={false}
                       width={20}
                     />
-                    <Tooltip content={<DetailTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
+                    <Tooltip content={<DetailTooltip />} cursor={{ fill: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }} />
                     <Bar dataKey="count" radius={[2, 2, 0, 0]} animationDuration={300}>
                       {dailyChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.count > 0 ? '#52525b' : '#27272a'} />
+                        <Cell key={`cell-${index}`} fill={entry.count > 0 ? (document.documentElement.classList.contains('dark') ? '#52525b' : '#94a3b8') : (document.documentElement.classList.contains('dark') ? '#27272a' : '#e2e8f0')} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -144,7 +144,7 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
               </div>
             ) : (
               <div
-                className="flex h-40 items-center justify-center rounded bg-zinc-800/50 text-sm text-muted-foreground"
+                className="flex h-40 items-center justify-center rounded bg-muted/50 text-sm text-muted-foreground"
                 data-testid="velocity-detail-empty"
               >
                 No completion data available
@@ -154,7 +154,7 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
 
           {/* Empty state message when no data */}
           {weeklyData?.totalCompleted === 0 && (
-            <div className="rounded-lg bg-zinc-800/50 p-4 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">
               Start completing tasks to see your velocity metrics here. Move tasks to the
               &quot;Done&quot; column to track your progress over time.
             </div>

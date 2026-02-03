@@ -61,27 +61,27 @@ function getEventIcon(eventType: ActivityEventType): React.ReactNode {
 function getIconColorClass(eventType: ActivityEventType): string {
   switch (eventType) {
     case 'status_change':
-      return 'text-blue-400'
+      return 'text-blue-500 dark:text-blue-400'
     case 'agent_start':
-      return 'text-green-400'
+      return 'text-green-500 dark:text-green-400'
     case 'agent_complete':
-      return 'text-green-400'
+      return 'text-green-500 dark:text-green-400'
     case 'tool_used':
-      return 'text-zinc-400'
+      return 'text-muted-foreground'
     case 'user_command':
-      return 'text-purple-400'
+      return 'text-purple-500 dark:text-purple-400'
     case 'automation_trigger':
-      return 'text-amber-400'
+      return 'text-amber-500 dark:text-amber-400'
     case 'error':
-      return 'text-red-400'
+      return 'text-red-500 dark:text-red-400'
     case 'session_ended':
-      return 'text-zinc-400'
+      return 'text-muted-foreground'
     case 'stall_detected':
-      return 'text-amber-400'
+      return 'text-amber-500 dark:text-amber-400'
     case 'stall_recovered':
-      return 'text-green-400'
+      return 'text-green-500 dark:text-green-400'
     default:
-      return 'text-zinc-400'
+      return 'text-muted-foreground'
   }
 }
 
@@ -195,7 +195,7 @@ export function ActivityItem({ activity, className }: ActivityItemProps): React.
   const formattedPayload = formatPayload(activity.event_type, payload)
 
   return (
-    <div className={cn('flex items-start gap-3 p-3 border-b border-zinc-800 last:border-b-0', className)}>
+    <div className={cn('flex items-start gap-3 p-3 border-b border-border last:border-b-0', className)}>
       {/* Icon */}
       <div className={cn('mt-0.5 flex-shrink-0', getIconColorClass(activity.event_type))}>
         {getEventIcon(activity.event_type)}
@@ -204,11 +204,11 @@ export function ActivityItem({ activity, className }: ActivityItemProps): React.
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500 font-mono">{timestamp}</span>
-          <span className="text-sm font-medium text-zinc-200">{eventTitle}</span>
+          <span className="text-xs text-muted-foreground font-mono">{timestamp}</span>
+          <span className="text-sm font-medium text-foreground">{eventTitle}</span>
         </div>
         {formattedPayload && (
-          <p className="text-sm text-zinc-400 mt-0.5 truncate" title={formattedPayload}>
+          <p className="text-sm text-muted-foreground mt-0.5 truncate" title={formattedPayload}>
             {formattedPayload}
           </p>
         )}

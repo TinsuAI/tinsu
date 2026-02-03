@@ -183,7 +183,7 @@ export function FeedbackHistory({
   className
 }: FeedbackHistoryProps): React.JSX.Element {
   // Fetch version history
-  const { data: versions, isLoading, error } = trpc.task.getTaskVersions.useQuery(
+  const { data: versions, isLoading, error } = trpc.tasks.getTaskVersions.useQuery(
     { taskId },
     { enabled: !!taskId }
   )
@@ -276,7 +276,7 @@ export function FeedbackHistory({
           }
 
           if (status === 'changes_requested' && version.inline_comments) {
-            // Note: inline_comments is already parsed by trpc.task.getTaskVersions
+            // Note: inline_comments is already parsed by trpc.tasks.getTaskVersions
             // This defensive check ensures type safety in case of direct DB access
             const comments = Array.isArray(version.inline_comments)
               ? (version.inline_comments as InlineComment[])

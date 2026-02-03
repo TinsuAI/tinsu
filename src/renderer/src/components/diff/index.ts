@@ -10,7 +10,14 @@ export type { MonacoDiffEditorProps } from './MonacoDiffEditor'
 export { getLanguageFromPath, reconstructFileContent } from './utils'
 export type { ReconstructedContent } from './utils'
 
-export { registerTinsuTheme, TINSU_DARK_THEME, tinsuDarkTheme } from './theme'
+export {
+  registerTinsuTheme,
+  registerTinsuThemes,
+  TINSU_DARK_THEME,
+  TINSU_LIGHT_THEME,
+  tinsuDarkTheme,
+  tinsuLightTheme
+} from './theme'
 
 export { ViewModeToggle } from './ViewModeToggle'
 export type { ViewModeToggleProps } from './ViewModeToggle'

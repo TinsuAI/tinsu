@@ -210,7 +210,7 @@ export function ReviewTimeline({
   className
 }: ReviewTimelineProps): React.JSX.Element {
   // Fetch version history
-  const { data: versions, isLoading, error } = trpc.task.getTaskVersions.useQuery(
+  const { data: versions, isLoading, error } = trpc.tasks.getTaskVersions.useQuery(
     { taskId },
     { enabled: !!taskId }
   )

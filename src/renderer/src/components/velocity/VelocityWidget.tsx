@@ -29,7 +29,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
   if (isLoading) {
     return (
       <div
-        className="h-8 w-32 animate-pulse rounded bg-zinc-800"
+        className="h-8 w-32 animate-pulse rounded bg-muted"
         data-testid="velocity-widget-loading"
         aria-label="Loading velocity data"
       />
@@ -40,7 +40,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
     return (
       <>
         <button
-          className="flex items-center gap-2 rounded px-2 py-1 text-sm text-muted-foreground hover:bg-zinc-800/50"
+          className="flex items-center gap-2 rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted/50"
           onClick={() => setDetailOpen(true)}
           data-testid="velocity-widget-empty"
           aria-label="No tasks completed yet. Click for details."
@@ -59,7 +59,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
   return (
     <>
       <button
-        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800/50"
+        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
         onClick={() => setDetailOpen(true)}
         aria-label={`${currentWeekCount} tasks completed this week. Click for details.`}
         data-testid="velocity-widget"
@@ -70,7 +70,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
         <span className="text-xs text-muted-foreground">this week</span>
         {trend > 0 && <TrendingUp className="h-3 w-3 text-green-500" data-testid="trend-up" />}
         {trend < 0 && <TrendingDown className="h-3 w-3 text-red-500" data-testid="trend-down" />}
-        {trend === 0 && <Minus className="h-3 w-3 text-zinc-500" data-testid="trend-neutral" />}
+        {trend === 0 && <Minus className="h-3 w-3 text-muted-foreground" data-testid="trend-neutral" />}
         <VelocityChart
           data={velocityData.weeks.map((w) => ({
             ...w,

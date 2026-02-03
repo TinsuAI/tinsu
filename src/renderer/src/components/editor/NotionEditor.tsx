@@ -370,7 +370,7 @@ export function NotionEditor({
           className="notion-floating-toolbar absolute z-50"
           style={{ top: Math.max(0, toolbarPosition.top), left: toolbarPosition.left }}
         >
-          <div className="flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#252526] p-1 shadow-2xl">
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-1 shadow-2xl">
             <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Bold">
               <Bold className="h-4 w-4" />
             </ToolbarButton>
@@ -386,11 +386,11 @@ export function NotionEditor({
             <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Code">
               <Code className="h-4 w-4" />
             </ToolbarButton>
-            <div className="mx-1 h-4 w-px bg-white/10" />
+            <div className="mx-1 h-4 w-px bg-border" />
             <ToolbarButton onClick={setLink} isActive={editor.isActive('link')} title="Link">
               <LinkIcon className="h-4 w-4" />
             </ToolbarButton>
-            <div className="mx-1 h-4 w-px bg-white/10" />
+            <div className="mx-1 h-4 w-px bg-border" />
             <ToolbarButton onClick={() => editor.chain().focus().setParagraph().run()} isActive={editor.isActive('paragraph') && !editor.isActive('heading')} title="Text">
               <Pilcrow className="h-4 w-4" />
             </ToolbarButton>
@@ -413,7 +413,7 @@ export function NotionEditor({
         >
           {/* Search hint */}
           <div className="slash-menu-header">
-            <TextCursorInput className="h-3.5 w-3.5 text-[#9b9b9b]" />
+            <TextCursorInput className="h-3.5 w-3.5 text-muted-foreground" />
             <span>{slashQuery ? `Filtering: ${slashQuery}` : 'Type to filter...'}</span>
           </div>
 
@@ -473,7 +473,7 @@ export function NotionEditor({
 
       <style>{`
         /* ═══════════════════════════════════════════════════════════════
-           NOTION EDITOR - Core Styles
+           NOTION EDITOR - Core Styles (Theme-Aware)
            A whisper-quiet editor that lets content breathe
            ═══════════════════════════════════════════════════════════════ */
 
@@ -496,7 +496,7 @@ export function NotionEditor({
         .notion-editor-content .is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
-          color: #6b6b6b;
+          color: var(--muted-foreground, #6b6b6b);
           pointer-events: none;
           height: 0;
           font-weight: 400;
@@ -511,14 +511,13 @@ export function NotionEditor({
           position: absolute;
           z-index: 50;
           width: 320px;
-          background: #252526;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--popover, #252526);
+          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
           border-radius: 12px;
           box-shadow:
             0 0 0 1px rgba(0, 0, 0, 0.05),
-            0 4px 6px -1px rgba(0, 0, 0, 0.3),
-            0 12px 24px -4px rgba(0, 0, 0, 0.4),
-            0 0 40px -8px rgba(0, 0, 0, 0.3);
+            0 4px 6px -1px rgba(0, 0, 0, 0.15),
+            0 12px 24px -4px rgba(0, 0, 0, 0.2);
           overflow: hidden;
           animation: slashMenuIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -539,10 +538,10 @@ export function NotionEditor({
           align-items: center;
           gap: 8px;
           padding: 10px 14px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
           font-size: 12px;
-          color: #6b6b6b;
-          background: rgba(255, 255, 255, 0.02);
+          color: var(--muted-foreground, #6b6b6b);
+          background: var(--muted, rgba(255, 255, 255, 0.02));
         }
 
         .slash-menu-content {
@@ -561,12 +560,12 @@ export function NotionEditor({
         }
 
         .slash-menu-content::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--border, rgba(255, 255, 255, 0.1));
           border-radius: 4px;
         }
 
         .slash-menu-content::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.15);
+          background: var(--muted-foreground, rgba(255, 255, 255, 0.15));
         }
 
         .slash-menu-group {
@@ -583,7 +582,7 @@ export function NotionEditor({
           font-weight: 500;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: #6b6b6b;
+          color: var(--muted-foreground, #6b6b6b);
         }
 
         .slash-menu-item {
@@ -602,7 +601,7 @@ export function NotionEditor({
 
         .slash-menu-item:hover,
         .slash-menu-item.selected {
-          background: rgba(255, 255, 255, 0.06);
+          background: var(--accent, rgba(255, 255, 255, 0.06));
         }
 
         .slash-menu-icon {
@@ -612,9 +611,9 @@ export function NotionEditor({
           width: 46px;
           height: 46px;
           border-radius: 8px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          color: #a0a0a0;
+          background: var(--muted, rgba(255, 255, 255, 0.04));
+          border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+          color: var(--muted-foreground, #a0a0a0);
           flex-shrink: 0;
           transition: all 0.15s ease;
         }
@@ -628,6 +627,11 @@ export function NotionEditor({
         .slash-menu-item:hover .slash-menu-icon {
           background: rgba(56, 189, 248, 0.1);
           border-color: rgba(56, 189, 248, 0.2);
+          color: #0891b2;
+        }
+
+        .dark .slash-menu-item.selected .slash-menu-icon,
+        .dark .slash-menu-item:hover .slash-menu-icon {
           color: #38bdf8;
         }
 
@@ -642,13 +646,13 @@ export function NotionEditor({
         .slash-menu-title {
           font-size: 14px;
           font-weight: 500;
-          color: #e4e4e4;
+          color: var(--foreground, #e4e4e4);
           line-height: 1.3;
         }
 
         .slash-menu-desc {
           font-size: 12px;
-          color: #7a7a7a;
+          color: var(--muted-foreground, #7a7a7a);
           line-height: 1.3;
           white-space: nowrap;
           overflow: hidden;
@@ -661,10 +665,10 @@ export function NotionEditor({
           justify-content: center;
           gap: 16px;
           padding: 8px 14px;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.02);
+          border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+          background: var(--muted, rgba(255, 255, 255, 0.02));
           font-size: 11px;
-          color: #5a5a5a;
+          color: var(--muted-foreground, #5a5a5a);
         }
 
         .slash-menu-footer kbd {
@@ -678,26 +682,26 @@ export function NotionEditor({
           font-family: inherit;
           font-size: 10px;
           font-weight: 500;
-          background: rgba(255, 255, 255, 0.06);
+          background: var(--muted, rgba(255, 255, 255, 0.06));
           border-radius: 4px;
-          color: #8a8a8a;
+          color: var(--muted-foreground, #8a8a8a);
         }
 
         .slash-menu-empty {
           padding: 24px;
           text-align: center;
-          color: #6b6b6b;
+          color: var(--muted-foreground, #6b6b6b);
           font-size: 13px;
         }
 
         /* ═══════════════════════════════════════════════════════════════
-           TYPOGRAPHY - Careful weight distribution
+           TYPOGRAPHY - Theme-Aware colors
            ═══════════════════════════════════════════════════════════════ */
 
         .notion-editor-content p {
           margin-bottom: 0.75rem;
           line-height: 1.7;
-          color: rgba(255, 255, 255, 0.85);
+          color: var(--foreground, #1a1a1a);
         }
 
         .notion-editor-content h1 {
@@ -706,7 +710,7 @@ export function NotionEditor({
           margin-top: 2rem;
           margin-bottom: 0.75rem;
           line-height: 1.25;
-          color: #fff;
+          color: var(--foreground, #1a1a1a);
           letter-spacing: -0.02em;
         }
 
@@ -720,7 +724,7 @@ export function NotionEditor({
           margin-top: 1.75rem;
           margin-bottom: 0.5rem;
           line-height: 1.3;
-          color: #fff;
+          color: var(--foreground, #1a1a1a);
           letter-spacing: -0.01em;
         }
 
@@ -730,7 +734,7 @@ export function NotionEditor({
           margin-top: 1.5rem;
           margin-bottom: 0.5rem;
           line-height: 1.35;
-          color: #fff;
+          color: var(--foreground, #1a1a1a);
         }
 
         /* Lists */
@@ -749,7 +753,7 @@ export function NotionEditor({
         .notion-editor-content li {
           line-height: 1.7;
           margin-bottom: 0.25rem;
-          color: rgba(255, 255, 255, 0.85);
+          color: var(--foreground, #1a1a1a);
         }
 
         .notion-editor-content li p {
@@ -779,7 +783,7 @@ export function NotionEditor({
           appearance: none;
           width: 16px;
           height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.25);
+          border: 2px solid var(--border, rgba(0, 0, 0, 0.25));
           border-radius: 4px;
           cursor: pointer;
           transition: all 0.15s ease;
@@ -787,54 +791,76 @@ export function NotionEditor({
         }
 
         .notion-task-item > label > input[type="checkbox"]:hover {
+          border-color: #0891b2;
+        }
+
+        .dark .notion-task-item > label > input[type="checkbox"]:hover {
           border-color: #38bdf8;
         }
 
         .notion-task-item > label > input[type="checkbox"]:checked {
-          background: #38bdf8;
-          border-color: #38bdf8;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%23000'%3E%3Cpath d='M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z'/%3E%3C/svg%3E");
+          background: #0891b2;
+          border-color: #0891b2;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%23fff'%3E%3Cpath d='M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z'/%3E%3C/svg%3E");
           background-size: 10px;
           background-position: center;
           background-repeat: no-repeat;
         }
 
+        .dark .notion-task-item > label > input[type="checkbox"]:checked {
+          background: #38bdf8;
+          border-color: #38bdf8;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%23000'%3E%3Cpath d='M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z'/%3E%3C/svg%3E");
+        }
+
         .notion-task-item[data-checked="true"] > div {
           text-decoration: line-through;
-          color: rgba(255, 255, 255, 0.4);
+          color: var(--muted-foreground, rgba(0, 0, 0, 0.4));
         }
 
         /* Blockquote */
         .notion-editor-content blockquote {
-          border-left: 3px solid rgba(56, 189, 248, 0.4);
+          border-left: 3px solid #0891b2;
           padding-left: 1rem;
           margin: 1rem 0;
-          color: rgba(255, 255, 255, 0.6);
+          color: var(--muted-foreground, rgba(0, 0, 0, 0.6));
+        }
+
+        .dark .notion-editor-content blockquote {
+          border-left-color: rgba(56, 189, 248, 0.4);
         }
 
         /* Code */
         .notion-editor-content code {
-          background: rgba(255, 255, 255, 0.08);
+          background: var(--muted, rgba(0, 0, 0, 0.06));
           padding: 0.15rem 0.4rem;
           border-radius: 4px;
           font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
           font-size: 0.875em;
+          color: #db2777;
+        }
+
+        .dark .notion-editor-content code {
           color: #f472b6;
         }
 
         .notion-editor-content pre {
-          background: #1a1a1a;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--muted, #f5f5f5);
+          border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
           border-radius: 8px;
           padding: 1rem;
           margin: 1rem 0;
           overflow-x: auto;
         }
 
+        .dark .notion-editor-content pre {
+          background: #1a1a1a;
+        }
+
         .notion-editor-content pre code {
           background: none;
           padding: 0;
-          color: rgba(255, 255, 255, 0.85);
+          color: var(--foreground, #1a1a1a);
           font-size: 0.875rem;
           line-height: 1.6;
         }
@@ -843,27 +869,36 @@ export function NotionEditor({
         .notion-editor-content hr {
           border: none;
           height: 1px;
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--border, rgba(0, 0, 0, 0.1));
           margin: 2rem 0;
         }
 
         /* Links */
         .notion-link {
-          color: #38bdf8;
+          color: #0891b2;
           text-decoration: underline;
           text-underline-offset: 2px;
-          text-decoration-color: rgba(56, 189, 248, 0.3);
+          text-decoration-color: rgba(8, 145, 178, 0.3);
           transition: text-decoration-color 0.15s;
         }
 
+        .dark .notion-link {
+          color: #38bdf8;
+          text-decoration-color: rgba(56, 189, 248, 0.3);
+        }
+
         .notion-link:hover {
+          text-decoration-color: rgba(8, 145, 178, 0.6);
+        }
+
+        .dark .notion-link:hover {
           text-decoration-color: rgba(56, 189, 248, 0.6);
         }
 
         /* Strong and Emphasis */
         .notion-editor-content strong {
           font-weight: 600;
-          color: #fff;
+          color: var(--foreground, #1a1a1a);
         }
 
         .notion-editor-content em {
@@ -872,7 +907,7 @@ export function NotionEditor({
 
         .notion-editor-content s {
           text-decoration: line-through;
-          color: rgba(255, 255, 255, 0.4);
+          color: var(--muted-foreground, rgba(0, 0, 0, 0.4));
         }
 
         .notion-editor-content u {
@@ -882,6 +917,10 @@ export function NotionEditor({
 
         /* Selection */
         .notion-editor-content ::selection {
+          background: rgba(8, 145, 178, 0.2);
+        }
+
+        .dark .notion-editor-content ::selection {
           background: rgba(56, 189, 248, 0.25);
         }
       `}</style>
@@ -910,8 +949,8 @@ function ToolbarButton({
       className={cn(
         'flex h-7 w-7 items-center justify-center rounded-md transition-all duration-100',
         isActive
-          ? 'bg-sky-500/20 text-sky-400'
-          : 'text-[#a0a0a0] hover:bg-white/[0.06] hover:text-white'
+          ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       {children}

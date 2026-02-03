@@ -12,7 +12,7 @@ import { ReviewTimeline } from './ReviewTimeline'
 // Mock trpc
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
-    task: {
+    tasks: {
       getTaskVersions: {
         useQuery: vi.fn()
       }
@@ -70,10 +70,10 @@ describe('ReviewTimeline', () => {
 
   describe('loading state', () => {
     it('shows skeleton loaders when loading', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: undefined,
         isLoading: true
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<ReviewTimeline {...defaultProps} />)
 
@@ -84,10 +84,10 @@ describe('ReviewTimeline', () => {
 
   describe('empty state', () => {
     it('shows empty state message when no versions exist', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: [],
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<ReviewTimeline {...defaultProps} />)
 
@@ -97,10 +97,10 @@ describe('ReviewTimeline', () => {
 
   describe('timeline display (AC: 3)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('renders all version nodes', () => {
@@ -146,10 +146,10 @@ describe('ReviewTimeline', () => {
 
   describe('version selection', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('highlights selected version', () => {
@@ -175,10 +175,10 @@ describe('ReviewTimeline', () => {
 
   describe('timeline flow visualization', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('renders transition arrows between versions', () => {
@@ -193,7 +193,7 @@ describe('ReviewTimeline', () => {
 
   describe('timestamp formatting', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: [
           {
             ...mockVersions[0],
@@ -201,7 +201,7 @@ describe('ReviewTimeline', () => {
           }
         ],
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('shows relative time for recent versions', () => {

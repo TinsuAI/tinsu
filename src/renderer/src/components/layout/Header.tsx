@@ -8,6 +8,7 @@ import { FilterButton, FilterPanel, FilterSummary } from '@renderer/components/f
 import { VelocityWidget } from '@renderer/components/velocity'
 import { ProjectSwitcher } from '@renderer/components/project'
 import { Button } from '@renderer/components/ui/button'
+import { ThemeToggle } from '@renderer/components/ui/theme-toggle'
 
 interface HeaderProps {
   className?: string
@@ -135,6 +136,9 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
               Settings
             </Button>
           )}
+
+          {/* Theme toggle - light/dark mode switch */}
+          <ThemeToggle />
 
         </div>
       </header>

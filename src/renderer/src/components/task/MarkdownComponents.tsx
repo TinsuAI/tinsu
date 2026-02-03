@@ -69,7 +69,7 @@ export const markdownComponents = {
 
     if (isInline) {
       return (
-        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-cyan-400">
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-cyan-600 dark:text-cyan-400">
           {children}
         </code>
       )
@@ -98,7 +98,7 @@ export const markdownComponents = {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-cyan-400 underline decoration-cyan-400/30 underline-offset-2 transition-colors hover:text-cyan-300 hover:decoration-cyan-300/50"
+      className="text-cyan-600 dark:text-cyan-400 underline decoration-cyan-600/30 dark:decoration-cyan-400/30 underline-offset-2 transition-colors hover:text-cyan-500 dark:hover:text-cyan-300 hover:decoration-cyan-500/50 dark:hover:decoration-cyan-300/50"
     >
       {children}
     </a>

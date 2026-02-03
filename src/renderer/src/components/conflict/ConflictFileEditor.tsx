@@ -14,7 +14,8 @@ import { cn } from '@renderer/lib/utils'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { Button } from '@renderer/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
-import { registerTinsuTheme, TINSU_DARK_THEME } from '../diff/theme'
+import { registerTinsuThemes, TINSU_DARK_THEME, TINSU_LIGHT_THEME } from '../diff/theme'
+import { useThemeStore } from '@renderer/stores'
 import {
   parseConflictRegions,
   getConflictLineRanges,
@@ -66,6 +67,10 @@ export function ConflictFileEditor({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [localContent, setLocalContent] = useState(content)
+
+  // Get current theme from store
+  const theme = useThemeStore((state) => state.theme)
+  const monacoTheme = theme === 'dark' ? TINSU_DARK_THEME : TINSU_LIGHT_THEME
 
   // Refs for Monaco instances
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
@@ -292,10 +297,10 @@ export function ConflictFileEditor({
     monacoRef.current = monaco
     if (!themeRegisteredRef.current) {
       try {
-        registerTinsuTheme(monaco)
+        registerTinsuThemes(monaco)
         themeRegisteredRef.current = true
       } catch (err) {
-        console.error('Failed to register Monaco theme:', err)
+        console.error('Failed to register Monaco themes:', err)
         setError('Failed to initialize theme.')
       }
     }
@@ -414,7 +419,7 @@ export function ConflictFileEditor({
         value={localContent}
         onChange={handleEditorChange}
         language={language}
-        theme={TINSU_DARK_THEME}
+        theme={monacoTheme}
         height="100%"
         beforeMount={handleBeforeMount}
         onMount={handleMount}

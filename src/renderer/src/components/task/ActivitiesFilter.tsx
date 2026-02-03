@@ -41,28 +41,28 @@ const FILTER_CHIPS: {
 
 /**
  * Color class mappings for filter chips.
- * Using explicit classes instead of template strings for Tailwind JIT compatibility.
+ * Theme-aware: uses semantic colors that work in both light and dark modes.
  */
 const COLOR_CLASSES: Record<FilterCategory, { selected: string; unselected: string }> = {
   all: {
-    selected: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30',
-    unselected: 'bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700'
+    selected: 'bg-muted text-foreground border-border',
+    unselected: 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
   },
   status: {
-    selected: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    unselected: 'bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700'
+    selected: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
+    unselected: 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
   },
   agent: {
-    selected: 'bg-green-500/20 text-green-400 border-green-500/30',
-    unselected: 'bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700'
+    selected: 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30',
+    unselected: 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
   },
   user: {
-    selected: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    unselected: 'bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700'
+    selected: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
+    unselected: 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
   },
   error: {
-    selected: 'bg-red-500/20 text-red-400 border-red-500/30',
-    unselected: 'bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700'
+    selected: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
+    unselected: 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
   }
 }
 
@@ -114,8 +114,8 @@ export function ActivitiesFilter({
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 bg-zinc-900/50">
-      <span className="text-xs text-zinc-500 mr-1">Filter:</span>
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+      <span className="text-xs text-muted-foreground mr-1">Filter:</span>
       {FILTER_CHIPS.map((chip) => {
         const isSelected = selectedFilters.includes(chip.id)
         const Icon = chip.icon

@@ -124,7 +124,7 @@ export function VersionSelector({
   className
 }: VersionSelectorProps): React.JSX.Element {
   // Fetch version history for the task
-  const { data: versions, isLoading, error } = trpc.task.getTaskVersions.useQuery(
+  const { data: versions, isLoading, error } = trpc.tasks.getTaskVersions.useQuery(
     { taskId },
     { enabled: !!taskId }
   )

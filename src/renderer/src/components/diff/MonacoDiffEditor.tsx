@@ -19,7 +19,8 @@ import { cn } from '@renderer/lib/utils'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { Button } from '@renderer/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
-import { registerTinsuTheme, TINSU_DARK_THEME } from './theme'
+import { registerTinsuThemes, TINSU_DARK_THEME, TINSU_LIGHT_THEME } from './theme'
+import { useThemeStore } from '@renderer/stores'
 
 // Configure Monaco to load from local public directory
 // This prevents CSP violations in Electron
@@ -118,6 +119,10 @@ export function MonacoDiffEditor({
   // Thread-safe theme registration tracking (per component instance)
   const themeRegisteredRef = useRef(false)
 
+  // Get current theme from store
+  const theme = useThemeStore((state) => state.theme)
+  const monacoTheme = theme === 'dark' ? TINSU_DARK_THEME : TINSU_LIGHT_THEME
+
   // Ref to the Monaco diff editor instance for dynamic option updates (TES-4.5)
   const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
 
@@ -129,15 +134,15 @@ export function MonacoDiffEditor({
 
   /**
    * Handler called before Monaco mounts.
-   * Registers the custom TinSu theme with error handling.
+   * Registers the custom TinSu themes (both light and dark) with error handling.
    */
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     if (!themeRegisteredRef.current) {
       try {
-        registerTinsuTheme(monaco)
+        registerTinsuThemes(monaco)
         themeRegisteredRef.current = true
       } catch (err) {
-        console.error('Failed to register Monaco theme:', err)
+        console.error('Failed to register Monaco themes:', err)
         setError('Failed to initialize theme. Using default theme.')
       }
     }
@@ -386,7 +391,7 @@ export function MonacoDiffEditor({
       className={cn(
         'relative monaco-diff-wrapper',
         'rounded-md border border-border/20',
-        'bg-[#0d1117]',
+        theme === 'dark' ? 'bg-[#0d1117]' : 'bg-[#fdfcfa]',
         'shadow-sm',
         className
       )}
@@ -402,7 +407,10 @@ export function MonacoDiffEditor({
       {/* GitHub-style loading skeleton */}
       {isLoading && !error && (
         <div
-          className="absolute inset-0 z-10 flex flex-col gap-1.5 bg-[#0d1117] p-4"
+          className={cn(
+            'absolute inset-0 z-10 flex flex-col gap-1.5 p-4',
+            theme === 'dark' ? 'bg-[#0d1117]' : 'bg-[#fdfcfa]'
+          )}
           data-testid="monaco-loading"
         >
           <Skeleton className="h-4 w-full bg-muted/10" />
@@ -416,7 +424,10 @@ export function MonacoDiffEditor({
       {/* GitHub-style error state */}
       {error && (
         <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#0d1117] p-4"
+          className={cn(
+            'absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-4',
+            theme === 'dark' ? 'bg-[#0d1117]' : 'bg-[#fdfcfa]'
+          )}
           data-testid="monaco-error"
         >
           <div className="rounded-lg bg-[#f85149]/10 p-4">
@@ -443,7 +454,7 @@ export function MonacoDiffEditor({
         original={original}
         modified={modified}
         language={language}
-        theme={TINSU_DARK_THEME}
+        theme={monacoTheme}
         height={calculatedHeight}
         beforeMount={handleBeforeMount}
         onMount={handleMount}

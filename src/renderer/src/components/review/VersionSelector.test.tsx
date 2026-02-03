@@ -12,7 +12,7 @@ import { VersionSelector } from './VersionSelector'
 // Mock trpc
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
-    task: {
+    tasks: {
       getTaskVersions: {
         useQuery: vi.fn()
       }
@@ -71,10 +71,10 @@ describe('VersionSelector', () => {
 
   describe('loading state', () => {
     it('shows loading skeleton when fetching versions', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: undefined,
         isLoading: true
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<VersionSelector {...defaultProps} />)
 
@@ -86,10 +86,10 @@ describe('VersionSelector', () => {
 
   describe('empty state (AC: Edge case - single submission)', () => {
     it('shows "First review" when no versions exist', () => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: [],
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
       render(<VersionSelector {...defaultProps} />)
 
@@ -99,10 +99,10 @@ describe('VersionSelector', () => {
 
   describe('version display (AC: 1)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('defaults to latest version when none selected', () => {
@@ -135,10 +135,10 @@ describe('VersionSelector', () => {
 
   describe('comparison mode (AC: 2)', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('shows comparison selector when multiple versions exist', () => {
@@ -177,10 +177,10 @@ describe('VersionSelector', () => {
 
   describe('callbacks', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     // Note: Radix UI Select dropdown content uses portals that don't render in JSDOM.
@@ -238,10 +238,10 @@ describe('VersionSelector', () => {
 
   describe('status badge colors', () => {
     beforeEach(() => {
-      vi.mocked(trpc.task.getTaskVersions.useQuery).mockReturnValue({
+      vi.mocked(trpc.tasks.getTaskVersions.useQuery).mockReturnValue({
         data: mockVersions,
         isLoading: false
-      } as ReturnType<typeof trpc.task.getTaskVersions.useQuery>)
+      } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
     })
 
     it('shows red badge for rejected versions', () => {

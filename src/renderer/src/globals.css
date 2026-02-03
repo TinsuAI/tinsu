@@ -1,3 +1,6 @@
+/* Import beautiful fonts - must come before other imports */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
 @import 'tailwindcss';
 
 /* Dark mode variant for shadcn/ui */
@@ -43,44 +46,87 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Light mode (base, not used in TinSu but required for shadcn structure) */
+/* =====================================================
+   LIGHT MODE - Sunrise Studio Theme (DEFAULT)
+   Warm, editorial, sophisticated with paper-like textures
+   ===================================================== */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.14 0 0);
-  --card: oklch(0.98 0 0);
-  --card-foreground: oklch(0.14 0 0);
-  --popover: oklch(0.98 0 0);
-  --popover-foreground: oklch(0.14 0 0);
-  --primary: oklch(0.21 0.01 285);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.93 0.01 285);
-  --secondary-foreground: oklch(0.21 0.01 285);
-  --muted: oklch(0.93 0.01 285);
-  --muted-foreground: oklch(0.45 0.01 285);
-  --accent: oklch(0.93 0.01 285);
-  --accent-foreground: oklch(0.21 0.01 285);
-  --destructive: oklch(0.53 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.87 0.01 285);
-  --input: oklch(0.87 0.01 285);
-  --ring: oklch(0.21 0.01 285);
-  --chart-1: oklch(0.65 0.18 230);
-  --chart-2: oklch(0.73 0.15 160);
-  --chart-3: oklch(0.55 0.05 285);
-  --chart-4: oklch(0.78 0.15 85);
-  --chart-5: oklch(0.68 0.18 30);
-  --sidebar: oklch(0.96 0.01 285);
-  --sidebar-foreground: oklch(0.14 0 0);
-  --sidebar-primary: oklch(0.21 0.01 285);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.93 0.01 285);
-  --sidebar-accent-foreground: oklch(0.21 0.01 285);
-  --sidebar-border: oklch(0.87 0.01 285);
-  --sidebar-ring: oklch(0.21 0.01 285);
+
+  /* Core backgrounds - warm cream/paper tones */
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.18 0.02 260);
+
+  /* Card surfaces - subtle elevation with warm white */
+  --card: oklch(0.995 0.005 85);
+  --card-foreground: oklch(0.18 0.02 260);
+
+  /* Popovers - crisp white with depth */
+  --popover: oklch(0.998 0.002 85);
+  --popover-foreground: oklch(0.18 0.02 260);
+
+  /* Primary - rich indigo/navy for authority */
+  --primary: oklch(0.45 0.16 260);
+  --primary-foreground: oklch(0.98 0.005 260);
+
+  /* Secondary - warm stone/taupe */
+  --secondary: oklch(0.94 0.012 70);
+  --secondary-foreground: oklch(0.35 0.03 70);
+
+  /* Muted - soft sage undertone */
+  --muted: oklch(0.96 0.008 90);
+  --muted-foreground: oklch(0.5 0.02 260);
+
+  /* Accent - warm terracotta/coral highlight */
+  --accent: oklch(0.95 0.02 50);
+  --accent-foreground: oklch(0.35 0.08 50);
+
+  /* Destructive - refined coral red */
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+
+  /* Borders - warm gray with subtle warmth */
+  --border: oklch(0.88 0.012 80);
+  --input: oklch(0.92 0.01 80);
+  --ring: oklch(0.55 0.14 260);
+
+  /* Chart colors - warm palette */
+  --chart-1: oklch(0.55 0.16 260);
+  --chart-2: oklch(0.65 0.14 165);
+  --chart-3: oklch(0.7 0.12 50);
+  --chart-4: oklch(0.6 0.15 320);
+  --chart-5: oklch(0.55 0.14 30);
+
+  /* Sidebar - slightly cooler paper tone */
+  --sidebar: oklch(0.975 0.01 80);
+  --sidebar-foreground: oklch(0.2 0.02 260);
+  --sidebar-primary: oklch(0.45 0.16 260);
+  --sidebar-primary-foreground: oklch(0.98 0.005 260);
+  --sidebar-accent: oklch(0.94 0.015 60);
+  --sidebar-accent-foreground: oklch(0.3 0.04 260);
+  --sidebar-border: oklch(0.9 0.01 80);
+  --sidebar-ring: oklch(0.55 0.14 260);
+
+  /* Kanban-specific variables - Light mode */
+  --kanban-column-bg: oklch(0.97 0.008 85);
+  --kanban-column-header: oklch(0.98 0.006 85);
+  --kanban-card-bg: oklch(0.998 0.003 85);
+  --kanban-card-hover: oklch(0.995 0.006 85);
+  --kanban-glow-violet: oklch(0.55 0.18 280);
+  --kanban-glow-cyan: oklch(0.6 0.14 200);
+  --kanban-glow-emerald: oklch(0.6 0.14 160);
+  --kanban-glow-amber: oklch(0.7 0.15 70);
+
+  /* Status colors - light mode */
+  --status-backlog: oklch(0.5 0.08 260);
+  --status-in-progress: oklch(0.55 0.14 220);
+  --status-review: oklch(0.65 0.15 70);
+  --status-done: oklch(0.55 0.14 160);
 }
 
-/* Dark mode - Obsidian Studio palette with depth */
+/* =====================================================
+   DARK MODE - Obsidian Studio palette with depth
+   ===================================================== */
 .dark {
   --background: oklch(0.08 0.008 280);
   --foreground: oklch(0.95 0.005 280);
@@ -124,9 +170,17 @@
   --kanban-glow-cyan: oklch(0.7 0.15 200);
   --kanban-glow-emerald: oklch(0.7 0.15 160);
   --kanban-glow-amber: oklch(0.75 0.15 80);
+
+  /* Status colors - dark mode */
+  --status-backlog: oklch(0.5 0.08 280);
+  --status-in-progress: oklch(0.7 0.15 200);
+  --status-review: oklch(0.75 0.15 80);
+  --status-done: oklch(0.7 0.15 160);
 }
 
-/* Base styles */
+/* =====================================================
+   BASE STYLES
+   ===================================================== */
 * {
   border-color: var(--border);
 }
@@ -134,19 +188,20 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar - subtle, elegant, theme-matched */
+/* Monospace elements use JetBrains Mono */
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+/* =====================================================
+   SCROLLBAR STYLING - Theme-aware
+   ===================================================== */
 .kanban-scroll {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
@@ -154,6 +209,10 @@ body {
 }
 
 .kanban-scroll:hover {
+  scrollbar-color: oklch(0.6 0.01 260 / 0.3) transparent;
+}
+
+.dark .kanban-scroll:hover {
   scrollbar-color: oklch(0.3 0.01 285) transparent;
 }
 
@@ -168,36 +227,68 @@ body {
 }
 
 .kanban-scroll::-webkit-scrollbar-thumb {
-  background: oklch(0.2 0.01 285 / 0);
+  background: oklch(0.7 0.01 260 / 0);
   border-radius: 3px;
   transition: background 0.2s ease;
 }
 
 .kanban-scroll:hover::-webkit-scrollbar-thumb {
+  background: oklch(0.6 0.01 260 / 0.4);
+}
+
+.dark .kanban-scroll:hover::-webkit-scrollbar-thumb {
   background: oklch(0.35 0.01 285 / 0.6);
 }
 
 .kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0.01 260 / 0.6);
+}
+
+.dark .kanban-scroll::-webkit-scrollbar-thumb:hover {
   background: oklch(0.45 0.01 285 / 0.8);
 }
 
 .kanban-scroll::-webkit-scrollbar-thumb:active {
+  background: oklch(0.4 0.01 260 / 0.8);
+}
+
+.dark .kanban-scroll::-webkit-scrollbar-thumb:active {
   background: oklch(0.5 0.01 285);
 }
 
 /* =====================================================
-   KANBAN BOARD - Obsidian Studio Depth System
+   KANBAN BOARD - Theme-aware styling
    ===================================================== */
 
-/* Board background with subtle gradient */
+/* Board background - Light mode: subtle warm gradient */
 .kanban-board-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.94 0.02 60 / 0.4), transparent),
+    linear-gradient(180deg, oklch(0.985 0.008 85) 0%, oklch(0.975 0.01 80) 100%);
+}
+
+/* Board background - Dark mode */
+.dark .kanban-board-bg {
   background:
     radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.15 0.03 280 / 0.5), transparent),
     linear-gradient(180deg, oklch(0.08 0.008 280) 0%, oklch(0.06 0.005 280) 100%);
 }
 
-/* Column styling with depth */
+/* Column styling - Light mode */
 .kanban-column {
+  background: linear-gradient(
+    180deg,
+    oklch(0.98 0.006 85) 0%,
+    oklch(0.975 0.008 80) 100%
+  );
+  border: 1px solid oklch(0.88 0.015 80);
+  box-shadow:
+    0 1px 3px oklch(0.5 0.02 260 / 0.06),
+    0 4px 12px oklch(0.5 0.02 260 / 0.04);
+}
+
+/* Column styling - Dark mode */
+.dark .kanban-column {
   background: linear-gradient(
     180deg,
     oklch(0.12 0.012 280) 0%,
@@ -210,8 +301,19 @@ body {
     0 2px 4px -2px oklch(0 0 0 / 0.3);
 }
 
-/* Column header with glass effect */
+/* Column header - Light mode */
 .kanban-column-header {
+  background: linear-gradient(
+    180deg,
+    oklch(0.99 0.004 85 / 0.95) 0%,
+    oklch(0.98 0.006 85 / 0.9) 100%
+  );
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid oklch(0.9 0.01 80 / 0.6);
+}
+
+/* Column header - Dark mode */
+.dark .kanban-column-header {
   background: linear-gradient(
     180deg,
     oklch(0.16 0.015 280 / 0.9) 0%,
@@ -221,22 +323,55 @@ body {
   border-bottom: 1px solid oklch(0.25 0.02 280 / 0.6);
 }
 
-/* Status-specific column accents */
+/* Status-specific column accents - Light mode */
 .kanban-column[data-status='backlog'] {
-  border-top: 2px solid oklch(0.5 0.08 280);
+  border-top: 2px solid oklch(0.55 0.1 260);
 }
 .kanban-column[data-status='in_progress'] {
-  border-top: 2px solid oklch(0.7 0.15 200);
+  border-top: 2px solid oklch(0.55 0.14 220);
+}
+.kanban-column[data-status='create_story'] {
+  border-top: 2px solid oklch(0.6 0.15 290);
 }
 .kanban-column[data-status='review'] {
-  border-top: 2px solid oklch(0.75 0.15 80);
+  border-top: 2px solid oklch(0.65 0.15 70);
 }
 .kanban-column[data-status='done'] {
+  border-top: 2px solid oklch(0.55 0.14 160);
+}
+
+/* Status-specific column accents - Dark mode */
+.dark .kanban-column[data-status='backlog'] {
+  border-top: 2px solid oklch(0.5 0.08 280);
+}
+.dark .kanban-column[data-status='in_progress'] {
+  border-top: 2px solid oklch(0.7 0.15 200);
+}
+.dark .kanban-column[data-status='create_story'] {
+  border-top: 2px solid oklch(0.65 0.15 290);
+}
+.dark .kanban-column[data-status='review'] {
+  border-top: 2px solid oklch(0.75 0.15 80);
+}
+.dark .kanban-column[data-status='done'] {
   border-top: 2px solid oklch(0.7 0.15 160);
 }
 
-/* Column drop highlight */
+/* Column drop highlight - Light mode */
 .kanban-column-over {
+  background: linear-gradient(
+    180deg,
+    oklch(0.96 0.03 260) 0%,
+    oklch(0.975 0.015 260) 100%
+  );
+  border-color: oklch(0.55 0.14 260 / 0.5);
+  box-shadow:
+    inset 0 0 20px oklch(0.55 0.14 260 / 0.08),
+    0 4px 12px oklch(0.55 0.14 260 / 0.1);
+}
+
+/* Column drop highlight - Dark mode */
+.dark .kanban-column-over {
   background: linear-gradient(
     180deg,
     oklch(0.14 0.025 270) 0%,
@@ -248,8 +383,22 @@ body {
     0 4px 16px -4px oklch(0 0 0 / 0.4);
 }
 
-/* Task card with layered shadows */
+/* Task card - Light mode */
 .kanban-card {
+  background: linear-gradient(
+    135deg,
+    oklch(0.998 0.003 85) 0%,
+    oklch(0.995 0.005 80) 100%
+  );
+  border: 1px solid oklch(0.9 0.012 80);
+  box-shadow:
+    0 1px 3px oklch(0.5 0.02 260 / 0.08),
+    0 2px 8px oklch(0.5 0.02 260 / 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Task card - Dark mode */
+.dark .kanban-card {
   background: linear-gradient(
     135deg,
     oklch(0.16 0.018 280) 0%,
@@ -260,10 +409,25 @@ body {
     0 2px 8px -2px oklch(0 0 0 / 0.4),
     0 1px 2px -1px oklch(0 0 0 / 0.3),
     inset 0 1px 0 oklch(0.22 0.02 280 / 0.5);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Task card hover - Light mode */
 .kanban-card:hover {
+  background: linear-gradient(
+    135deg,
+    oklch(0.998 0.004 85) 0%,
+    oklch(0.994 0.007 75) 100%
+  );
+  border-color: oklch(0.55 0.12 260 / 0.35);
+  box-shadow:
+    0 4px 16px oklch(0.5 0.02 260 / 0.12),
+    0 2px 4px oklch(0.5 0.02 260 / 0.06),
+    0 0 0 1px oklch(0.55 0.12 260 / 0.1);
+  transform: translateY(-1px);
+}
+
+/* Task card hover - Dark mode */
+.dark .kanban-card:hover {
   background: linear-gradient(
     135deg,
     oklch(0.19 0.022 280) 0%,
@@ -275,22 +439,42 @@ body {
     0 4px 8px -2px oklch(0 0 0 / 0.3),
     0 0 0 1px oklch(0.5 0.1 270 / 0.2),
     inset 0 1px 0 oklch(0.25 0.025 280 / 0.6);
-  transform: translateY(-1px);
 }
 
 .kanban-card:focus-visible {
   outline: none;
   box-shadow:
+    0 0 0 2px oklch(0.55 0.14 260),
+    0 4px 16px oklch(0.5 0.02 260 / 0.12);
+}
+
+.dark .kanban-card:focus-visible {
+  box-shadow:
     0 0 0 2px oklch(0.7 0.12 270),
     0 8px 24px -4px oklch(0 0 0 / 0.5);
 }
 
-/* Planning card special glow */
+/* Planning card special accent - Light mode */
 .kanban-card-planning {
+  border-left: 3px solid oklch(0.55 0.16 260);
+}
+
+/* Planning card special accent - Dark mode */
+.dark .kanban-card-planning {
   border-left: 3px solid oklch(0.65 0.15 270);
 }
 
+/* Start here glow - Light mode */
 .kanban-card-planning.start-here {
+  box-shadow:
+    0 0 20px -4px oklch(0.55 0.14 220 / 0.3),
+    0 0 40px -8px oklch(0.55 0.14 220 / 0.15),
+    0 2px 8px oklch(0.5 0.02 260 / 0.08);
+  border-color: oklch(0.55 0.14 220 / 0.5);
+}
+
+/* Start here glow - Dark mode */
+.dark .kanban-card-planning.start-here {
   box-shadow:
     0 0 20px -4px oklch(0.7 0.15 200 / 0.4),
     0 0 40px -8px oklch(0.7 0.15 200 / 0.2),
@@ -299,40 +483,78 @@ body {
   border-color: oklch(0.6 0.12 200 / 0.6);
 }
 
-/* Story card styling */
+/* Story card styling - Light mode */
 .kanban-card-story {
+  border-left: 3px solid oklch(0.55 0.14 220);
+}
+
+/* Story card styling - Dark mode */
+.dark .kanban-card-story {
   border-left: 3px solid oklch(0.7 0.15 200);
 }
 
 /* Completed card styling */
 .kanban-card-completed {
+  border-left-color: oklch(0.55 0.14 160);
+}
+
+.dark .kanban-card-completed {
   border-left-color: oklch(0.7 0.15 160);
 }
 
 /* Dragging state */
 .kanban-card-dragging {
   box-shadow:
-    0 20px 40px -8px oklch(0 0 0 / 0.6),
-    0 8px 16px -4px oklch(0 0 0 / 0.4),
-    0 0 0 2px oklch(0.7 0.12 270 / 0.5);
+    0 20px 40px -8px oklch(0.4 0.02 260 / 0.3),
+    0 8px 16px -4px oklch(0.4 0.02 260 / 0.2),
+    0 0 0 2px oklch(0.55 0.14 260 / 0.4);
   transform: rotate(2deg) scale(1.02);
 }
 
-/* Add button styling */
+.dark .kanban-card-dragging {
+  box-shadow:
+    0 20px 40px -8px oklch(0 0 0 / 0.6),
+    0 8px 16px -4px oklch(0 0 0 / 0.4),
+    0 0 0 2px oklch(0.7 0.12 270 / 0.5);
+}
+
+/* Add button styling - Light mode */
 .kanban-add-btn {
-  background: oklch(0.18 0.015 280);
-  border: 1px solid oklch(0.25 0.02 280);
+  background: oklch(0.97 0.008 85);
+  border: 1px solid oklch(0.88 0.015 80);
   transition: all 0.15s ease;
 }
 
 .kanban-add-btn:hover {
+  background: oklch(0.95 0.015 260);
+  border-color: oklch(0.55 0.12 260 / 0.4);
+  box-shadow: 0 0 12px -2px oklch(0.55 0.14 260 / 0.2);
+}
+
+/* Add button styling - Dark mode */
+.dark .kanban-add-btn {
+  background: oklch(0.18 0.015 280);
+  border: 1px solid oklch(0.25 0.02 280);
+}
+
+.dark .kanban-add-btn:hover {
   background: oklch(0.22 0.02 280);
   border-color: oklch(0.5 0.1 270 / 0.5);
   box-shadow: 0 0 12px -2px oklch(0.6 0.12 270 / 0.3);
 }
 
-/* Epic badge enhanced */
+/* Epic badge - Light mode */
 .kanban-epic-badge {
+  background: linear-gradient(
+    135deg,
+    oklch(0.92 0.025 var(--badge-hue, 260)) 0%,
+    oklch(0.88 0.03 var(--badge-hue, 260)) 100%
+  );
+  box-shadow: 0 1px 2px oklch(0.4 0.02 260 / 0.15);
+}
+
+/* Epic badge - Dark mode */
+.dark .kanban-epic-badge {
   background: linear-gradient(
     135deg,
     oklch(0.25 0.04 var(--badge-hue, 270)) 0%,
@@ -341,8 +563,18 @@ body {
   box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
 }
 
-/* Phase badge enhanced */
+/* Phase badge - Light mode */
 .kanban-phase-badge {
+  background: linear-gradient(
+    135deg,
+    oklch(0.92 0.04 260) 0%,
+    oklch(0.88 0.05 270) 100%
+  );
+  box-shadow: 0 1px 2px oklch(0.4 0.02 260 / 0.15);
+}
+
+/* Phase badge - Dark mode */
+.dark .kanban-phase-badge {
   background: linear-gradient(
     135deg,
     oklch(0.3 0.08 270) 0%,
@@ -357,12 +589,26 @@ body {
    DOCK POSITION SELECTOR - Button Group
    ===================================================== */
 
+/* Light mode */
 .dock-position-buttons {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 3px;
   border-radius: 6px;
+  background: linear-gradient(
+    135deg,
+    oklch(0.97 0.006 85) 0%,
+    oklch(0.95 0.008 80) 100%
+  );
+  border: 1px solid oklch(0.88 0.012 80);
+  box-shadow:
+    inset 0 1px 2px oklch(0.5 0.02 260 / 0.08),
+    0 1px 0 oklch(0.99 0.002 85 / 0.8);
+}
+
+/* Dark mode */
+.dark .dock-position-buttons {
   background: linear-gradient(
     135deg,
     oklch(0.12 0.012 280) 0%,
@@ -378,7 +624,7 @@ body {
   flex-direction: column;
 }
 
-/* Individual position button */
+/* Individual position button - Light mode */
 .dock-position-btn {
   display: flex;
   align-items: center;
@@ -389,12 +635,23 @@ body {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: oklch(0.5 0.02 280);
+  color: oklch(0.5 0.02 260);
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dock-position-btn:hover {
+  background: oklch(0.94 0.01 260);
+  border-color: oklch(0.85 0.015 260);
+  color: oklch(0.35 0.03 260);
+}
+
+/* Dark mode button */
+.dark .dock-position-btn {
+  color: oklch(0.5 0.02 280);
+}
+
+.dark .dock-position-btn:hover {
   background: oklch(0.18 0.015 280);
   border-color: oklch(0.28 0.02 280);
   color: oklch(0.75 0.03 280);
@@ -402,6 +659,10 @@ body {
 
 .dock-position-btn:focus-visible {
   outline: none;
+  box-shadow: 0 0 0 2px oklch(0.55 0.14 260 / 0.5);
+}
+
+.dark .dock-position-btn:focus-visible {
   box-shadow: 0 0 0 2px oklch(0.6 0.12 270 / 0.5);
 }
 
@@ -409,8 +670,30 @@ body {
   transform: scale(0.95);
 }
 
-/* Active state */
+/* Active state - Light mode */
 .dock-position-btn-active {
+  background: linear-gradient(
+    135deg,
+    oklch(0.55 0.12 220) 0%,
+    oklch(0.5 0.1 230) 100%
+  );
+  border-color: oklch(0.5 0.14 220 / 0.5);
+  color: oklch(0.98 0.01 220);
+  box-shadow: 0 0 8px oklch(0.55 0.14 220 / 0.25);
+}
+
+.dock-position-btn-active:hover {
+  background: linear-gradient(
+    135deg,
+    oklch(0.58 0.13 220) 0%,
+    oklch(0.53 0.11 230) 100%
+  );
+  border-color: oklch(0.55 0.15 220 / 0.6);
+  color: oklch(0.99 0.01 220);
+}
+
+/* Active state - Dark mode */
+.dark .dock-position-btn-active {
   background: linear-gradient(
     135deg,
     oklch(0.22 0.04 200) 0%,
@@ -423,7 +706,7 @@ body {
     inset 0 1px 0 oklch(0.4 0.1 200 / 0.3);
 }
 
-.dock-position-btn-active:hover {
+.dark .dock-position-btn-active:hover {
   background: linear-gradient(
     135deg,
     oklch(0.25 0.05 200) 0%,
@@ -434,7 +717,7 @@ body {
 }
 
 /* =====================================================
-   ACTIVITY LOG - Real-Time Streaming (TES-2.13)
+   ACTIVITY LOG - Real-Time Streaming
    ===================================================== */
 
 /* Slide-in animation for new activity events */
@@ -453,8 +736,33 @@ body {
   animation: activity-slide-in 0.3s ease-out;
 }
 
-/* New events indicator badge */
+/* New events indicator badge - Light mode */
 .activity-new-events-badge {
+  background: linear-gradient(
+    135deg,
+    oklch(0.55 0.14 220) 0%,
+    oklch(0.5 0.12 230) 100%
+  );
+  box-shadow:
+    0 2px 8px oklch(0.5 0.14 220 / 0.35),
+    0 1px 2px oklch(0.4 0.02 260 / 0.15);
+  transition: all 0.15s ease;
+}
+
+.activity-new-events-badge:hover {
+  background: linear-gradient(
+    135deg,
+    oklch(0.58 0.16 220) 0%,
+    oklch(0.53 0.14 230) 100%
+  );
+  box-shadow:
+    0 4px 12px oklch(0.5 0.14 220 / 0.45),
+    0 2px 4px oklch(0.4 0.02 260 / 0.2);
+  transform: scale(1.05);
+}
+
+/* New events indicator badge - Dark mode */
+.dark .activity-new-events-badge {
   background: linear-gradient(
     135deg,
     oklch(0.55 0.15 230) 0%,
@@ -463,10 +771,9 @@ body {
   box-shadow:
     0 2px 8px oklch(0.5 0.15 230 / 0.4),
     0 1px 2px oklch(0 0 0 / 0.2);
-  transition: all 0.15s ease;
 }
 
-.activity-new-events-badge:hover {
+.dark .activity-new-events-badge:hover {
   background: linear-gradient(
     135deg,
     oklch(0.6 0.17 230) 0%,
@@ -475,15 +782,24 @@ body {
   box-shadow:
     0 4px 12px oklch(0.5 0.15 230 / 0.5),
     0 2px 4px oklch(0 0 0 / 0.3);
-  transform: scale(1.05);
 }
 
 /* =====================================================
-   TASK DETAIL PANEL - Editorial Command Center (TES-3.1)
+   TASK DETAIL PANEL - Editorial Command Center
    ===================================================== */
 
-/* Panel header with glass effect */
+/* Panel header - Light mode */
 .task-detail-panel-header {
+  background: linear-gradient(
+    180deg,
+    oklch(0.99 0.004 85 / 0.98) 0%,
+    oklch(0.98 0.006 80 / 0.95) 100%
+  );
+  backdrop-filter: blur(12px);
+}
+
+/* Panel header - Dark mode */
+.dark .task-detail-panel-header {
   background: linear-gradient(
     180deg,
     oklch(0.12 0.015 280 / 0.95) 0%,
@@ -492,8 +808,17 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* Tab bar with subtle depth */
+/* Tab bar - Light mode */
 .task-detail-panel-tabs {
+  background: linear-gradient(
+    180deg,
+    oklch(0.98 0.005 85 / 0.6) 0%,
+    oklch(0.97 0.006 80 / 0.4) 100%
+  );
+}
+
+/* Tab bar - Dark mode */
+.dark .task-detail-panel-tabs {
   background: linear-gradient(
     180deg,
     oklch(0.1 0.01 280 / 0.6) 0%,
@@ -502,13 +827,8 @@ body {
 }
 
 /* =====================================================
-   MONACO DIFF EDITOR - Hide Scrollbars (TES-4.6)
+   MONACO DIFF EDITOR - Hide Scrollbars
    ===================================================== */
-
-/*
- * Hide ONLY vertical scrollbar in Monaco diff editor
- * Height is calculated to fit all content, but keep horizontal scrollbar for wide content
- */
 
 /* Aggressively hide ALL vertical scrollbar elements and prevent pointer events */
 .monaco-diff-wrapper .scrollbar.vertical,
@@ -551,7 +871,7 @@ body {
 }
 
 /* =====================================================
-   CONFLICT RESOLUTION - Monaco Editor Decorations (Story 8.8)
+   CONFLICT RESOLUTION - Monaco Editor Decorations
    ===================================================== */
 
 /* Current changes region (green background - "ours") */
@@ -611,7 +931,7 @@ body {
 
 /* Inline resolution buttons (ViewZone) */
 .conflict-resolution-buttons {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   font-size: 12px;
 }
 
@@ -630,6 +950,10 @@ body {
 .conflict-btn-current {
   background: rgba(34, 197, 94, 0.15);
   border-color: rgba(34, 197, 94, 0.3);
+  color: rgb(22, 163, 74);
+}
+
+.dark .conflict-btn-current {
   color: rgb(74, 222, 128);
 }
 
@@ -641,6 +965,10 @@ body {
 .conflict-btn-incoming {
   background: rgba(59, 130, 246, 0.15);
   border-color: rgba(59, 130, 246, 0.3);
+  color: rgb(37, 99, 235);
+}
+
+.dark .conflict-btn-incoming {
   color: rgb(96, 165, 250);
 }
 
@@ -652,6 +980,10 @@ body {
 .conflict-btn-both {
   background: rgba(168, 85, 247, 0.15);
   border-color: rgba(168, 85, 247, 0.3);
+  color: rgb(147, 51, 234);
+}
+
+.dark .conflict-btn-both {
   color: rgb(192, 132, 252);
 }
 
@@ -661,7 +993,7 @@ body {
 }
 
 /* =====================================================
-   INLINE COMMENT INDICATORS - Monaco Glyph Margin (Story 7.5 Task 8)
+   INLINE COMMENT INDICATORS - Monaco Glyph Margin
    ===================================================== */
 
 /* Inline comment glyph indicator in Monaco gutter */
@@ -686,4 +1018,51 @@ body {
   background: rgba(245, 158, 11, 1);
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
   transform: scale(1.2);
+}
+
+/* =====================================================
+   SELECTION & TEXT HIGHLIGHTING
+   ===================================================== */
+
+::selection {
+  background: oklch(0.55 0.14 260 / 0.25);
+  color: inherit;
+}
+
+.dark ::selection {
+  background: oklch(0.7 0.12 270 / 0.35);
+}
+
+/* =====================================================
+   FOCUS VISIBLE OUTLINES - Theme-aware
+   ===================================================== */
+
+:focus-visible {
+  outline: 2px solid oklch(0.55 0.14 260 / 0.6);
+  outline-offset: 2px;
+}
+
+.dark :focus-visible {
+  outline-color: oklch(0.7 0.12 270 / 0.6);
+}
+
+/* =====================================================
+   SMOOTH THEME TRANSITIONS
+   ===================================================== */
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body,
+.kanban-column,
+.kanban-card,
+.kanban-board-bg,
+.kanban-column-header {
+  transition:
+    background 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    color 0.3s ease;
 }

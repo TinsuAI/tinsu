@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FolderOpen, Clock, AlertTriangle, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
+import { ThemeToggle } from './ui/theme-toggle'
 import { trpc } from '@renderer/lib/trpc'
 import { cn } from '@renderer/lib/utils'
 
@@ -108,10 +109,15 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
   return (
     <div
       className={cn(
-        'flex min-h-screen flex-col items-center justify-center bg-background p-8',
+        'relative flex min-h-screen flex-col items-center justify-center bg-background p-8',
         className
       )}
     >
+      {/* Theme toggle - top right corner */}
+      <div className="absolute right-6 top-6">
+        <ThemeToggle />
+      </div>
+
       {/* Logo/Title */}
       <div className="mb-8 text-center">
         <h1 className="text-5xl font-bold text-foreground">TinSu</h1>

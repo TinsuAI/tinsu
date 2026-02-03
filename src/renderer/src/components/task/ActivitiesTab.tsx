@@ -73,15 +73,15 @@ function ActivityListSkeleton(): React.ReactNode {
       {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="flex items-start gap-3 p-3 animate-pulse">
           {/* Icon skeleton */}
-          <div className="w-4 h-4 bg-zinc-700 rounded-full flex-shrink-0 mt-0.5" />
+          <div className="w-4 h-4 bg-muted rounded-full flex-shrink-0 mt-0.5" />
 
           {/* Content skeleton */}
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-14 h-3 bg-zinc-700 rounded" />
-              <div className="w-24 h-3 bg-zinc-700 rounded" />
+              <div className="w-14 h-3 bg-muted rounded" />
+              <div className="w-24 h-3 bg-muted rounded" />
             </div>
-            <div className="w-48 h-3 bg-zinc-700 rounded" />
+            <div className="w-48 h-3 bg-muted rounded" />
           </div>
         </div>
       ))}
@@ -231,10 +231,10 @@ export function ActivitiesTab({ taskId }: ActivitiesTabProps): React.ReactNode {
   return (
     <div className="flex flex-col h-full relative">
       {/* Header with event count */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800 bg-zinc-900/50">
-        <span className="text-xs text-zinc-500">Activities</span>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
+        <span className="text-xs text-muted-foreground">Activities</span>
         {activities.length > 0 && (
-          <span className="text-xs text-zinc-600">{activities.length} events</span>
+          <span className="text-xs text-muted-foreground/70">{activities.length} events</span>
         )}
       </div>
 
@@ -269,8 +269,8 @@ export function ActivitiesTab({ taskId }: ActivitiesTabProps): React.ReactNode {
         {isLoading ? (
           <ActivityListSkeleton />
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-3">
-            <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+            <AlertCircle className="w-8 h-8 text-destructive" />
             <p className="text-sm">Failed to load activities</p>
             <Button variant="ghost" size="sm" onClick={() => refetch()} className="gap-2">
               <RefreshCw className="w-4 h-4" />
@@ -278,7 +278,7 @@ export function ActivitiesTab({ taskId }: ActivitiesTabProps): React.ReactNode {
             </Button>
           </div>
         ) : activities.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-zinc-500">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
             <span className="text-sm">
               {isFiltering ? 'No matching events' : 'No activity yet'}
             </span>
