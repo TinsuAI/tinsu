@@ -9,7 +9,8 @@ import {
   Terminal,
   AlertTriangle,
   RotateCw,
-  Hash
+  Hash,
+  GitCompare
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
@@ -17,10 +18,14 @@ import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
 import { markdownComponents } from '@renderer/components/task/MarkdownComponents'
+import { ArtifactVersionHistory } from './ArtifactVersionHistory'
+import { ArtifactDiffView } from './ArtifactDiffView'
+import type { ArtifactVersionEntry } from './ArtifactVersionHistory'
 
 /* ── Types ── */
 
 type ArtifactStatus = 'draft' | 'in-review' | 'approved'
+type DiffViewMode = 'viewer' | 'history' | 'diff'
 
 interface HeadingEntry {
   level: number
@@ -145,6 +150,12 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
     { enabled: !!projectId, refetchOnWindowFocus: true }
   )
 
+  // Story 9.7: Prefetch version history to enable/disable Compare Versions button
+  const { data: versionHistory } = trpc.planning.getArtifactVersionHistory.useQuery(
+    { projectId, workflowKey },
+    { enabled: !!projectId }
+  )
+
   const trpcUtils = trpc.useUtils()
   const closeWorkspace = usePlanningWorkspaceStore((s) => s.closeWorkspace)
 
@@ -153,6 +164,13 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
       trpcUtils.planning.scanArtifacts.invalidate()
     }
   })
+
+  // Story 9.7: Diff view state
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('viewer')
+  const [selectedFromCommit, setSelectedFromCommit] = useState<ArtifactVersionEntry | null>(null)
+  const [selectedToCommit, setSelectedToCommit] = useState<ArtifactVersionEntry | null>(null)
+
+  const hasMultipleVersions = (versionHistory?.length ?? 0) >= 2
 
   // Resolve workflow metadata
   const workflow = useMemo(
@@ -223,6 +241,26 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
   const handleEditWithAgent = useCallback(() => {
     closeWorkspace()
   }, [closeWorkspace])
+
+  // Story 9.7: Compare Versions handlers
+  const handleCompareVersions = useCallback(() => {
+    setDiffViewMode('history')
+  }, [])
+
+  const handleSelectVersions = useCallback(
+    (from: ArtifactVersionEntry | null, to: ArtifactVersionEntry) => {
+      setSelectedFromCommit(from)
+      setSelectedToCommit(to)
+      setDiffViewMode('diff')
+    },
+    []
+  )
+
+  const handleCloseDiffView = useCallback(() => {
+    setDiffViewMode('viewer')
+    setSelectedFromCommit(null)
+    setSelectedToCommit(null)
+  }, [])
 
   /* ── Loading state ── */
   if (!artifactContent && !isContentError) {
@@ -318,6 +356,23 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
             {statusCfg.label}
           </button>
 
+          {/* Story 9.7: Compare Versions button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCompareVersions}
+            disabled={!hasMultipleVersions}
+            className={cn(
+              'gap-1.5 text-xs',
+              !hasMultipleVersions && 'opacity-50 cursor-not-allowed'
+            )}
+            title={hasMultipleVersions ? 'Compare artifact versions' : 'Needs at least 2 committed versions'}
+            data-testid="compare-versions-btn"
+          >
+            <GitCompare className="h-3 w-3" />
+            Compare Versions
+          </Button>
+
           {/* Spacer */}
           <div className="flex-1" />
 
@@ -352,72 +407,95 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
         </div>
       </div>
 
-      {/* ── Body: Outline + Content ── */}
-      <div className="flex min-h-0 flex-1">
-        {/* Section outline */}
-        <nav
-          className="w-52 shrink-0 overflow-y-auto border-r border-border/30 bg-card/20 py-3"
-          aria-label="Document outline"
-          data-testid="section-outline"
-        >
-          {/* Outline header */}
-          <div className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-            On this page
-          </div>
+      {/* ── Body: Conditional based on diffViewMode ── */}
+      {diffViewMode === 'history' && (
+        <div className="flex min-h-0 flex-1">
+          <ArtifactVersionHistory
+            workflowKey={workflowKey}
+            onSelectVersions={handleSelectVersions}
+            onClose={handleCloseDiffView}
+          />
+        </div>
+      )}
 
-          <div className="relative">
-            {headings.map((heading) => {
-              const isActive = activeSlug === heading.slug
-              const indent =
-                heading.level === 1 ? 'pl-4' : heading.level === 2 ? 'pl-7' : 'pl-10'
+      {diffViewMode === 'diff' && selectedToCommit && (
+        <div className="flex min-h-0 flex-1">
+          <ArtifactDiffView
+            workflowKey={workflowKey}
+            fromCommit={selectedFromCommit}
+            toCommit={selectedToCommit}
+            onClose={handleCloseDiffView}
+          />
+        </div>
+      )}
 
-              return (
-                <button
-                  key={heading.slug}
-                  type="button"
-                  onClick={() => handleHeadingClick(heading.slug)}
-                  className={cn(
-                    'group relative block w-full py-1 pr-3 text-left text-[11px] leading-snug transition-colors',
-                    indent,
-                    isActive
-                      ? 'text-cyan-400 font-medium'
-                      : 'text-muted-foreground/60 hover:text-muted-foreground'
-                  )}
-                  title={heading.text}
-                >
-                  {/* Active indicator line */}
-                  {isActive && (
-                    <span className="absolute left-0 top-0 h-full w-0.5 rounded-full bg-cyan-500" />
-                  )}
-                  <span className="line-clamp-2">{heading.text}</span>
-                </button>
-              )
-            })}
+      {diffViewMode === 'viewer' && (
+        <div className="flex min-h-0 flex-1">
+          {/* Section outline */}
+          <nav
+            className="w-52 shrink-0 overflow-y-auto border-r border-border/30 bg-card/20 py-3"
+            aria-label="Document outline"
+            data-testid="section-outline"
+          >
+            {/* Outline header */}
+            <div className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+              On this page
+            </div>
 
-            {headings.length === 0 && (
-              <div className="px-4 text-[11px] italic text-muted-foreground/40">
-                No headings found
-              </div>
-            )}
-          </div>
-        </nav>
+            <div className="relative">
+              {headings.map((heading) => {
+                const isActive = activeSlug === heading.slug
+                const indent =
+                  heading.level === 1 ? 'pl-4' : heading.level === 2 ? 'pl-7' : 'pl-10'
 
-        {/* Markdown content */}
-        <div
-          ref={contentRef}
-          className="flex-1 overflow-y-auto"
-          data-testid="markdown-content"
-        >
-          <div className="mx-auto max-w-4xl px-8 py-6">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={artifactMarkdownComponents}
-            >
-              {artifactContent.content}
-            </ReactMarkdown>
+                return (
+                  <button
+                    key={heading.slug}
+                    type="button"
+                    onClick={() => handleHeadingClick(heading.slug)}
+                    className={cn(
+                      'group relative block w-full py-1 pr-3 text-left text-[11px] leading-snug transition-colors',
+                      indent,
+                      isActive
+                        ? 'text-cyan-400 font-medium'
+                        : 'text-muted-foreground/60 hover:text-muted-foreground'
+                    )}
+                    title={heading.text}
+                  >
+                    {/* Active indicator line */}
+                    {isActive && (
+                      <span className="absolute left-0 top-0 h-full w-0.5 rounded-full bg-cyan-500" />
+                    )}
+                    <span className="line-clamp-2">{heading.text}</span>
+                  </button>
+                )
+              })}
+
+              {headings.length === 0 && (
+                <div className="px-4 text-[11px] italic text-muted-foreground/40">
+                  No headings found
+                </div>
+              )}
+            </div>
+          </nav>
+
+          {/* Markdown content */}
+          <div
+            ref={contentRef}
+            className="flex-1 overflow-y-auto"
+            data-testid="markdown-content"
+          >
+            <div className="mx-auto max-w-4xl px-8 py-6">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={artifactMarkdownComponents}
+              >
+                {artifactContent.content}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

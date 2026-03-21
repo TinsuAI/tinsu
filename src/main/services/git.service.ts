@@ -47,6 +47,17 @@ interface ExecError extends Error {
 }
 
 /**
+ * Represents a single version (commit) of an artifact file.
+ * Story 9.7: Artifact Version Diff View
+ */
+export interface ArtifactVersionEntry {
+  commitSha: string
+  author: string
+  timestamp: number // Unix timestamp in seconds
+  message: string
+}
+
+/**
  * Custom error class for Git operations with command context.
  * Provides detailed error information for debugging and logging.
  *
@@ -2381,6 +2392,149 @@ export class GitService {
         'git diff',
         undefined,
         errorMessage
+      )
+    }
+  }
+
+  /**
+   * Get the version history (commit log) for a specific file.
+   * Story 9.7: Artifact Version Diff View (AC: 5)
+   *
+   * Uses `git log --follow` to track renames and get commit history.
+   *
+   * @param repoPath - Path to the git repository
+   * @param filePath - Relative file path within the repository
+   * @param limit - Maximum number of entries to return (default: 50)
+   * @returns Array of version entries ordered newest-first
+   */
+  static async getFileVersionHistory(
+    repoPath: string,
+    filePath: string,
+    limit: number = 50
+  ): Promise<ArtifactVersionEntry[]> {
+    this.validatePath(repoPath, 'getFileVersionHistory')
+
+    const normalizedPath = resolve(repoPath)
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'getFileVersionHistory'
+      )
+    }
+
+    // P2: Clamp limit to a safe range (0 means unlimited in git)
+    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 1000))
+
+    try {
+      const { stdout } = await this.execGit(
+        ['log', '--follow', `--format=%H%x09%an%x09%at%x09%s`, `-n`, `${safeLimit}`, '--', filePath],
+        normalizedPath,
+        GIT_COMMAND_TIMEOUT
+      )
+
+      const trimmed = stdout.trim()
+      if (!trimmed) return []
+
+      return trimmed.split('\n').map((line) => {
+        // P4: Split on first 3 tabs only — message may contain tabs itself
+        const parts = line.split('\t')
+        const [commitSha, author, timestampStr, ...messageParts] = parts
+        const message = messageParts.join('\t')
+        // P3: Guard against NaN timestamps from malformed git log output
+        const timestamp = parseInt(timestampStr, 10)
+        return {
+          commitSha,
+          author,
+          timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+          message
+        }
+      })
+    } catch (error) {
+      // P6: Separate GitError handling from ExecError — GitError has exitCode, ExecError has code
+      if (error instanceof GitError) {
+        if (error.exitCode === 128) return []
+        if (error.message?.includes('does not have any commits yet')) return []
+        throw error
+      }
+      const err = error as ExecError
+      // git log returns empty for untracked files without error
+      if (err.stderr?.includes('does not have any commits yet')) {
+        return []
+      }
+      throw new GitError(
+        err.stderr || err.message || `Failed to get file version history for ${filePath}`,
+        `git log -- ${filePath}`,
+        err.code,
+        err.stderr
+      )
+    }
+  }
+
+  /**
+   * Get the content of a file at a specific commit.
+   * Story 9.7: Artifact Version Diff View (AC: 5)
+   *
+   * Uses `git show <commitSha>:<filePath>` to retrieve historical file content.
+   *
+   * @param repoPath - Path to the git repository
+   * @param filePath - Relative file path within the repository
+   * @param commitSha - The commit SHA to retrieve the file from
+   * @returns The file content as a string
+   * @throws GitError with NOT_FOUND-style message if file doesn't exist at that commit
+   */
+  static async getFileContentAtCommit(
+    repoPath: string,
+    filePath: string,
+    commitSha: string
+  ): Promise<string> {
+    this.validatePath(repoPath, 'getFileContentAtCommit')
+
+    if (!commitSha || typeof commitSha !== 'string') {
+      throw new GitError(
+        'Invalid commitSha: commitSha must be a non-empty string',
+        'getFileContentAtCommit'
+      )
+    }
+    // P1: Validate SHA format to prevent injection via shell-special characters
+    // Accepts full 40-char SHAs and abbreviated 7-40 char hex SHAs
+    if (!/^[0-9a-f]{7,40}$/i.test(commitSha)) {
+      throw new GitError(
+        `Invalid commitSha: must be a hex git commit SHA (7-40 chars), got: ${commitSha}`,
+        'getFileContentAtCommit'
+      )
+    }
+
+    const normalizedPath = resolve(repoPath)
+    if (!existsSync(normalizedPath)) {
+      throw new GitError(
+        `Repository path does not exist: ${normalizedPath}`,
+        'getFileContentAtCommit'
+      )
+    }
+
+    try {
+      const { stdout } = await this.execGit(
+        ['show', `${commitSha}:${filePath}`],
+        normalizedPath,
+        GIT_COMMAND_TIMEOUT
+      )
+      return stdout
+    } catch (error) {
+      const err = error as ExecError
+      // File doesn't exist at this commit
+      if (err.stderr?.includes('does not exist') || err.stderr?.includes('not exist in') || err.code === 128) {
+        throw new GitError(
+          `File '${filePath}' does not exist at commit ${commitSha}`,
+          `git show ${commitSha}:${filePath}`,
+          128,
+          err.stderr
+        )
+      }
+      throw new GitError(
+        err.stderr || err.message || `Failed to get file content at commit ${commitSha}`,
+        `git show ${commitSha}:${filePath}`,
+        err.code,
+        err.stderr
       )
     }
   }

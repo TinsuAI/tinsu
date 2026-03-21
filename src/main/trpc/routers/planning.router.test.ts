@@ -27,6 +27,17 @@ vi.mock('fs', () => ({
   readdirSync: (path: string) => mockReaddirSync(path)
 }))
 
+// Mock GitService for Story 9.7
+const mockGetFileVersionHistory = vi.fn()
+const mockGetFileContentAtCommit = vi.fn()
+
+vi.mock('../../services/git.service', () => ({
+  GitService: {
+    getFileVersionHistory: (...args: unknown[]) => mockGetFileVersionHistory(...args),
+    getFileContentAtCommit: (...args: unknown[]) => mockGetFileContentAtCommit(...args)
+  }
+}))
+
 // Mock the database module
 vi.mock('../../db', () => ({
   db: null as unknown as BetterSQLite3Database<typeof schema>
@@ -179,6 +190,10 @@ describe('planningRouter', () => {
       const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
       throw err
     }
+
+    // Reset git service mocks (Story 9.7)
+    mockGetFileVersionHistory.mockReset()
+    mockGetFileContentAtCommit.mockReset()
   })
 
   afterEach(() => {
@@ -846,6 +861,120 @@ Needs work.
 
       expect(statuses.length).toBeGreaterThan(0)
       expect(statuses.every((s) => s.status === 'approved')).toBe(true)
+    })
+  })
+
+  // Story 9.7: Artifact Version Diff View
+  describe('getArtifactVersionHistory', () => {
+    const mockVersions = [
+      { commitSha: 'abc123', author: 'Alice', timestamp: 1711036500, message: 'Updated PRD' },
+      { commitSha: 'def456', author: 'Bob', timestamp: 1711000000, message: 'Initial PRD' }
+    ]
+
+    it('returns version entries for a known workflow key', async () => {
+      mockGetFileVersionHistory.mockResolvedValue(mockVersions)
+
+      const result = await caller.getArtifactVersionHistory({
+        projectId: 'project-1',
+        workflowKey: 'prd'
+      })
+
+      expect(result).toEqual(mockVersions)
+      // P8: verify forward slashes are used (not OS-native path.join backslashes)
+      expect(mockGetFileVersionHistory).toHaveBeenCalledWith(
+        '/test/project',
+        expect.stringMatching(/^_bmad-output\/planning-artifacts\/.*prd\.md$/)
+      )
+    })
+
+    it('returns empty array for unknown workflow key', async () => {
+      const result = await caller.getArtifactVersionHistory({
+        projectId: 'project-1',
+        workflowKey: 'nonexistent-workflow'
+      })
+
+      expect(result).toEqual([])
+      expect(mockGetFileVersionHistory).not.toHaveBeenCalled()
+    })
+
+    it('returns empty array when no git history exists', async () => {
+      mockGetFileVersionHistory.mockResolvedValue([])
+
+      const result = await caller.getArtifactVersionHistory({
+        projectId: 'project-1',
+        workflowKey: 'architecture'
+      })
+
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('getArtifactVersionDiff', () => {
+    it('returns content pair for valid commits', async () => {
+      mockGetFileContentAtCommit
+        .mockResolvedValueOnce('# Original content')
+        .mockResolvedValueOnce('# Modified content')
+
+      const result = await caller.getArtifactVersionDiff({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        fromCommitSha: 'abc123',
+        toCommitSha: 'def456'
+      })
+
+      expect(result.original).toBe('# Original content')
+      expect(result.modified).toBe('# Modified content')
+      expect(result.language).toBe('markdown')
+    })
+
+    it('returns empty original when fromCommitSha is empty', async () => {
+      mockGetFileContentAtCommit.mockResolvedValueOnce('# New content')
+
+      const result = await caller.getArtifactVersionDiff({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        fromCommitSha: '',
+        toCommitSha: 'def456'
+      })
+
+      expect(result.original).toBe('')
+      expect(result.modified).toBe('# New content')
+    })
+
+    it('returns empty original when fromCommitSha is "initial"', async () => {
+      mockGetFileContentAtCommit.mockResolvedValueOnce('# Content')
+
+      const result = await caller.getArtifactVersionDiff({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        fromCommitSha: 'initial',
+        toCommitSha: 'def456'
+      })
+
+      expect(result.original).toBe('')
+      expect(result.modified).toBe('# Content')
+    })
+
+    it('throws BAD_REQUEST for unknown workflow key', async () => {
+      await expect(
+        caller.getArtifactVersionDiff({
+          projectId: 'project-1',
+          workflowKey: 'nonexistent',
+          fromCommitSha: 'abc123',
+          toCommitSha: 'def456'
+        })
+      ).rejects.toThrow('Unknown workflow')
+    })
+
+    it('throws BAD_REQUEST when toCommitSha is empty (P10)', async () => {
+      await expect(
+        caller.getArtifactVersionDiff({
+          projectId: 'project-1',
+          workflowKey: 'prd',
+          fromCommitSha: '',
+          toCommitSha: '' // empty string — now rejected by z.string().min(1)
+        })
+      ).rejects.toThrow()
     })
   })
 })

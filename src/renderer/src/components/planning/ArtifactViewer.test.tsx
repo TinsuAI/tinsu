@@ -9,6 +9,7 @@ const mockScanArtifacts = vi.fn()
 const mockGetCurrent = vi.fn()
 const mockUpdateArtifactStatus = vi.fn()
 const mockInvalidate = vi.fn()
+const mockGetVersionHistory = vi.fn()
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -29,6 +30,9 @@ vi.mock('@renderer/lib/trpc', () => ({
           mockUpdateArtifactStatus.mockImplementation(() => opts.onSuccess?.())
           return { mutate: mockUpdateArtifactStatus }
         }
+      },
+      getArtifactVersionHistory: {
+        useQuery: (_input: unknown, _opts: unknown) => mockGetVersionHistory()
       }
     },
     useUtils: () => ({
@@ -92,6 +96,7 @@ describe('ArtifactViewer', () => {
     mockGetCurrent.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
     mockGetArtifactContent.mockReturnValue({ data: mockArtifactContent, isError: false })
     mockScanArtifacts.mockReturnValue({ data: mockArtifactsData })
+    mockGetVersionHistory.mockReturnValue({ data: [] })
   })
 
   describe('content rendering', () => {
@@ -230,6 +235,76 @@ describe('ArtifactViewer', () => {
       render(<ArtifactViewer workflowKey="architecture" />)
 
       expect(screen.getByText('Retry')).toBeInTheDocument()
+    })
+  })
+
+  // Story 9.7: Compare Versions integration
+  describe('Compare Versions (Story 9.7)', () => {
+    const mockVersions = [
+      { commitSha: 'abc123', author: 'Alice', timestamp: Math.floor(Date.now() / 1000) - 3600, message: 'Updated architecture' },
+      { commitSha: 'def456', author: 'Bob', timestamp: Math.floor(Date.now() / 1000) - 86400, message: 'Initial architecture' }
+    ]
+
+    it('renders Compare Versions button', () => {
+      render(<ArtifactViewer workflowKey="architecture" />)
+      expect(screen.getByTestId('compare-versions-btn')).toBeInTheDocument()
+      expect(screen.getByText('Compare Versions')).toBeInTheDocument()
+    })
+
+    it('Compare Versions button enabled when 2+ versions exist', () => {
+      mockGetVersionHistory.mockReturnValue({ data: mockVersions })
+      render(<ArtifactViewer workflowKey="architecture" />)
+      const btn = screen.getByTestId('compare-versions-btn')
+      expect(btn).not.toBeDisabled()
+    })
+
+    it('Compare Versions button disabled when < 2 versions', () => {
+      mockGetVersionHistory.mockReturnValue({ data: [mockVersions[0]] })
+      render(<ArtifactViewer workflowKey="architecture" />)
+      const btn = screen.getByTestId('compare-versions-btn')
+      expect(btn).toBeDisabled()
+    })
+
+    it('Compare Versions button disabled when no versions', () => {
+      mockGetVersionHistory.mockReturnValue({ data: [] })
+      render(<ArtifactViewer workflowKey="architecture" />)
+      const btn = screen.getByTestId('compare-versions-btn')
+      expect(btn).toBeDisabled()
+    })
+
+    it('clicking Compare Versions hides section outline', () => {
+      mockGetVersionHistory.mockReturnValue({ data: mockVersions })
+      render(<ArtifactViewer workflowKey="architecture" />)
+
+      // Section outline visible initially
+      expect(screen.getByTestId('section-outline')).toBeInTheDocument()
+
+      // Click Compare Versions
+      fireEvent.click(screen.getByTestId('compare-versions-btn'))
+
+      // Section outline should be hidden
+      expect(screen.queryByTestId('section-outline')).not.toBeInTheDocument()
+    })
+
+    it('clicking Compare Versions hides markdown content', () => {
+      mockGetVersionHistory.mockReturnValue({ data: mockVersions })
+      render(<ArtifactViewer workflowKey="architecture" />)
+
+      // Markdown content visible initially
+      expect(screen.getByTestId('markdown-content')).toBeInTheDocument()
+
+      // Click Compare Versions
+      fireEvent.click(screen.getByTestId('compare-versions-btn'))
+
+      // Markdown content should be hidden
+      expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument()
+    })
+
+    it('Compare Versions has tooltip when disabled', () => {
+      mockGetVersionHistory.mockReturnValue({ data: [] })
+      render(<ArtifactViewer workflowKey="architecture" />)
+      const btn = screen.getByTestId('compare-versions-btn')
+      expect(btn.getAttribute('title')).toBe('Needs at least 2 committed versions')
     })
   })
 })

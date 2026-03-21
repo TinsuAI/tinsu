@@ -2292,4 +2292,118 @@ index abc1234..def5678 100644
       expect(result.commitSha).toBe(headSha)
     })
   })
+
+  // Story 9.7: Artifact Version Diff View
+  describe('getFileVersionHistory', () => {
+    it('returns parsed commits for a known file (integration test)', async () => {
+      // Use a known file in the current repo
+      const result = await GitService.getFileVersionHistory(process.cwd(), 'package.json')
+      expect(Array.isArray(result)).toBe(true)
+      if (result.length > 0) {
+        expect(result[0]).toHaveProperty('commitSha')
+        expect(result[0]).toHaveProperty('author')
+        expect(result[0]).toHaveProperty('timestamp')
+        expect(result[0]).toHaveProperty('message')
+        expect(typeof result[0].commitSha).toBe('string')
+        expect(typeof result[0].author).toBe('string')
+        expect(typeof result[0].timestamp).toBe('number')
+        expect(typeof result[0].message).toBe('string')
+      }
+    })
+
+    it('returns empty array for untracked files', async () => {
+      const result = await GitService.getFileVersionHistory(process.cwd(), 'nonexistent-file-xyz.md')
+      expect(result).toEqual([])
+    })
+
+    it('respects limit parameter', async () => {
+      const result = await GitService.getFileVersionHistory(process.cwd(), 'package.json', 2)
+      expect(result.length).toBeLessThanOrEqual(2)
+    })
+
+    it('throws GitError for invalid path', async () => {
+      await expect(
+        GitService.getFileVersionHistory('/nonexistent/path', 'file.md')
+      ).rejects.toThrow(GitError)
+    })
+
+    it('throws GitError for dangerous path characters', async () => {
+      await expect(
+        GitService.getFileVersionHistory('/path; rm -rf /', 'file.md')
+      ).rejects.toThrow('dangerous characters')
+    })
+  })
+
+  describe('getFileContentAtCommit', () => {
+    it('returns file content at a valid commit (integration test)', async () => {
+      // Get the latest commit for package.json
+      const history = await GitService.getFileVersionHistory(process.cwd(), 'package.json', 1)
+      if (history.length > 0) {
+        const content = await GitService.getFileContentAtCommit(
+          process.cwd(),
+          'package.json',
+          history[0].commitSha
+        )
+        expect(typeof content).toBe('string')
+        expect(content.length).toBeGreaterThan(0)
+        // Should be valid JSON (package.json)
+        expect(() => JSON.parse(content)).not.toThrow()
+      }
+    })
+
+    it('throws GitError when file does not exist at commit', async () => {
+      // Get HEAD commit
+      const history = await GitService.getFileVersionHistory(process.cwd(), 'package.json', 1)
+      if (history.length > 0) {
+        await expect(
+          GitService.getFileContentAtCommit(
+            process.cwd(),
+            'this-file-never-existed-xyz.md',
+            history[0].commitSha
+          )
+        ).rejects.toThrow(GitError)
+      }
+    })
+
+    it('throws GitError for empty commitSha', async () => {
+      await expect(
+        GitService.getFileContentAtCommit(process.cwd(), 'package.json', '')
+      ).rejects.toThrow('commitSha must be a non-empty string')
+    })
+
+    it('throws GitError for invalid SHA format (P1)', async () => {
+      await expect(
+        GitService.getFileContentAtCommit(process.cwd(), 'package.json', 'not-a-sha!')
+      ).rejects.toThrow('hex git commit SHA')
+    })
+
+    it('throws GitError for too-short SHA (P1)', async () => {
+      await expect(
+        GitService.getFileContentAtCommit(process.cwd(), 'package.json', 'abc12') // < 7 chars
+      ).rejects.toThrow('hex git commit SHA')
+    })
+
+    it('throws GitError for invalid path', async () => {
+      // Use a valid 40-char SHA format so path validation is what triggers the error
+      await expect(
+        GitService.getFileContentAtCommit('/nonexistent/path', 'file.md', 'a'.repeat(40))
+      ).rejects.toThrow(GitError)
+    })
+  })
+
+  describe('getFileVersionHistory bounds and parsing (P2-P6)', () => {
+    it('clamps limit=0 to 1 (P2)', async () => {
+      // Should not throw — 0 is clamped to 1 rather than producing git -n 0 (unbounded)
+      const result = await GitService.getFileVersionHistory(process.cwd(), 'package.json', 0)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBeLessThanOrEqual(1)
+    })
+
+    it('clamps limit above 1000 to 1000 (P2)', async () => {
+      // Should not throw — limit is clamped
+      const result = await GitService.getFileVersionHistory(process.cwd(), 'package.json', 9999)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBeLessThanOrEqual(1000)
+    })
+  })
 })

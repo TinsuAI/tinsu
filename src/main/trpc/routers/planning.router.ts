@@ -8,6 +8,8 @@ import { router, publicProcedure, TRPCError } from '../trpc'
 import { planning_artifact_statuses, PLANNING_ARTIFACT_STATUS, workflow_runs, WORKFLOW_RUN_STATUS, gate_decisions } from '../../db/schema'
 import { BMAD_WORKFLOWS } from './planning-workflow-constants'
 import { parseReadinessReport } from '../../services/readiness-gate.service'
+import { GitService } from '../../services/git.service'
+import type { ArtifactVersionEntry } from '../../services/git.service'
 
 /**
  * Known artifact files to detect, mapped from workflow key to expected filename.
@@ -489,5 +491,61 @@ export const planningRouter = router({
       }
 
       return { approved: true, artifactCount }
+    }),
+
+  /**
+   * Get version history (git commits) for a specific planning artifact file.
+   * Story 9.7: Artifact Version Diff View (AC: 4, 5)
+   */
+  getArtifactVersionHistory: publicProcedure
+    .input(z.object({ projectId: z.string(), workflowKey: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      if (!workflow) return [] as ArtifactVersionEntry[]
+
+      // P8: Use forward slashes — git requires '/' regardless of OS
+      const relPath = `_bmad-output/planning-artifacts/${workflow.filename}`
+      return GitService.getFileVersionHistory(ctx.projectRoot, relPath)
+    }),
+
+  /**
+   * Get the content of an artifact at two commits for diff comparison.
+   * Story 9.7: Artifact Version Diff View (AC: 2, 3, 5)
+   */
+  getArtifactVersionDiff: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        workflowKey: z.string(),
+        fromCommitSha: z.string(), // empty string or 'initial' means "before first commit"
+        toCommitSha: z.string().min(1, 'toCommitSha must not be empty') // P10: prevent empty toCommitSha → 500
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      if (!workflow) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Unknown workflow: ${input.workflowKey}`
+        })
+      }
+
+      // P8: Use forward slashes — git requires '/' regardless of OS
+      const relPath = `_bmad-output/planning-artifacts/${workflow.filename}`
+
+      // Get "from" content — empty string if initial creation
+      let original = ''
+      if (input.fromCommitSha && input.fromCommitSha !== 'initial') {
+        original = await GitService.getFileContentAtCommit(ctx.projectRoot, relPath, input.fromCommitSha)
+      }
+
+      // Get "to" content
+      const modified = await GitService.getFileContentAtCommit(ctx.projectRoot, relPath, input.toCommitSha)
+
+      return {
+        original,
+        modified,
+        language: 'markdown' as const
+      }
     })
 })
