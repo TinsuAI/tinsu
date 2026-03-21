@@ -3,9 +3,9 @@ import { join } from 'path'
 import { readFileSync, statSync } from 'fs'
 import type { Stats } from 'fs'
 import crypto from 'crypto'
-import { eq } from 'drizzle-orm'
+import { eq, desc, and, or } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { planning_artifact_statuses, PLANNING_ARTIFACT_STATUS } from '../../db/schema'
+import { planning_artifact_statuses, PLANNING_ARTIFACT_STATUS, workflow_runs, WORKFLOW_RUN_STATUS } from '../../db/schema'
 import { BMAD_WORKFLOWS } from './planning-workflow-constants'
 
 /**
@@ -168,5 +168,155 @@ export const planningRouter = router({
         })
 
       return { artifactKey: input.artifactKey, status: input.status }
+    }),
+
+  /**
+   * Create a workflow run record.
+   * Story 9.5: Guided Workflow Run Tracker (AC: 3)
+   */
+  createWorkflowRun: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        workflowKey: z.string(),
+        phase: z.enum(['analysis', 'planning', 'solutioning']),
+        agentName: z.string().optional(),
+        taskId: z.string().optional(),
+        inputArtifacts: z.array(z.string()).optional()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const knownKeys = BMAD_WORKFLOWS.map((w) => w.workflowKey)
+      if (!knownKeys.includes(input.workflowKey)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Unknown workflow key: ${input.workflowKey}`
+        })
+      }
+
+      const id = crypto.randomUUID()
+      const now = new Date()
+
+      await ctx.db.insert(workflow_runs).values({
+        id,
+        project_id: input.projectId,
+        workflow_key: input.workflowKey,
+        phase: input.phase,
+        status: 'running',
+        started_at: now,
+        input_artifacts: input.inputArtifacts ? JSON.stringify(input.inputArtifacts) : null,
+        agent_name: input.agentName ?? null,
+        task_id: input.taskId ?? null
+      })
+
+      const created = ctx.db.select().from(workflow_runs).where(eq(workflow_runs.id, id)).get()
+      if (!created) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create workflow run' })
+      }
+      return created
+    }),
+
+  /**
+   * Update a workflow run's status and optionally set output artifacts.
+   * Story 9.5: Guided Workflow Run Tracker (AC: 3)
+   */
+  updateWorkflowRun: publicProcedure
+    .input(
+      z.object({
+        runId: z.string(),
+        status: z.enum(WORKFLOW_RUN_STATUS),
+        outputArtifacts: z.array(z.string()).optional()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const terminalStatuses: string[] = ['succeeded', 'failed', 'cancelled']
+      const isTerminal = terminalStatuses.includes(input.status)
+
+      // Guard: prevent re-opening a terminal run
+      const existing = ctx.db.select().from(workflow_runs).where(eq(workflow_runs.id, input.runId)).get()
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: `Workflow run not found: ${input.runId}` })
+      }
+      if (terminalStatuses.includes(existing.status) && !isTerminal) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot transition terminal run from '${existing.status}' to '${input.status}'`
+        })
+      }
+
+      await ctx.db
+        .update(workflow_runs)
+        .set({
+          status: input.status,
+          finished_at: isTerminal ? new Date() : undefined,
+          output_artifacts: input.outputArtifacts ? JSON.stringify(input.outputArtifacts) : undefined
+        })
+        .where(eq(workflow_runs.id, input.runId))
+
+      const updated = ctx.db.select().from(workflow_runs).where(eq(workflow_runs.id, input.runId)).get()
+      if (!updated) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to update workflow run' })
+      }
+      return updated
+    }),
+
+  /**
+   * List workflow runs for a project, ordered by most recent.
+   * Story 9.5: Guided Workflow Run Tracker (AC: 4)
+   */
+  listWorkflowRuns: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        limit: z.number().int().positive().max(200).optional()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 20
+
+      const runs = await ctx.db
+        .select()
+        .from(workflow_runs)
+        .where(eq(workflow_runs.project_id, input.projectId))
+        .orderBy(desc(workflow_runs.started_at))
+        .limit(limit)
+
+      return runs.map((run) => ({
+        ...run,
+        input_artifacts: (() => { try { return run.input_artifacts ? JSON.parse(run.input_artifacts) as string[] : [] } catch { return [] } })(),
+        output_artifacts: (() => { try { return run.output_artifacts ? JSON.parse(run.output_artifacts) as string[] : [] } catch { return [] } })()
+      }))
+    }),
+
+  /**
+   * Get the currently active workflow run for a project (running or needs-input).
+   * Story 9.5: Guided Workflow Run Tracker (AC: 1)
+   */
+  getActiveWorkflowRun: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const run = await ctx.db
+        .select()
+        .from(workflow_runs)
+        .where(
+          and(
+            eq(workflow_runs.project_id, input.projectId),
+            or(
+              eq(workflow_runs.status, 'running'),
+              eq(workflow_runs.status, 'needs-input')
+            )
+          )
+        )
+        .orderBy(desc(workflow_runs.started_at))
+        .limit(1)
+        .get()
+
+      if (!run) return null
+
+      return {
+        ...run,
+        input_artifacts: (() => { try { return run.input_artifacts ? JSON.parse(run.input_artifacts) as string[] : [] } catch { return [] } })(),
+        output_artifacts: (() => { try { return run.output_artifacts ? JSON.parse(run.output_artifacts) as string[] : [] } catch { return [] } })()
+      }
     })
 })

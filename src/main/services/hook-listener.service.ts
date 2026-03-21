@@ -12,9 +12,10 @@
 import * as http from 'http'
 import * as fs from 'fs'
 import { z } from 'zod'
-import { eq, desc, and, isNull } from 'drizzle-orm'
+import { eq, desc, and, isNull, or } from 'drizzle-orm'
 import { db } from '../db'
-import { tasks, task_sessions, taskActivities } from '../db/schema'
+import { tasks, task_sessions, taskActivities, workflow_runs } from '../db/schema'
+import { BMAD_WORKFLOWS } from '../trpc/routers/planning-workflow-constants'
 import { ActivityLogService } from './activity-log.service'
 import { AutomationService } from './automation.service'
 import { TaskSessionService } from './task-session.service'
@@ -491,6 +492,13 @@ export class HookListenerService {
       await this.logHookDeliveryError(taskId, 'agent_complete', error)
     }
 
+    // Story 9.5: Update workflow run status on agent completion
+    try {
+      await this.updateWorkflowRunOnComplete(taskId, hasError)
+    } catch (wfError) {
+      console.warn('[HookListener] Failed to update workflow run:', wfError)
+    }
+
     // TES-2.9: Trigger AutomationService.onAgentComplete for workflow transitions
     // This logs the automation_trigger event and (in future) advances the workflow
     await AutomationService.onAgentComplete(taskId, phase)
@@ -802,6 +810,79 @@ export class HookListenerService {
 
     // Show actual lines replaced (git-style: lines added, lines removed)
     return `+${newLines} -${oldLines}`
+  }
+
+  /**
+   * Update the workflow run record when an agent completes or fails.
+   *
+   * Story 9.5: Guided Workflow Run Tracker (AC: 3)
+   *
+   * @param taskId - Task ID to find the active workflow run for
+   * @param hasError - Whether the agent exited with an error
+   */
+  private async updateWorkflowRunOnComplete(taskId: string, hasError: boolean): Promise<void> {
+    // Check if the task is a planning task
+    const task = db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .get()
+
+    if (!task || task.task_type !== 'planning') {
+      return
+    }
+
+    // Find the active workflow_run for this task (running OR needs-input)
+    const activeRun = db
+      .select()
+      .from(workflow_runs)
+      .where(
+        and(
+          eq(workflow_runs.task_id, taskId),
+          or(
+            eq(workflow_runs.status, 'running'),
+            eq(workflow_runs.status, 'needs-input')
+          )
+        )
+      )
+      .get()
+
+    if (!activeRun) {
+      console.log(`[HookListener] No active workflow run found for task ${taskId}`)
+      return
+    }
+
+    const newStatus = hasError ? 'failed' : 'succeeded'
+    const now = new Date()
+
+    // Determine output artifacts from BMAD_WORKFLOWS constant (statically imported)
+    let outputArtifacts: string[] | null = null
+    if (!hasError) {
+      const wf = BMAD_WORKFLOWS.find((w) => w.workflowKey === activeRun.workflow_key)
+      if (wf) {
+        outputArtifacts = [wf.filename]
+      }
+    }
+
+    // Update only if the run is still in the expected active state (prevents TOCTOU double-update)
+    db.update(workflow_runs)
+      .set({
+        status: newStatus,
+        finished_at: now,
+        output_artifacts: outputArtifacts ? JSON.stringify(outputArtifacts) : null
+      })
+      .where(
+        and(
+          eq(workflow_runs.id, activeRun.id),
+          or(
+            eq(workflow_runs.status, 'running'),
+            eq(workflow_runs.status, 'needs-input')
+          )
+        )
+      )
+      .run()
+
+    console.log(`[HookListener] Updated workflow run ${activeRun.id} to ${newStatus}`)
   }
 
   /**

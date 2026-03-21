@@ -18,6 +18,7 @@ import {
 } from '@renderer/constants/planning-workspace'
 import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgressDashboard'
 import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
+import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -212,17 +213,22 @@ export function PlanningWorkspacePage() {
           </aside>
 
           {/* Center content */}
-          <main className={cn(
-            "flex flex-1",
-            selectedWorkflow && !artifactExists && "items-center justify-center p-8"
-          )}>
-            {!selectedWorkflow ? (
-              <PhaseProgressDashboard />
-            ) : artifactExists ? (
-              <ArtifactViewer workflowKey={selectedWorkflow.key} />
-            ) : (
-              <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
-            )}
+          <main className="flex flex-1 flex-col">
+            {/* Story 9.5: Active workflow run banner — always top-aligned */}
+            <WorkflowRunPanel />
+
+            <div className={cn(
+              "flex min-h-0 flex-1",
+              selectedWorkflow && !artifactExists && "items-center justify-center p-8"
+            )}>
+              {!selectedWorkflow ? (
+                <PhaseProgressDashboard />
+              ) : artifactExists ? (
+                <ArtifactViewer workflowKey={selectedWorkflow.key} />
+              ) : (
+                <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
+              )}
+            </div>
           </main>
         </div>
       </div>

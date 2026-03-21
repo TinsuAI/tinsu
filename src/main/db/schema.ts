@@ -405,3 +405,38 @@ export const taskVersions = sqliteTable(
 // Story 7.7: Task version type exports
 export type TaskVersion = InferSelectModel<typeof taskVersions>
 export type NewTaskVersion = InferInsertModel<typeof taskVersions>
+
+// Story 9.5: Workflow run status values for tracking BMAD planning workflow executions
+export const WORKFLOW_RUN_STATUS = ['running', 'needs-input', 'succeeded', 'failed', 'cancelled'] as const
+export type WorkflowRunStatus = (typeof WORKFLOW_RUN_STATUS)[number]
+
+// Story 9.5: Workflow runs table for tracking BMAD planning workflow executions
+export const workflow_runs = sqliteTable(
+  'workflow_runs',
+  {
+    id: text('id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    workflow_key: text('workflow_key').notNull(),
+    phase: text('phase').notNull(),
+    status: text('status').notNull().default('running'),
+    started_at: integer('started_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    finished_at: integer('finished_at', { mode: 'timestamp' }),
+    input_artifacts: text('input_artifacts'),
+    output_artifacts: text('output_artifacts'),
+    agent_name: text('agent_name'),
+    task_id: text('task_id').references(() => tasks.id, { onDelete: 'set null' })
+  },
+  (table) => [
+    index('idx_workflow_runs_project_id').on(table.project_id),
+    index('idx_workflow_runs_status').on(table.status),
+    index('idx_workflow_runs_started_at').on(table.started_at)
+  ]
+)
+
+// Story 9.5: Workflow run type exports
+export type WorkflowRun = InferSelectModel<typeof workflow_runs>
+export type NewWorkflowRun = InferInsertModel<typeof workflow_runs>

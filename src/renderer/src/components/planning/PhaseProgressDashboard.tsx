@@ -19,6 +19,7 @@ import {
   type BmadWorkflowDefinition
 } from '@renderer/constants/planning-workspace'
 import { WhatNextPanel } from './WhatNextPanel'
+import { RecentRunsTable } from './RecentRunsTable'
 
 /**
  * Artifact scan result from the planning.scanArtifacts tRPC query.
@@ -290,6 +291,9 @@ export function PhaseProgressDashboard() {
             })}
           </div>
         </section>
+
+        {/* ── Recent Runs Table (Story 9.5) ── */}
+        <RecentRunsTable />
       </div>
     </div>
   )

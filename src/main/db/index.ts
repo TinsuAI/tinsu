@@ -423,6 +423,28 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_planning_artifact_statuses_project_artifact ON planning_artifact_statuses(project_id, artifact_key)'
   )
 
+  // Story 9.5: Workflow runs table for tracking BMAD planning workflow executions
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      workflow_key TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      started_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      finished_at INTEGER,
+      input_artifacts TEXT,
+      output_artifacts TEXT,
+      agent_name TEXT,
+      task_id TEXT,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_project_id ON workflow_runs(project_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at)')
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

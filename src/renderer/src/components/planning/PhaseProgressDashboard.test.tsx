@@ -81,6 +81,11 @@ vi.mock('./WhatNextPanel', () => ({
   WhatNextPanel: () => <div data-testid="what-next-panel">WhatNextPanel</div>
 }))
 
+// Mock RecentRunsTable to isolate PhaseProgressDashboard tests (Story 9.5)
+vi.mock('./RecentRunsTable', () => ({
+  RecentRunsTable: () => <div data-testid="recent-runs-table">RecentRunsTable</div>
+}))
+
 describe('PhaseProgressDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -253,6 +258,28 @@ describe('PhaseProgressDashboard', () => {
       // Verify WhatNextPanel appears before Project Health in DOM order
       const projectHealth = screen.getByText('Project Health')
       expect(whatNext.compareDocumentPosition(projectHealth) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+  })
+
+  describe('RecentRunsTable integration (Story 9.5)', () => {
+    beforeEach(() => {
+      vi.mocked(trpc.project.getCurrent.useQuery).mockReturnValue({
+        data: { id: 'project-1', path: '/test', config: { projectName: 'Test' }, isNewProject: false }
+      } as any)
+      vi.mocked(trpc.planning.scanArtifacts.useQuery).mockReturnValue({
+        data: mockScanData,
+        refetch: mockRefetch
+      } as any)
+    })
+
+    it('renders RecentRunsTable below phase cards', () => {
+      render(<PhaseProgressDashboard />)
+      const recentRuns = screen.getByTestId('recent-runs-table')
+      expect(recentRuns).toBeInTheDocument()
+
+      // Verify RecentRunsTable appears after Planning Phases in DOM order
+      const planningPhases = screen.getByText('Planning Phases')
+      expect(planningPhases.compareDocumentPosition(recentRuns) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
   })
 })

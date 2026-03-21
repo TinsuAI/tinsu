@@ -60,6 +60,62 @@ function createTestDb(): TestDb {
     );
   `)
 
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'backlog',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      epic_id TEXT,
+      sprint_id TEXT,
+      task_type TEXT NOT NULL DEFAULT 'story',
+      phase_number INTEGER,
+      phase_name TEXT,
+      bmad_agent TEXT,
+      bmad_workflow TEXT,
+      is_start_here INTEGER,
+      artifact_path TEXT,
+      story_number TEXT,
+      story_file_path TEXT,
+      full_content TEXT,
+      story_file_status TEXT,
+      context_notes TEXT,
+      project_id TEXT,
+      worktree_path TEXT,
+      branch_name TEXT,
+      merge_commit_sha TEXT,
+      has_merge_conflict INTEGER DEFAULT 0,
+      conflict_files TEXT,
+      worktree_skipped INTEGER DEFAULT 0,
+      rejection_feedback TEXT,
+      rejected_agent_run_id TEXT,
+      inline_comments TEXT,
+      rejection_count INTEGER DEFAULT 0,
+      last_review_commit TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `)
+
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY NOT NULL,
+      project_id TEXT NOT NULL,
+      workflow_key TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      started_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      finished_at INTEGER,
+      input_artifacts TEXT,
+      output_artifacts TEXT,
+      agent_name TEXT,
+      task_id TEXT,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    );
+  `)
+
   return drizzle({ client: sqlite, schema })
 }
 
@@ -344,6 +400,205 @@ describe('planningRouter', () => {
       const prd = result.find((a) => a.workflowKey === 'prd')
       expect(prd?.status).toBe('in-review')
       expect(prd?.exists).toBe(true)
+    })
+  })
+
+  // Story 9.5: Workflow run procedure tests
+  describe('createWorkflowRun', () => {
+    it('creates a workflow run with running status', async () => {
+      const result = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning',
+        agentName: 'bmad:bmm:agents:pm'
+      })
+
+      expect(result.id).toBeDefined()
+      expect(result.project_id).toBe('project-1')
+      expect(result.workflow_key).toBe('prd')
+      expect(result.phase).toBe('planning')
+      expect(result.status).toBe('running')
+      expect(result.agent_name).toBe('bmad:bmm:agents:pm')
+      expect(result.finished_at).toBeNull()
+    })
+
+    it('stores input artifacts as JSON', async () => {
+      const result = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'architecture',
+        phase: 'solutioning',
+        inputArtifacts: ['prd']
+      })
+
+      expect(result.input_artifacts).toBe(JSON.stringify(['prd']))
+    })
+
+    it('rejects unknown workflow keys', async () => {
+      await expect(
+        caller.createWorkflowRun({
+          projectId: 'project-1',
+          workflowKey: 'unknown-workflow',
+          phase: 'analysis'
+        })
+      ).rejects.toThrow(/unknown workflow key/i)
+    })
+
+    it('links to task when taskId is provided', async () => {
+      // Create a task first
+      db.insert(schema.tasks)
+        .values({
+          id: 'task-1',
+          title: 'Test Planning Task',
+          task_type: 'planning',
+          status: 'in_progress',
+          project_id: 'project-1'
+        })
+        .run()
+
+      const result = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning',
+        taskId: 'task-1'
+      })
+
+      expect(result.task_id).toBe('task-1')
+    })
+  })
+
+  describe('updateWorkflowRun', () => {
+    it('updates status and sets finished_at for terminal statuses', async () => {
+      // Create a run first
+      const created = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+
+      const result = await caller.updateWorkflowRun({
+        runId: created.id,
+        status: 'succeeded',
+        outputArtifacts: ['prd.md']
+      })
+
+      expect(result.status).toBe('succeeded')
+      expect(result.finished_at).not.toBeNull()
+      expect(result.output_artifacts).toBe(JSON.stringify(['prd.md']))
+    })
+
+    it('does not set finished_at for non-terminal statuses', async () => {
+      const created = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+
+      const result = await caller.updateWorkflowRun({
+        runId: created.id,
+        status: 'needs-input'
+      })
+
+      expect(result.status).toBe('needs-input')
+      expect(result.finished_at).toBeNull()
+    })
+
+    it('sets finished_at for failed status', async () => {
+      const created = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+
+      const result = await caller.updateWorkflowRun({
+        runId: created.id,
+        status: 'failed'
+      })
+
+      expect(result.status).toBe('failed')
+      expect(result.finished_at).not.toBeNull()
+    })
+  })
+
+  describe('listWorkflowRuns', () => {
+    it('returns runs ordered by started_at descending', async () => {
+      // Create multiple runs
+      await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'product-brief',
+        phase: 'analysis'
+      })
+      await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+
+      const result = await caller.listWorkflowRuns({ projectId: 'project-1' })
+
+      expect(result.length).toBe(2)
+      // Results should be parsed from JSON
+      expect(Array.isArray(result[0].input_artifacts)).toBe(true)
+      expect(Array.isArray(result[0].output_artifacts)).toBe(true)
+    })
+
+    it('respects limit parameter', async () => {
+      await caller.createWorkflowRun({ projectId: 'project-1', workflowKey: 'product-brief', phase: 'analysis' })
+      await caller.createWorkflowRun({ projectId: 'project-1', workflowKey: 'prd', phase: 'planning' })
+      await caller.createWorkflowRun({ projectId: 'project-1', workflowKey: 'architecture', phase: 'solutioning' })
+
+      const result = await caller.listWorkflowRuns({ projectId: 'project-1', limit: 2 })
+      expect(result.length).toBe(2)
+    })
+
+    it('returns empty array for project with no runs', async () => {
+      const result = await caller.listWorkflowRuns({ projectId: 'project-1' })
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('getActiveWorkflowRun', () => {
+    it('returns null when no active run exists', async () => {
+      const result = await caller.getActiveWorkflowRun({ projectId: 'project-1' })
+      expect(result).toBeNull()
+    })
+
+    it('returns active running run', async () => {
+      await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning',
+        agentName: 'bmad:bmm:agents:pm'
+      })
+
+      const result = await caller.getActiveWorkflowRun({ projectId: 'project-1' })
+      expect(result).not.toBeNull()
+      expect(result!.status).toBe('running')
+      expect(result!.workflow_key).toBe('prd')
+    })
+
+    it('returns null when all runs are terminal', async () => {
+      const created = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+      await caller.updateWorkflowRun({ runId: created.id, status: 'succeeded' })
+
+      const result = await caller.getActiveWorkflowRun({ projectId: 'project-1' })
+      expect(result).toBeNull()
+    })
+
+    it('returns needs-input run as active', async () => {
+      const created = await caller.createWorkflowRun({
+        projectId: 'project-1',
+        workflowKey: 'prd',
+        phase: 'planning'
+      })
+      await caller.updateWorkflowRun({ runId: created.id, status: 'needs-input' })
+
+      const result = await caller.getActiveWorkflowRun({ projectId: 'project-1' })
+      expect(result).not.toBeNull()
+      expect(result!.status).toBe('needs-input')
     })
   })
 })

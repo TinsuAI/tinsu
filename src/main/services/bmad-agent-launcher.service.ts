@@ -2,8 +2,49 @@ import { TaskTerminalService } from './task-terminal.service'
 import { PlanningTask } from '../../shared/types/task.types'
 import type { ClaudeModel } from '../../shared/types/config.types'
 import { db } from '../db'
-import { task_sessions } from '../db/schema'
+import { task_sessions, workflow_runs } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import crypto from 'crypto'
+
+/**
+ * Map phase_number to BMAD workflow key for workflow run tracking.
+ * Story 9.5: Guided Workflow Run Tracker
+ */
+const PHASE_TO_WORKFLOW_KEY: Record<number, string> = {
+  1: 'product-brief',
+  2: 'prd',
+  3: 'architecture',
+  4: 'ux-design',
+  5: 'epics-stories'
+}
+
+/**
+ * Map phase_number to BMAD planning phase name.
+ * Story 9.5: Guided Workflow Run Tracker
+ */
+const PHASE_TO_PHASE_NAME: Record<number, string> = {
+  1: 'analysis',
+  2: 'planning',
+  3: 'solutioning',
+  4: 'planning',
+  5: 'solutioning'
+}
+
+/**
+ * Map workflow key to its input artifact dependencies.
+ * Story 9.5: Guided Workflow Run Tracker
+ */
+const WORKFLOW_INPUT_MAP: Record<string, string[]> = {
+  'brainstorming': [],
+  'product-brief': [],
+  'market-research': [],
+  'domain-research': [],
+  'prd': ['product-brief'],
+  'ux-design': ['prd'],
+  'architecture': ['prd'],
+  'epics-stories': ['architecture'],
+  'readiness-check': ['epics-stories']
+}
 
 /**
  * Result returned when launching a BMAD agent.
@@ -126,6 +167,29 @@ export class BmadAgentLauncherService {
 
     // Send command to tmux session
     await TaskTerminalService.sendCommand(taskId, fullCommand)
+
+    // Story 9.5: Record workflow run in the database
+    try {
+      const workflowKey = task.phase_number != null ? PHASE_TO_WORKFLOW_KEY[task.phase_number] : undefined
+      const phaseName = task.phase_number != null ? PHASE_TO_PHASE_NAME[task.phase_number] : undefined
+
+      if (task.project_id && workflowKey && phaseName) {
+        const inputArtifacts = WORKFLOW_INPUT_MAP[workflowKey] ?? []
+        db.insert(workflow_runs).values({
+          id: crypto.randomUUID(),
+          project_id: task.project_id,
+          workflow_key: workflowKey,
+          phase: phaseName,
+          status: 'running',
+          started_at: new Date(),
+          input_artifacts: inputArtifacts.length > 0 ? JSON.stringify(inputArtifacts) : null,
+          agent_name: task.bmad_agent,
+          task_id: taskId
+        }).run()
+      }
+    } catch (error) {
+      console.warn('[BmadAgentLauncherService] Failed to record workflow run:', error)
+    }
 
     return {
       command: fullCommand,
