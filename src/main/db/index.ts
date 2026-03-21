@@ -445,6 +445,23 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status)')
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at)')
 
+  // Story 9.6: Gate decisions table for readiness gate results
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS gate_decisions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      issues TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      workflow_run_id TEXT,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(id) ON DELETE SET NULL
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_project_id ON gate_decisions(project_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_created_at ON gate_decisions(created_at)')
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

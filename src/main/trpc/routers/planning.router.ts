@@ -1,12 +1,13 @@
 import { z } from 'zod'
 import { join } from 'path'
-import { readFileSync, statSync } from 'fs'
+import { readFileSync, statSync, readdirSync } from 'fs'
 import type { Stats } from 'fs'
 import crypto from 'crypto'
 import { eq, desc, and, or } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
-import { planning_artifact_statuses, PLANNING_ARTIFACT_STATUS, workflow_runs, WORKFLOW_RUN_STATUS } from '../../db/schema'
+import { planning_artifact_statuses, PLANNING_ARTIFACT_STATUS, workflow_runs, WORKFLOW_RUN_STATUS, gate_decisions } from '../../db/schema'
 import { BMAD_WORKFLOWS } from './planning-workflow-constants'
+import { parseReadinessReport } from '../../services/readiness-gate.service'
 
 /**
  * Known artifact files to detect, mapped from workflow key to expected filename.
@@ -318,5 +319,175 @@ export const planningRouter = router({
         input_artifacts: (() => { try { return run.input_artifacts ? JSON.parse(run.input_artifacts) as string[] : [] } catch { return [] } })(),
         output_artifacts: (() => { try { return run.output_artifacts ? JSON.parse(run.output_artifacts) as string[] : [] } catch { return [] } })()
       }
+    }),
+
+  /**
+   * Parse the readiness report and save the gate decision to DB.
+   * Story 9.6: Readiness Gate Results Panel (AC: 1, 2, 4)
+   */
+  parseAndSaveGateResult: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        workflowRunId: z.string().optional()
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
+
+      // Try readiness-check.md first, then glob for implementation-readiness-report-*.md
+      let reportContent: string | null = null
+
+      try {
+        reportContent = readFileSync(join(artifactsDir, 'readiness-check.md'), 'utf-8')
+      } catch {
+        // Not found, try glob pattern
+      }
+
+      if (!reportContent) {
+        try {
+          const files = readdirSync(artifactsDir)
+          const matches = files
+            .filter((f) => f.startsWith('implementation-readiness-report-') && f.endsWith('.md'))
+            .sort()
+            .reverse()
+
+          if (matches.length > 0) {
+            reportContent = readFileSync(join(artifactsDir, matches[0]), 'utf-8')
+          }
+        } catch {
+          // Directory not found or read error
+        }
+      }
+
+      if (!reportContent) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No readiness report found in planning-artifacts directory'
+        })
+      }
+
+      const parsed = parseReadinessReport(reportContent)
+      const id = crypto.randomUUID()
+
+      await ctx.db.insert(gate_decisions).values({
+        id,
+        project_id: input.projectId,
+        decision: parsed.decision,
+        rationale: parsed.rationale,
+        issues: parsed.issues.length > 0 ? JSON.stringify(parsed.issues) : null,
+        created_at: new Date(),
+        workflow_run_id: input.workflowRunId ?? null
+      })
+
+      const saved = ctx.db.select().from(gate_decisions).where(eq(gate_decisions.id, id)).get()
+      if (!saved) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to save gate decision' })
+      }
+
+      return {
+        ...saved,
+        issues: parsed.issues
+      }
+    }),
+
+  /**
+   * Get the most recent gate decision for a project.
+   * Story 9.6: Readiness Gate Results Panel (AC: 1, 4)
+   */
+  getLatestGateDecision: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const result = ctx.db
+        .select()
+        .from(gate_decisions)
+        .where(eq(gate_decisions.project_id, input.projectId))
+        .orderBy(desc(gate_decisions.created_at))
+        .limit(1)
+        .get()
+
+      if (!result) return null
+      return {
+        ...result,
+        issues: (() => { try { return result.issues ? JSON.parse(result.issues) : [] } catch { return [] } })()
+      }
+    }),
+
+  /**
+   * List gate decisions for a project, ordered by most recent.
+   * Story 9.6: Readiness Gate Results Panel (AC: 3, 4)
+   */
+  listGateDecisions: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        limit: z.number().int().positive().max(200).optional()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 10
+
+      const results = await ctx.db
+        .select()
+        .from(gate_decisions)
+        .where(eq(gate_decisions.project_id, input.projectId))
+        .orderBy(desc(gate_decisions.created_at))
+        .limit(limit)
+
+      return results.map((r) => ({
+        ...r,
+        issues: (() => { try { return r.issues ? JSON.parse(r.issues) : [] } catch { return [] } })()
+      }))
+    }),
+
+  /**
+   * Approve all planning artifacts for implementation.
+   * Only succeeds if the latest gate decision is 'pass'.
+   * Story 9.6: Readiness Gate Results Panel (AC: 5)
+   */
+  approveForImplementation: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Check latest gate decision
+      const latestDecision = ctx.db
+        .select()
+        .from(gate_decisions)
+        .where(eq(gate_decisions.project_id, input.projectId))
+        .orderBy(desc(gate_decisions.created_at))
+        .limit(1)
+        .get()
+
+      if (!latestDecision || latestDecision.decision !== 'pass') {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Cannot approve: latest gate decision must be "pass"'
+        })
+      }
+
+      // Upsert all known artifact statuses to 'approved'
+      const artifactKeys = BMAD_WORKFLOWS.map((w) => w.workflowKey)
+      let artifactCount = 0
+
+      for (const artifactKey of artifactKeys) {
+        await ctx.db
+          .insert(planning_artifact_statuses)
+          .values({
+            id: crypto.randomUUID(),
+            project_id: input.projectId,
+            artifact_key: artifactKey,
+            status: 'approved',
+            updated_at: new Date()
+          })
+          .onConflictDoUpdate({
+            target: [planning_artifact_statuses.project_id, planning_artifact_statuses.artifact_key],
+            set: {
+              status: 'approved',
+              updated_at: new Date()
+            }
+          })
+        artifactCount++
+      }
+
+      return { approved: true, artifactCount }
     })
 })

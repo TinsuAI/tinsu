@@ -23,8 +23,22 @@ vi.mock('@renderer/lib/trpc', () => ({
     planning: {
       scanArtifacts: {
         useQuery: (_input: unknown, _opts: unknown) => mockScanArtifacts()
+      },
+      getLatestGateDecision: {
+        useQuery: () => ({ data: null, isLoading: false })
+      },
+      parseAndSaveGateResult: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false })
+      },
+      getActiveWorkflowRun: {
+        useQuery: () => ({ data: null })
       }
-    }
+    },
+    useUtils: () => ({
+      planning: {
+        getLatestGateDecision: { invalidate: vi.fn() }
+      }
+    })
   }
 }))
 
@@ -38,6 +52,11 @@ vi.mock('@renderer/components/planning/ArtifactViewer', () => ({
   ArtifactViewer: ({ workflowKey }: { workflowKey: string }) => (
     <div data-testid="artifact-viewer">Artifact Viewer: {workflowKey}</div>
   )
+}))
+
+// Mock ReadinessGatePanel (Story 9.6) to isolate page-level tests
+vi.mock('@renderer/components/planning/ReadinessGatePanel', () => ({
+  ReadinessGatePanel: () => <div data-testid="readiness-gate-panel">Readiness Gate Panel</div>
 }))
 
 describe('PlanningWorkspacePage', () => {

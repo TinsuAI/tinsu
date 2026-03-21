@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
+import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 
 // Mock fs module
@@ -15,9 +16,15 @@ let mockReadFileSync: (path: string, encoding: string) => string = () => {
   throw err
 }
 
+let mockReaddirSync: (path: string) => string[] = () => {
+  const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+  throw err
+}
+
 vi.mock('fs', () => ({
   statSync: (path: string) => mockStatSync(path),
-  readFileSync: (path: string, encoding: string) => mockReadFileSync(path, encoding)
+  readFileSync: (path: string, encoding: string) => mockReadFileSync(path, encoding),
+  readdirSync: (path: string) => mockReaddirSync(path)
 }))
 
 // Mock the database module
@@ -116,6 +123,20 @@ function createTestDb(): TestDb {
     );
   `)
 
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS gate_decisions (
+      id TEXT PRIMARY KEY NOT NULL,
+      project_id TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      issues TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      workflow_run_id TEXT,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(id) ON DELETE SET NULL
+    );
+  `)
+
   return drizzle({ client: sqlite, schema })
 }
 
@@ -151,6 +172,10 @@ describe('planningRouter', () => {
       throw err
     }
     mockReadFileSync = () => {
+      const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+      throw err
+    }
+    mockReaddirSync = () => {
       const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
       throw err
     }
@@ -599,6 +624,228 @@ describe('planningRouter', () => {
       const result = await caller.getActiveWorkflowRun({ projectId: 'project-1' })
       expect(result).not.toBeNull()
       expect(result!.status).toBe('needs-input')
+    })
+  })
+
+  // Story 9.6: Gate decision procedure tests
+  describe('parseAndSaveGateResult', () => {
+    it('parses readiness report and saves to DB', async () => {
+      const reportContent = `## Summary and Recommendations
+All artifacts pass validation.
+
+### Overall Readiness Status
+**READY**
+`
+      mockReadFileSync = (p: string) => {
+        if (p.includes('readiness-check.md')) return reportContent
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+
+      const result = await caller.parseAndSaveGateResult({ projectId: 'project-1' })
+
+      expect(result.decision).toBe('pass')
+      expect(result.rationale).toContain('All artifacts pass validation')
+      expect(result.project_id).toBe('project-1')
+      expect(result.id).toBeDefined()
+    })
+
+    it('falls back to implementation-readiness-report glob', async () => {
+      const reportContent = `## Summary and Recommendations
+Needs work.
+
+### Overall Readiness Status
+**NEEDS WORK**
+`
+      mockReadFileSync = (p: string) => {
+        if (p.includes('implementation-readiness-report-2026-03-21.md')) return reportContent
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+      mockReaddirSync = () => [
+        'product-brief.md',
+        'implementation-readiness-report-2026-03-20.md',
+        'implementation-readiness-report-2026-03-21.md'
+      ]
+
+      const result = await caller.parseAndSaveGateResult({ projectId: 'project-1' })
+
+      expect(result.decision).toBe('concerns')
+    })
+
+    it('throws NOT_FOUND when no report exists', async () => {
+      mockReaddirSync = () => ['product-brief.md', 'prd.md']
+
+      await expect(
+        caller.parseAndSaveGateResult({ projectId: 'project-1' })
+      ).rejects.toThrow(/no readiness report found/i)
+    })
+
+    it('saves issues as JSON', async () => {
+      const reportContent = `#### 🔴 Critical Violations
+- PRD missing validation rules
+
+## Summary and Recommendations
+### Overall Readiness Status
+**NOT READY**
+`
+      mockReadFileSync = (p: string) => {
+        if (p.includes('readiness-check.md')) return reportContent
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+
+      const result = await caller.parseAndSaveGateResult({ projectId: 'project-1' })
+
+      expect(result.decision).toBe('fail')
+      expect(result.issues.length).toBeGreaterThan(0)
+      expect(result.issues[0].severity).toBe('critical')
+    })
+  })
+
+  describe('getLatestGateDecision', () => {
+    it('returns null when no decisions exist', async () => {
+      const result = await caller.getLatestGateDecision({ projectId: 'project-1' })
+      expect(result).toBeNull()
+    })
+
+    it('returns most recent decision', async () => {
+      // Insert two decisions
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-old',
+          project_id: 'project-1',
+          decision: 'fail',
+          rationale: 'Old result',
+          created_at: new Date(Date.now() - 60000)
+        })
+        .run()
+
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-new',
+          project_id: 'project-1',
+          decision: 'pass',
+          rationale: 'New result',
+          issues: JSON.stringify([{ severity: 'minor', description: 'test' }]),
+          created_at: new Date()
+        })
+        .run()
+
+      const result = await caller.getLatestGateDecision({ projectId: 'project-1' })
+      expect(result).not.toBeNull()
+      expect(result!.decision).toBe('pass')
+      expect(result!.issues).toHaveLength(1)
+    })
+  })
+
+  describe('listGateDecisions', () => {
+    it('returns decisions ordered by most recent', async () => {
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-1',
+          project_id: 'project-1',
+          decision: 'fail',
+          rationale: 'First',
+          created_at: new Date(Date.now() - 60000)
+        })
+        .run()
+
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-2',
+          project_id: 'project-1',
+          decision: 'pass',
+          rationale: 'Second',
+          created_at: new Date()
+        })
+        .run()
+
+      const result = await caller.listGateDecisions({ projectId: 'project-1' })
+      expect(result).toHaveLength(2)
+      expect(result[0].decision).toBe('pass') // most recent first
+      expect(result[1].decision).toBe('fail')
+    })
+
+    it('respects limit parameter', async () => {
+      for (let i = 0; i < 5; i++) {
+        db.insert(schema.gate_decisions)
+          .values({
+            id: `gate-${i}`,
+            project_id: 'project-1',
+            decision: 'pass',
+            rationale: `Result ${i}`,
+            created_at: new Date(Date.now() - i * 10000)
+          })
+          .run()
+      }
+
+      const result = await caller.listGateDecisions({ projectId: 'project-1', limit: 3 })
+      expect(result).toHaveLength(3)
+    })
+  })
+
+  describe('approveForImplementation', () => {
+    it('approves when latest decision is pass', async () => {
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-pass',
+          project_id: 'project-1',
+          decision: 'pass',
+          rationale: 'All good',
+          created_at: new Date()
+        })
+        .run()
+
+      const result = await caller.approveForImplementation({ projectId: 'project-1' })
+      expect(result.approved).toBe(true)
+      expect(result.artifactCount).toBeGreaterThan(0)
+    })
+
+    it('rejects when latest decision is not pass', async () => {
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-fail',
+          project_id: 'project-1',
+          decision: 'fail',
+          rationale: 'Not ready',
+          created_at: new Date()
+        })
+        .run()
+
+      await expect(
+        caller.approveForImplementation({ projectId: 'project-1' })
+      ).rejects.toThrow(/latest gate decision must be "pass"/i)
+    })
+
+    it('rejects when no gate decision exists', async () => {
+      await expect(
+        caller.approveForImplementation({ projectId: 'project-1' })
+      ).rejects.toThrow(/latest gate decision must be "pass"/i)
+    })
+
+    it('sets all artifacts to approved status', async () => {
+      db.insert(schema.gate_decisions)
+        .values({
+          id: 'gate-pass',
+          project_id: 'project-1',
+          decision: 'pass',
+          rationale: 'All good',
+          created_at: new Date()
+        })
+        .run()
+
+      await caller.approveForImplementation({ projectId: 'project-1' })
+
+      // Check that artifact statuses are set to approved
+      const statuses = db
+        .select()
+        .from(schema.planning_artifact_statuses)
+        .where(eq(schema.planning_artifact_statuses.project_id, 'project-1'))
+        .all()
+
+      expect(statuses.length).toBeGreaterThan(0)
+      expect(statuses.every((s) => s.status === 'approved')).toBe(true)
     })
   })
 })

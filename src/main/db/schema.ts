@@ -440,3 +440,35 @@ export const workflow_runs = sqliteTable(
 // Story 9.5: Workflow run type exports
 export type WorkflowRun = InferSelectModel<typeof workflow_runs>
 export type NewWorkflowRun = InferInsertModel<typeof workflow_runs>
+
+// Story 9.6: Gate decision status values for readiness gate tracking
+export const GATE_DECISION_STATUS = ['pass', 'concerns', 'fail'] as const
+export type GateDecisionStatus = (typeof GATE_DECISION_STATUS)[number]
+
+// Story 9.6: Gate decisions table for storing readiness gate results
+export const gate_decisions = sqliteTable(
+  'gate_decisions',
+  {
+    id: text('id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    decision: text('decision').notNull(),
+    rationale: text('rationale').notNull(),
+    issues: text('issues'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    workflow_run_id: text('workflow_run_id').references(() => workflow_runs.id, {
+      onDelete: 'set null'
+    })
+  },
+  (table) => [
+    index('idx_gate_decisions_project_id').on(table.project_id),
+    index('idx_gate_decisions_created_at').on(table.created_at)
+  ]
+)
+
+// Story 9.6: Gate decision type exports
+export type GateDecision = InferSelectModel<typeof gate_decisions>
+export type NewGateDecision = InferInsertModel<typeof gate_decisions>

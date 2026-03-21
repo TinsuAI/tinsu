@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   Compass,
@@ -19,6 +19,7 @@ import {
 import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgressDashboard'
 import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
 import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
+import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -62,6 +63,61 @@ export function PlanningWorkspacePage() {
     const artifact = artifacts.find((a) => a.workflowKey === selectedWorkflow.key)
     return artifact?.exists ?? false
   }, [selectedWorkflow, artifacts])
+
+  // Story 9.6: Detect readiness-check workflow selection
+  const isReadinessCheck = selectedWorkflowKey === 'readiness-check'
+
+  // Story 9.6: Auto-parse gate result when readiness-check artifact is viewed
+  const { data: latestGate, isLoading: isGateLoading } = trpc.planning.getLatestGateDecision.useQuery(
+    { projectId },
+    { enabled: !!projectId && isReadinessCheck && artifactExists }
+  )
+  const trpcUtils = trpc.useUtils()
+  const parseGateMutation = trpc.planning.parseAndSaveGateResult.useMutation({
+    onSuccess: () => {
+      trpcUtils.planning.getLatestGateDecision.invalidate()
+    }
+  })
+  const parseGate = parseGateMutation.mutate
+  const [autoParseTriggered, setAutoParseTriggered] = useState(false)
+
+  // Get artifact lastModified for comparison
+  const readinessArtifactLastModified = useMemo(() => {
+    if (!artifacts) return null
+    const artifact = artifacts.find((a) => a.workflowKey === 'readiness-check')
+    return artifact?.lastModified ?? null
+  }, [artifacts])
+
+  useEffect(() => {
+    if (
+      !isReadinessCheck ||
+      !artifactExists ||
+      !projectId ||
+      autoParseTriggered ||
+      parseGateMutation.isPending ||
+      isGateLoading // wait for query to resolve before deciding whether to auto-parse
+    ) return
+
+    // Auto-parse if no gate decision exists, or if artifact is newer than last decision
+    const shouldParse =
+      latestGate === null ||
+      (readinessArtifactLastModified && latestGate.created_at &&
+        readinessArtifactLastModified > (
+          typeof latestGate.created_at === 'number'
+            ? latestGate.created_at * 1000
+            : new Date(latestGate.created_at as string | Date).getTime()
+        ))
+
+    if (shouldParse) {
+      setAutoParseTriggered(true)
+      parseGate({ projectId })
+    }
+  }, [isReadinessCheck, artifactExists, projectId, latestGate, readinessArtifactLastModified, autoParseTriggered, parseGateMutation.isPending, isGateLoading, parseGate])
+
+  // Reset auto-parse trigger when workflow changes
+  useEffect(() => {
+    setAutoParseTriggered(false)
+  }, [selectedWorkflowKey])
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -219,10 +275,23 @@ export function PlanningWorkspacePage() {
 
             <div className={cn(
               "flex min-h-0 flex-1",
-              selectedWorkflow && !artifactExists && "items-center justify-center p-8"
+              selectedWorkflow && !artifactExists && !isReadinessCheck && "items-center justify-center p-8"
             )}>
               {!selectedWorkflow ? (
                 <PhaseProgressDashboard />
+              ) : isReadinessCheck && artifactExists ? (
+                /* Story 9.6: ReadinessGatePanel above ArtifactViewer for readiness-check */
+                <div className="h-full overflow-y-auto">
+                  <div className="space-y-4 p-6">
+                    <ReadinessGatePanel />
+                    <ArtifactViewer workflowKey={selectedWorkflow.key} />
+                  </div>
+                </div>
+              ) : isReadinessCheck && !artifactExists ? (
+                /* Story 9.6: ReadinessGatePanel empty state for readiness-check */
+                <div className="flex h-full items-center justify-center p-8">
+                  <ReadinessGatePanel />
+                </div>
               ) : artifactExists ? (
                 <ArtifactViewer workflowKey={selectedWorkflow.key} />
               ) : (
