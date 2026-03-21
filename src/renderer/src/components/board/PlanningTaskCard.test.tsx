@@ -363,6 +363,100 @@ describe('PlanningTaskCard with AgentStatusBadge', () => {
   })
 })
 
+// Story 9.8: Agent Persona Badge tests
+describe('PlanningTaskCard persona badge (Story 9.8)', () => {
+  it('shows persona badge when task has bmad_agent and agentStatus is running', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:pm'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    const badge = screen.getByTestId('agent-persona-badge')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent('PM')
+  })
+
+  it('does NOT show persona badge when agentStatus is not running', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:pm'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="idle" />)
+
+    expect(screen.queryByTestId('agent-persona-badge')).not.toBeInTheDocument()
+  })
+
+  it('does NOT show persona badge when bmad_agent is null', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: null
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    expect(screen.queryByTestId('agent-persona-badge')).not.toBeInTheDocument()
+  })
+
+  it('does NOT show persona badge for unknown agent', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:unknown'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    expect(screen.queryByTestId('agent-persona-badge')).not.toBeInTheDocument()
+  })
+
+  it('persona badge color matches agent mapping for PM (green)', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:pm'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    const badge = screen.getByTestId('agent-persona-badge')
+    expect(badge).toHaveClass('text-green-400')
+    expect(badge).toHaveClass('bg-green-500/20')
+    expect(badge).toHaveClass('border-green-500/30')
+  })
+
+  it('persona badge color matches agent mapping for Architect (orange)', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:architect'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    const badge = screen.getByTestId('agent-persona-badge')
+    expect(badge).toHaveClass('text-orange-400')
+    expect(badge).toHaveClass('bg-orange-500/20')
+  })
+
+  it('persona badge color matches agent mapping for UX Designer (purple)', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:ux-designer'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    const badge = screen.getByTestId('agent-persona-badge')
+    expect(badge).toHaveClass('text-purple-400')
+    expect(badge).toHaveClass('bg-purple-500/20')
+  })
+
+  it('persona badge color matches agent mapping for Analyst (blue)', () => {
+    const task: PlanningTask = {
+      ...mockPlanningTask,
+      bmad_agent: 'bmad:bmm:agents:analyst'
+    }
+    render(<PlanningTaskCard task={task} agentStatus="running" />)
+
+    const badge = screen.getByTestId('agent-persona-badge')
+    expect(badge).toHaveClass('text-blue-400')
+    expect(badge).toHaveClass('bg-blue-500/20')
+  })
+})
+
 // Story 3.7: Import Stories button tests
 describe('PlanningTaskCard Import Stories button', () => {
   const phase5Task: PlanningTask = {

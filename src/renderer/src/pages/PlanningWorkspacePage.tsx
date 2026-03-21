@@ -2,8 +2,7 @@ import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   Compass,
-  FileCode2,
-  Bot
+  FileCode2
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
@@ -20,6 +19,7 @@ import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgr
 import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
 import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
 import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
+import { AgentPersonaIndicator } from '@renderer/components/planning/AgentPersonaIndicator'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -48,6 +48,12 @@ export function PlanningWorkspacePage() {
     { projectId },
     { enabled: !!projectId, refetchOnWindowFocus: true, placeholderData: (prev) => prev }
   )
+  // Story 9.8: Query active workflow run for agent persona indicator
+  const { data: activeRun } = trpc.planning.getActiveWorkflowRun.useQuery(
+    { projectId },
+    { enabled: !!projectId, refetchInterval: 3000 }
+  )
+
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   const workflows = useMemo(() => getWorkflowsForPhase(activePhase), [activePhase])
@@ -220,11 +226,12 @@ export function PlanningWorkspacePage() {
             </span>
           </div>
 
-          {/* Right: agent indicator placeholder */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
-            <Bot className="h-3.5 w-3.5" />
-            <span>No agent active</span>
-          </div>
+          {/* Right: agent persona indicator (Story 9.8) */}
+          <AgentPersonaIndicator
+            agentName={activeRun?.agent_name ?? null}
+            workflowKey={activeRun?.workflow_key ?? null}
+            isRunning={activeRun?.status === 'running' || activeRun?.status === 'needs-input'}
+          />
         </header>
 
         {/* ── Phase tabs ── */}

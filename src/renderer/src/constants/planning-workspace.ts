@@ -177,6 +177,61 @@ export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
 ]
 
 /**
+ * Agent persona configuration — maps agent identifiers to display properties.
+ *
+ * Story 9.8: Agent Persona Indicator
+ */
+export interface AgentPersonaConfig {
+  /** Display name shown in the UI (e.g., "Analyst", "PM") */
+  displayName: string
+  /** Tailwind color classes for the persona badge */
+  bg: string
+  text: string
+  border: string
+  dot: string
+}
+
+export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> = Object.freeze({
+  'bmad:bmm:agents:analyst': {
+    displayName: 'Analyst',
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-400',
+    border: 'border-blue-500/30',
+    dot: 'bg-blue-400'
+  },
+  'bmad:bmm:agents:pm': {
+    displayName: 'PM',
+    bg: 'bg-green-500/20',
+    text: 'text-green-400',
+    border: 'border-green-500/30',
+    dot: 'bg-green-400'
+  },
+  'bmad:bmm:agents:architect': {
+    displayName: 'Architect',
+    bg: 'bg-orange-500/20',
+    text: 'text-orange-400',
+    border: 'border-orange-500/30',
+    dot: 'bg-orange-400'
+  },
+  'bmad:bmm:agents:ux-designer': {
+    displayName: 'UX Designer',
+    bg: 'bg-purple-500/20',
+    text: 'text-purple-400',
+    border: 'border-purple-500/30',
+    dot: 'bg-purple-400'
+  }
+})
+
+/**
+ * Look up agent persona config by agent name identifier.
+ * Returns null for unknown or null agents.
+ */
+export function getAgentPersona(agentName: string | null): AgentPersonaConfig | null {
+  if (!agentName) return null
+  return AGENT_PERSONA_CONFIG[agentName] ?? null
+}
+
+/**
  * Get workflows for a specific phase.
  */
 export function getWorkflowsForPhase(phase: PlanningPhase): BmadWorkflowDefinition[] {

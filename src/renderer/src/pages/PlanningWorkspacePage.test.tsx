@@ -12,6 +12,7 @@ vi.mock('@renderer/stores/project.store', () => ({
 // Mock trpc for artifact existence check
 const mockScanArtifacts = vi.fn()
 const mockGetCurrentProject = vi.fn()
+const mockGetActiveWorkflowRun = vi.fn()
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -31,7 +32,7 @@ vi.mock('@renderer/lib/trpc', () => ({
         useMutation: () => ({ mutate: vi.fn(), isPending: false })
       },
       getActiveWorkflowRun: {
-        useQuery: () => ({ data: null })
+        useQuery: (_input: unknown, _opts: unknown) => mockGetActiveWorkflowRun()
       }
     },
     useUtils: () => ({
@@ -59,6 +60,11 @@ vi.mock('@renderer/components/planning/ReadinessGatePanel', () => ({
   ReadinessGatePanel: () => <div data-testid="readiness-gate-panel">Readiness Gate Panel</div>
 }))
 
+// Mock WorkflowRunPanel to isolate agent persona indicator tests
+vi.mock('@renderer/components/planning/WorkflowRunPanel', () => ({
+  WorkflowRunPanel: () => <div data-testid="workflow-run-panel">Workflow Run Panel</div>
+}))
+
 describe('PlanningWorkspacePage', () => {
   beforeEach(() => {
     // Reset store state
@@ -74,9 +80,10 @@ describe('PlanningWorkspacePage', () => {
       return selector ? selector(state) : state
     })
 
-    // Mock trpc queries (no artifacts by default)
+    // Mock trpc queries (no artifacts by default, no active run)
     mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
     mockScanArtifacts.mockReturnValue({ data: [] })
+    mockGetActiveWorkflowRun.mockReturnValue({ data: null })
 
     vi.clearAllMocks()
   })
@@ -296,6 +303,70 @@ describe('PlanningWorkspacePage', () => {
 
       expect(screen.getByTestId('phase-progress-dashboard')).toBeInTheDocument()
       expect(screen.queryByTestId('artifact-viewer')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('agent persona indicator (Story 9.8)', () => {
+    beforeEach(() => {
+      usePlanningWorkspaceStore.setState({ isOpen: true, activePhase: 'analysis' })
+      mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
+      mockScanArtifacts.mockReturnValue({ data: [] })
+    })
+
+    it('shows "No agent active" when no active workflow run', () => {
+      mockGetActiveWorkflowRun.mockReturnValue({ data: null })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByText('No agent active')).toBeInTheDocument()
+      expect(screen.getByTestId('agent-persona-indicator')).toBeInTheDocument()
+    })
+
+    it('shows persona indicator when active run has agent_name', () => {
+      mockGetActiveWorkflowRun.mockReturnValue({
+        data: {
+          id: 'run-1',
+          agent_name: 'bmad:bmm:agents:pm',
+          workflow_key: 'prd',
+          status: 'running'
+        }
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByText('PM')).toBeInTheDocument()
+      expect(screen.getByText('Create PRD')).toBeInTheDocument()
+    })
+
+    it('shows "No agent active" when active run has non-running status', () => {
+      mockGetActiveWorkflowRun.mockReturnValue({
+        data: {
+          id: 'run-1',
+          agent_name: 'bmad:bmm:agents:pm',
+          workflow_key: 'prd',
+          status: 'succeeded'
+        }
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByText('No agent active')).toBeInTheDocument()
+    })
+
+    it('shows persona indicator for needs-input status', () => {
+      mockGetActiveWorkflowRun.mockReturnValue({
+        data: {
+          id: 'run-1',
+          agent_name: 'bmad:bmm:agents:architect',
+          workflow_key: 'architecture',
+          status: 'needs-input'
+        }
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByText('Architect')).toBeInTheDocument()
+      expect(screen.getByText('Architecture')).toBeInTheDocument()
     })
   })
 })

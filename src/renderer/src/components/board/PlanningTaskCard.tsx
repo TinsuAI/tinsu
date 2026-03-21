@@ -2,8 +2,9 @@ import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
 import { cn } from '@renderer/lib/utils'
 import { PhaseBadge } from '@renderer/components/task/PhaseBadge'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
+import { Badge } from '@renderer/components/ui/badge'
 import { PHASE_DESCRIPTIONS } from '@renderer/constants/planning-phases'
-import { BMAD_WORKFLOWS, phaseNumberToBmadPhase } from '@renderer/constants/planning-workspace'
+import { BMAD_WORKFLOWS, phaseNumberToBmadPhase, getAgentPersona } from '@renderer/constants/planning-workspace'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { CheckCircle2, FileText, Download, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -114,6 +115,9 @@ export function PlanningTaskCard({
   // Story 3.7: Show Import Stories button only on phase 5 when completed
   const showImportStoriesButton = task.phase_number === 5 && isCompleted
 
+  // Story 9.8: Look up agent persona for colored badge
+  const persona = task.bmad_agent ? getAgentPersona(task.bmad_agent) : null
+
   const description = PHASE_DESCRIPTIONS[task.phase_number]
 
   // Only show glow when isStartHere is true AND not completed
@@ -161,6 +165,21 @@ export function PlanningTaskCard({
             </button>
           )}
           <PhaseBadge phaseNumber={task.phase_number} />
+          {/* Story 9.8: Persona badge when agent is running */}
+          {agentStatus === 'running' && persona && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'px-1 py-0 text-[10px] font-medium leading-tight',
+                persona.bg,
+                persona.text,
+                persona.border
+              )}
+              data-testid="agent-persona-badge"
+            >
+              {persona.displayName}
+            </Badge>
+          )}
           <AgentStatusBadge status={agentStatus} />
         </div>
       </div>
