@@ -45,3 +45,4 @@ data/
 # TinSu project config - data directory ignored, config.yaml tracked
 .tinsu/data/
 /public/monaco
+.agents/

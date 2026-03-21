@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-01-22
+# updated: 2026-03-21
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -242,3 +242,16 @@ development_status:
   tes-5-9-manual-trigger-buttons: backlog
   tes-5-10-automation-keyboard-shortcuts: backlog
   tes-epic-5-retrospective: optional
+
+  # Epic 9: BMAD Planning Workspace (added 2026-03-21 via sprint change proposal)
+  epic-9: backlog
+  9-1-planning-workspace-route-and-navigation: backlog
+  9-2-phase-progress-dashboard: backlog
+  9-3-artifact-viewer-with-status-lifecycle: backlog
+  9-4-what-next-recommender-engine: backlog
+  9-5-guided-workflow-run-tracker: backlog
+  9-6-readiness-gate-results-panel: backlog
+  9-7-artifact-version-diff-view: backlog
+  9-8-agent-persona-indicator: backlog
+  9-9-planning-workspace-keyboard-navigation: backlog
+  epic-9-retrospective: optional
