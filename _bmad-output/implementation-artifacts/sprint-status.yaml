@@ -244,7 +244,7 @@ development_status:
   tes-epic-5-retrospective: optional
 
   # Epic 9: BMAD Planning Workspace (added 2026-03-21 via sprint change proposal)
-  epic-9: in-progress
+  epic-9: done
   9-1-planning-workspace-route-and-navigation: done  # Code review complete - 2 auto-fixes applied (App.tsx isViewingStory guard, Sidebar store selectors), all 38 tests passing
   9-2-phase-progress-dashboard: done  # Code review complete - 5 auto-fixes applied (TOCTOU statSync, atomic upsert, health badge dimmed, empty state copy AC5, error state handling), all 32 tests passing
   9-3-artifact-viewer-with-status-lifecycle: done  # Code review complete - 7 auto-fixes applied (trpcUtils ordering, statSync TOCTOU, isPending guard, scanArtifacts placeholder data, artifactPath trailing slash, empty slug guard, heading id text extraction), all 65 tests passing
