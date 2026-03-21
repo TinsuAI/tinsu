@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Compass,
   FileCode2,
-  Sparkles,
   Bot
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -16,6 +15,7 @@ import {
   getWorkflowsForPhase,
   type BmadWorkflowDefinition
 } from '@renderer/constants/planning-workspace'
+import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgressDashboard'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -197,11 +197,14 @@ export function PlanningWorkspacePage() {
           </aside>
 
           {/* Center content */}
-          <main className="flex flex-1 items-center justify-center p-8">
+          <main className={cn(
+            "flex flex-1",
+            selectedWorkflow && "items-center justify-center p-8"
+          )}>
             {selectedWorkflow ? (
               <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
             ) : (
-              <EmptyStatePlaceholder phase={activePhase} />
+              <PhaseProgressDashboard />
             )}
           </main>
         </div>
@@ -244,29 +247,7 @@ function WorkflowCard({
   )
 }
 
-/* ── Empty state (no workflow selected) ── */
-
-function EmptyStatePlaceholder({ phase }: { phase: PlanningPhase }) {
-  const phaseLabel = BMAD_PHASES.find((p) => p.key === phase)?.label ?? phase
-
-  return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
-        <Sparkles className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          {phaseLabel} Phase
-        </p>
-        <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-          Select a workflow from the sidebar to get started
-        </p>
-      </div>
-    </div>
-  )
-}
-
-/* ── Selected workflow placeholder (Story 9.2 replaces this) ── */
+/* ── Selected workflow placeholder (future stories replace this) ── */
 
 function SelectedWorkflowPlaceholder({
   workflow

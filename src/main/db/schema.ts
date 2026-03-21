@@ -222,6 +222,36 @@ export type NewSprint = InferInsertModel<typeof sprints>
 export type Project = InferSelectModel<typeof projects>
 export type NewProject = InferInsertModel<typeof projects>
 
+// Story 9.2: Planning artifact status values for approval tracking
+export const PLANNING_ARTIFACT_STATUS = ['draft', 'approved'] as const
+export type PlanningArtifactStatus = (typeof PLANNING_ARTIFACT_STATUS)[number]
+
+// Story 9.2: Planning artifact statuses table for approval tracking
+export const planning_artifact_statuses = sqliteTable(
+  'planning_artifact_statuses',
+  {
+    id: text('id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    artifact_key: text('artifact_key').notNull(),
+    status: text('status').notNull().default('draft'),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [
+    uniqueIndex('idx_planning_artifact_statuses_project_artifact').on(
+      table.project_id,
+      table.artifact_key
+    )
+  ]
+)
+
+// Story 9.2: Planning artifact status type exports
+export type PlanningArtifactStatusRecord = InferSelectModel<typeof planning_artifact_statuses>
+export type NewPlanningArtifactStatusRecord = InferInsertModel<typeof planning_artifact_statuses>
+
 // Story 3.10: Artifact type enum for artifact linking
 export const ARTIFACT_TYPE = ['prd', 'architecture', 'ux_design', 'epics', 'custom'] as const
 export type ArtifactType = (typeof ARTIFACT_TYPE)[number]

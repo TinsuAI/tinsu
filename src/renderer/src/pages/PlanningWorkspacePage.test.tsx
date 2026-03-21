@@ -9,6 +9,11 @@ vi.mock('@renderer/stores/project.store', () => ({
   useProjectStore: vi.fn()
 }))
 
+// Mock PhaseProgressDashboard (Story 9.2) to isolate page-level tests
+vi.mock('@renderer/components/planning/PhaseProgressDashboard', () => ({
+  PhaseProgressDashboard: () => <div data-testid="phase-progress-dashboard">Phase Progress Dashboard</div>
+}))
+
 describe('PlanningWorkspacePage', () => {
   beforeEach(() => {
     // Reset store state
@@ -114,9 +119,9 @@ describe('PlanningWorkspacePage', () => {
       usePlanningWorkspaceStore.setState({ isOpen: true, activePhase: 'analysis' })
     })
 
-    it('shows empty state placeholder when no workflow selected', () => {
+    it('shows phase progress dashboard when no workflow selected', () => {
       render(<PlanningWorkspacePage />)
-      expect(screen.getByText('Select a workflow from the sidebar to get started')).toBeInTheDocument()
+      expect(screen.getByTestId('phase-progress-dashboard')).toBeInTheDocument()
     })
 
     it('shows workflow detail when a workflow is clicked', async () => {
