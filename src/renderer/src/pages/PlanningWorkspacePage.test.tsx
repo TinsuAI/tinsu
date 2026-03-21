@@ -65,6 +65,17 @@ vi.mock('@renderer/components/planning/WorkflowRunPanel', () => ({
   WorkflowRunPanel: () => <div data-testid="workflow-run-panel">Workflow Run Panel</div>
 }))
 
+// Mock KeyboardShortcutsOverlay (Story 9.9) to isolate page-level tests
+vi.mock('@renderer/components/planning/KeyboardShortcutsOverlay', () => ({
+  KeyboardShortcutsOverlay: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
+    isOpen ? (
+      <div data-testid="keyboard-shortcuts-overlay" role="dialog">
+        <button onClick={onClose}>Close</button>
+        Keyboard Shortcuts
+      </div>
+    ) : null
+}))
+
 describe('PlanningWorkspacePage', () => {
   beforeEach(() => {
     // Reset store state
@@ -367,6 +378,156 @@ describe('PlanningWorkspacePage', () => {
 
       expect(screen.getByText('Architect')).toBeInTheDocument()
       expect(screen.getByText('Architecture')).toBeInTheDocument()
+    })
+  })
+
+  describe('keyboard shortcuts (Story 9.9)', () => {
+    beforeEach(() => {
+      usePlanningWorkspaceStore.setState({ isOpen: true, activePhase: 'analysis' })
+      mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
+      mockScanArtifacts.mockReturnValue({ data: [] })
+      mockGetActiveWorkflowRun.mockReturnValue({ data: null })
+    })
+
+    it('pressing 1 switches to Analysis phase', () => {
+      usePlanningWorkspaceStore.setState({ isOpen: true, activePhase: 'planning' })
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: '1' })
+
+      expect(usePlanningWorkspaceStore.getState().activePhase).toBe('analysis')
+    })
+
+    it('pressing 2 switches to Planning phase', () => {
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: '2' })
+
+      expect(usePlanningWorkspaceStore.getState().activePhase).toBe('planning')
+    })
+
+    it('pressing 3 switches to Solutioning phase', () => {
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: '3' })
+
+      expect(usePlanningWorkspaceStore.getState().activePhase).toBe('solutioning')
+    })
+
+    it('pressing ? shows keyboard shortcuts overlay', () => {
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.queryByTestId('keyboard-shortcuts-overlay')).not.toBeInTheDocument()
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: '?' })
+
+      expect(screen.getByTestId('keyboard-shortcuts-overlay')).toBeInTheDocument()
+    })
+
+    it('keyboard shortcut button visible in header', () => {
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByTestId('keyboard-shortcuts-button')).toBeInTheDocument()
+    })
+
+    it('clicking keyboard shortcut button shows overlay', () => {
+      render(<PlanningWorkspacePage />)
+
+      fireEvent.click(screen.getByTestId('keyboard-shortcuts-button'))
+
+      expect(screen.getByTestId('keyboard-shortcuts-overlay')).toBeInTheDocument()
+    })
+
+    it('shortcuts do not fire when focused on input elements', () => {
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      const input = document.createElement('input')
+      workspace.appendChild(input)
+
+      // Dispatch event from input target
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }))
+
+      expect(usePlanningWorkspaceStore.getState().activePhase).toBe('analysis')
+
+      workspace.removeChild(input)
+    })
+
+    it('pressing N clears selected workflow to show What Next panel (AC2)', () => {
+      usePlanningWorkspaceStore.setState({
+        isOpen: true,
+        activePhase: 'analysis',
+        selectedWorkflowKey: 'brainstorming'
+      })
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: 'n' })
+
+      expect(usePlanningWorkspaceStore.getState().selectedWorkflowKey).toBeNull()
+    })
+
+    it('pressing R clears selected workflow to show Recent Runs (AC3)', () => {
+      usePlanningWorkspaceStore.setState({
+        isOpen: true,
+        activePhase: 'analysis',
+        selectedWorkflowKey: 'brainstorming'
+      })
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: 'r' })
+
+      expect(usePlanningWorkspaceStore.getState().selectedWorkflowKey).toBeNull()
+    })
+
+    it('pressing G switches to Solutioning phase and selects Readiness Gate workflow (AC4)', () => {
+      render(<PlanningWorkspacePage />)
+
+      const workspace = screen.getByLabelText('Planning workspace')
+      fireEvent.keyDown(workspace, { key: 'g' })
+
+      expect(usePlanningWorkspaceStore.getState().activePhase).toBe('solutioning')
+      expect(usePlanningWorkspaceStore.getState().selectedWorkflowKey).toBe('readiness-check')
+    })
+  })
+
+  describe('ARIA attributes (Story 9.9)', () => {
+    beforeEach(() => {
+      usePlanningWorkspaceStore.setState({ isOpen: true, activePhase: 'analysis' })
+      mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
+      mockScanArtifacts.mockReturnValue({ data: [] })
+      mockGetActiveWorkflowRun.mockReturnValue({ data: null })
+    })
+
+    it('workspace container has aria-label', () => {
+      render(<PlanningWorkspacePage />)
+      expect(screen.getByLabelText('Planning workspace')).toBeInTheDocument()
+    })
+
+    it('tab list has aria-label', () => {
+      render(<PlanningWorkspacePage />)
+      expect(screen.getByRole('tablist')).toHaveAttribute('aria-label', 'Phase navigation')
+    })
+
+    it('sidebar has aria-label and navigation role', () => {
+      render(<PlanningWorkspacePage />)
+      expect(screen.getByRole('navigation', { name: 'Workflow list' })).toBeInTheDocument()
+    })
+
+    it('main content area has aria-label', () => {
+      render(<PlanningWorkspacePage />)
+      expect(screen.getByRole('main', { name: 'Workspace content' })).toBeInTheDocument()
+    })
+
+    it('live region exists with role="status"', () => {
+      render(<PlanningWorkspacePage />)
+      expect(screen.getByTestId('phase-announcer')).toHaveAttribute('role', 'status')
+      expect(screen.getByTestId('phase-announcer')).toHaveAttribute('aria-live', 'polite')
     })
   })
 })

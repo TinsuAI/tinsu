@@ -2,16 +2,24 @@ import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   Compass,
-  FileCode2
+  FileCode2,
+  Keyboard
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore, type PlanningPhase } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import {
   BMAD_PHASES,
+  BMAD_WORKFLOWS,
   getWorkflowsForPhase,
   type BmadWorkflowDefinition
 } from '@renderer/constants/planning-workspace'
@@ -20,6 +28,8 @@ import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
 import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
 import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
 import { AgentPersonaIndicator } from '@renderer/components/planning/AgentPersonaIndicator'
+import { KeyboardShortcutsOverlay } from '@renderer/components/planning/KeyboardShortcutsOverlay'
+import { usePlanningKeyboardShortcuts } from '@renderer/hooks/usePlanningKeyboardShortcuts'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -55,6 +65,63 @@ export function PlanningWorkspacePage() {
   )
 
   const workspaceRef = useRef<HTMLDivElement>(null)
+  // Story 9.9: Keyboard shortcuts help overlay state
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
+
+  // Story 9.9: Live region announcement text (phase transitions + artifact status changes)
+  const [phaseAnnouncement, setPhaseAnnouncement] = useState('')
+  // Ref to skip the initial mount announcement (no user action occurred)
+  const isInitialPhaseMount = useRef(true)
+
+  // Story 9.9: Announce phase transitions (skip on initial mount)
+  useEffect(() => {
+    if (isInitialPhaseMount.current) {
+      isInitialPhaseMount.current = false
+      return
+    }
+    const label = BMAD_PHASES.find((p) => p.key === activePhase)?.label ?? activePhase
+    setPhaseAnnouncement(`Switched to ${label} phase`)
+    const timer = setTimeout(() => setPhaseAnnouncement(''), 1000)
+    return () => clearTimeout(timer)
+  }, [activePhase])
+
+  // Story 9.9: Announce artifact status when a workflow with an artifact is selected (AC7/Task 5.8)
+  useEffect(() => {
+    if (!selectedWorkflowKey || !artifacts) return
+    const artifact = artifacts.find((a) => a.workflowKey === selectedWorkflowKey)
+    if (!artifact?.status) return
+    const workflow = BMAD_WORKFLOWS.find((w) => w.key === selectedWorkflowKey)
+    const name = workflow?.name ?? selectedWorkflowKey
+    setPhaseAnnouncement(`${name} - ${artifact.status}`)
+    const timer = setTimeout(() => setPhaseAnnouncement(''), 1000)
+    return () => clearTimeout(timer)
+  }, [selectedWorkflowKey, artifacts])
+
+  // Story 9.9: Keyboard shortcuts hook
+  usePlanningKeyboardShortcuts(workspaceRef, {
+    onPhaseChange: (phase) => setActivePhase(phase),
+    onFocusWhatNext: () => {
+      setSelectedWorkflow(null)
+      requestAnimationFrame(() => {
+        const el = workspaceRef.current?.querySelector<HTMLElement>('[data-testid="what-next-section"]')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      })
+    },
+    onFocusRecentRuns: () => {
+      setSelectedWorkflow(null)
+      requestAnimationFrame(() => {
+        const el = workspaceRef.current?.querySelector<HTMLElement>('[data-testid="recent-runs-section"]')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      })
+    },
+    onFocusReadinessGate: () => {
+      setActivePhase('solutioning')
+      setSelectedWorkflow('readiness-check')
+    },
+    onToggleHelp: () => setShowShortcutsHelp((prev) => !prev)
+  })
 
   const workflows = useMemo(() => getWorkflowsForPhase(activePhase), [activePhase])
 
@@ -195,6 +262,8 @@ export function PlanningWorkspacePage() {
   return (
     <div
       ref={workspaceRef}
+      role="region"
+      aria-label="Planning workspace"
       className="fixed inset-0 z-50 flex h-screen flex-col bg-background"
     >
       {/* Decorative gradient overlay for visual depth */}
@@ -226,12 +295,32 @@ export function PlanningWorkspacePage() {
             </span>
           </div>
 
-          {/* Right: agent persona indicator (Story 9.8) */}
-          <AgentPersonaIndicator
-            agentName={activeRun?.agent_name ?? null}
-            workflowKey={activeRun?.workflow_key ?? null}
-            isRunning={activeRun?.status === 'running' || activeRun?.status === 'needs-input'}
-          />
+          {/* Right: shortcuts button + agent persona indicator */}
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setShowShortcutsHelp(true)}
+                    data-testid="keyboard-shortcuts-button"
+                  >
+                    <Keyboard className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Keyboard shortcuts (?)
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <AgentPersonaIndicator
+              agentName={activeRun?.agent_name ?? null}
+              workflowKey={activeRun?.workflow_key ?? null}
+              isRunning={activeRun?.status === 'running' || activeRun?.status === 'needs-input'}
+            />
+          </div>
         </header>
 
         {/* ── Phase tabs ── */}
@@ -240,7 +329,7 @@ export function PlanningWorkspacePage() {
             value={activePhase}
             onValueChange={(v) => setActivePhase(v as PlanningPhase)}
           >
-            <TabsList className="h-9 gap-1 bg-muted/50">
+            <TabsList aria-label="Phase navigation" className="h-9 gap-1 bg-muted/50">
               {BMAD_PHASES.map((phase) => (
                 <TabsTrigger
                   key={phase.key}
@@ -257,7 +346,7 @@ export function PlanningWorkspacePage() {
         {/* ── Content area: sidebar + center ── */}
         <div className="flex min-h-0 flex-1">
           {/* Workflow sidebar */}
-          <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-card/50">
+          <aside aria-label="Workflow list" role="navigation" className="flex w-72 shrink-0 flex-col border-r border-border bg-card/50">
             <div className="px-4 pb-2 pt-4">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Workflows
@@ -276,7 +365,7 @@ export function PlanningWorkspacePage() {
           </aside>
 
           {/* Center content */}
-          <main className="flex flex-1 flex-col">
+          <main aria-label="Workspace content" className="flex flex-1 flex-col">
             {/* Story 9.5: Active workflow run banner — always top-aligned */}
             <WorkflowRunPanel />
 
@@ -308,6 +397,17 @@ export function PlanningWorkspacePage() {
           </main>
         </div>
       </div>
+
+      {/* Story 9.9: Live region for phase transition announcements */}
+      <div role="status" aria-live="polite" className="sr-only" data-testid="phase-announcer">
+        {phaseAnnouncement}
+      </div>
+
+      {/* Story 9.9: Keyboard shortcuts overlay */}
+      <KeyboardShortcutsOverlay
+        isOpen={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
+      />
     </div>
   )
 }

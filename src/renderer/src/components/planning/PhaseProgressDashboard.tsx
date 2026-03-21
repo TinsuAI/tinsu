@@ -161,7 +161,9 @@ export function PhaseProgressDashboard() {
     <div className="h-full w-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
         {/* ── What Next? Recommender Panel ── */}
-        <WhatNextPanel />
+        <div data-testid="what-next-section" tabIndex={-1} aria-label="What Next panel">
+          <WhatNextPanel />
+        </div>
 
         {/* ── Project Health Panel ── */}
         <section>
@@ -293,7 +295,9 @@ export function PhaseProgressDashboard() {
         </section>
 
         {/* ── Recent Runs Table (Story 9.5) ── */}
-        <RecentRunsTable />
+        <div data-testid="recent-runs-section" tabIndex={-1} aria-label="Recent Runs">
+          <RecentRunsTable />
+        </div>
       </div>
     </div>
   )
