@@ -110,6 +110,73 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
 ]
 
 /**
+ * BMAD recommendation chain — ordered pipeline steps with dependency relationships.
+ *
+ * Story 9.4: "What Next?" Recommender Engine
+ */
+export interface BmadRecommendationEntry {
+  workflowKey: string
+  label: string
+  reason: string
+  produces: string
+  requires: string[]
+  optional?: boolean
+  phase: PlanningPhase
+}
+
+export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
+  {
+    workflowKey: 'product-brief',
+    label: 'Create Product Brief',
+    reason: 'Product Brief defines your vision. Everything starts here.',
+    produces: 'product-brief.md',
+    requires: [],
+    phase: 'analysis'
+  },
+  {
+    workflowKey: 'prd',
+    label: 'Create PRD',
+    reason: 'Product Brief is complete. PRD defines requirements before solutioning.',
+    produces: 'prd.md',
+    requires: ['product-brief'],
+    phase: 'planning'
+  },
+  {
+    workflowKey: 'architecture',
+    label: 'Design Architecture',
+    reason: 'PRD is complete. Architecture defines your technical approach.',
+    produces: 'architecture.md',
+    requires: ['prd'],
+    phase: 'solutioning'
+  },
+  {
+    workflowKey: 'ux-design',
+    label: 'UX Design',
+    reason: 'PRD is complete. UX Design maps user flows and interface patterns.',
+    produces: 'ux-design-specification.md',
+    requires: ['prd'],
+    optional: true,
+    phase: 'planning'
+  },
+  {
+    workflowKey: 'epics-stories',
+    label: 'Create Epics & Stories',
+    reason: 'Architecture is complete. Break down work into implementable stories.',
+    produces: 'epics.md',
+    requires: ['architecture'],
+    phase: 'solutioning'
+  },
+  {
+    workflowKey: 'readiness-check',
+    label: 'Run Implementation Readiness Check',
+    reason: 'All planning artifacts exist. Validate specs before development begins.',
+    produces: 'readiness-check.md',
+    requires: ['epics-stories'],
+    phase: 'solutioning'
+  }
+]
+
+/**
  * Get workflows for a specific phase.
  */
 export function getWorkflowsForPhase(phase: PlanningPhase): BmadWorkflowDefinition[] {

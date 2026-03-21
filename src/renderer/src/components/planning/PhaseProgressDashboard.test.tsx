@@ -76,6 +76,11 @@ vi.mock('@renderer/stores/project.store', () => ({
 // Import after mocks
 import { trpc } from '@renderer/lib/trpc'
 
+// Mock WhatNextPanel to isolate PhaseProgressDashboard tests
+vi.mock('./WhatNextPanel', () => ({
+  WhatNextPanel: () => <div data-testid="what-next-panel">WhatNextPanel</div>
+}))
+
 describe('PhaseProgressDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -226,6 +231,28 @@ describe('PhaseProgressDashboard', () => {
 
       render(<PhaseProgressDashboard />)
       expect(screen.getByText(/unable to scan artifacts/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('WhatNextPanel integration (Story 9.4)', () => {
+    beforeEach(() => {
+      vi.mocked(trpc.project.getCurrent.useQuery).mockReturnValue({
+        data: { id: 'project-1', path: '/test', config: { projectName: 'Test' }, isNewProject: false }
+      } as any)
+      vi.mocked(trpc.planning.scanArtifacts.useQuery).mockReturnValue({
+        data: mockScanData,
+        refetch: mockRefetch
+      } as any)
+    })
+
+    it('renders WhatNextPanel above the Project Health section', () => {
+      render(<PhaseProgressDashboard />)
+      const whatNext = screen.getByTestId('what-next-panel')
+      expect(whatNext).toBeInTheDocument()
+
+      // Verify WhatNextPanel appears before Project Health in DOM order
+      const projectHealth = screen.getByText('Project Health')
+      expect(whatNext.compareDocumentPosition(projectHealth) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
   })
 })

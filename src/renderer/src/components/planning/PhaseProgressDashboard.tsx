@@ -18,6 +18,7 @@ import {
   BMAD_WORKFLOWS,
   type BmadWorkflowDefinition
 } from '@renderer/constants/planning-workspace'
+import { WhatNextPanel } from './WhatNextPanel'
 
 /**
  * Artifact scan result from the planning.scanArtifacts tRPC query.
@@ -158,6 +159,9 @@ export function PhaseProgressDashboard() {
   return (
     <div className="h-full w-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
+        {/* ── What Next? Recommender Panel ── */}
+        <WhatNextPanel />
+
         {/* ── Project Health Panel ── */}
         <section>
           <div className="mb-3 flex items-center gap-2">
