@@ -4,10 +4,11 @@ import { Welcome } from './components/Welcome'
 import { KanbanBoardContainer } from './components/board'
 import { StoryFullView } from './components/story'
 import { TaskWorkspacePage } from './pages/TaskWorkspacePage'
+import { PlanningWorkspacePage } from './pages/PlanningWorkspacePage'
 import { CrashRecoveryDialog } from './components/dialogs/CrashRecoveryDialog'
 import { Toaster } from './components/ui/sonner'
 import { useProjectStore } from './stores/project.store'
-import { useStoryViewStore, useTaskWorkspaceStore } from './stores'
+import { useStoryViewStore, useTaskWorkspaceStore, usePlanningWorkspaceStore } from './stores'
 import { trpc } from './lib/trpc'
 import { useFileWatcher } from './hooks/useFileWatcher'
 
@@ -16,6 +17,8 @@ function App(): React.JSX.Element {
   const activeStoryId = useStoryViewStore((state) => state.activeStoryId)
   // TES-3.1: Full-screen task workspace navigation
   const activeTaskId = useTaskWorkspaceStore((state) => state.activeTaskId)
+  // Story 9.1: Planning workspace navigation
+  const isPlanningOpen = usePlanningWorkspaceStore((state) => state.isOpen)
 
   // Story 3.9: Start file watching when project is opened
   useFileWatcher(projectPath)
@@ -118,13 +121,14 @@ function App(): React.JSX.Element {
   // StoryFullView renders as full-screen overlay when viewing story content
   const isViewingTask = !!activeTaskId
   const isViewingStory = !!activeStoryId
+  const isFullScreen = isViewingTask || isViewingStory || isPlanningOpen
 
   return (
     <>
       <div
-        className={isViewingTask || isViewingStory ? 'hidden' : undefined}
-        aria-hidden={isViewingTask || isViewingStory}
-        inert={isViewingTask || isViewingStory ? true : undefined}
+        className={isFullScreen ? 'hidden' : undefined}
+        aria-hidden={isFullScreen}
+        inert={isFullScreen ? true : undefined}
       >
         <AppShell>
           <KanbanBoardContainer />
@@ -132,6 +136,7 @@ function App(): React.JSX.Element {
       </div>
       {isViewingTask && <TaskWorkspacePage />}
       {isViewingStory && !isViewingTask && <StoryFullView />}
+      {isPlanningOpen && !isViewingTask && !isViewingStory && <PlanningWorkspacePage />}
       <Toaster />
       {/* Story 8.10 AC4: Crash recovery dialog */}
       {crashRecoveryData && (

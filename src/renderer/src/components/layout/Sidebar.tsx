@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Compass } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { SprintList } from '@renderer/components/sidebar/SprintList'
 
 interface SidebarProps {
@@ -9,6 +10,8 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
+  const isPlanningOpen = usePlanningWorkspaceStore((s) => s.isOpen)
+  const openWorkspace = usePlanningWorkspaceStore((s) => s.openWorkspace)
 
   return (
     <aside
@@ -37,6 +40,28 @@ export function Sidebar({ className }: SidebarProps) {
           <ChevronLeft className="h-4 w-4" />
         )}
       </button>
+
+      {/* Planning button */}
+      <div className="border-b border-border p-2">
+        <button
+          type="button"
+          onClick={() => openWorkspace()}
+          aria-label="Open Planning Workspace"
+          data-testid="sidebar-planning-button"
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            isPlanningOpen
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground',
+            sidebarCollapsed && 'justify-center px-0'
+          )}
+        >
+          <Compass className="h-4 w-4 shrink-0" />
+          {!sidebarCollapsed && <span>Planning</span>}
+        </button>
+      </div>
 
       {/* Sprint list navigation */}
       <nav className="flex-1 overflow-y-auto p-2">

@@ -3,6 +3,8 @@ import { cn } from '@renderer/lib/utils'
 import { PhaseBadge } from '@renderer/components/task/PhaseBadge'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import { PHASE_DESCRIPTIONS } from '@renderer/constants/planning-phases'
+import { phaseNumberToBmadPhase } from '@renderer/constants/planning-workspace'
+import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { CheckCircle2, FileText, Download, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import type { PlanningTask } from '@shared/types/task.types'
@@ -75,11 +77,18 @@ export function PlanningTaskCard({
     [onNavigate]
   )
 
+  // Story 9.1: Navigate to planning workspace on click
+  const openPlanningWorkspace = usePlanningWorkspaceStore((s) => s.openWorkspace)
+
   const handleClick = useCallback(() => {
     if (isCompleted && artifactPath && onOpenArtifact) {
       onOpenArtifact()
+    } else {
+      // Story 9.1 AC5: Open planning workspace with mapped phase
+      const phase = phaseNumberToBmadPhase(task.phase_number)
+      openPlanningWorkspace(phase)
     }
-  }, [isCompleted, artifactPath, onOpenArtifact])
+  }, [isCompleted, artifactPath, onOpenArtifact, task.phase_number, openPlanningWorkspace])
 
   // Story 3.7: Handler for Import Stories button (phase 5 only)
   const handleImportStoriesClick = useCallback(
@@ -114,8 +123,8 @@ export function PlanningTaskCard({
         showStartHereGlow && 'start-here',
         // Completed styling
         isCompleted && 'kanban-card-completed',
-        // Completed + clickable cursor
-        isCompleted && artifactPath && 'cursor-pointer',
+        // Story 9.1: All planning cards are clickable (open workspace or artifact)
+        'cursor-pointer',
         className
       )}
       data-testid={`planning-task-card-${task.id}`}

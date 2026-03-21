@@ -244,8 +244,8 @@ development_status:
   tes-epic-5-retrospective: optional
 
   # Epic 9: BMAD Planning Workspace (added 2026-03-21 via sprint change proposal)
-  epic-9: backlog
-  9-1-planning-workspace-route-and-navigation: backlog
+  epic-9: in-progress
+  9-1-planning-workspace-route-and-navigation: done  # Code review complete - 2 auto-fixes applied (App.tsx isViewingStory guard, Sidebar store selectors), all 38 tests passing
   9-2-phase-progress-dashboard: backlog
   9-3-artifact-viewer-with-status-lifecycle: backlog
   9-4-what-next-recommender-engine: backlog
