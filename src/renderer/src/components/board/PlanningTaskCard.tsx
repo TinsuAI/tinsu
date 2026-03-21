@@ -3,7 +3,7 @@ import { cn } from '@renderer/lib/utils'
 import { PhaseBadge } from '@renderer/components/task/PhaseBadge'
 import { AgentStatusBadge, type AgentStatus } from '@renderer/components/ui/AgentStatusBadge'
 import { PHASE_DESCRIPTIONS } from '@renderer/constants/planning-phases'
-import { phaseNumberToBmadPhase } from '@renderer/constants/planning-workspace'
+import { BMAD_WORKFLOWS, phaseNumberToBmadPhase } from '@renderer/constants/planning-workspace'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { CheckCircle2, FileText, Download, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -79,16 +79,28 @@ export function PlanningTaskCard({
 
   // Story 9.1: Navigate to planning workspace on click
   const openPlanningWorkspace = usePlanningWorkspaceStore((s) => s.openWorkspace)
+  // Story 9.3: Navigate directly to artifact viewer for completed tasks
+  const openWorkspaceToArtifact = usePlanningWorkspaceStore((s) => s.openWorkspaceToArtifact)
 
   const handleClick = useCallback(() => {
-    if (isCompleted && artifactPath && onOpenArtifact) {
-      onOpenArtifact()
-    } else {
-      // Story 9.1 AC5: Open planning workspace with mapped phase
-      const phase = phaseNumberToBmadPhase(task.phase_number)
-      openPlanningWorkspace(phase)
+    if (isCompleted && artifactPath) {
+      // Story 9.3 AC4: Map artifact path to workflow key and open viewer directly
+      const filename = artifactPath.split('/').filter(Boolean).pop()
+      const workflow = BMAD_WORKFLOWS.find((w) => w.outputFilename === filename)
+      if (workflow) {
+        openWorkspaceToArtifact(workflow.key)
+        return
+      }
+      // Fallback to onOpenArtifact callback if no workflow match
+      if (onOpenArtifact) {
+        onOpenArtifact()
+        return
+      }
     }
-  }, [isCompleted, artifactPath, onOpenArtifact, task.phase_number, openPlanningWorkspace])
+    // Story 9.1 AC5: Open planning workspace with mapped phase
+    const phase = phaseNumberToBmadPhase(task.phase_number)
+    openPlanningWorkspace(phase)
+  }, [isCompleted, artifactPath, onOpenArtifact, task.phase_number, openPlanningWorkspace, openWorkspaceToArtifact])
 
   // Story 3.7: Handler for Import Stories button (phase 5 only)
   const handleImportStoriesClick = useCallback(

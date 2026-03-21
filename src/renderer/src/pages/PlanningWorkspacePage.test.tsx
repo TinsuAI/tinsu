@@ -9,9 +9,35 @@ vi.mock('@renderer/stores/project.store', () => ({
   useProjectStore: vi.fn()
 }))
 
+// Mock trpc for artifact existence check
+const mockScanArtifacts = vi.fn()
+const mockGetCurrentProject = vi.fn()
+
+vi.mock('@renderer/lib/trpc', () => ({
+  trpc: {
+    project: {
+      getCurrent: {
+        useQuery: () => mockGetCurrentProject()
+      }
+    },
+    planning: {
+      scanArtifacts: {
+        useQuery: (_input: unknown, _opts: unknown) => mockScanArtifacts()
+      }
+    }
+  }
+}))
+
 // Mock PhaseProgressDashboard (Story 9.2) to isolate page-level tests
 vi.mock('@renderer/components/planning/PhaseProgressDashboard', () => ({
   PhaseProgressDashboard: () => <div data-testid="phase-progress-dashboard">Phase Progress Dashboard</div>
+}))
+
+// Mock ArtifactViewer (Story 9.3) to isolate page-level tests
+vi.mock('@renderer/components/planning/ArtifactViewer', () => ({
+  ArtifactViewer: ({ workflowKey }: { workflowKey: string }) => (
+    <div data-testid="artifact-viewer">Artifact Viewer: {workflowKey}</div>
+  )
 }))
 
 describe('PlanningWorkspacePage', () => {
@@ -28,6 +54,10 @@ describe('PlanningWorkspacePage', () => {
       const state = { projectName: 'TestProject', projectPath: '/test' }
       return selector ? selector(state) : state
     })
+
+    // Mock trpc queries (no artifacts by default)
+    mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
+    mockScanArtifacts.mockReturnValue({ data: [] })
 
     vi.clearAllMocks()
   })
@@ -190,6 +220,63 @@ describe('PlanningWorkspacePage', () => {
       fireEvent.click(screen.getByText('Board'))
 
       expect(usePlanningWorkspaceStore.getState().isOpen).toBe(false)
+    })
+  })
+
+  describe('artifact viewer integration (Story 9.3)', () => {
+    beforeEach(() => {
+      mockGetCurrentProject.mockReturnValue({ data: { id: 'project-1', name: 'Test' } })
+    })
+
+    it('shows ArtifactViewer when workflow selected and artifact exists', () => {
+      mockScanArtifacts.mockReturnValue({
+        data: [
+          { workflowKey: 'architecture', filename: 'architecture.md', exists: true, lastModified: 1700000000000, sizeBytes: 1024, status: 'draft' }
+        ]
+      })
+      usePlanningWorkspaceStore.setState({
+        isOpen: true,
+        activePhase: 'solutioning',
+        selectedWorkflowKey: 'architecture'
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByTestId('artifact-viewer')).toBeInTheDocument()
+      expect(screen.getByText('Artifact Viewer: architecture')).toBeInTheDocument()
+    })
+
+    it('shows placeholder when workflow selected but artifact missing', () => {
+      mockScanArtifacts.mockReturnValue({
+        data: [
+          { workflowKey: 'architecture', filename: 'architecture.md', exists: false, lastModified: null, sizeBytes: null, status: 'missing' }
+        ]
+      })
+      usePlanningWorkspaceStore.setState({
+        isOpen: true,
+        activePhase: 'solutioning',
+        selectedWorkflowKey: 'architecture'
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.queryByTestId('artifact-viewer')).not.toBeInTheDocument()
+      // Should show the placeholder instead
+      expect(screen.getByText('Workflow content coming in a future update')).toBeInTheDocument()
+    })
+
+    it('shows PhaseProgressDashboard when no workflow selected', () => {
+      mockScanArtifacts.mockReturnValue({ data: [] })
+      usePlanningWorkspaceStore.setState({
+        isOpen: true,
+        activePhase: 'analysis',
+        selectedWorkflowKey: null
+      })
+
+      render(<PlanningWorkspacePage />)
+
+      expect(screen.getByTestId('phase-progress-dashboard')).toBeInTheDocument()
+      expect(screen.queryByTestId('artifact-viewer')).not.toBeInTheDocument()
     })
   })
 })

@@ -10,8 +10,14 @@ let mockStatSync: (path: string) => { mtimeMs: number; size: number } = () => {
   throw err
 }
 
+let mockReadFileSync: (path: string, encoding: string) => string = () => {
+  const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+  throw err
+}
+
 vi.mock('fs', () => ({
-  statSync: (path: string) => mockStatSync(path)
+  statSync: (path: string) => mockStatSync(path),
+  readFileSync: (path: string, encoding: string) => mockReadFileSync(path, encoding)
 }))
 
 // Mock the database module
@@ -22,7 +28,10 @@ vi.mock('../../db', () => ({
 // Import after mocking
 import * as dbModule from '../../db'
 import { planningRouter } from './planning.router'
-import { createCallerFactory } from '@trpc/server'
+import { initTRPC } from '@trpc/server'
+
+const t = initTRPC.context<any>().create()
+const createCallerFactory = t.createCallerFactory
 
 type TestDb = BetterSQLite3Database<typeof schema>
 
@@ -80,8 +89,12 @@ describe('planningRouter', () => {
       projectId: 'project-1'
     } as any)
 
-    // Reset mock: all files missing by default (statSync throws)
+    // Reset mocks: all files missing by default (statSync/readFileSync throw)
     mockStatSync = () => {
+      const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+      throw err
+    }
+    mockReadFileSync = () => {
       const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
       throw err
     }
@@ -219,6 +232,118 @@ describe('planningRouter', () => {
           status: 'approved'
         })
       ).rejects.toThrow(/unknown artifact key/i)
+    })
+
+    it('accepts in-review status', async () => {
+      const result = await caller.updateArtifactStatus({
+        projectId: 'project-1',
+        artifactKey: 'prd',
+        status: 'in-review'
+      })
+
+      expect(result.artifactKey).toBe('prd')
+      expect(result.status).toBe('in-review')
+    })
+  })
+
+  describe('getArtifactContent', () => {
+    it('returns content and metadata for existing artifact', async () => {
+      const testContent = '# Product Brief\n\nThis is a test product brief with some words.'
+      mockReadFileSync = (p: string) => {
+        if (p.includes('product-brief.md')) return testContent
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+      mockStatSync = (p: string) => {
+        if (p.includes('product-brief.md')) return { mtimeMs: 1700000000000, size: 512 }
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+
+      const result = await caller.getArtifactContent({
+        projectId: 'project-1',
+        workflowKey: 'product-brief'
+      })
+
+      expect(result.content).toBe(testContent)
+      expect(result.filePath).toBe('_bmad-output/planning-artifacts/product-brief.md')
+      expect(result.lastModified).toBe(1700000000000)
+      expect(result.sizeBytes).toBe(512)
+      expect(result.wordCount).toBe(12)
+      expect(result.workflowKey).toBe('product-brief')
+    })
+
+    it('throws NOT_FOUND for missing artifact file', async () => {
+      // readFileSync throws by default (all missing)
+
+      await expect(
+        caller.getArtifactContent({
+          projectId: 'project-1',
+          workflowKey: 'prd'
+        })
+      ).rejects.toThrow(/artifact not found/i)
+    })
+
+    it('throws BAD_REQUEST for unknown workflow key', async () => {
+      await expect(
+        caller.getArtifactContent({
+          projectId: 'project-1',
+          workflowKey: 'unknown-workflow'
+        })
+      ).rejects.toThrow(/unknown workflow/i)
+    })
+
+    it('computes correct word count', async () => {
+      const content = 'One two three four five'
+      mockReadFileSync = () => content
+      mockStatSync = () => ({ mtimeMs: 1700000000000, size: content.length })
+
+      const result = await caller.getArtifactContent({
+        projectId: 'project-1',
+        workflowKey: 'architecture'
+      })
+
+      expect(result.wordCount).toBe(5)
+    })
+
+    it('handles empty content', async () => {
+      mockReadFileSync = () => ''
+      mockStatSync = () => ({ mtimeMs: 1700000000000, size: 0 })
+
+      const result = await caller.getArtifactContent({
+        projectId: 'project-1',
+        workflowKey: 'architecture'
+      })
+
+      expect(result.content).toBe('')
+      expect(result.wordCount).toBe(0)
+    })
+  })
+
+  describe('scanArtifacts with in-review status', () => {
+    it('returns in-review status when persisted in database', async () => {
+      mockStatSync = (p: string) => {
+        if (p.includes('prd.md')) return { mtimeMs: 1700000000000, size: 1024 }
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
+
+      // Set in-review status in DB
+      db.insert(schema.planning_artifact_statuses)
+        .values({
+          id: 'status-1',
+          project_id: 'project-1',
+          artifact_key: 'prd',
+          status: 'in-review',
+          updated_at: new Date()
+        })
+        .run()
+
+      const result = await caller.scanArtifacts({ projectId: 'project-1' })
+
+      const prd = result.find((a) => a.workflowKey === 'prd')
+      expect(prd?.status).toBe('in-review')
+      expect(prd?.exists).toBe(true)
     })
   })
 })

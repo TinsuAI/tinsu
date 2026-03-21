@@ -223,7 +223,7 @@ export type Project = InferSelectModel<typeof projects>
 export type NewProject = InferInsertModel<typeof projects>
 
 // Story 9.2: Planning artifact status values for approval tracking
-export const PLANNING_ARTIFACT_STATUS = ['draft', 'approved'] as const
+export const PLANNING_ARTIFACT_STATUS = ['draft', 'in-review', 'approved'] as const
 export type PlanningArtifactStatus = (typeof PLANNING_ARTIFACT_STATUS)[number]
 
 // Story 9.2: Planning artifact statuses table for approval tracking

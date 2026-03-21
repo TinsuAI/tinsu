@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
 
 /**
  * BMAD Planning Workspace phases.
@@ -25,6 +26,8 @@ interface PlanningWorkspaceActions {
   setActivePhase: (phase: PlanningPhase) => void
   /** Select a workflow in the sidebar */
   setSelectedWorkflow: (key: string | null) => void
+  /** Open workspace directly to a specific artifact (Story 9.3) */
+  openWorkspaceToArtifact: (workflowKey: string) => void
 }
 
 export const usePlanningWorkspaceStore = create<
@@ -58,5 +61,14 @@ export const usePlanningWorkspaceStore = create<
   setSelectedWorkflow: (key) =>
     set({
       selectedWorkflowKey: key
+    }),
+
+  openWorkspaceToArtifact: (workflowKey) => {
+    const workflow = BMAD_WORKFLOWS.find((w) => w.key === workflowKey)
+    set({
+      isOpen: true,
+      activePhase: workflow?.phase ?? 'analysis',
+      selectedWorkflowKey: workflowKey
     })
+  }
 }))

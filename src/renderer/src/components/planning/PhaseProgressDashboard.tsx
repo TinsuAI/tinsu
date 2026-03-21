@@ -28,7 +28,7 @@ interface ArtifactScanResult {
   exists: boolean
   lastModified: number | null
   sizeBytes: number | null
-  status: 'draft' | 'approved' | 'missing'
+  status: 'draft' | 'in-review' | 'approved' | 'missing'
 }
 
 /**
@@ -86,10 +86,10 @@ export function PhaseProgressDashboard() {
   }, [artifacts])
 
   const handleToggleStatus = useCallback(
-    (workflowKey: string, currentStatus: 'draft' | 'approved' | 'missing') => {
+    (workflowKey: string, currentStatus: 'draft' | 'in-review' | 'approved' | 'missing') => {
       if (currentStatus === 'missing' || !projectId) return
-      const newStatus = currentStatus === 'draft' ? 'approved' : 'draft'
-      updateStatus.mutate({ projectId, artifactKey: workflowKey, status: newStatus })
+      const nextStatus = currentStatus === 'draft' ? 'in-review' : currentStatus === 'in-review' ? 'approved' : 'draft'
+      updateStatus.mutate({ projectId, artifactKey: workflowKey, status: nextStatus })
     },
     [projectId, updateStatus]
   )
@@ -300,7 +300,7 @@ function WorkflowRow({
 }: {
   workflow: BmadWorkflowDefinition
   artifact: ArtifactScanResult | undefined
-  onToggleStatus: (key: string, status: 'draft' | 'approved' | 'missing') => void
+  onToggleStatus: (key: string, status: 'draft' | 'in-review' | 'approved' | 'missing') => void
 }) {
   const status = artifact?.status ?? 'missing'
 
@@ -329,7 +329,7 @@ function StatusBadge({
   status,
   onClick
 }: {
-  status: 'draft' | 'approved' | 'missing'
+  status: 'draft' | 'in-review' | 'approved' | 'missing'
   onClick: () => void
 }) {
   if (status === 'missing') {
@@ -353,6 +353,19 @@ function StatusBadge({
       >
         <Check className="h-2.5 w-2.5" />
         Approved
+      </button>
+    )
+  }
+
+  if (status === 'in-review') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1 rounded-md border border-yellow-500/20 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-semibold text-yellow-500 transition-colors hover:bg-yellow-500/20"
+      >
+        <Circle className="h-2.5 w-2.5" />
+        In Review
       </button>
     )
   }

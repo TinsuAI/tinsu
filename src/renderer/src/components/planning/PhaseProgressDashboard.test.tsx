@@ -152,7 +152,7 @@ describe('PhaseProgressDashboard', () => {
       expect(mockMutate).toHaveBeenCalledWith({
         projectId: 'project-1',
         artifactKey: expect.any(String),
-        status: 'approved'
+        status: 'in-review'
       })
     })
 

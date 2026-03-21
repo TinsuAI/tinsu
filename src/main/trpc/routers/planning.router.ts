@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { join } from 'path'
-import { statSync } from 'fs'
+import { readFileSync, statSync } from 'fs'
 import type { Stats } from 'fs'
 import crypto from 'crypto'
 import { eq } from 'drizzle-orm'
@@ -58,11 +58,13 @@ export const planningRouter = router({
 
         // Determine status: missing if file doesn't exist, else check persisted status
         const persistedStatus = statusMap.get(workflowKey)
-        const status: 'draft' | 'approved' | 'missing' = !exists
+        const status: 'draft' | 'in-review' | 'approved' | 'missing' = !exists
           ? 'missing'
           : persistedStatus === 'approved'
             ? 'approved'
-            : 'draft'
+            : persistedStatus === 'in-review'
+              ? 'in-review'
+              : 'draft'
 
         return {
           workflowKey,
@@ -73,6 +75,56 @@ export const planningRouter = router({
           status
         }
       })
+    }),
+
+  /**
+   * Get the full content of a planning artifact file.
+   * Story 9.3: Artifact Viewer with Status Lifecycle
+   */
+  getArtifactContent: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        workflowKey: z.string()
+      })
+    )
+    .query(({ ctx, input }) => {
+      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      if (!workflow) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Unknown workflow: ${input.workflowKey}`
+        })
+      }
+
+      const filePath = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts', workflow.filename)
+      let content: string
+      try {
+        content = readFileSync(filePath, 'utf-8')
+      } catch {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Artifact not found: ${workflow.filename}`
+        })
+      }
+
+      let stat: { mtimeMs: number; size: number }
+      try {
+        stat = statSync(filePath)
+      } catch {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Artifact not found: ${workflow.filename}`
+        })
+      }
+      return {
+        content,
+        filePath: `_bmad-output/planning-artifacts/${workflow.filename}`,
+        lastModified: stat.mtimeMs,
+        sizeBytes: stat.size,
+        wordCount: content.split(/\s+/).filter(Boolean).length,
+        workflowKey: input.workflowKey
+      }
     }),
 
   /**

@@ -8,6 +8,7 @@ import {
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { cn } from '@renderer/lib/utils'
+import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore, type PlanningPhase } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import {
@@ -16,6 +17,7 @@ import {
   type BmadWorkflowDefinition
 } from '@renderer/constants/planning-workspace'
 import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgressDashboard'
+import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
 
 /**
  * Full-screen BMAD Planning Workspace page.
@@ -38,6 +40,12 @@ export function PlanningWorkspacePage() {
     setSelectedWorkflow
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
+  const { data: project } = trpc.project.getCurrent.useQuery()
+  const projectId = project?.id ?? ''
+  const { data: artifacts } = trpc.planning.scanArtifacts.useQuery(
+    { projectId },
+    { enabled: !!projectId, refetchOnWindowFocus: true, placeholderData: (prev) => prev }
+  )
   const workspaceRef = useRef<HTMLDivElement>(null)
 
   const workflows = useMemo(() => getWorkflowsForPhase(activePhase), [activePhase])
@@ -46,6 +54,13 @@ export function PlanningWorkspacePage() {
     () => workflows.find((w) => w.key === selectedWorkflowKey) ?? null,
     [workflows, selectedWorkflowKey]
   )
+
+  // Check if selected workflow's artifact file exists
+  const artifactExists = useMemo(() => {
+    if (!selectedWorkflow || !artifacts) return false
+    const artifact = artifacts.find((a) => a.workflowKey === selectedWorkflow.key)
+    return artifact?.exists ?? false
+  }, [selectedWorkflow, artifacts])
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -199,12 +214,14 @@ export function PlanningWorkspacePage() {
           {/* Center content */}
           <main className={cn(
             "flex flex-1",
-            selectedWorkflow && "items-center justify-center p-8"
+            selectedWorkflow && !artifactExists && "items-center justify-center p-8"
           )}>
-            {selectedWorkflow ? (
-              <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
-            ) : (
+            {!selectedWorkflow ? (
               <PhaseProgressDashboard />
+            ) : artifactExists ? (
+              <ArtifactViewer workflowKey={selectedWorkflow.key} />
+            ) : (
+              <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
             )}
           </main>
         </div>
