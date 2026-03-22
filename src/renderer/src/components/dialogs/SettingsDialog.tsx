@@ -6,6 +6,7 @@ import {
   DialogTitle
 } from '@renderer/components/ui/dialog'
 import { AgentSettingsPanel } from '@renderer/components/settings/AgentSettingsPanel'
+import { BmadSettingsPanel } from '@renderer/components/settings/BmadSettingsPanel'
 import { GitLogsPanel } from '@renderer/components/settings/GitLogsPanel'
 
 interface SettingsDialogProps {
@@ -25,6 +26,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </DialogHeader>
         <div className="py-4 space-y-6">
           <AgentSettingsPanel />
+          <hr className="border-border" />
+          <BmadSettingsPanel />
           <hr className="border-border" />
           <GitLogsPanel />
         </div>
