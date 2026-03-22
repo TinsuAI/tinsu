@@ -8,8 +8,9 @@
  * Key design decisions:
  * - node-pty (not tmux) because chat sessions are interactive and lightweight.
  *   If the app restarts, PTY dies but Claude Code's --resume flag restores context.
- * - CLAUDE_PROJECT_DIR env var points to a directory with chat-specific hooks
- *   that POST to /api/hooks/chat-stop (not /api/hooks/stop).
+ * - Uses --settings CLI flag to inject chat-specific hooks that POST to
+ *   /api/hooks/chat-stop (not /api/hooks/stop). This is required because
+ *   Claude Code resolves project settings from the git root, not from env vars.
  * - Chat sessions are INTERACTIVE: no --dangerously-skip-permissions.
  * - Idle sessions (>30 min) are auto-killed to free resources (Story 10.6).
  *
@@ -18,7 +19,7 @@
  */
 
 import { ptyService } from './pty.service'
-import type { PtyExitEvent } from './pty.service'
+import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
 
 /** Status of a chat CLI process */
 export type ChatCliSessionStatus = 'running' | 'exited'
@@ -61,8 +62,24 @@ export class ChatCliService {
   /** Callback invoked when a session is killed due to idle timeout (Story 10.6) */
   private onIdleCallback: ((sessionId: string) => void) | null = null
 
+  /** Reverse map: PTY processId -> sessionId (for output/exit log correlation) */
+  private processToSessionMap: Map<string, string> = new Map()
+
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
+
+    // Listen for PTY output events to log what Claude is saying/doing
+    ptyService.on('output', (event: PtyOutputEvent) => {
+      const sessionId = this.processToSessionMap.get(event.processId)
+      if (sessionId) {
+        // Strip ANSI codes for cleaner logging, truncate to 500 chars
+        const clean = event.data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').trim()
+        if (clean.length > 0) {
+          const truncated = clean.length > 500 ? clean.slice(0, 500) + '...' : clean
+          console.log(`[ChatCliService:output] session=${sessionId} | ${truncated}`)
+        }
+      }
+    })
 
     // Listen for PTY exit events to update session map
     ptyService.on('exit', (event: PtyExitEvent) => {
@@ -117,21 +134,45 @@ export class ChatCliService {
   }
 
   /**
+   * Build the --settings JSON string with absolute paths to chat hook scripts.
+   *
+   * Claude Code resolves project settings from the git root, so we use the
+   * --settings CLI flag to inject chat-specific hooks alongside any project hooks.
+   * Absolute paths are used because $CLAUDE_PROJECT_DIR is set by Claude Code
+   * to the git root at runtime, not to our chat-hooks directory.
+   */
+  private buildChatSettingsJson(): string {
+    const dir = this.chatHooksDir
+    return JSON.stringify({
+      hooks: {
+        Stop: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/stop.sh"` }] }],
+        PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/tool-use.sh"` }] }],
+        PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/pre-tool-use.sh"` }] }],
+        Notification: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/notification.sh"` }] }]
+      }
+    })
+  }
+
+  /**
    * Spawn a new Claude Code CLI session for a chat.
    *
    * Creates an interactive `claude` process with --session-id flag.
-   * Sets CLAUDE_PROJECT_DIR to the chat hooks directory so chat-specific
-   * hook scripts are used (posting to /api/hooks/chat-stop instead of /api/hooks/stop).
+   * Persona context is injected via --append-system-prompt (not stdin).
+   * Uses --settings to inject chat-specific hooks that POST to
+   * /api/hooks/chat-stop (not /api/hooks/stop).
+   *
+   * The user message is written to stdin only AFTER Claude's TUI is ready,
+   * detected by watching PTY output for the interactive prompt.
    *
    * @param sessionId - TinSu's internal chat session ID (chat_sessions.id)
    * @param sessionUuid - Claude Code session UUID (chat_sessions.session_uuid)
    * @param projectPath - Working directory for the claude process
    * @param initialMessage - First user message to send to stdin
-   * @param personaContext - Optional persona context to prepend to the initial message (Story 10.4)
+   * @param personaContext - Optional persona context injected as system prompt (Story 10.4)
    * @returns The PTY processId
    *
    * @see AC 1: Spawns claude with --session-id UUID
-   * @see Story 10.4: Persona context prepended to first message
+   * @see Story 10.4: Persona context via --append-system-prompt
    */
   spawnSession(
     sessionId: string,
@@ -140,34 +181,79 @@ export class ChatCliService {
     initialMessage: string,
     personaContext?: string
   ): string {
-    const processId = ptyService.spawn('claude', ['--session-id', sessionUuid], {
-      cwd: projectPath,
-      env: {
-        CLAUDE_PROJECT_DIR: this.chatHooksDir
-      }
-    })
+    const spawnArgs = ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
 
-    // Write to stdin: prepend persona context if provided (Story 10.4 AC: 1-5)
-    const stdinContent = personaContext
-      ? personaContext + '\n\n' + initialMessage + '\n'
-      : initialMessage + '\n'
-    ptyService.write(processId, stdinContent)
+    // Story 10.4: Inject persona context as system prompt (not stdin)
+    if (personaContext) {
+      spawnArgs.push('--append-system-prompt', personaContext)
+    }
 
-    // Track session
+    console.log(`[ChatCliService] Spawning: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
+    console.log(`[ChatCliService] cwd: ${projectPath}`)
+
+    const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
+
+    // Track session and reverse map immediately
     this.sessions.set(sessionId, {
       processId,
       sessionUuid,
       status: 'running'
     })
-
-    // Track activity for idle timeout (Story 10.6)
+    this.processToSessionMap.set(processId, sessionId)
     this.lastActivityMap.set(sessionId, Date.now())
 
     console.log(
       `[ChatCliService] Spawned session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
     )
 
+    // Wait for Claude's TUI to be ready before writing the user message.
+    // The TUI outputs escape sequences and prompt indicators when ready.
+    this.writeWhenReady(processId, sessionId, initialMessage)
+
     return processId
+  }
+
+  /**
+   * Wait for Claude's TUI to be ready, then write the message to stdin.
+   *
+   * Watches PTY output for indicators that the interactive prompt is loaded
+   * (e.g., box-drawing characters from the welcome screen). Falls back to a
+   * timeout if the prompt isn't detected within 15 seconds.
+   */
+  private writeWhenReady(processId: string, sessionId: string, message: string): void {
+    let written = false
+
+    const doWrite = (): void => {
+      if (written) return
+      written = true
+      ptyService.off('output', outputHandler)
+      console.log(`[ChatCliService] TUI ready, writing message to stdin (${message.length} chars): ${message.slice(0, 200)}`)
+      // Use \r (carriage return) not \n — Claude's TUI is in raw mode
+      // and expects \r (what Enter key sends) to submit the message.
+      ptyService.write(processId, message + '\r')
+    }
+
+    const outputHandler = (event: PtyOutputEvent): void => {
+      if (event.processId !== processId) return
+      // Detect TUI input area ready: the input widget shows "ctrl+g" hint
+      // or the effort indicator "high" / "/effort" when the prompt is active.
+      // NOTE: The welcome box (╭╰) appears BEFORE the input widget is ready —
+      // we must wait for the actual input area indicators.
+      if (event.data.includes('ctrl+g') || event.data.includes('/effort')) {
+        console.log(`[ChatCliService] Detected TUI input ready for session ${sessionId}`)
+        doWrite()
+      }
+    }
+
+    ptyService.on('output', outputHandler)
+
+    // Fallback: write after 15s regardless
+    setTimeout(() => {
+      if (!written) {
+        console.warn(`[ChatCliService] TUI ready timeout for session ${sessionId}, writing anyway`)
+        doWrite()
+      }
+    }, 15_000)
   }
 
   /**
@@ -190,7 +276,8 @@ export class ChatCliService {
       throw new Error(`Chat CLI session has exited: ${sessionId}`)
     }
 
-    ptyService.write(info.processId, message + '\n')
+    // Use \r (carriage return) — Claude's TUI in raw mode expects \r for Enter
+    ptyService.write(info.processId, message + '\r')
 
     // Track activity for idle timeout (Story 10.6)
     this.lastActivityMap.set(sessionId, Date.now())
@@ -221,19 +308,10 @@ export class ChatCliService {
     message: string,
     _personaContext?: string
   ): string {
-    const processId = ptyService.spawn(
-      'claude',
-      ['--resume', '--session-id', sessionUuid],
-      {
-        cwd: projectPath,
-        env: {
-          CLAUDE_PROJECT_DIR: this.chatHooksDir
-        }
-      }
-    )
+    const spawnArgs = ['--resume', '--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
+    console.log(`[ChatCliService] Resuming: claude --resume --session-id ${sessionUuid} --settings "<json>"`)
 
-    // Write message to stdin
-    ptyService.write(processId, message + '\n')
+    const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
 
     // Update session map with new process
     this.sessions.set(sessionId, {
@@ -241,13 +319,15 @@ export class ChatCliService {
       sessionUuid,
       status: 'running'
     })
-
-    // Track activity for idle timeout (Story 10.6)
+    this.processToSessionMap.set(processId, sessionId)
     this.lastActivityMap.set(sessionId, Date.now())
 
     console.log(
       `[ChatCliService] Resumed session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
     )
+
+    // Wait for TUI ready before writing message
+    this.writeWhenReady(processId, sessionId, message)
 
     return processId
   }
@@ -292,6 +372,7 @@ export class ChatCliService {
     const info = this.sessions.get(sessionId)
     if (!info) return
 
+    this.processToSessionMap.delete(info.processId)
     ptyService.kill(info.processId)
     this.sessions.delete(sessionId)
     this.lastActivityMap.delete(sessionId)
@@ -330,8 +411,9 @@ export class ChatCliService {
     for (const [sessionId, info] of this.sessions) {
       if (info.processId === event.processId) {
         info.status = 'exited'
+        this.processToSessionMap.delete(event.processId)
         console.warn(
-          `[ChatCliService] PTY exited for session ${sessionId} (code: ${event.exitCode})`
+          `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as Record<string, unknown>).signal ?? 'none'})`
         )
         break
       }

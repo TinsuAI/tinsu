@@ -10,12 +10,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ChatCliService, IDLE_TIMEOUT_MS } from './chat-cli.service'
 
-// Mock ptyService
+// Mock ptyService — capture event handlers so we can simulate PTY events
 const mockSpawn = vi.fn().mockReturnValue('pty-123')
 const mockWrite = vi.fn()
 const mockKill = vi.fn()
 const mockGetProcess = vi.fn()
 const mockOn = vi.fn()
+const mockOff = vi.fn()
+
+/** Collected event handlers keyed by event name */
+const eventHandlers: Record<string, Array<(...args: unknown[]) => void>> = {}
 
 vi.mock('./pty.service', () => ({
   ptyService: {
@@ -23,9 +27,26 @@ vi.mock('./pty.service', () => ({
     write: (...args: unknown[]) => mockWrite(...args),
     kill: (...args: unknown[]) => mockKill(...args),
     getProcess: (...args: unknown[]) => mockGetProcess(...args),
-    on: (...args: unknown[]) => mockOn(...args)
+    on: (event: string, handler: (...args: unknown[]) => void) => {
+      mockOn(event, handler)
+      if (!eventHandlers[event]) eventHandlers[event] = []
+      eventHandlers[event].push(handler)
+    },
+    off: (event: string, handler: (...args: unknown[]) => void) => {
+      mockOff(event, handler)
+      if (eventHandlers[event]) {
+        eventHandlers[event] = eventHandlers[event].filter((h) => h !== handler)
+      }
+    }
   }
 }))
+
+/** Simulate a PTY output event to trigger writeWhenReady */
+function simulatePtyOutput(processId: string, data: string): void {
+  for (const handler of eventHandlers['output'] ?? []) {
+    handler({ processId, data })
+  }
+}
 
 describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   let service: ChatCliService
@@ -34,18 +55,21 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     exitHandler = null
+    // Clear collected handlers
+    for (const key of Object.keys(eventHandlers)) {
+      delete eventHandlers[key]
+    }
 
     // Re-establish default mock return values after clearAllMocks
     mockSpawn.mockReturnValue('pty-123')
 
-    // Capture the exit handler registered in the constructor
-    mockOn.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
-      if (event === 'exit') {
-        exitHandler = handler as typeof exitHandler
-      }
-    })
-
     service = new ChatCliService('/test/chat-hooks')
+
+    // Extract the exit handler registered by the constructor
+    const exitHandlers = eventHandlers['exit'] ?? []
+    if (exitHandlers.length > 0) {
+      exitHandler = exitHandlers[0] as typeof exitHandler
+    }
   })
 
   afterEach(() => {
@@ -59,7 +83,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   })
 
   describe('spawnSession (AC: 1)', () => {
-    it('spawns claude with correct args and env', () => {
+    it('spawns claude with --session-id and --settings for chat hooks', () => {
       const processId = service.spawnSession(
         'session-1',
         'uuid-abc',
@@ -67,19 +91,31 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
         'Hello agent'
       )
 
-      expect(mockSpawn).toHaveBeenCalledWith('claude', ['--session-id', 'uuid-abc'], {
-        cwd: '/project/path',
-        env: {
-          CLAUDE_PROJECT_DIR: '/test/chat-hooks'
-        }
-      })
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('--session-id')
+      expect(args).toContain('uuid-abc')
+      expect(args).toContain('--settings')
+      // Verify the settings JSON contains absolute paths to chat hook scripts
+      const settingsIdx = args.indexOf('--settings') + 1
+      const settings = JSON.parse(args[settingsIdx])
+      expect(settings.hooks.Stop[0].hooks[0].command).toContain('/test/chat-hooks/stop.sh')
+      expect(settings.hooks.PostToolUse[0].hooks[0].command).toContain('/test/chat-hooks/tool-use.sh')
+      expect(settings.hooks.PreToolUse[0].hooks[0].command).toContain('/test/chat-hooks/pre-tool-use.sh')
+      expect(settings.hooks.Notification[0].hooks[0].command).toContain('/test/chat-hooks/notification.sh')
       expect(processId).toBe('pty-123')
     })
 
-    it('writes initial message to PTY stdin with newline', () => {
+    it('writes message to PTY stdin only after TUI ready signal', () => {
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\n')
+      // Message should NOT be written immediately
+      expect(mockWrite).not.toHaveBeenCalled()
+
+      // Simulate TUI input area ready (ctrl+g hint)
+      simulatePtyOutput('pty-123', 'ctrl+g to edit in Vim')
+
+      // Now the message should be written
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\r')
     })
 
     it('tracks session in internal map', () => {
@@ -90,7 +126,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   })
 
   describe('spawnSession with personaContext (Story 10.4)', () => {
-    it('prepends persona context to initial message when provided', () => {
+    it('passes persona context via --append-system-prompt flag', () => {
       service.spawnSession(
         'session-1',
         'uuid-abc',
@@ -99,22 +135,24 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
         'You are the PM persona.'
       )
 
-      expect(mockWrite).toHaveBeenCalledWith(
-        'pty-123',
-        'You are the PM persona.\n\nHello agent\n'
-      )
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('--append-system-prompt')
+      const promptIdx = args.indexOf('--append-system-prompt') + 1
+      expect(args[promptIdx]).toBe('You are the PM persona.')
     })
 
-    it('sends only initial message when personaContext is not provided (backward compat)', () => {
+    it('does not include --append-system-prompt when personaContext is not provided', () => {
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\n')
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).not.toContain('--append-system-prompt')
     })
 
-    it('sends only initial message when personaContext is empty string', () => {
+    it('does not include --append-system-prompt when personaContext is empty string', () => {
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent', '')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\n')
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).not.toContain('--append-system-prompt')
     })
   })
 
@@ -126,7 +164,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
       service.sendMessage('session-1', 'Follow-up message')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message\n')
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message\r')
     })
 
     it('throws when session not found', () => {
@@ -151,7 +189,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   })
 
   describe('resumeSession (AC: 5)', () => {
-    it('spawns claude with --resume and --session-id flags', () => {
+    it('spawns claude with --resume, --session-id, and --settings flags', () => {
       mockSpawn.mockReturnValue('pty-456')
 
       const processId = service.resumeSession(
@@ -163,25 +201,26 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        ['--resume', '--session-id', 'uuid-abc'],
-        {
-          cwd: '/project/path',
-          env: {
-            CLAUDE_PROJECT_DIR: '/test/chat-hooks'
-          }
-        }
+        ['--resume', '--session-id', 'uuid-abc', '--settings', expect.stringContaining('"hooks"')],
+        { cwd: '/project/path' }
       )
       expect(processId).toBe('pty-456')
     })
 
-    it('writes message to resumed PTY stdin', () => {
+    it('writes message to resumed PTY stdin after TUI ready', () => {
       mockSpawn.mockReturnValue('pty-456')
       service.resumeSession('session-1', 'uuid-abc', '/project/path', 'Resume message')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\n')
+      // Not yet written
+      expect(mockWrite).not.toHaveBeenCalled()
+
+      // Simulate TUI ready
+      simulatePtyOutput('pty-456', 'ctrl+g to edit in Vim')
+
+      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\r')
     })
 
-    it('does NOT prepend persona context even when provided (Story 10.4)', () => {
+    it('does NOT include persona context in resume args (Story 10.4)', () => {
       mockSpawn.mockReturnValue('pty-456')
       service.resumeSession(
         'session-1',
@@ -191,8 +230,13 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
         'You are the PM persona.'
       )
 
-      // Should only write the message, NOT the persona context
-      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\n')
+      // Persona should NOT be in spawn args for resume
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).not.toContain('--append-system-prompt')
+
+      // After TUI ready, only the message is written
+      simulatePtyOutput('pty-456', 'ctrl+g to edit in Vim')
+      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\r')
     })
 
     it('updates session map with new processId', () => {
