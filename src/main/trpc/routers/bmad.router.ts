@@ -9,7 +9,7 @@ const bmadInstallOptionsSchema = z.object({
   userName: z.string().min(1, 'User name is required'),
   communicationLanguage: z.string().default('English'),
   documentOutputLanguage: z.string().default('English'),
-  outputFolder: z.string().default('_bmad-output'),
+  outputFolder: z.string().default('_bmad-output')
 })
 
 export const bmadRouter = router({
@@ -29,24 +29,22 @@ export const bmadRouter = router({
     return BmadInstallService.installNodejs()
   }),
 
-  install: publicProcedure
-    .input(bmadInstallOptionsSchema)
-    .mutation(async ({ ctx, input }) => {
-      return BmadInstallService.installBmad(ctx.projectRoot, input)
-    }),
+  install: publicProcedure.input(bmadInstallOptionsSchema).mutation(async ({ ctx, input }) => {
+    return BmadInstallService.installBmad(ctx.projectRoot, input)
+  }),
 
   installToPath: publicProcedure
-    .input(bmadInstallOptionsSchema.extend({
-      projectPath: z.string().min(1, 'Project path is required'),
-    }))
+    .input(
+      bmadInstallOptionsSchema.extend({
+        projectPath: z.string().min(1, 'Project path is required')
+      })
+    )
     .mutation(async ({ input }) => {
       const { projectPath, ...options } = input
       return BmadInstallService.installBmad(projectPath, options)
     }),
 
-  update: publicProcedure
-    .input(bmadInstallOptionsSchema)
-    .mutation(async ({ ctx, input }) => {
-      return BmadInstallService.updateBmad(ctx.projectRoot, input)
-    }),
+  update: publicProcedure.input(bmadInstallOptionsSchema).mutation(async ({ ctx, input }) => {
+    return BmadInstallService.updateBmad(ctx.projectRoot, input)
+  })
 })

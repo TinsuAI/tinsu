@@ -5,7 +5,7 @@
  * Shows status, allows install/update, and manages modules/tools configuration.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Package, AlertTriangle, CheckCircle2, Loader2, Download, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpc } from '@renderer/lib/trpc'
@@ -23,7 +23,7 @@ import {
 } from '@renderer/components/ui/select'
 import type { BmadInstallOptions } from '@shared/types/bmad.types'
 
-export function BmadSettingsPanel() {
+export function BmadSettingsPanel(): JSX.Element {
   const utils = trpc.useUtils()
 
   // --- Queries ---
@@ -33,19 +33,19 @@ export function BmadSettingsPanel() {
 
   // --- Form state ---
   const [userName, setUserName] = useState('')
-  const [selectedModules, setSelectedModules] = useState<string[]>(['bmm', 'core'])
-  const [selectedTools, setSelectedTools] = useState<string[]>([])
+  const [moduleOverrides, setModuleOverrides] = useState<string[] | null>(null)
+  const [toolOverrides, setToolOverrides] = useState<string[] | null>(null)
   const [language, setLanguage] = useState('English')
-
-  // Sync form with installed status
-  useEffect(() => {
-    if (bmadStatus?.installed && bmadStatus.modules) {
-      setSelectedModules(bmadStatus.modules)
-    }
-    if (bmadStatus?.installed && bmadStatus.tools) {
-      setSelectedTools(bmadStatus.tools)
-    }
-  }, [bmadStatus])
+  const selectedModules = useMemo(
+    () =>
+      moduleOverrides ??
+      (bmadStatus?.installed && bmadStatus.modules ? bmadStatus.modules : ['bmm', 'core']),
+    [moduleOverrides, bmadStatus]
+  )
+  const selectedTools = useMemo(
+    () => toolOverrides ?? (bmadStatus?.installed && bmadStatus.tools ? bmadStatus.tools : []),
+    [toolOverrides, bmadStatus]
+  )
 
   // --- Mutations ---
   const installMutation = trpc.bmad.install.useMutation({
@@ -79,16 +79,16 @@ export function BmadSettingsPanel() {
   })
 
   // --- Handlers ---
-  const toggleModule = (moduleId: string) => {
-    setSelectedModules((prev) =>
+  const toggleModule = (moduleId: string): void => {
+    const prev = selectedModules
+    setModuleOverrides(
       prev.includes(moduleId) ? prev.filter((m) => m !== moduleId) : [...prev, moduleId]
     )
   }
 
-  const toggleTool = (toolId: string) => {
-    setSelectedTools((prev) =>
-      prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId]
-    )
+  const toggleTool = (toolId: string): void => {
+    const prev = selectedTools
+    setToolOverrides(prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId])
   }
 
   const buildOptions = (): BmadInstallOptions => ({
@@ -100,15 +100,15 @@ export function BmadSettingsPanel() {
     outputFolder: '.bmad'
   })
 
-  const handleInstall = () => {
+  const handleInstall = (): void => {
     installMutation.mutate(buildOptions())
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = (): void => {
     updateMutation.mutate(buildOptions())
   }
 
-  const handleInstallNode = () => {
+  const handleInstallNode = (): void => {
     installNodeMutation.mutate()
   }
 

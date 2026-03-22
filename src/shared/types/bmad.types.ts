@@ -28,16 +28,24 @@ export const BMAD_MODULES: BmadModule[] = [
   { id: 'bmb', name: 'Build', builtIn: false },
   { id: 'cis', name: 'Creative Innovation Skills', builtIn: false },
   { id: 'tea', name: 'Test Engineering Architecture', builtIn: false },
-  { id: 'wds', name: 'Web Design System', builtIn: false },
+  { id: 'wds', name: 'Web Design System', builtIn: false }
 ]
 
 export const BMAD_TOOLS = [
   { id: 'claude-code', name: 'Claude Code' },
   { id: 'cursor', name: 'Cursor' },
-  { id: 'windsurf', name: 'Windsurf' },
+  { id: 'windsurf', name: 'Windsurf' }
 ]
 
 export const BMAD_LANGUAGES = [
-  'English', 'Spanish', 'French', 'German', 'Portuguese',
-  'Chinese', 'Japanese', 'Korean', 'Italian', 'Dutch',
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Portuguese',
+  'Chinese',
+  'Japanese',
+  'Korean',
+  'Italian',
+  'Dutch'
 ]

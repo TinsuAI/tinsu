@@ -5,13 +5,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Checkbox } from './ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +25,11 @@ interface NewProjectDialogProps {
   onProjectCreated: (info: { path: string; projectName: string }) => void
 }
 
-export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewProjectDialogProps) {
+export function NewProjectDialog({
+  open,
+  onOpenChange,
+  onProjectCreated
+}: NewProjectDialogProps): JSX.Element {
   const [projectName, setProjectName] = useState('')
   const [parentDir, setParentDir] = useState<string | null>(null)
   const [nameError, setNameError] = useState<string | null>(null)
@@ -60,7 +58,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const createMutation = trpc.project.create.useMutation()
   const bmadInstallMutation = trpc.bmad.installToPath.useMutation()
 
-  const handleNameChange = (value: string) => {
+  const handleNameChange = (value: string): void => {
     if (INVALID_CHARS_TEST.test(value)) {
       setNameError('Project name contains invalid characters')
     } else {
@@ -70,11 +68,14 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
     setCreateError(null)
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (): Promise<void> => {
     if (!parentDir || !projectName.trim()) return
     setCreateError(null)
     try {
-      const result = await createMutation.mutateAsync({ parentDir, projectName: projectName.trim() })
+      const result = await createMutation.mutateAsync({
+        parentDir,
+        projectName: projectName.trim()
+      })
       if (installBmad) {
         try {
           await bmadInstallMutation.mutateAsync({
@@ -84,7 +85,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
             userName: userName || projectName.trim(),
             communicationLanguage: language,
             documentOutputLanguage: language,
-            outputFolder: '_bmad-output',
+            outputFolder: '_bmad-output'
           })
         } catch {
           toast.error('BMAD setup failed — you can retry from Settings')
@@ -98,13 +99,13 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   }
 
   // Module/tool toggle helpers
-  const toggleModule = (moduleId: string) => {
+  const toggleModule = (moduleId: string): void => {
     setBmadModules((prev) =>
       prev.includes(moduleId) ? prev.filter((m) => m !== moduleId) : [...prev, moduleId]
     )
   }
 
-  const toggleTool = (toolId: string) => {
+  const toggleTool = (toolId: string): void => {
     setBmadTools((prev) =>
       prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId]
     )
@@ -121,7 +122,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const languages = available?.languages ?? ['English']
 
   // Reset form state when dialog closes
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = (nextOpen: boolean): void => {
     if (!nextOpen) {
       setProjectName('')
       setParentDir(null)
@@ -141,9 +142,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Set up a new project folder with git initialized.
-          </DialogDescription>
+          <DialogDescription>Set up a new project folder with git initialized.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-1">
@@ -158,9 +157,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
               disabled={isLoading}
               autoFocus
             />
-            {nameError && (
-              <p className="text-xs text-destructive">{nameError}</p>
-            )}
+            {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
 
           {/* Parent Directory */}
@@ -185,9 +182,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
           {/* Path Preview */}
           {fullPath && (
             <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                Will be created at:
-              </p>
+              <p className="text-xs text-muted-foreground">Will be created at:</p>
               <code className="mt-0.5 block truncate font-mono text-sm text-foreground/80">
                 {fullPath}
               </code>
@@ -224,7 +219,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
                   >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
                     <p className="text-sm text-amber-300">
-                      Node.js is required to install BMAD. Install it from project settings after creation.
+                      Node.js is required to install BMAD. Install it from project settings after
+                      creation.
                     </p>
                   </div>
                 ) : (
@@ -330,17 +326,10 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="ghost"
-            onClick={() => handleOpenChange(false)}
-            disabled={isPending}
-          >
+          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={!isValid || isLoading}
-          >
+          <Button onClick={handleCreate} disabled={!isValid || isLoading}>
             {bmadInstallMutation.isPending ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

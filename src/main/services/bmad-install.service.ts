@@ -187,7 +187,9 @@ export class BmadInstallService {
       const toolsArg = options.tools.length > 0 ? options.tools.join(',') : 'none'
 
       const args = [
-        '--yes', 'bmad-method', 'install', // --yes is for npx (auto-install package)
+        '--yes',
+        'bmad-method',
+        'install', // --yes is for npx (auto-install package)
         '--directory',
         projectPath,
         '--modules',
