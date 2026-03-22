@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { exec } from 'child_process'
+import { shell } from 'electron'
 import { BmadInstallService } from './bmad-install.service'
 
 // Mock child_process
@@ -53,6 +54,39 @@ describe('BmadInstallService', () => {
 
       expect(result.installed).toBe(false)
       expect(result.version).toBeNull()
+    })
+  })
+
+  describe('installNodejs', () => {
+    const originalPlatform = process.platform
+
+    afterEach(() => {
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    })
+
+    it('opens terminal with install command on linux', async () => {
+      Object.defineProperty(process, 'platform', { value: 'linux' })
+
+      // exec is already mocked; just ensure it gets called
+      vi.mocked(exec).mockImplementation(() => {
+        return {} as ReturnType<typeof exec>
+      })
+
+      const result = await BmadInstallService.installNodejs()
+
+      expect(result.success).toBe(true)
+      expect(exec).toHaveBeenCalledWith(
+        expect.stringContaining('nodesource')
+      )
+    })
+
+    it('opens nodejs.org on windows', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32' })
+
+      const result = await BmadInstallService.installNodejs()
+
+      expect(result.success).toBe(true)
+      expect(shell.openExternal).toHaveBeenCalledWith('https://nodejs.org/en/download/')
     })
   })
 })
