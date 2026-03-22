@@ -1,0 +1,120 @@
+/**
+ * ChatInput Tests - Story 10.2 (AC: 6)
+ *
+ * Tests: submit on Enter, Shift+Enter newline, clear after submit,
+ * disabled when empty.
+ */
+
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { ChatInput } from './ChatInput'
+
+describe('ChatInput (Story 10.2, AC: 6)', () => {
+  it('renders textarea and send button', () => {
+    render(<ChatInput onSend={vi.fn()} />)
+
+    expect(screen.getByTestId('chat-textarea')).toBeInTheDocument()
+    expect(screen.getByTestId('chat-send-button')).toBeInTheDocument()
+  })
+
+  it('renders placeholder text', () => {
+    render(<ChatInput onSend={vi.fn()} />)
+
+    expect(screen.getByPlaceholderText('Message your agent...')).toBeInTheDocument()
+  })
+
+  it('disables send button when textarea is empty', () => {
+    render(<ChatInput onSend={vi.fn()} />)
+
+    const sendButton = screen.getByTestId('chat-send-button')
+    expect(sendButton).toBeDisabled()
+  })
+
+  it('disables send button when textarea has only whitespace', async () => {
+    const user = userEvent.setup()
+    render(<ChatInput onSend={vi.fn()} />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    await user.type(textarea, '   ')
+
+    const sendButton = screen.getByTestId('chat-send-button')
+    expect(sendButton).toBeDisabled()
+  })
+
+  it('enables send button when textarea has content', async () => {
+    const user = userEvent.setup()
+    render(<ChatInput onSend={vi.fn()} />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    await user.type(textarea, 'Hello')
+
+    const sendButton = screen.getByTestId('chat-send-button')
+    expect(sendButton).not.toBeDisabled()
+  })
+
+  it('calls onSend with trimmed content on Enter key', async () => {
+    const onSend = vi.fn()
+    const user = userEvent.setup()
+    render(<ChatInput onSend={onSend} />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    await user.type(textarea, 'Hello agent!')
+    await user.keyboard('{Enter}')
+
+    expect(onSend).toHaveBeenCalledWith('Hello agent!')
+  })
+
+  it('does not submit on Shift+Enter (inserts newline instead)', async () => {
+    const onSend = vi.fn()
+    const user = userEvent.setup()
+    render(<ChatInput onSend={onSend} />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    await user.type(textarea, 'Line 1')
+    await user.keyboard('{Shift>}{Enter}{/Shift}')
+
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
+  it('clears textarea after submit', async () => {
+    const onSend = vi.fn()
+    const user = userEvent.setup()
+    render(<ChatInput onSend={onSend} />)
+
+    const textarea = screen.getByTestId('chat-textarea') as HTMLTextAreaElement
+    await user.type(textarea, 'Hello')
+    await user.keyboard('{Enter}')
+
+    expect(textarea.value).toBe('')
+  })
+
+  it('calls onSend when send button is clicked', async () => {
+    const onSend = vi.fn()
+    const user = userEvent.setup()
+    render(<ChatInput onSend={onSend} />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    await user.type(textarea, 'Hello via button')
+
+    const sendButton = screen.getByTestId('chat-send-button')
+    await user.click(sendButton)
+
+    expect(onSend).toHaveBeenCalledWith('Hello via button')
+  })
+
+  it('does not submit when disabled', async () => {
+    const onSend = vi.fn()
+    render(<ChatInput onSend={onSend} disabled />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    expect(textarea).toBeDisabled()
+  })
+
+  it('auto-focuses textarea when autoFocus is true', () => {
+    render(<ChatInput onSend={vi.fn()} autoFocus />)
+
+    const textarea = screen.getByTestId('chat-textarea')
+    expect(document.activeElement).toBe(textarea)
+  })
+})

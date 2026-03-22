@@ -12,7 +12,7 @@ import crypto from 'crypto'
 import { eq, desc, asc, sql } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
-import { chat_sessions, chat_messages, CHAT_SESSION_STATUS } from '../../db/schema'
+import { chat_sessions, chat_messages, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
 
 /**
  * Chat session router procedures.
@@ -20,6 +20,7 @@ import { chat_sessions, chat_messages, CHAT_SESSION_STATUS } from '../../db/sche
  * - create: Create a new chat session
  * - list: List chat sessions for a project
  * - getMessages: Get messages for a chat session
+ * - addMessage: Add a message to a chat session
  * - updateStatus: Update a chat session's status
  */
 export const chatSessionRouter = router({
@@ -128,6 +129,71 @@ export const chatSessionRouter = router({
         .limit(input.limit)
         .offset(input.offset)
         .all()
+    }),
+
+  /**
+   * Add a message to a chat session.
+   *
+   * Inserts a new message and updates the session's last_message_at timestamp.
+   * Validates role against CHAT_MESSAGE_ROLE enum.
+   *
+   * @example
+   * ```typescript
+   * const message = await trpc.chatSession.addMessage.mutate({
+   *   sessionId: 'session-123',
+   *   role: 'user',
+   *   content: 'Hello agent!'
+   * })
+   * ```
+   *
+   * @see Story 10.2: Chat Panel UI & Message Bubbles (AC: 6)
+   */
+  addMessage: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        role: z.enum(CHAT_MESSAGE_ROLE),
+        content: z.string().min(1),
+        toolName: z.string().optional(),
+        toolInput: z.string().optional()
+      })
+    )
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      const id = crypto.randomUUID()
+      const now = new Date()
+
+      db.insert(chat_messages)
+        .values({
+          id,
+          session_id: input.sessionId,
+          role: input.role,
+          content: input.content,
+          tool_name: input.toolName ?? null,
+          tool_input: input.toolInput ?? null,
+          created_at: now
+        })
+        .run()
+
+      // Update session's last_message_at
+      db.update(chat_sessions)
+        .set({ last_message_at: now })
+        .where(eq(chat_sessions.id, input.sessionId))
+        .run()
+
+      return db.select().from(chat_messages).where(eq(chat_messages.id, id)).get()!
     }),
 
   /**

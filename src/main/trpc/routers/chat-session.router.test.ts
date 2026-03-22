@@ -492,4 +492,160 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       ).rejects.toThrow()
     })
   })
+
+  describe('addMessage (Story 10.2, AC: 6)', () => {
+    it('should add a user message to a session', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const message = await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'user',
+        content: 'Hello agent!'
+      })
+
+      expect(message).toBeDefined()
+      expect(message!.id).toBeDefined()
+      expect(message!.session_id).toBe(session!.id)
+      expect(message!.role).toBe('user')
+      expect(message!.content).toBe('Hello agent!')
+      expect(message!.tool_name).toBeNull()
+      expect(message!.tool_input).toBeNull()
+    })
+
+    it('should add an assistant message with optional tool fields', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const message = await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'tool',
+        content: 'Read file result',
+        toolName: 'Read',
+        toolInput: '{"file_path": "/test"}'
+      })
+
+      expect(message!.role).toBe('tool')
+      expect(message!.tool_name).toBe('Read')
+      expect(message!.tool_input).toBe('{"file_path": "/test"}')
+    })
+
+    it('should update session last_message_at when adding a message', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // Initially last_message_at should be null
+      expect(session!.last_message_at).toBeNull()
+
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'user',
+        content: 'Hello!'
+      })
+
+      // Fetch the session to verify last_message_at was updated
+      const sessions = await caller.chatSession.list({ projectId: 'project-1' })
+      const updatedSession = sessions.find((s) => s.id === session!.id)
+      expect(updatedSession!.last_message_at).not.toBeNull()
+    })
+
+    it('should throw NOT_FOUND for non-existent session', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.chatSession.addMessage({
+          sessionId: 'non-existent',
+          role: 'user',
+          content: 'Hello!'
+        })
+      ).rejects.toThrow('Chat session not found')
+    })
+
+    it('should reject invalid role values', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await expect(
+        caller.chatSession.addMessage({
+          sessionId: session!.id,
+          role: 'invalid_role' as any,
+          content: 'Hello!'
+        })
+      ).rejects.toThrow()
+    })
+
+    it('should reject empty content', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await expect(
+        caller.chatSession.addMessage({
+          sessionId: session!.id,
+          role: 'user',
+          content: ''
+        })
+      ).rejects.toThrow()
+    })
+
+    it('should reject empty sessionId', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.chatSession.addMessage({
+          sessionId: '',
+          role: 'user',
+          content: 'Hello!'
+        })
+      ).rejects.toThrow()
+    })
+
+    it('should retrieve added messages via getMessages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'user',
+        content: 'First message'
+      })
+
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'assistant',
+        content: 'Second message'
+      })
+
+      const messages = await caller.chatSession.getMessages({
+        sessionId: session!.id
+      })
+
+      expect(messages).toHaveLength(2)
+      expect(messages[0].content).toBe('First message')
+      expect(messages[1].content).toBe('Second message')
+    })
+  })
 })

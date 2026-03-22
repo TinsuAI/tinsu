@@ -3,7 +3,8 @@ import {
   ArrowLeft,
   Compass,
   FileCode2,
-  Keyboard
+  Keyboard,
+  MessageSquare
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
@@ -29,6 +30,7 @@ import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel
 import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
 import { AgentPersonaIndicator } from '@renderer/components/planning/AgentPersonaIndicator'
 import { KeyboardShortcutsOverlay } from '@renderer/components/planning/KeyboardShortcutsOverlay'
+import { ChatPanel } from '@renderer/components/planning/ChatPanel'
 import { usePlanningKeyboardShortcuts } from '@renderer/hooks/usePlanningKeyboardShortcuts'
 
 /**
@@ -47,9 +49,11 @@ export function PlanningWorkspacePage() {
     isOpen,
     activePhase,
     selectedWorkflowKey,
+    isChatOpen,
     closeWorkspace,
     setActivePhase,
-    setSelectedWorkflow
+    setSelectedWorkflow,
+    toggleChat
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
   const { data: project } = trpc.project.getCurrent.useQuery()
@@ -295,8 +299,30 @@ export function PlanningWorkspacePage() {
             </span>
           </div>
 
-          {/* Right: shortcuts button + agent persona indicator */}
+          {/* Right: chat toggle + shortcuts button + agent persona indicator */}
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      'h-7 w-7 p-0',
+                      isChatOpen && 'bg-cyan-500/10 text-cyan-400'
+                    )}
+                    onClick={toggleChat}
+                    aria-label={isChatOpen ? 'Close chat' : 'Open chat'}
+                    data-testid="chat-toggle-button"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isChatOpen ? 'Close chat' : 'Open chat'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -395,6 +421,9 @@ export function PlanningWorkspacePage() {
               )}
             </div>
           </main>
+
+          {/* Story 10.2: Chat panel — right-side column */}
+          {isChatOpen && <ChatPanel />}
         </div>
       </div>
 
