@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-21T17:49:00Z
+# updated: 2026-03-22T10-1
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -256,3 +256,15 @@ development_status:
   9-8-agent-persona-indicator: done  # Code review complete - 2 auto-fixes applied (split(':').pop() empty string guard, AGENT_PERSONA_CONFIG Object.freeze for immutability), all story 9.8 tests passing
   9-9-planning-workspace-keyboard-navigation: done  # Code review complete - 11 auto-fixes applied (callbacks ref to stop listener churn, focus trap + aria-modal in overlay, nativeEvent.stopPropagation fixes Escape regression AC5, workspaceRef-scoped querySelector, role="region" on root div, artifact status announcement AC7/5.8, skip initial mount announcement, aria-label on focusable wrappers, tests for N/R/G shortcuts AC2-4), all 81 tests passing
   epic-9-retrospective: optional
+
+  # Epic 10: Agent Planning Chat (added 2026-03-22 via PM session)
+  # Persistent conversational planning sessions with BMAD agents in Planning Workspace
+  epic-10: in-progress
+  10-1-chat-session-schema-and-hook-endpoint: backlog
+  10-2-chat-panel-ui-and-message-bubbles: backlog
+  10-3-claude-code-cli-chat-session-spawning: backlog
+  10-4-bmad-agent-persona-context-injection: backlog
+  10-5-tool-activity-and-working-indicators: backlog
+  10-6-session-persistence-and-resume: backlog
+  10-7-artifact-detection-and-planning-workspace-integration: backlog
+  epic-10-retrospective: optional

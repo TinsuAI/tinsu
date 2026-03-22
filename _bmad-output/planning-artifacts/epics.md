@@ -5,9 +5,15 @@ inputDocuments:
   - _bmad-output/planning-artifacts/architecture.md
   - _bmad-output/planning-artifacts/ux-design-specification.md
 completedDate: 2026-01-04
-totalEpics: 8
-totalStories: 86
+totalEpics: 9
+totalStories: 93
 deferredEpics: [4]
+lastUpdated: 2026-03-22
+addedEpics:
+  - epic: 10
+    name: "Agent Planning Chat"
+    date: 2026-03-22
+    stories: 7
 ---
 
 # TinSu - Epic Breakdown
@@ -3451,3 +3457,286 @@ So that I can navigate efficiently without using the mouse.
 **And** a help overlay (?) shows available shortcuts
 
 **References:** ChatGPT report (accessibility section), existing TinSu keyboard patterns
+
+---
+
+## Epic 10: Agent Planning Chat
+
+**Goal:** Founder can have persistent, conversational planning sessions with BMAD agents directly in the TinSu Planning Workspace, with messages displayed in a clean chat bubble UI powered by interactive Claude Code CLI sessions.
+
+**User Outcome:** "I can chat with my PM, Architect, or UX Designer agent right inside TinSu — pick up conversations where I left off — and artifacts they produce flow into my planning workspace automatically."
+
+**FRs covered:** FR-CHAT1 through FR-CHAT16
+**NFRs addressed:** NFR-CHAT1 through NFR-CHAT5
+**Dependencies:** Epic 9 (Planning Workspace — complete ✅)
+**Note (2026-03-22):** Added via PM session. Uses Claude Code CLI interactive sessions with hook-based event pipeline (Option A: no streaming, messages delivered on Stop hook). No git worktrees needed for planning agents.
+
+### Story 10.1: Chat Session Schema & Hook Endpoint
+**Task ID:** `10-1-chat-session-schema-and-hook-endpoint`
+
+As a founder,
+I want TinSu to have the infrastructure to manage chat sessions and receive events from Claude Code,
+So that future chat features have a reliable foundation for session tracking and event delivery.
+
+**Acceptance Criteria:**
+
+**Given** the application starts
+**When** the database initializes
+**Then** a `chat_sessions` table exists with columns: id, session_uuid, agent_persona, workflow_phase, project_id, status (active/paused/completed), created_at, updated_at, last_message_at
+**And** a `chat_messages` table exists with columns: id, session_id (FK), role (user/assistant/tool), content, tool_name (nullable), tool_input (nullable), created_at
+
+**Given** the application starts
+**When** the main process initializes
+**Then** a local HTTP endpoint is listening to receive Claude Code hook events
+**And** the endpoint accepts POST requests with JSON payloads matching Claude Code hook event schemas
+
+**Given** a hook event is received at the HTTP endpoint
+**When** the event type is `Stop` with `last_assistant_message`
+**Then** the message is stored in the `chat_messages` table linked to the correct session
+**And** the session's `last_message_at` is updated
+
+**Given** a hook event is received
+**When** the event type is `PostToolUse`
+**Then** the tool activity is stored in `chat_messages` with role "tool", tool_name, and tool_input
+
+**Given** the tRPC layer
+**When** chat session procedures are available
+**Then** `chatSession.create`, `chatSession.list`, `chatSession.getMessages`, `chatSession.updateStatus` procedures exist and work correctly
+
+---
+
+### Story 10.2: Chat Panel UI & Message Bubbles
+**Task ID:** `10-2-chat-panel-ui-and-message-bubbles`
+
+🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+As a founder,
+I want a chat panel in the Planning Workspace with a clean message bubble interface,
+So that I can see planning conversations in an easy-to-read chat format.
+
+**Acceptance Criteria:**
+
+**Given** I am in the Planning Workspace
+**When** I click a "Chat" button or tab
+**Then** a chat panel opens alongside the existing workspace views
+**And** it does not replace any existing Planning Workspace functionality
+
+**Given** the chat panel is open
+**When** I view it
+**Then** I see: an agent persona selector at the top, a message area in the center, and an input box with send button at the bottom
+
+**Given** the chat panel has messages
+**When** I view the message area
+**Then** user messages appear as right-aligned bubbles with a distinct background color
+**And** agent messages appear as left-aligned bubbles with a different background color
+**And** each bubble shows the sender label and timestamp
+
+**Given** an agent message contains markdown
+**When** the bubble renders
+**Then** headings, lists, code blocks, tables, bold, and italic render correctly inside the bubble
+**And** code blocks have syntax highlighting
+
+**Given** I select an agent persona (PM, Architect, UX Designer, Analyst)
+**When** I make the selection
+**Then** the persona indicator updates with the agent's name, icon, and color (matching Epic 9 Story 9.8 color scheme)
+
+**Given** I type a message and press Enter or click Send
+**When** the message is submitted
+**Then** it appears immediately as a user bubble in the message area
+**And** the input box clears
+
+**Given** the chat panel has many messages
+**When** I scroll up
+**Then** I can view the full conversation history
+**And** new messages auto-scroll to the bottom unless I've scrolled up
+
+---
+
+### Story 10.3: Claude Code CLI Chat Session Spawning
+**Task ID:** `10-3-claude-code-cli-chat-session-spawning`
+
+As a founder,
+I want my chat messages to be sent to an interactive Claude Code CLI session and get agent responses back,
+So that I can actually have a working conversation with an agent through the chat UI.
+
+**Acceptance Criteria:**
+
+**Given** I send a message in the chat panel with no active CLI session
+**When** the message is submitted
+**Then** TinSu spawns an interactive `claude` process via node-pty with a unique `--session-id` UUID
+**And** the session UUID is stored in the `chat_sessions` table
+**And** my message is sent to the CLI session's stdin
+
+**Given** an active CLI session exists for the current chat
+**When** I send a follow-up message
+**Then** the message is sent to the existing PTY session's stdin (no new process spawned)
+
+**Given** a message is sent to the CLI session
+**When** Claude Code finishes responding
+**Then** the `Stop` hook fires and delivers `last_assistant_message` to the hook endpoint
+**And** the message is stored in `chat_messages` and appears as an agent bubble in the chat UI
+
+**Given** the agent is processing a message
+**When** the response has not yet arrived
+**Then** a "thinking..." or typing indicator is visible in the chat panel
+
+**Given** the Claude Code CLI session crashes or exits unexpectedly
+**When** I send a new message
+**Then** TinSu spawns a new CLI process with `--resume` using the stored session UUID
+**And** the conversation continues seamlessly
+
+**Given** I close the chat panel
+**When** the CLI session is active
+**Then** the session continues running in the background (not terminated)
+
+---
+
+### Story 10.4: BMAD Agent Persona Context Injection
+**Task ID:** `10-4-bmad-agent-persona-context-injection`
+
+As a founder,
+I want the CLI session to behave as the selected BMAD agent persona,
+So that I get expert planning guidance from the right specialist (PM for PRDs, Architect for architecture, etc.).
+
+**Acceptance Criteria:**
+
+**Given** I select the PM persona and start a chat
+**When** the CLI session is spawned
+**Then** the first message sent to stdin includes the PM agent persona instructions loaded from `_bmad/bmm/agents/pm.md`
+**And** the agent responds in character as the PM
+
+**Given** I select the Architect persona
+**When** the CLI session starts
+**Then** the persona context from `_bmad/bmm/agents/architect.md` is injected
+**And** the agent responds with architecture expertise
+
+**Given** I select the UX Designer persona
+**When** the CLI session starts
+**Then** the persona context from `_bmad/bmm/agents/ux-designer.md` is injected
+
+**Given** I select the Analyst persona
+**When** the CLI session starts
+**Then** the persona context from `_bmad/bmm/agents/analyst.md` is injected
+
+**Given** any persona is selected
+**When** the context is injected
+**Then** the injection also includes the project's `_bmad/bmm/config.yaml` values (user_name, project_name, output paths)
+**And** the agent is instructed to produce artifacts in the correct `_bmad-output/planning-artifacts/` directory
+
+**Given** a persona chat session already exists for a persona
+**When** I switch to a different persona
+**Then** a new separate CLI session is spawned for the new persona
+**And** the previous session remains accessible for resuming later
+
+---
+
+### Story 10.5: Tool Activity & Working Indicators
+**Task ID:** `10-5-tool-activity-and-working-indicators`
+
+🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+As a founder,
+I want to see what the agent is doing while it works (reading files, searching, writing),
+So that I'm not staring at a blank screen and I understand the agent's process.
+
+**Acceptance Criteria:**
+
+**Given** the agent is processing my message
+**When** a `PreToolUse` hook event is received
+**Then** the chat UI shows a contextual indicator: "Reading {file_path}...", "Searching for {pattern}...", "Writing {file_path}...", etc.
+**And** the indicator replaces the generic "thinking..." indicator
+
+**Given** the agent has completed a tool call
+**When** a `PostToolUse` hook event is received
+**Then** a collapsible tool activity card appears between message bubbles
+**And** the card shows: tool name icon, brief description (e.g., "Read architecture.md"), and is collapsed by default
+
+**Given** a tool activity card exists
+**When** I click to expand it
+**Then** I see the tool input details (file path, search pattern, etc.)
+**And** a truncated preview of the tool response (first 10 lines or 500 chars)
+
+**Given** multiple tool calls happen in sequence before the agent responds
+**When** the tool activity is displayed
+**Then** consecutive tool cards are grouped together as "Agent performed N actions"
+**And** I can expand the group to see individual tool cards
+
+**Given** the agent encounters a `Notification` hook event
+**When** the notification type is `permission_prompt`
+**Then** the chat UI displays a system message: "Agent needs permission to proceed"
+**And** the founder can see what permission is being requested
+
+---
+
+### Story 10.6: Session Persistence & Resume
+**Task ID:** `10-6-session-persistence-and-resume`
+
+🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+As a founder,
+I want to see my previous chat sessions and resume any conversation where I left off,
+So that I can pick up planning work across days without losing context.
+
+**Acceptance Criteria:**
+
+**Given** I open the chat panel in the Planning Workspace
+**When** previous chat sessions exist for this project
+**Then** I see a session list showing: agent persona icon/name, last message preview, last active timestamp, and status (active/completed)
+**And** sessions are sorted by most recently active
+
+**Given** I click on a previous session in the list
+**When** the session loads
+**Then** all previous messages are displayed in the chat area (loaded from `chat_messages` table)
+**And** the correct agent persona is pre-selected
+
+**Given** I send a message in a resumed session
+**When** no CLI process is running for that session
+**Then** TinSu spawns a new `claude` process with `--resume {session_uuid}`
+**And** Claude Code restores its internal conversation context
+**And** the conversation continues naturally
+
+**Given** I want to start a fresh conversation
+**When** I click "New Chat" button
+**Then** the agent persona selector is shown
+**And** selecting a persona begins a new session with a new UUID
+
+**Given** a chat session has been inactive for 30+ minutes
+**When** I view the session list
+**Then** the session shows as "Paused" status
+**And** the underlying CLI process has been gracefully terminated to free resources
+
+**Given** I want to clean up old sessions
+**When** I right-click or use the menu on a session
+**Then** I can mark it as "Completed" (archived) or "Delete" (removes from list)
+**And** completed sessions remain viewable but are dimmed in the list
+
+---
+
+### Story 10.7: Artifact Detection & Planning Workspace Integration
+**Task ID:** `10-7-artifact-detection-and-planning-workspace-integration`
+
+As a founder,
+I want artifacts produced during a chat session to automatically appear in the Planning Workspace,
+So that PRDs, architecture docs, and other outputs flow seamlessly into my existing planning views.
+
+**Acceptance Criteria:**
+
+**Given** the agent creates or updates a file in `_bmad-output/planning-artifacts/` during a chat session
+**When** the `PostToolUse` hook fires for a Write or Edit tool
+**Then** the system detects the artifact and triggers the existing artifact scanning service (from Epic 9)
+**And** the artifact appears in the Phase Progress Dashboard and Artifact Viewer
+
+**Given** an artifact is produced during chat
+**When** I view the artifact in the Planning Workspace artifact viewer
+**Then** the artifact metadata shows which chat session produced it
+**And** a "View Chat" link navigates back to the originating chat session
+
+**Given** I am in an active chat session
+**When** the agent produces an artifact
+**Then** a system message appears in the chat: "Artifact created: {filename}"
+**And** the message includes a clickable link to open the artifact in the Artifact Viewer
+
+**Given** the "What Next?" recommender (Story 9.4) runs
+**When** artifacts produced by chat sessions are detected
+**Then** the recommender accounts for these artifacts the same as any other planning artifacts
+**And** recommendations update accordingly
