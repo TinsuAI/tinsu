@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import { shell } from 'electron'
+import { EventEmitter } from 'events'
 import { BmadInstallService } from './bmad-install.service'
+import type { BmadInstallOptions } from '../../shared/types/bmad.types'
 
 // Mock child_process
 vi.mock('child_process', () => ({
@@ -151,6 +153,128 @@ describe('BmadInstallService', () => {
       const result = await BmadInstallService.checkBmadStatus('/test/project')
 
       expect(result.installed).toBe(true)
+    })
+  })
+
+  describe('installBmad', () => {
+    const defaultOptions: BmadInstallOptions = {
+      modules: ['core', 'bmm', 'cis'],
+      tools: ['claude-code'],
+      userName: 'Test User',
+      communicationLanguage: 'English',
+      documentOutputLanguage: 'English',
+      outputFolder: '_bmad-output'
+    }
+
+    function createMockChildProcess(): EventEmitter & {
+      stdout: EventEmitter
+      stderr: EventEmitter
+      kill: ReturnType<typeof vi.fn>
+    } {
+      const proc = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter
+        stderr: EventEmitter
+        kill: ReturnType<typeof vi.fn>
+      }
+      proc.stdout = new EventEmitter()
+      proc.stderr = new EventEmitter()
+      proc.kill = vi.fn()
+      return proc
+    }
+
+    it('spawns npx with correct flags and resolves on success', async () => {
+      const mockProc = createMockChildProcess()
+
+      vi.mocked(spawn).mockReturnValue(mockProc as never)
+
+      const promise = BmadInstallService.installBmad('/test/project', defaultOptions)
+
+      // Simulate successful completion
+      mockProc.emit('close', 0)
+
+      const result = await promise
+
+      expect(result.success).toBe(true)
+      expect(spawn).toHaveBeenCalledWith(
+        'npx',
+        expect.arrayContaining([
+          '--yes',
+          'bmad-method',
+          'install',
+          '--directory',
+          '/test/project',
+          '--modules',
+          'core,bmm,cis',
+          '--tools',
+          'claude-code',
+          '--user-name',
+          'Test User'
+        ]),
+        expect.objectContaining({ cwd: '/test/project' })
+      )
+    })
+
+    it('resolves with error on non-zero exit code', async () => {
+      const mockProc = createMockChildProcess()
+
+      vi.mocked(spawn).mockReturnValue(mockProc as never)
+
+      const promise = BmadInstallService.installBmad('/test/project', defaultOptions)
+
+      // Simulate stderr output then failure
+      mockProc.stderr.emit('data', Buffer.from('Something went wrong'))
+      mockProc.emit('close', 1)
+
+      const result = await promise
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Something went wrong')
+    })
+  })
+
+  describe('updateBmad', () => {
+    const defaultOptions: BmadInstallOptions = {
+      modules: ['core', 'bmm'],
+      tools: ['claude-code'],
+      userName: 'Test User',
+      communicationLanguage: 'English',
+      documentOutputLanguage: 'English',
+      outputFolder: '_bmad-output'
+    }
+
+    function createMockChildProcess(): EventEmitter & {
+      stdout: EventEmitter
+      stderr: EventEmitter
+      kill: ReturnType<typeof vi.fn>
+    } {
+      const proc = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter
+        stderr: EventEmitter
+        kill: ReturnType<typeof vi.fn>
+      }
+      proc.stdout = new EventEmitter()
+      proc.stderr = new EventEmitter()
+      proc.kill = vi.fn()
+      return proc
+    }
+
+    it('passes --action update flag', async () => {
+      const mockProc = createMockChildProcess()
+
+      vi.mocked(spawn).mockReturnValue(mockProc as never)
+
+      const promise = BmadInstallService.updateBmad('/test/project', defaultOptions)
+
+      // Simulate successful completion
+      mockProc.emit('close', 0)
+
+      await promise
+
+      expect(spawn).toHaveBeenCalledWith(
+        'npx',
+        expect.arrayContaining(['--action', 'update']),
+        expect.objectContaining({ cwd: '/test/project' })
+      )
     })
   })
 })

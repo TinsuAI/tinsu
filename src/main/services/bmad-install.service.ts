@@ -1,8 +1,8 @@
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import { shell } from 'electron'
-import type { BmadStatus } from '../../shared/types/bmad.types'
+import type { BmadStatus, BmadInstallOptions } from '../../shared/types/bmad.types'
 
 /**
  * Service for managing BMAD Method installation and status.
@@ -144,5 +144,112 @@ export class BmadInstallService {
     } catch {
       return { installed: true }
     }
+  }
+
+  /**
+   * Installs BMAD Method into a project.
+   *
+   * @param projectPath - Path to the project root
+   * @param options - Installation options (modules, tools, language, etc.)
+   * @returns Object with success flag and optional error message
+   */
+  static async installBmad(
+    projectPath: string,
+    options: BmadInstallOptions
+  ): Promise<{ success: boolean; error?: string }> {
+    return BmadInstallService.runBmadCli(projectPath, options)
+  }
+
+  /**
+   * Updates an existing BMAD Method installation.
+   *
+   * @param projectPath - Path to the project root
+   * @param options - Installation options (modules, tools, language, etc.)
+   * @returns Object with success flag and optional error message
+   */
+  static async updateBmad(
+    projectPath: string,
+    options: BmadInstallOptions
+  ): Promise<{ success: boolean; error?: string }> {
+    return BmadInstallService.runBmadCli(projectPath, options, 'update')
+  }
+
+  /**
+   * Runs the BMAD CLI install/update command via npx.
+   *
+   * @param projectPath - Path to the project root
+   * @param options - Installation options
+   * @param action - Optional action flag (e.g., 'update')
+   * @returns Object with success flag and optional error message
+   */
+  private static runBmadCli(
+    projectPath: string,
+    options: BmadInstallOptions,
+    action?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      const args = [
+        '--yes',
+        'bmad-method',
+        'install',
+        '--directory',
+        projectPath,
+        '--modules',
+        options.modules.join(','),
+        '--tools',
+        options.tools.join(',') || 'none',
+        '--user-name',
+        options.userName,
+        '--communication-language',
+        options.communicationLanguage,
+        '--document-output-language',
+        options.documentOutputLanguage,
+        '--output-folder',
+        options.outputFolder,
+        '--yes'
+      ]
+
+      if (action) {
+        args.push('--action', action)
+      }
+
+      const child = spawn('npx', args, {
+        cwd: projectPath,
+        env: { ...process.env }
+      })
+
+      let stderr = ''
+
+      child.stdout?.on('data', (data: Buffer) => {
+        console.log(`[bmad-cli] ${data.toString().trim()}`)
+      })
+
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      // 120-second timeout
+      const timeout = setTimeout(() => {
+        child.kill()
+        resolve({ success: false, error: 'Installation timed out after 120 seconds' })
+      }, 120_000)
+
+      child.on('close', (code) => {
+        clearTimeout(timeout)
+        if (code === 0) {
+          resolve({ success: true })
+        } else {
+          resolve({
+            success: false,
+            error: stderr || `Process exited with code ${code}`
+          })
+        }
+      })
+
+      child.on('error', (err) => {
+        clearTimeout(timeout)
+        resolve({ success: false, error: err.message })
+      })
+    })
   }
 }
