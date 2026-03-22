@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import crypto from 'crypto'
 import { join } from 'path'
-import { eq, desc, asc, sql } from 'drizzle-orm'
+import { eq, desc, asc, sql, and } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
 import { chat_sessions, chat_messages, projects, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
@@ -274,6 +274,38 @@ export const chatSessionRouter = router({
         .run()
 
       return db.select().from(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).get()!
+    }),
+
+  /**
+   * Get tool activity messages for a chat session.
+   *
+   * Returns all tool-role messages (PreToolUse, PostToolUse, Notification)
+   * ordered by created_at ascending.
+   *
+   * @example
+   * ```typescript
+   * const tools = await trpc.chatSession.getToolActivity.query({
+   *   sessionId: 'session-123'
+   * })
+   * ```
+   *
+   * @see Story 10.5: Tool Activity & Working Indicators (AC: 1, 2, 3, 4)
+   */
+  getToolActivity: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1)
+      })
+    )
+    .query(({ input }) => {
+      return db
+        .select()
+        .from(chat_messages)
+        .where(
+          and(eq(chat_messages.session_id, input.sessionId), eq(chat_messages.role, 'tool'))
+        )
+        .orderBy(asc(chat_messages.created_at))
+        .all()
     }),
 
   /**

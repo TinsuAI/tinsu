@@ -3,6 +3,7 @@
  *
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 1, 2, 6)
  * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 4)
+ * Story 10.5: Tool Activity & Working Indicators (AC: 1)
  *
  * Full-height flex column with three sections:
  * - Persona selector header
@@ -10,7 +11,7 @@
  * - Input footer
  *
  * Manages session creation on first message, persona selection state,
- * and agent thinking indicator.
+ * agent thinking indicator, and current tool activity tracking.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -35,6 +36,11 @@ export function ChatPanel() {
 
   // Agent thinking indicator — set true after sending, cleared when new assistant message arrives
   const [isAgentThinking, setIsAgentThinking] = useState(false)
+  // Story 10.5: Track the latest PreToolUse event for contextual working indicator (AC: 1)
+  const [currentToolActivity, setCurrentToolActivity] = useState<{
+    toolName: string
+    toolInput: Record<string, unknown>
+  } | null>(null)
   const prevMessageCountRef = useRef(0)
   const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Track the persona that was active when the current session was created.
@@ -49,6 +55,7 @@ export function ChatPanel() {
     setSessionId(null)
     sessionPersonaRef.current = null
     setIsAgentThinking(false)
+    setCurrentToolActivity(null)
     if (thinkingTimeoutRef.current) {
       clearTimeout(thinkingTimeoutRef.current)
       thinkingTimeoutRef.current = null
@@ -65,22 +72,45 @@ export function ChatPanel() {
 
   const trpcUtils = trpc.useUtils()
 
-  // Track when new assistant messages arrive to clear thinking indicator
+  // Track when new messages arrive to update thinking indicator and tool activity
   useEffect(() => {
     if (messages.length > prevMessageCountRef.current) {
       // Check if the latest message is from the assistant
       const lastMessage = messages[messages.length - 1]
       if (lastMessage && lastMessage.role === 'assistant') {
         setIsAgentThinking(false)
+        setCurrentToolActivity(null)
         // Clear safety timeout — response arrived normally
         if (thinkingTimeoutRef.current) {
           clearTimeout(thinkingTimeoutRef.current)
           thinkingTimeoutRef.current = null
         }
       }
+      // Story 10.5: Track PreToolUse events for contextual working indicator (AC: 1)
+      if (
+        lastMessage &&
+        lastMessage.role === 'tool' &&
+        lastMessage.content.startsWith('PreToolUse:') &&
+        isAgentThinking
+      ) {
+        try {
+          const toolInput = lastMessage.tool_input
+            ? (JSON.parse(lastMessage.tool_input as string) as Record<string, unknown>)
+            : {}
+          setCurrentToolActivity({
+            toolName: lastMessage.tool_name ?? 'Unknown',
+            toolInput
+          })
+        } catch {
+          setCurrentToolActivity({
+            toolName: lastMessage.tool_name ?? 'Unknown',
+            toolInput: {}
+          })
+        }
+      }
     }
     prevMessageCountRef.current = messages.length
-  }, [messages])
+  }, [messages, isAgentThinking])
 
   // Mutations
   const createSession = trpc.chatSession.create.useMutation()
@@ -145,6 +175,7 @@ export function ChatPanel() {
       } catch (err) {
         console.error('[ChatPanel] Failed to send message:', err)
         setIsAgentThinking(false)
+        setCurrentToolActivity(null)
         if (thinkingTimeoutRef.current) {
           clearTimeout(thinkingTimeoutRef.current)
           thinkingTimeoutRef.current = null
@@ -184,6 +215,7 @@ export function ChatPanel() {
         messages={messages}
         agentPersona={selectedPersona}
         isAgentThinking={isAgentThinking}
+        currentToolActivity={currentToolActivity}
       />
 
       {/* Input footer */}

@@ -12,7 +12,9 @@ import * as http from 'http'
 import {
   HookListenerService,
   type StopHookPayload,
-  type ToolUseHookPayload
+  type ToolUseHookPayload,
+  type ChatPreToolUseHookPayload,
+  type ChatNotificationHookPayload
 } from './hook-listener.service'
 
 // Mock database and ActivityLogService for TES-2.6 tests
@@ -33,15 +35,37 @@ const mockDbSelect = vi.fn(() => ({
   }))
 }))
 
+// Mock db.insert().values().run() for chat hook tests (Story 10.5)
+const mockDbInsertRun = vi.fn()
+const mockDbInsert = vi.fn(() => ({
+  values: vi.fn(() => ({
+    run: mockDbInsertRun
+  }))
+}))
+
+// Mock db.update().set().where().run() for chat hook tests (Story 10.5)
+const mockDbUpdateRun = vi.fn()
+const mockDbUpdate = vi.fn(() => ({
+  set: vi.fn(() => ({
+    where: vi.fn(() => ({
+      run: mockDbUpdateRun
+    }))
+  }))
+}))
+
 vi.mock('../db', () => ({
   db: {
-    select: () => mockDbSelect()
+    select: () => mockDbSelect(),
+    insert: () => mockDbInsert(),
+    update: () => mockDbUpdate()
   }
 }))
 
 vi.mock('../db/schema', () => ({
   task_sessions: { session_id: 'session_id', task_id: 'task_id' },
-  taskActivities: { task_id: 'task_id', event_type: 'event_type', created_at: 'created_at' }
+  taskActivities: { task_id: 'task_id', event_type: 'event_type', created_at: 'created_at' },
+  chat_sessions: { id: 'id', session_uuid: 'session_uuid', updated_at: 'updated_at' },
+  chat_messages: { id: 'id', session_id: 'session_id', role: 'role', content: 'content', tool_name: 'tool_name', tool_input: 'tool_input', created_at: 'created_at' }
 }))
 
 const mockLogActivity = vi.fn()
@@ -125,6 +149,8 @@ describe('HookListenerService', () => {
     mockDbSelectWhereAll.mockReturnValue([]) // Default: no orphan sessions to register
     mockLogActivity.mockReset()
     mockUpdateSessionId.mockReset()
+    mockDbInsertRun.mockReset()
+    mockDbUpdateRun.mockReset()
   })
 
   afterEach(async () => {
@@ -1885,6 +1911,182 @@ describe('HookListenerService', () => {
         'agent_complete',
         expect.any(Object)
       )
+    })
+  })
+
+  describe('POST /api/hooks/chat-pre-tool-use (Story 10.5)', () => {
+    it('should return 200 for valid payload', async () => {
+      await service.start(testPort)
+
+      const payload: ChatPreToolUseHookPayload = {
+        session_id: 'test-chat-session',
+        tool_name: 'Read',
+        tool_input: { file_path: '/test/file.ts' },
+        hook_event_name: 'PreToolUse'
+      }
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-pre-tool-use', payload)
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual({ received: true })
+    })
+
+    it('should call onChatPreToolUseHook handler', async () => {
+      await service.start(testPort)
+
+      const onChatPreToolUseHookSpy = vi.spyOn(service, 'onChatPreToolUseHook')
+
+      const payload: ChatPreToolUseHookPayload = {
+        session_id: 'test-chat-session-2',
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO' },
+        hook_event_name: 'PreToolUse'
+      }
+
+      await makeRequest(testPort, 'POST', '/api/hooks/chat-pre-tool-use', payload)
+
+      expect(onChatPreToolUseHookSpy).toHaveBeenCalledWith(payload)
+    })
+
+    it('should return 400 for invalid payload (missing tool_name)', async () => {
+      await service.start(testPort)
+
+      const payload = {
+        session_id: 'test-session',
+        tool_input: {},
+        hook_event_name: 'PreToolUse'
+      }
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-pre-tool-use', payload)
+
+      expect(response.status).toBe(400)
+    })
+  })
+
+  describe('POST /api/hooks/chat-notification (Story 10.5)', () => {
+    it('should return 200 for valid payload', async () => {
+      await service.start(testPort)
+
+      const payload: ChatNotificationHookPayload = {
+        session_id: 'test-chat-session',
+        type: 'permission_prompt',
+        message: 'Allow file write?',
+        hook_event_name: 'Notification'
+      }
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-notification', payload)
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual({ received: true })
+    })
+
+    it('should call onChatNotificationHook handler', async () => {
+      await service.start(testPort)
+
+      const onChatNotificationHookSpy = vi.spyOn(service, 'onChatNotificationHook')
+
+      const payload: ChatNotificationHookPayload = {
+        session_id: 'test-chat-session-3',
+        type: 'permission_prompt',
+        message: 'Allow access?',
+        hook_event_name: 'Notification'
+      }
+
+      await makeRequest(testPort, 'POST', '/api/hooks/chat-notification', payload)
+
+      expect(onChatNotificationHookSpy).toHaveBeenCalledWith(payload)
+    })
+
+    it('should return 400 for invalid payload (missing message)', async () => {
+      await service.start(testPort)
+
+      const payload = {
+        session_id: 'test-session',
+        type: 'permission_prompt',
+        hook_event_name: 'Notification'
+      }
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-notification', payload)
+
+      expect(response.status).toBe(400)
+    })
+  })
+
+  describe('onChatPreToolUseHook handler (Story 10.5)', () => {
+    it('stores tool message with role tool and content PreToolUse: {tool_name}', async () => {
+      // Mock: session found
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'chat-session-1',
+        session_uuid: 'uuid-1'
+      })
+
+      const payload: ChatPreToolUseHookPayload = {
+        session_id: 'uuid-1',
+        tool_name: 'Read',
+        tool_input: { file_path: '/test/file.ts' },
+        hook_event_name: 'PreToolUse'
+      }
+
+      await service.onChatPreToolUseHook(payload)
+
+      // Should have called db.insert
+      expect(mockDbInsertRun).toHaveBeenCalled()
+    })
+
+    it('ignores payload with unknown session_id', async () => {
+      // Mock: no session found
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+
+      const payload: ChatPreToolUseHookPayload = {
+        session_id: 'unknown-uuid',
+        tool_name: 'Read',
+        tool_input: { file_path: '/test/file.ts' },
+        hook_event_name: 'PreToolUse'
+      }
+
+      await service.onChatPreToolUseHook(payload)
+
+      // Should NOT have called db.insert
+      expect(mockDbInsertRun).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('onChatNotificationHook handler (Story 10.5)', () => {
+    it('stores notification with tool_name __notification__', async () => {
+      // Mock: session found
+      mockDbSelectGet.mockReturnValueOnce({
+        id: 'chat-session-2',
+        session_uuid: 'uuid-2'
+      })
+
+      const payload: ChatNotificationHookPayload = {
+        session_id: 'uuid-2',
+        type: 'permission_prompt',
+        message: 'Allow file write?',
+        hook_event_name: 'Notification'
+      }
+
+      await service.onChatNotificationHook(payload)
+
+      // Should have called db.insert
+      expect(mockDbInsertRun).toHaveBeenCalled()
+    })
+
+    it('ignores unknown sessions', async () => {
+      // Mock: no session found
+      mockDbSelectGet.mockReturnValueOnce(undefined)
+
+      const payload: ChatNotificationHookPayload = {
+        session_id: 'unknown-uuid',
+        type: 'permission_prompt',
+        message: 'Allow?',
+        hook_event_name: 'Notification'
+      }
+
+      await service.onChatNotificationHook(payload)
+
+      // Should NOT have called db.insert
+      expect(mockDbInsertRun).not.toHaveBeenCalled()
     })
   })
 })

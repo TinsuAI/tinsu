@@ -3,22 +3,28 @@
  *
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 3, 7)
  * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 4)
+ * Story 10.5: Tool Activity & Working Indicators (AC: 1, 2, 3, 4, 5)
  *
- * Renders ChatMessageBubble for each message in the session.
+ * Renders ChatMessageBubble for user/assistant messages, ChatToolActivityGroup
+ * for consecutive tool messages, standalone notification cards for permission
+ * prompts, and ChatWorkingIndicator when the agent is thinking.
+ *
  * Auto-scrolls to bottom on new messages unless user has scrolled up.
  * Shows empty state when no messages exist.
- * Shows typing indicator when agent is thinking.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
+import { MessageSquare, AlertTriangle } from 'lucide-react'
 import { ChatMessageBubble } from './ChatMessageBubble'
-import { AGENT_PERSONA_CONFIG } from '@renderer/constants/planning-workspace'
+import { ChatToolActivityGroup } from './ChatToolActivityGroup'
+import { ChatWorkingIndicator } from './ChatWorkingIndicator'
 
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
+  tool_name?: string | null
+  tool_input?: string | null
   /** Timestamp — Date object, ISO string (from tRPC JSON), or unix-second number */
   created_at: Date | string | number
 }
@@ -28,15 +34,88 @@ interface ChatMessageAreaProps {
   agentPersona?: string | null
   /** When true, show a typing/thinking indicator at the bottom (AC: 4) */
   isAgentThinking?: boolean
+  /** Current tool activity for contextual working indicator (Story 10.5, AC: 1) */
+  currentToolActivity?: {
+    toolName: string
+    toolInput: Record<string, unknown>
+  } | null
 }
 
 /** Threshold in pixels from bottom before auto-scroll is paused */
 const SCROLL_THRESHOLD = 50
 
+/**
+ * Segment type for rendering: user/assistant messages, tool groups, or notifications.
+ */
+type MessageSegment =
+  | { type: 'message'; message: ChatMessage }
+  | { type: 'toolGroup'; messages: ChatMessage[] }
+  | { type: 'notification'; message: ChatMessage }
+
+/**
+ * Group messages into segments for rendering.
+ *
+ * - user/assistant messages become individual 'message' segments
+ * - consecutive tool messages (excluding __notification__) are grouped into 'toolGroup' segments
+ * - __notification__ tool messages become individual 'notification' segments
+ */
+function groupMessages(messages: ChatMessage[]): MessageSegment[] {
+  const segments: MessageSegment[] = []
+  let currentToolGroup: ChatMessage[] = []
+
+  function flushToolGroup(): void {
+    if (currentToolGroup.length > 0) {
+      segments.push({ type: 'toolGroup', messages: [...currentToolGroup] })
+      currentToolGroup = []
+    }
+  }
+
+  for (const msg of messages) {
+    if (msg.role === 'tool') {
+      // Notification messages render standalone (AC: 5)
+      if (msg.tool_name === '__notification__') {
+        flushToolGroup()
+        segments.push({ type: 'notification', message: msg })
+      } else {
+        // Regular tool messages group together (AC: 4)
+        currentToolGroup.push(msg)
+      }
+    } else {
+      // user/assistant messages flush any pending tool group
+      flushToolGroup()
+      segments.push({ type: 'message', message: msg })
+    }
+  }
+
+  // Flush any trailing tool group
+  flushToolGroup()
+
+  return segments
+}
+
+/**
+ * Parse notification tool_input JSON to extract type and message.
+ */
+function parseNotificationInput(
+  toolInput: string | null | undefined
+): { type: string; message: string } | null {
+  if (!toolInput) return null
+  try {
+    const parsed = JSON.parse(toolInput) as Record<string, unknown>
+    return {
+      type: (parsed.type as string) ?? '',
+      message: (parsed.message as string) ?? ''
+    }
+  } catch {
+    return null
+  }
+}
+
 export function ChatMessageArea({
   messages,
   agentPersona,
-  isAgentThinking = false
+  isAgentThinking = false,
+  currentToolActivity = null
 }: ChatMessageAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -59,11 +138,8 @@ export function ChatMessageArea({
     }
   }, [messages.length, isAgentThinking])
 
-  // Resolve persona display name for thinking indicator
-  const personaLabel =
-    agentPersona && AGENT_PERSONA_CONFIG[agentPersona]
-      ? AGENT_PERSONA_CONFIG[agentPersona].displayName
-      : 'Agent'
+  // Group messages into segments for rendering
+  const segments = useMemo(() => groupMessages(messages), [messages])
 
   // Empty state
   if (messages.length === 0 && !isAgentThinking) {
@@ -90,47 +166,71 @@ export function ChatMessageArea({
       data-testid="chat-message-area"
     >
       <div className="space-y-3">
-        {messages
-          .filter((msg) => msg.role !== 'tool')
-          .map((msg) => (
-            <ChatMessageBubble
-              key={msg.id}
-              role={msg.role as 'user' | 'assistant'}
-              content={msg.content}
-              agentPersona={agentPersona}
-              createdAt={msg.created_at}
-            />
-          ))}
+        {segments.map((segment, idx) => {
+          switch (segment.type) {
+            case 'message':
+              return (
+                <ChatMessageBubble
+                  key={segment.message.id}
+                  role={segment.message.role as 'user' | 'assistant'}
+                  content={segment.message.content}
+                  agentPersona={agentPersona}
+                  createdAt={segment.message.created_at}
+                />
+              )
 
-        {/* Typing indicator — visible when agent is processing (AC: 4) */}
+            case 'toolGroup':
+              return (
+                <ChatToolActivityGroup
+                  key={`tool-group-${segment.messages[0].id}`}
+                  toolMessages={segment.messages.map((m) => ({
+                    id: m.id,
+                    role: 'tool' as const,
+                    content: m.content,
+                    tool_name: m.tool_name ?? null,
+                    tool_input: m.tool_input ?? null,
+                    created_at: m.created_at
+                  }))}
+                />
+              )
+
+            case 'notification': {
+              const notifInput = parseNotificationInput(segment.message.tool_input)
+              const isPermissionPrompt = notifInput?.type === 'permission_prompt'
+              return (
+                <div
+                  key={segment.message.id}
+                  className="mx-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+                  data-testid="chat-notification-message"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span className="text-xs font-medium text-amber-300">
+                      {isPermissionPrompt
+                        ? 'Agent needs permission to proceed'
+                        : `Notification: ${notifInput?.type ?? 'unknown'}`}
+                    </span>
+                  </div>
+                  {notifInput?.message && (
+                    <p className="mt-1 pl-6 text-xs text-amber-200/70">
+                      {notifInput.message}
+                    </p>
+                  )}
+                </div>
+              )
+            }
+
+            default:
+              return null
+          }
+        })}
+
+        {/* Working indicator — visible when agent is processing (Story 10.5, AC: 1) */}
         {isAgentThinking && (
-          <div
-            className="flex items-start gap-2"
-            data-testid="chat-thinking-indicator"
-          >
-            <div className="max-w-[85%] rounded-xl rounded-tl-sm bg-muted/30 px-3 py-2">
-              <div className="mb-1 text-[10px] font-medium text-muted-foreground/50">
-                {personaLabel}
-              </div>
-              <div className="flex items-center gap-1">
-                <span
-                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/40"
-                  style={{ animationDelay: '0ms' }}
-                />
-                <span
-                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/40"
-                  style={{ animationDelay: '200ms' }}
-                />
-                <span
-                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/40"
-                  style={{ animationDelay: '400ms' }}
-                />
-                <span className="ml-1.5 text-xs text-muted-foreground/40">
-                  is thinking...
-                </span>
-              </div>
-            </div>
-          </div>
+          <ChatWorkingIndicator
+            agentPersona={agentPersona}
+            currentToolActivity={currentToolActivity}
+          />
         )}
       </div>
       {/* Sentinel div for auto-scroll */}

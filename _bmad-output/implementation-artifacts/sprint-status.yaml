@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-22T10-4-done
+# updated: 2026-03-22T10-5-done
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -264,7 +264,7 @@ development_status:
   10-2-chat-panel-ui-and-message-bubbles: done  # Code review complete - 4 auto-fixes applied (null check on session creation, try/catch on handleSend, aria-label on chat toggle button, timestamp type widened to Date|string|number to handle tRPC JSON serialization), all 68 tests passing
   10-3-claude-code-cli-chat-session-spawning: done  # Code review complete - 3 auto-fixes applied (chatHooksDir production path via app.isPackaged+process.resourcesPath+extraResources, CLI service errors remapped to TRPCError codes in router catch block, isAgentThinking safety timeout 120s guards against silent CLI crash post-send), all 75 tests passing
   10-4-bmad-agent-persona-context-injection: done  # Code review complete - 3 auto-fixes applied (hardcoded "TinSu" replaced with config.project_name in buildContext, persona-switch race guard added to handleSend to discard session if persona changed mid-flight, sessionPersonaRef added to useEffect reset), all 86 tests passing
-  10-5-tool-activity-and-working-indicators: backlog
+  10-5-tool-activity-and-working-indicators: done  # Code review complete - 1 auto-fix applied (getToolActivity where clause changed from sql template to and(eq(),eq()) for type-safe consistency with project conventions), all 42 router tests + 91 renderer tests + 112 hook-listener tests passing
   10-6-session-persistence-and-resume: backlog
   10-7-artifact-detection-and-planning-workspace-integration: backlog
   epic-10-retrospective: optional

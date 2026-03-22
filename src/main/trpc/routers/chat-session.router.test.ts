@@ -972,4 +972,135 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       )
     })
   })
+
+  describe('getToolActivity (Story 10.5, AC: 1, 2, 3, 4)', () => {
+    it('should return tool messages for a session', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      // Create a session
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // Insert some tool messages directly
+      testDb.insert(schema.chat_messages).values({
+        id: 'tool-msg-1',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'PreToolUse: Read',
+        tool_name: 'Read',
+        tool_input: JSON.stringify({ file_path: '/test/file.ts' }),
+        created_at: new Date()
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'tool-msg-2',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Read',
+        tool_name: 'Read',
+        tool_input: JSON.stringify({ file_path: '/test/file.ts' }),
+        created_at: new Date(Date.now() + 1000)
+      }).run()
+
+      // Also insert a non-tool message that should NOT appear
+      testDb.insert(schema.chat_messages).values({
+        id: 'user-msg-1',
+        session_id: session!.id,
+        role: 'user',
+        content: 'Hello',
+        created_at: new Date(Date.now() + 2000)
+      }).run()
+
+      const toolMessages = await caller.chatSession.getToolActivity({
+        sessionId: session!.id
+      })
+
+      expect(toolMessages).toHaveLength(2)
+      expect(toolMessages[0].role).toBe('tool')
+      expect(toolMessages[1].role).toBe('tool')
+      expect(toolMessages[0].tool_name).toBe('Read')
+    })
+
+    it('should return empty array when no tool messages exist', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const toolMessages = await caller.chatSession.getToolActivity({
+        sessionId: session!.id
+      })
+
+      expect(toolMessages).toEqual([])
+    })
+
+    it('should return tool messages ordered by created_at ascending', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const baseTime = Date.now()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'tool-later',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Grep',
+        tool_name: 'Grep',
+        tool_input: JSON.stringify({ pattern: 'TODO' }),
+        created_at: new Date(baseTime + 2000)
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'tool-earlier',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'PreToolUse: Read',
+        tool_name: 'Read',
+        tool_input: JSON.stringify({ file_path: '/test/a.ts' }),
+        created_at: new Date(baseTime)
+      }).run()
+
+      const toolMessages = await caller.chatSession.getToolActivity({
+        sessionId: session!.id
+      })
+
+      expect(toolMessages).toHaveLength(2)
+      expect(toolMessages[0].id).toBe('tool-earlier')
+      expect(toolMessages[1].id).toBe('tool-later')
+    })
+
+    it('should include notification messages with tool_name __notification__', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'notif-msg-1',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Notification: permission_prompt: Allow?',
+        tool_name: '__notification__',
+        tool_input: JSON.stringify({ type: 'permission_prompt', message: 'Allow?' }),
+        created_at: new Date()
+      }).run()
+
+      const toolMessages = await caller.chatSession.getToolActivity({
+        sessionId: session!.id
+      })
+
+      expect(toolMessages).toHaveLength(1)
+      expect(toolMessages[0].tool_name).toBe('__notification__')
+    })
+  })
 })

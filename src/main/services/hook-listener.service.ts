@@ -121,6 +121,40 @@ export const ChatToolUseHookPayloadSchema = z
 export type ChatToolUseHookPayload = z.infer<typeof ChatToolUseHookPayloadSchema>
 
 /**
+ * Story 10.5: Zod schema for Chat PreToolUse hook payload validation.
+ * Validates payloads from Claude Code PreToolUse hook for chat sessions.
+ * Uses separate /api/hooks/chat-pre-tool-use endpoint.
+ */
+export const ChatPreToolUseHookPayloadSchema = z
+  .object({
+    session_id: z.string(),
+    tool_name: z.string(),
+    tool_input: z.record(z.string(), z.any()),
+    hook_event_name: z.literal('PreToolUse')
+  })
+  .passthrough()
+
+/** Chat PreToolUse hook payload type */
+export type ChatPreToolUseHookPayload = z.infer<typeof ChatPreToolUseHookPayloadSchema>
+
+/**
+ * Story 10.5: Zod schema for Chat Notification hook payload validation.
+ * Validates payloads from Claude Code Notification hook for chat sessions.
+ * Uses separate /api/hooks/chat-notification endpoint.
+ */
+export const ChatNotificationHookPayloadSchema = z
+  .object({
+    session_id: z.string(),
+    type: z.string(),
+    message: z.string(),
+    hook_event_name: z.literal('Notification')
+  })
+  .passthrough()
+
+/** Chat Notification hook payload type */
+export type ChatNotificationHookPayload = z.infer<typeof ChatNotificationHookPayloadSchema>
+
+/**
  * Health check response.
  */
 export interface HealthResponse {
@@ -413,6 +447,80 @@ export class HookListenerService {
           res.end(JSON.stringify({ error: (err as Error).message }))
         } else {
           console.error('[HookListener] Handler error on /api/hooks/chat-tool-use:', err)
+          res.writeHead(500)
+          res.end(JSON.stringify({ error: 'Internal server error' }))
+        }
+      }
+      return
+    }
+
+    // Route: POST /api/hooks/chat-pre-tool-use (Story 10.5)
+    if (method === 'POST' && url === '/api/hooks/chat-pre-tool-use') {
+      try {
+        const body = await this.parseBody(req)
+        const parseResult = ChatPreToolUseHookPayloadSchema.safeParse(body)
+        if (!parseResult.success) {
+          console.error(
+            '[HookListener] Invalid chat-pre-tool-use hook payload:',
+            parseResult.error.errors
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          return
+        }
+        await this.onChatPreToolUseHook(parseResult.data)
+        res.writeHead(200)
+        res.end(JSON.stringify({ received: true }))
+      } catch (err) {
+        const isRequestError =
+          err instanceof Error &&
+          ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
+        if (isRequestError) {
+          console.error(
+            '[HookListener] Request error on /api/hooks/chat-pre-tool-use:',
+            (err as Error).message
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: (err as Error).message }))
+        } else {
+          console.error('[HookListener] Handler error on /api/hooks/chat-pre-tool-use:', err)
+          res.writeHead(500)
+          res.end(JSON.stringify({ error: 'Internal server error' }))
+        }
+      }
+      return
+    }
+
+    // Route: POST /api/hooks/chat-notification (Story 10.5)
+    if (method === 'POST' && url === '/api/hooks/chat-notification') {
+      try {
+        const body = await this.parseBody(req)
+        const parseResult = ChatNotificationHookPayloadSchema.safeParse(body)
+        if (!parseResult.success) {
+          console.error(
+            '[HookListener] Invalid chat-notification hook payload:',
+            parseResult.error.errors
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          return
+        }
+        await this.onChatNotificationHook(parseResult.data)
+        res.writeHead(200)
+        res.end(JSON.stringify({ received: true }))
+      } catch (err) {
+        const isRequestError =
+          err instanceof Error &&
+          ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
+        if (isRequestError) {
+          console.error(
+            '[HookListener] Request error on /api/hooks/chat-notification:',
+            (err as Error).message
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: (err as Error).message }))
+        } else {
+          console.error('[HookListener] Handler error on /api/hooks/chat-notification:', err)
           res.writeHead(500)
           res.end(JSON.stringify({ error: 'Internal server error' }))
         }
@@ -883,6 +991,120 @@ export class HookListenerService {
 
     console.log(
       `[HookListener] Stored chat tool-use event for session ${session.id}: ${payload.tool_name}`
+    )
+  }
+
+  /**
+   * Handle Chat PreToolUse hook event (Story 10.5).
+   *
+   * Called before each tool use in a Claude Code chat session.
+   * Stores the tool activity in chat_messages with role "tool" and
+   * content prefix "PreToolUse:" to distinguish from PostToolUse events.
+   *
+   * @param payload - Chat PreToolUse hook payload
+   *
+   * @see Story 10.5: Tool Activity & Working Indicators (AC: 1)
+   */
+  async onChatPreToolUseHook(payload: ChatPreToolUseHookPayload): Promise<void> {
+    console.log('[HookListener] Chat pre-tool-use hook received:', JSON.stringify(payload, null, 2))
+
+    // Look up chat_sessions by matching session_uuid = payload.session_id
+    const session = db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
+
+    if (!session) {
+      console.warn(
+        `[HookListener] Chat pre-tool-use event - no chat session found for session_id:`,
+        payload.session_id
+      )
+      return
+    }
+
+    const messageId = crypto.randomUUID()
+    const now = new Date()
+
+    db.insert(chat_messages)
+      .values({
+        id: messageId,
+        session_id: session.id,
+        role: 'tool',
+        content: `PreToolUse: ${payload.tool_name}`,
+        tool_name: payload.tool_name,
+        tool_input: JSON.stringify(payload.tool_input),
+        created_at: now
+      })
+      .run()
+
+    // Update session timestamps
+    db.update(chat_sessions)
+      .set({
+        updated_at: now
+      })
+      .where(eq(chat_sessions.id, session.id))
+      .run()
+
+    console.log(
+      `[HookListener] Stored chat pre-tool-use event for session ${session.id}: ${payload.tool_name}`
+    )
+  }
+
+  /**
+   * Handle Chat Notification hook event (Story 10.5).
+   *
+   * Called when a notification event occurs in a Claude Code chat session
+   * (e.g., permission prompts). Stores as a chat_message with role "tool"
+   * and tool_name "__notification__".
+   *
+   * @param payload - Chat Notification hook payload
+   *
+   * @see Story 10.5: Tool Activity & Working Indicators (AC: 5)
+   */
+  async onChatNotificationHook(payload: ChatNotificationHookPayload): Promise<void> {
+    console.log('[HookListener] Chat notification hook received:', JSON.stringify(payload, null, 2))
+
+    // Look up chat_sessions by matching session_uuid = payload.session_id
+    const session = db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
+
+    if (!session) {
+      console.warn(
+        `[HookListener] Chat notification event - no chat session found for session_id:`,
+        payload.session_id
+      )
+      return
+    }
+
+    const messageId = crypto.randomUUID()
+    const now = new Date()
+
+    db.insert(chat_messages)
+      .values({
+        id: messageId,
+        session_id: session.id,
+        role: 'tool',
+        content: `Notification: ${payload.type}: ${payload.message}`,
+        tool_name: '__notification__',
+        tool_input: JSON.stringify({ type: payload.type, message: payload.message }),
+        created_at: now
+      })
+      .run()
+
+    // Update session timestamps
+    db.update(chat_sessions)
+      .set({
+        updated_at: now
+      })
+      .where(eq(chat_sessions.id, session.id))
+      .run()
+
+    console.log(
+      `[HookListener] Stored chat notification for session ${session.id}: ${payload.type}`
     )
   }
 
