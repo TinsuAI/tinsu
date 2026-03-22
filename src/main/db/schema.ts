@@ -472,3 +472,68 @@ export const gate_decisions = sqliteTable(
 // Story 9.6: Gate decision type exports
 export type GateDecision = InferSelectModel<typeof gate_decisions>
 export type NewGateDecision = InferInsertModel<typeof gate_decisions>
+
+// Story 10.1: Chat session status enum values
+export const CHAT_SESSION_STATUS = ['active', 'paused', 'completed'] as const
+export type ChatSessionStatus = (typeof CHAT_SESSION_STATUS)[number]
+
+// Story 10.1: Chat message role enum values
+export const CHAT_MESSAGE_ROLE = ['user', 'assistant', 'tool'] as const
+export type ChatMessageRole = (typeof CHAT_MESSAGE_ROLE)[number]
+
+// Story 10.1: Chat sessions table for agent planning chat
+export const chat_sessions = sqliteTable(
+  'chat_sessions',
+  {
+    id: text('id').primaryKey(),
+    session_uuid: text('session_uuid').notNull().unique(),
+    agent_persona: text('agent_persona').notNull(),
+    workflow_phase: text('workflow_phase'),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('active'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    last_message_at: integer('last_message_at', { mode: 'timestamp' })
+  },
+  (table) => [
+    index('idx_chat_sessions_project_id').on(table.project_id),
+    index('idx_chat_sessions_status').on(table.status),
+    index('idx_chat_sessions_session_uuid').on(table.session_uuid)
+  ]
+)
+
+// Story 10.1: Chat session type exports
+export type ChatSession = InferSelectModel<typeof chat_sessions>
+export type NewChatSession = InferInsertModel<typeof chat_sessions>
+
+// Story 10.1: Chat messages table for agent planning chat
+export const chat_messages = sqliteTable(
+  'chat_messages',
+  {
+    id: text('id').primaryKey(),
+    session_id: text('session_id')
+      .notNull()
+      .references(() => chat_sessions.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    tool_name: text('tool_name'),
+    tool_input: text('tool_input'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [
+    index('idx_chat_messages_session_id').on(table.session_id),
+    index('idx_chat_messages_created_at').on(table.created_at)
+  ]
+)
+
+// Story 10.1: Chat message type exports
+export type ChatMessage = InferSelectModel<typeof chat_messages>
+export type NewChatMessage = InferInsertModel<typeof chat_messages>

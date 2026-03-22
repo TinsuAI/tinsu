@@ -462,6 +462,43 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_project_id ON gate_decisions(project_id)')
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_created_at ON gate_decisions(created_at)')
 
+  // Story 10.1: Chat sessions table for agent planning chat
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      session_uuid TEXT NOT NULL UNIQUE,
+      agent_persona TEXT NOT NULL,
+      workflow_phase TEXT,
+      project_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      updated_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      last_message_at INTEGER,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_project_id ON chat_sessions(project_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_status ON chat_sessions(status)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_sessions_session_uuid ON chat_sessions(session_uuid)'
+  )
+
+  // Story 10.1: Chat messages table for agent planning chat
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tool_name TEXT,
+      tool_input TEXT,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id)')
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)')
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

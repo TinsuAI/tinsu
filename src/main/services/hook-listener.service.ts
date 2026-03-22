@@ -14,7 +14,8 @@ import * as fs from 'fs'
 import { z } from 'zod'
 import { eq, desc, and, isNull, or } from 'drizzle-orm'
 import { db } from '../db'
-import { tasks, task_sessions, taskActivities, workflow_runs } from '../db/schema'
+import { tasks, task_sessions, taskActivities, workflow_runs, chat_sessions, chat_messages } from '../db/schema'
+import crypto from 'crypto'
 import { BMAD_WORKFLOWS } from '../trpc/routers/planning-workflow-constants'
 import { ActivityLogService } from './activity-log.service'
 import { AutomationService } from './automation.service'
@@ -83,6 +84,41 @@ export const ToolUseHookPayloadSchema = z.object({
  * Received after each tool use.
  */
 export type ToolUseHookPayload = z.infer<typeof ToolUseHookPayloadSchema>
+
+/**
+ * Story 10.1: Zod schema for Chat Stop hook payload validation.
+ * Validates payloads from Claude Code Stop hook for chat sessions.
+ * Uses separate /api/hooks/chat-stop endpoint to avoid task execution side effects.
+ */
+export const ChatStopHookPayloadSchema = z
+  .object({
+    session_id: z.string(),
+    hook_event_name: z.literal('Stop'),
+    last_assistant_message: z.string().optional(),
+    cwd: z.string(),
+    transcript_path: z.string()
+  })
+  .passthrough()
+
+/** Chat Stop hook payload type */
+export type ChatStopHookPayload = z.infer<typeof ChatStopHookPayloadSchema>
+
+/**
+ * Story 10.1: Zod schema for Chat Tool Use hook payload validation.
+ * Validates payloads from Claude Code PostToolUse hook for chat sessions.
+ * Uses separate /api/hooks/chat-tool-use endpoint to avoid task execution side effects.
+ */
+export const ChatToolUseHookPayloadSchema = z
+  .object({
+    session_id: z.string(),
+    tool_name: z.string(),
+    tool_input: z.record(z.string(), z.any()),
+    hook_event_name: z.literal('PostToolUse')
+  })
+  .passthrough()
+
+/** Chat Tool Use hook payload type */
+export type ChatToolUseHookPayload = z.infer<typeof ChatToolUseHookPayloadSchema>
 
 /**
  * Health check response.
@@ -306,6 +342,77 @@ export class HookListenerService {
           res.end(JSON.stringify({ error: (err as Error).message }))
         } else {
           console.error('[HookListener] Handler error on /api/hooks/tool-use:', err)
+          res.writeHead(500)
+          res.end(JSON.stringify({ error: 'Internal server error' }))
+        }
+      }
+      return
+    }
+
+    // Route: POST /api/hooks/chat-stop (Story 10.1)
+    if (method === 'POST' && url === '/api/hooks/chat-stop') {
+      try {
+        const body = await this.parseBody(req)
+        const parseResult = ChatStopHookPayloadSchema.safeParse(body)
+        if (!parseResult.success) {
+          console.error('[HookListener] Invalid chat-stop hook payload:', parseResult.error.errors)
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          return
+        }
+        await this.onChatStopHook(parseResult.data)
+        res.writeHead(200)
+        res.end(JSON.stringify({ received: true }))
+      } catch (err) {
+        const isRequestError =
+          err instanceof Error &&
+          ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
+        if (isRequestError) {
+          console.error(
+            '[HookListener] Request error on /api/hooks/chat-stop:',
+            (err as Error).message
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: (err as Error).message }))
+        } else {
+          console.error('[HookListener] Handler error on /api/hooks/chat-stop:', err)
+          res.writeHead(500)
+          res.end(JSON.stringify({ error: 'Internal server error' }))
+        }
+      }
+      return
+    }
+
+    // Route: POST /api/hooks/chat-tool-use (Story 10.1)
+    if (method === 'POST' && url === '/api/hooks/chat-tool-use') {
+      try {
+        const body = await this.parseBody(req)
+        const parseResult = ChatToolUseHookPayloadSchema.safeParse(body)
+        if (!parseResult.success) {
+          console.error(
+            '[HookListener] Invalid chat-tool-use hook payload:',
+            parseResult.error.errors
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          return
+        }
+        await this.onChatToolUseHook(parseResult.data)
+        res.writeHead(200)
+        res.end(JSON.stringify({ received: true }))
+      } catch (err) {
+        const isRequestError =
+          err instanceof Error &&
+          ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
+        if (isRequestError) {
+          console.error(
+            '[HookListener] Request error on /api/hooks/chat-tool-use:',
+            (err as Error).message
+          )
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: (err as Error).message }))
+        } else {
+          console.error('[HookListener] Handler error on /api/hooks/chat-tool-use:', err)
           res.writeHead(500)
           res.end(JSON.stringify({ error: 'Internal server error' }))
         }
@@ -660,6 +767,123 @@ export class HookListenerService {
       // TES-2.10: Log hook delivery failure as error event
       await this.logHookDeliveryError(taskId, 'tool_used', error)
     }
+  }
+
+  /**
+   * Handle Chat Stop hook event (Story 10.1).
+   *
+   * Called when a Claude Code chat session ends.
+   * Stores the last_assistant_message in chat_messages and updates session timestamps.
+   * Does NOT trigger task automation or orphan registration.
+   *
+   * @param payload - Chat Stop hook payload
+   *
+   * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 3)
+   */
+  async onChatStopHook(payload: ChatStopHookPayload): Promise<void> {
+    console.log('[HookListener] Chat stop hook received:', JSON.stringify(payload, null, 2))
+
+    // Look up chat_sessions by matching session_uuid = payload.session_id
+    const session = db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
+
+    if (!session) {
+      console.warn(
+        `[HookListener] Chat stop event - no chat session found for session_id:`,
+        payload.session_id
+      )
+      return
+    }
+
+    // If last_assistant_message is present (non-null/undefined), store it in chat_messages
+    // Use != null check (not falsy) to correctly handle empty string values
+    if (payload.last_assistant_message != null) {
+      const messageId = crypto.randomUUID()
+      const now = new Date()
+
+      db.insert(chat_messages)
+        .values({
+          id: messageId,
+          session_id: session.id,
+          role: 'assistant',
+          content: payload.last_assistant_message,
+          created_at: now
+        })
+        .run()
+
+      // Update session timestamps
+      db.update(chat_sessions)
+        .set({
+          last_message_at: now,
+          updated_at: now
+        })
+        .where(eq(chat_sessions.id, session.id))
+        .run()
+
+      console.log(
+        `[HookListener] Stored chat assistant message for session ${session.id}`
+      )
+    }
+  }
+
+  /**
+   * Handle Chat Tool Use hook event (Story 10.1).
+   *
+   * Called after each tool use in a Claude Code chat session.
+   * Stores the tool activity in chat_messages with role "tool".
+   * Does NOT trigger task automation or orphan registration.
+   *
+   * @param payload - Chat Tool Use hook payload
+   *
+   * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 4)
+   */
+  async onChatToolUseHook(payload: ChatToolUseHookPayload): Promise<void> {
+    console.log('[HookListener] Chat tool-use hook received:', JSON.stringify(payload, null, 2))
+
+    // Look up chat_sessions by matching session_uuid = payload.session_id
+    const session = db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
+
+    if (!session) {
+      console.warn(
+        `[HookListener] Chat tool-use event - no chat session found for session_id:`,
+        payload.session_id
+      )
+      return
+    }
+
+    const messageId = crypto.randomUUID()
+    const now = new Date()
+
+    db.insert(chat_messages)
+      .values({
+        id: messageId,
+        session_id: session.id,
+        role: 'tool',
+        content: `Tool: ${payload.tool_name}`,
+        tool_name: payload.tool_name,
+        tool_input: JSON.stringify(payload.tool_input),
+        created_at: now
+      })
+      .run()
+
+    // Update session timestamps
+    db.update(chat_sessions)
+      .set({
+        updated_at: now
+      })
+      .where(eq(chat_sessions.id, session.id))
+      .run()
+
+    console.log(
+      `[HookListener] Stored chat tool-use event for session ${session.id}: ${payload.tool_name}`
+    )
   }
 
   /**

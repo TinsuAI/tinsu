@@ -13,6 +13,7 @@ import { artifactsRouter } from './routers/artifacts.router'
 import { activityRouter } from './routers/activity.router'
 import { gitRouter } from './routers/git.router'
 import { planningRouter } from './routers/planning.router'
+import { chatSessionRouter } from './routers/chat-session.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -29,7 +30,8 @@ export const appRouter = router({
   artifacts: artifactsRouter,
   activity: activityRouter,
   git: gitRouter,
-  planning: planningRouter
+  planning: planningRouter,
+  chatSession: chatSessionRouter
 })
 
 // Export type for client consumption
