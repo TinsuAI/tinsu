@@ -90,3 +90,31 @@ export {
   type ToolUseHookPayload,
   type HealthResponse
 } from './hook-listener.service'
+
+// Chat CLI service for managing Claude Code chat sessions (Story 10.3)
+import { join } from 'path'
+import { app } from 'electron'
+import { ChatCliService } from './chat-cli.service'
+
+/**
+ * Resolve chat hooks directory path.
+ * - Development: relative to project root (process.cwd()/src/main/resources/chat-hooks)
+ * - Production (packaged): relative to process.resourcesPath (unpacked via extraResources)
+ */
+function getChatHooksDir(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'chat-hooks')
+  }
+  return join(process.cwd(), 'src', 'main', 'resources', 'chat-hooks')
+}
+
+const chatHooksDir = getChatHooksDir()
+
+/** Singleton chat CLI service instance for managing chat PTY processes */
+export const chatCliService = new ChatCliService(chatHooksDir)
+
+export {
+  ChatCliService,
+  type ChatCliSessionInfo,
+  type ChatCliSessionStatus
+} from './chat-cli.service'

@@ -1,10 +1,12 @@
 /**
- * Chat Session Router - Story 10.1
+ * Chat Session Router - Story 10.1, 10.3
  *
- * tRPC router for chat session CRUD operations.
- * Provides procedures for creating, listing, messaging, and updating chat sessions.
+ * tRPC router for chat session CRUD operations and CLI session management.
+ * Provides procedures for creating, listing, messaging, updating chat sessions,
+ * and sending messages to Claude Code CLI sessions.
  *
  * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 5)
+ * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
  */
 
 import { z } from 'zod'
@@ -12,7 +14,35 @@ import crypto from 'crypto'
 import { eq, desc, asc, sql } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
-import { chat_sessions, chat_messages, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
+import { chat_sessions, chat_messages, projects, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
+import { chatCliService } from '../../services'
+
+/**
+ * Get project path from project ID.
+ * Queries the projects table to resolve the filesystem path.
+ *
+ * @param projectId - The project's internal ID
+ * @returns The project's filesystem path
+ * @throws TRPCError NOT_FOUND if project doesn't exist
+ *
+ * @see Story 10.3 Task 3.2
+ */
+function getProjectPath(projectId: string): string {
+  const project = db
+    .select({ path: projects.path })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .get()
+
+  if (!project) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: `Project not found: ${projectId}`
+    })
+  }
+
+  return project.path
+}
 
 /**
  * Chat session router procedures.
@@ -242,5 +272,109 @@ export const chatSessionRouter = router({
         .run()
 
       return db.select().from(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).get()!
+    }),
+
+  /**
+   * Send a chat message to a Claude Code CLI session.
+   *
+   * Combines storing the user message in DB AND sending it to the CLI.
+   * Handles three cases:
+   * 1. No CLI session started yet: spawns a new claude process
+   * 2. CLI session alive: sends message to existing process
+   * 3. CLI session exited: resumes with --resume flag
+   *
+   * @example
+   * ```typescript
+   * const message = await trpc.chatSession.sendChatMessage.mutate({
+   *   sessionId: 'session-123',
+   *   content: 'Tell me about the architecture'
+   * })
+   * ```
+   *
+   * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
+   */
+  sendChatMessage: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        content: z.string().min(1)
+      })
+    )
+    .mutation(({ input }) => {
+      // 1. Look up session to get session_uuid and project_id
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      // 2. Store user message in chat_messages
+      const messageId = crypto.randomUUID()
+      const now = new Date()
+
+      db.insert(chat_messages)
+        .values({
+          id: messageId,
+          session_id: input.sessionId,
+          role: 'user',
+          content: input.content,
+          created_at: now
+        })
+        .run()
+
+      // Update session's last_message_at
+      db.update(chat_sessions)
+        .set({ last_message_at: now })
+        .where(eq(chat_sessions.id, input.sessionId))
+        .run()
+
+      // 3. Send to CLI session — three cases:
+      try {
+        if (chatCliService.isSessionAlive(input.sessionId)) {
+          // Case A: CLI session is alive — send to existing process (AC: 2)
+          chatCliService.sendMessage(input.sessionId, input.content)
+        } else if (chatCliService.hasSession(input.sessionId)) {
+          // Case B: CLI session was started but has exited — resume with --resume (AC: 5)
+          const projectPath = getProjectPath(session.project_id)
+          chatCliService.resumeSession(
+            input.sessionId,
+            session.session_uuid,
+            projectPath,
+            input.content
+          )
+        } else {
+          // Case C: No CLI session ever started — spawn fresh (AC: 1)
+          const projectPath = getProjectPath(session.project_id)
+          chatCliService.spawnSession(
+            input.sessionId,
+            session.session_uuid,
+            projectPath,
+            input.content
+          )
+        }
+      } catch (err) {
+        // Remap CLI service errors to appropriate tRPC error codes
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('not found')) {
+          throw new TRPCError({ code: 'NOT_FOUND', message })
+        }
+        if (message.includes('has exited')) {
+          throw new TRPCError({ code: 'PRECONDITION_FAILED', message })
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `CLI session error: ${message}`
+        })
+      }
+
+      // 4. Return the created user message
+      return db.select().from(chat_messages).where(eq(chat_messages.id, messageId)).get()!
     })
 })

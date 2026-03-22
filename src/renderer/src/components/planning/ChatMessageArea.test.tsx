@@ -1,8 +1,8 @@
 /**
- * ChatMessageArea Tests - Story 10.2 (AC: 3, 7)
+ * ChatMessageArea Tests - Story 10.2 (AC: 3, 7), Story 10.3 (AC: 4)
  *
  * Tests: messages render in order, empty state shown when no messages,
- * auto-scroll behavior.
+ * auto-scroll behavior, typing indicator appears/hides correctly.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -21,6 +21,33 @@ vi.mock('remark-gfm', () => ({
 vi.mock('@renderer/components/ui/code-block', () => ({
   CodeBlock: ({ code }: { code: string }) => <pre>{code}</pre>
 }))
+
+// Mock planning workspace constants for persona label resolution
+vi.mock('@renderer/constants/planning-workspace', () => {
+  const config: Record<string, { displayName: string; bg: string; text: string; border: string; icon: string }> = {
+    'bmad:bmm:agents:pm': {
+      displayName: 'PM',
+      bg: 'bg-emerald-500/20',
+      text: 'text-emerald-400',
+      border: 'border-emerald-500/30',
+      icon: 'M'
+    },
+    'bmad:bmm:agents:architect': {
+      displayName: 'Architect',
+      bg: 'bg-purple-500/20',
+      text: 'text-purple-400',
+      border: 'border-purple-500/30',
+      icon: 'A'
+    }
+  }
+  return {
+    AGENT_PERSONA_CONFIG: config,
+    getAgentPersona: (agentName: string | null) => {
+      if (!agentName) return null
+      return config[agentName] ?? null
+    }
+  }
+})
 
 // Mock scrollIntoView for auto-scroll tests
 const scrollIntoViewMock = vi.fn()
@@ -119,5 +146,97 @@ describe('ChatMessageArea (Story 10.2, AC: 3, 7)', () => {
       // scrollIntoView should have been called on the sentinel div
       expect(scrollIntoViewMock).toHaveBeenCalled()
     })
+  })
+})
+
+describe('ChatMessageArea typing indicator (Story 10.3, AC: 4)', () => {
+  const baseTime = new Date('2026-03-22T10:00:00Z')
+
+  const sampleMessages = [
+    {
+      id: 'msg-1',
+      role: 'user' as const,
+      content: 'Hello agent!',
+      created_at: new Date(baseTime.getTime())
+    }
+  ]
+
+  it('shows typing indicator when isAgentThinking is true', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="bmad:bmm:agents:pm"
+        isAgentThinking={true}
+      />
+    )
+
+    expect(screen.getByTestId('chat-thinking-indicator')).toBeInTheDocument()
+    expect(screen.getByText('is thinking...')).toBeInTheDocument()
+  })
+
+  it('hides typing indicator when isAgentThinking is false', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="bmad:bmm:agents:pm"
+        isAgentThinking={false}
+      />
+    )
+
+    expect(screen.queryByTestId('chat-thinking-indicator')).not.toBeInTheDocument()
+  })
+
+  it('does not show typing indicator by default (prop not provided)', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="bmad:bmm:agents:pm"
+      />
+    )
+
+    expect(screen.queryByTestId('chat-thinking-indicator')).not.toBeInTheDocument()
+  })
+
+  it('shows persona label in typing indicator', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="bmad:bmm:agents:pm"
+        isAgentThinking={true}
+      />
+    )
+
+    // The PM persona label should be displayed
+    // Note: PM also appears on the message bubble, so we check the indicator
+    const indicator = screen.getByTestId('chat-thinking-indicator')
+    expect(indicator).toHaveTextContent('PM')
+  })
+
+  it('shows fallback label when persona not recognized', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="unknown-persona"
+        isAgentThinking={true}
+      />
+    )
+
+    const indicator = screen.getByTestId('chat-thinking-indicator')
+    expect(indicator).toHaveTextContent('Agent')
+  })
+
+  it('renders three animated dots', () => {
+    render(
+      <ChatMessageArea
+        messages={sampleMessages}
+        agentPersona="bmad:bmm:agents:pm"
+        isAgentThinking={true}
+      />
+    )
+
+    const indicator = screen.getByTestId('chat-thinking-indicator')
+    // Three dots with animate-pulse class
+    const dots = indicator.querySelectorAll('.animate-pulse')
+    expect(dots).toHaveLength(3)
   })
 })

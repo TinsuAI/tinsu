@@ -1,12 +1,13 @@
 /**
- * Chat Session Router Tests - Story 10.1
+ * Chat Session Router Tests - Story 10.1, 10.3
  *
- * Tests for all 4 chatSession procedures:
- * create, list, getMessages, updateStatus.
+ * Tests for all chatSession procedures:
+ * create, list, getMessages, updateStatus, sendChatMessage.
  *
  * Uses in-memory SQLite and mocks the db module.
  *
  * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 5)
+ * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -29,7 +30,24 @@ vi.mock('../../db', async () => {
   }
 })
 
-// Import router after mock is established
+// Mock ChatCliService to prevent actual PTY spawning in tests
+const mockIsSessionAlive = vi.fn().mockReturnValue(false)
+const mockHasSession = vi.fn().mockReturnValue(false)
+const mockSpawnSession = vi.fn().mockReturnValue('pty-test')
+const mockSendMessage = vi.fn()
+const mockResumeSession = vi.fn().mockReturnValue('pty-resumed')
+
+vi.mock('../../services', () => ({
+  chatCliService: {
+    isSessionAlive: (...args: unknown[]) => mockIsSessionAlive(...args),
+    hasSession: (...args: unknown[]) => mockHasSession(...args),
+    spawnSession: (...args: unknown[]) => mockSpawnSession(...args),
+    sendMessage: (...args: unknown[]) => mockSendMessage(...args),
+    resumeSession: (...args: unknown[]) => mockResumeSession(...args)
+  }
+}))
+
+// Import router after mocks are established
 const { chatSessionRouter } = await import('./chat-session.router')
 
 const testRouter = router({
@@ -646,6 +664,162 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(messages).toHaveLength(2)
       expect(messages[0].content).toBe('First message')
       expect(messages[1].content).toBe('Second message')
+    })
+  })
+
+  describe('sendChatMessage (Story 10.3, AC: 1, 2, 5)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      mockIsSessionAlive.mockReturnValue(false)
+      mockHasSession.mockReturnValue(false)
+    })
+
+    it('should store user message and spawn CLI for new session (AC: 1)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Hello agent!'
+      })
+
+      // User message should be stored
+      expect(message).toBeDefined()
+      expect(message!.role).toBe('user')
+      expect(message!.content).toBe('Hello agent!')
+      expect(message!.session_id).toBe(session!.id)
+
+      // CLI should have been spawned (not resumed)
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'Hello agent!'
+      )
+      expect(mockResumeSession).not.toHaveBeenCalled()
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it('should send to existing CLI when session is alive (AC: 2)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      mockIsSessionAlive.mockReturnValue(true)
+
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Follow-up message'
+      })
+
+      expect(message!.content).toBe('Follow-up message')
+      expect(mockSendMessage).toHaveBeenCalledWith(session!.id, 'Follow-up message')
+      expect(mockSpawnSession).not.toHaveBeenCalled()
+      expect(mockResumeSession).not.toHaveBeenCalled()
+    })
+
+    it('should resume exited CLI session (AC: 5)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // CLI session was started but has exited
+      mockIsSessionAlive.mockReturnValue(false)
+      mockHasSession.mockReturnValue(true)
+
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Resume message'
+      })
+
+      expect(message!.content).toBe('Resume message')
+      expect(mockResumeSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'Resume message'
+      )
+      expect(mockSpawnSession).not.toHaveBeenCalled()
+      expect(mockSendMessage).not.toHaveBeenCalled()
+    })
+
+    it('should throw NOT_FOUND for non-existent session', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.chatSession.sendChatMessage({
+          sessionId: 'non-existent',
+          content: 'Hello!'
+        })
+      ).rejects.toThrow('Chat session not found')
+    })
+
+    it('should reject empty content', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await expect(
+        caller.chatSession.sendChatMessage({
+          sessionId: session!.id,
+          content: ''
+        })
+      ).rejects.toThrow()
+    })
+
+    it('should update session last_message_at', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      expect(session!.last_message_at).toBeNull()
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Hello!'
+      })
+
+      const sessions = await caller.chatSession.list({ projectId: 'project-1' })
+      const updated = sessions.find((s) => s.id === session!.id)
+      expect(updated!.last_message_at).not.toBeNull()
+    })
+
+    it('should store message even when retrievable via getMessages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Stored message'
+      })
+
+      const messages = await caller.chatSession.getMessages({
+        sessionId: session!.id
+      })
+
+      expect(messages).toHaveLength(1)
+      expect(messages[0].content).toBe('Stored message')
+      expect(messages[0].role).toBe('user')
     })
   })
 })

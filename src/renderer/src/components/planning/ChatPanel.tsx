@@ -2,21 +2,22 @@
  * ChatPanel - Main chat panel container for the Planning Workspace.
  *
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 1, 2, 6)
+ * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 4)
  *
  * Full-height flex column with three sections:
  * - Persona selector header
  * - Message area (center, scrollable)
  * - Input footer
  *
- * Manages session creation on first message and persona selection state.
+ * Manages session creation on first message, persona selection state,
+ * and agent thinking indicator.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
-import { useProjectStore } from '@renderer/stores/project.store'
 import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 import { ChatMessageArea } from './ChatMessageArea'
 import { ChatInput } from './ChatInput'
@@ -32,6 +33,11 @@ export function ChatPanel() {
   // Active session — transient UI state (not Zustand)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
+  // Agent thinking indicator — set true after sending, cleared when new assistant message arrives
+  const [isAgentThinking, setIsAgentThinking] = useState(false)
+  const prevMessageCountRef = useRef(0)
+  const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Fetch messages when a session is active
   const { data: messages = [] } = trpc.chatSession.getMessages.useQuery(
     { sessionId: sessionId! },
@@ -40,9 +46,26 @@ export function ChatPanel() {
 
   const trpcUtils = trpc.useUtils()
 
+  // Track when new assistant messages arrive to clear thinking indicator
+  useEffect(() => {
+    if (messages.length > prevMessageCountRef.current) {
+      // Check if the latest message is from the assistant
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage && lastMessage.role === 'assistant') {
+        setIsAgentThinking(false)
+        // Clear safety timeout — response arrived normally
+        if (thinkingTimeoutRef.current) {
+          clearTimeout(thinkingTimeoutRef.current)
+          thinkingTimeoutRef.current = null
+        }
+      }
+    }
+    prevMessageCountRef.current = messages.length
+  }, [messages])
+
   // Mutations
   const createSession = trpc.chatSession.create.useMutation()
-  const addMessage = trpc.chatSession.addMessage.useMutation({
+  const sendChatMessage = trpc.chatSession.sendChatMessage.useMutation({
     onSuccess: () => {
       if (sessionId) {
         trpcUtils.chatSession.getMessages.invalidate({ sessionId })
@@ -72,17 +95,34 @@ export function ChatPanel() {
           setSessionId(activeSessionId)
         }
 
-        // Add the user message
-        await addMessage.mutateAsync({
+        // Set thinking indicator before sending
+        setIsAgentThinking(true)
+
+        // Safety timeout: clear thinking indicator after 120s if no assistant response
+        // guards against CLI crashes that occur after the message is sent (AC: 4 safety)
+        if (thinkingTimeoutRef.current) {
+          clearTimeout(thinkingTimeoutRef.current)
+        }
+        thinkingTimeoutRef.current = setTimeout(() => {
+          setIsAgentThinking(false)
+          thinkingTimeoutRef.current = null
+        }, 120_000)
+
+        // Send via sendChatMessage — stores user message AND sends to CLI
+        await sendChatMessage.mutateAsync({
           sessionId: activeSessionId,
-          role: 'user',
           content
         })
       } catch (err) {
         console.error('[ChatPanel] Failed to send message:', err)
+        setIsAgentThinking(false)
+        if (thinkingTimeoutRef.current) {
+          clearTimeout(thinkingTimeoutRef.current)
+          thinkingTimeoutRef.current = null
+        }
       }
     },
-    [projectId, sessionId, selectedPersona, createSession, addMessage]
+    [projectId, sessionId, selectedPersona, createSession, sendChatMessage]
   )
 
   return (
@@ -111,12 +151,16 @@ export function ChatPanel() {
       </div>
 
       {/* Message area */}
-      <ChatMessageArea messages={messages} agentPersona={selectedPersona} />
+      <ChatMessageArea
+        messages={messages}
+        agentPersona={selectedPersona}
+        isAgentThinking={isAgentThinking}
+      />
 
       {/* Input footer */}
       <ChatInput
         onSend={handleSend}
-        disabled={!projectId || addMessage.isPending || createSession.isPending}
+        disabled={!projectId || sendChatMessage.isPending || createSession.isPending}
         autoFocus
       />
     </div>

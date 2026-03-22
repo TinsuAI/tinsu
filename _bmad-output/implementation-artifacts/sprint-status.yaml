@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-22T10-2-done
+# updated: 2026-03-22T10-3-done
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -262,7 +262,7 @@ development_status:
   epic-10: in-progress
   10-1-chat-session-schema-and-hook-endpoint: done  # Code review complete - 1 auto-fix applied (falsy empty string guard changed to != null in onChatStopHook), all 39 tests passing
   10-2-chat-panel-ui-and-message-bubbles: done  # Code review complete - 4 auto-fixes applied (null check on session creation, try/catch on handleSend, aria-label on chat toggle button, timestamp type widened to Date|string|number to handle tRPC JSON serialization), all 68 tests passing
-  10-3-claude-code-cli-chat-session-spawning: backlog
+  10-3-claude-code-cli-chat-session-spawning: done  # Code review complete - 3 auto-fixes applied (chatHooksDir production path via app.isPackaged+process.resourcesPath+extraResources, CLI service errors remapped to TRPCError codes in router catch block, isAgentThinking safety timeout 120s guards against silent CLI crash post-send), all 75 tests passing
   10-4-bmad-agent-persona-context-injection: backlog
   10-5-tool-activity-and-working-indicators: backlog
   10-6-session-persistence-and-resume: backlog
