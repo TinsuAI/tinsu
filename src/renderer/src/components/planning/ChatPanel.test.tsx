@@ -188,6 +188,86 @@ describe('ChatPanel (Story 10.2, AC: 1, 2)', () => {
   })
 })
 
+describe('ChatPanel persona switch (Story 10.4, AC: 6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('persona change resets sessionId — new session created on next message', async () => {
+    // Set up mocks so first send creates a session
+    const mockCreateMutateAsync = vi.fn().mockResolvedValue({
+      id: 'session-1',
+      session_uuid: 'uuid-1'
+    })
+
+    mockCreateMutation.mockReturnValue({
+      mutateAsync: mockCreateMutateAsync,
+      isPending: false
+    })
+
+    const mockSendMutateAsync = vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      role: 'user',
+      content: 'test'
+    })
+
+    mockSendChatMessageMutation.mockReturnValue({
+      mutateAsync: mockSendMutateAsync,
+      isPending: false
+    })
+
+    render(<ChatPanel />)
+
+    // Send a message to establish a session
+    const textarea = screen.getByTestId('chat-textarea')
+    const sendButton = screen.getByTestId('chat-send-button')
+
+    fireEvent.change(textarea, { target: { value: 'Hello PM!' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1)
+    })
+
+    // Now switch persona to Architect
+    const architectButton = screen.getByText('Architect')
+    fireEvent.click(architectButton)
+
+    // Reset create mock to track the NEXT creation
+    mockCreateMutateAsync.mockClear()
+    mockCreateMutateAsync.mockResolvedValue({
+      id: 'session-2',
+      session_uuid: 'uuid-2'
+    })
+
+    // Send another message — should create a NEW session (not reuse session-1)
+    fireEvent.change(textarea, { target: { value: 'Hello Architect!' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentPersona: 'bmad:bmm:agents:architect',
+          projectId: 'project-1'
+        })
+      )
+    })
+  })
+
+  it('persona change clears thinking indicator', async () => {
+    render(<ChatPanel />)
+
+    // The thinking indicator data-testid is "chat-thinking-indicator"
+    // After persona switch, thinking should be false
+    // We can verify indirectly: no thinking indicator should be visible after switch
+    const architectButton = screen.getByText('Architect')
+    fireEvent.click(architectButton)
+
+    // After clicking a persona button, there should be no thinking indicator
+    expect(screen.queryByTestId('chat-thinking-indicator')).not.toBeInTheDocument()
+  })
+})
+
 describe('ChatPanel sendChatMessage (Story 10.3, AC: 1, 2)', () => {
   beforeEach(() => {
     vi.clearAllMocks()

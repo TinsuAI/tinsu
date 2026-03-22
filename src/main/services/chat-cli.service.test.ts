@@ -89,6 +89,35 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     })
   })
 
+  describe('spawnSession with personaContext (Story 10.4)', () => {
+    it('prepends persona context to initial message when provided', () => {
+      service.spawnSession(
+        'session-1',
+        'uuid-abc',
+        '/project/path',
+        'Hello agent',
+        'You are the PM persona.'
+      )
+
+      expect(mockWrite).toHaveBeenCalledWith(
+        'pty-123',
+        'You are the PM persona.\n\nHello agent\n'
+      )
+    })
+
+    it('sends only initial message when personaContext is not provided (backward compat)', () => {
+      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\n')
+    })
+
+    it('sends only initial message when personaContext is empty string', () => {
+      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent', '')
+
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\n')
+    })
+  })
+
   describe('sendMessage (AC: 2)', () => {
     it('writes message to existing PTY session', () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
@@ -149,6 +178,20 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       mockSpawn.mockReturnValue('pty-456')
       service.resumeSession('session-1', 'uuid-abc', '/project/path', 'Resume message')
 
+      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\n')
+    })
+
+    it('does NOT prepend persona context even when provided (Story 10.4)', () => {
+      mockSpawn.mockReturnValue('pty-456')
+      service.resumeSession(
+        'session-1',
+        'uuid-abc',
+        '/project/path',
+        'Resume message',
+        'You are the PM persona.'
+      )
+
+      // Should only write the message, NOT the persona context
       expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\n')
     })
 

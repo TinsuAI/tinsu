@@ -67,15 +67,18 @@ export class ChatCliService {
    * @param sessionUuid - Claude Code session UUID (chat_sessions.session_uuid)
    * @param projectPath - Working directory for the claude process
    * @param initialMessage - First user message to send to stdin
+   * @param personaContext - Optional persona context to prepend to the initial message (Story 10.4)
    * @returns The PTY processId
    *
    * @see AC 1: Spawns claude with --session-id UUID
+   * @see Story 10.4: Persona context prepended to first message
    */
   spawnSession(
     sessionId: string,
     sessionUuid: string,
     projectPath: string,
-    initialMessage: string
+    initialMessage: string,
+    personaContext?: string
   ): string {
     const processId = ptyService.spawn('claude', ['--session-id', sessionUuid], {
       cwd: projectPath,
@@ -84,8 +87,11 @@ export class ChatCliService {
       }
     })
 
-    // Write initial message to stdin
-    ptyService.write(processId, initialMessage + '\n')
+    // Write to stdin: prepend persona context if provided (Story 10.4 AC: 1-5)
+    const stdinContent = personaContext
+      ? personaContext + '\n\n' + initialMessage + '\n'
+      : initialMessage + '\n'
+    ptyService.write(processId, stdinContent)
 
     // Track session
     this.sessions.set(sessionId, {
@@ -134,15 +140,20 @@ export class ChatCliService {
    * @param sessionUuid - Claude Code session UUID
    * @param projectPath - Working directory for the claude process
    * @param message - Message to send after resuming
+   * @param _personaContext - Intentionally unused. On resume, Claude Code's --resume flag
+   *   restores the full conversation history including the original persona injection.
+   *   Parameter exists for API symmetry with spawnSession. (Story 10.4)
    * @returns The new PTY processId
    *
    * @see AC 5: Resume with --resume --session-id
+   * @see Story 10.4: Persona context NOT re-injected on resume
    */
   resumeSession(
     sessionId: string,
     sessionUuid: string,
     projectPath: string,
-    message: string
+    message: string,
+    _personaContext?: string
   ): string {
     const processId = ptyService.spawn(
       'claude',

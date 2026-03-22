@@ -11,11 +11,13 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
+import { join } from 'path'
 import { eq, desc, asc, sql } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
 import { chat_sessions, chat_messages, projects, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
 import { chatCliService } from '../../services'
+import { PersonaContextService } from '../../services/persona-context.service'
 
 /**
  * Get project path from project ID.
@@ -342,6 +344,8 @@ export const chatSessionRouter = router({
           chatCliService.sendMessage(input.sessionId, input.content)
         } else if (chatCliService.hasSession(input.sessionId)) {
           // Case B: CLI session was started but has exited — resume with --resume (AC: 5)
+          // Do NOT inject persona context on resume — Claude Code's --resume
+          // restores the full conversation history including the original persona injection.
           const projectPath = getProjectPath(session.project_id)
           chatCliService.resumeSession(
             input.sessionId,
@@ -351,12 +355,26 @@ export const chatSessionRouter = router({
           )
         } else {
           // Case C: No CLI session ever started — spawn fresh (AC: 1)
+          // Build persona context from BMAD agent files (Story 10.4 AC: 1-5)
           const projectPath = getProjectPath(session.project_id)
+          let personaContext: string | undefined
+          try {
+            const bmadRoot = join(projectPath, '_bmad')
+            const personaContextService = new PersonaContextService(bmadRoot, projectPath)
+            personaContext = personaContextService.buildContext(session.agent_persona)
+          } catch (personaErr) {
+            // Graceful degradation: if persona loading fails, still send the message
+            const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
+            console.warn(
+              `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+            )
+          }
           chatCliService.spawnSession(
             input.sessionId,
             session.session_uuid,
             projectPath,
-            input.content
+            input.content,
+            personaContext
           )
         }
       } catch (err) {

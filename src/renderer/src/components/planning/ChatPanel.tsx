@@ -37,6 +37,25 @@ export function ChatPanel() {
   const [isAgentThinking, setIsAgentThinking] = useState(false)
   const prevMessageCountRef = useRef(0)
   const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track the persona that was active when the current session was created.
+  // Used to guard against a race where persona switches mid-flight during session creation.
+  const sessionPersonaRef = useRef<ChatPersonaKey | null>(null)
+
+  // Story 10.4: Persona switch — reset session to force new CLI session for new persona
+  // When persona changes, clear sessionId so the next message creates a new session
+  // with the new persona. Old session remains in DB for future resume (Story 10.6).
+  useEffect(() => {
+    // Reset session state when persona changes
+    setSessionId(null)
+    sessionPersonaRef.current = null
+    setIsAgentThinking(false)
+    if (thinkingTimeoutRef.current) {
+      clearTimeout(thinkingTimeoutRef.current)
+      thinkingTimeoutRef.current = null
+    }
+    // Intentionally only depend on selectedPersona — runs when persona changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPersona])
 
   // Fetch messages when a session is active
   const { data: messages = [] } = trpc.chatSession.getMessages.useQuery(
@@ -78,20 +97,30 @@ export function ChatPanel() {
     async (content: string) => {
       if (!projectId) return
 
+      // Capture the persona at call-time to guard against mid-flight persona switches
+      const personaAtSendTime = selectedPersona
+
       try {
         let activeSessionId = sessionId
 
         // Create session on first message
         if (!activeSessionId) {
           const session = await createSession.mutateAsync({
-            agentPersona: selectedPersona,
+            agentPersona: personaAtSendTime,
             projectId
           })
           if (!session) {
             console.error('[ChatPanel] Session creation returned null')
             return
           }
+          // Guard: if persona changed while session was being created, discard the session.
+          // The useEffect will have already reset sessionId to null for the new persona.
+          if (selectedPersona !== personaAtSendTime) {
+            console.warn('[ChatPanel] Persona changed during session creation — discarding old session')
+            return
+          }
           activeSessionId = session.id
+          sessionPersonaRef.current = personaAtSendTime
           setSessionId(activeSessionId)
         }
 

@@ -47,6 +47,25 @@ vi.mock('../../services', () => ({
   }
 }))
 
+// Mock PersonaContextService (Story 10.4)
+// Use vi.hoisted so the mock fn is available when the vi.mock factory is hoisted
+const { mockBuildContext, MockPersonaContextServiceClass } = vi.hoisted(() => {
+  const _mockBuildContext = vi.fn().mockReturnValue('Mock persona context for testing')
+  // Must use regular function (not arrow) so it can be used with `new`
+  const _MockClass = vi.fn().mockImplementation(function () {
+    return {
+      buildContext: _mockBuildContext,
+      loadConfig: vi.fn(),
+      getPersonaFilePath: vi.fn()
+    }
+  })
+  return { mockBuildContext: _mockBuildContext, MockPersonaContextServiceClass: _MockClass }
+})
+
+vi.mock('../../services/persona-context.service', () => ({
+  PersonaContextService: MockPersonaContextServiceClass
+}))
+
 // Import router after mocks are established
 const { chatSessionRouter } = await import('./chat-session.router')
 
@@ -672,6 +691,16 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       vi.clearAllMocks()
       mockIsSessionAlive.mockReturnValue(false)
       mockHasSession.mockReturnValue(false)
+      mockBuildContext.mockReturnValue('Mock persona context for testing')
+      // Restore PersonaContextService mock implementation after clearAllMocks
+      // Must use regular function (not arrow) so it can be used with `new`
+      MockPersonaContextServiceClass.mockImplementation(function () {
+        return {
+          buildContext: mockBuildContext,
+          loadConfig: vi.fn(),
+          getPersonaFilePath: vi.fn()
+        }
+      })
     })
 
     it('should store user message and spawn CLI for new session (AC: 1)', async () => {
@@ -694,11 +723,13 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(message!.session_id).toBe(session!.id)
 
       // CLI should have been spawned (not resumed)
+      // Story 10.4: spawnSession now receives persona context as 5th arg
       expect(mockSpawnSession).toHaveBeenCalledWith(
         session!.id,
         session!.session_uuid,
         '/test/project',
-        'Hello agent!'
+        'Hello agent!',
+        'Mock persona context for testing'
       )
       expect(mockResumeSession).not.toHaveBeenCalled()
       expect(mockSendMessage).not.toHaveBeenCalled()
@@ -820,6 +851,125 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(messages).toHaveLength(1)
       expect(messages[0].content).toBe('Stored message')
       expect(messages[0].role).toBe('user')
+    })
+  })
+
+  describe('sendChatMessage persona context injection (Story 10.4, AC: 1-5)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      mockIsSessionAlive.mockReturnValue(false)
+      mockHasSession.mockReturnValue(false)
+      mockBuildContext.mockReturnValue('Mock persona context for testing')
+      // Restore PersonaContextService mock implementation after clearAllMocks
+      // Must use regular function (not arrow) so it can be used with `new`
+      MockPersonaContextServiceClass.mockImplementation(function () {
+        return {
+          buildContext: mockBuildContext,
+          loadConfig: vi.fn(),
+          getPersonaFilePath: vi.fn()
+        }
+      })
+    })
+
+    it('calls personaContextService.buildContext on first spawn (AC: 1)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Hello PM!'
+      })
+
+      // buildContext should have been called with the agent_persona key
+      expect(mockBuildContext).toHaveBeenCalledWith('bmad:bmm:agents:pm')
+    })
+
+    it('passes persona context to chatCliService.spawnSession (AC: 1-5)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:architect',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Design the architecture'
+      })
+
+      // spawnSession should receive the persona context as the 5th argument
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'Design the architecture',
+        'Mock persona context for testing'
+      )
+    })
+
+    it('does NOT inject context on resume — Case B (AC: 6)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      // CLI session was started but exited
+      mockIsSessionAlive.mockReturnValue(false)
+      mockHasSession.mockReturnValue(true)
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Resume message'
+      })
+
+      // buildContext should NOT have been called for resume
+      expect(mockBuildContext).not.toHaveBeenCalled()
+
+      // resumeSession should NOT receive persona context
+      expect(mockResumeSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'Resume message'
+      )
+    })
+
+    it('still works when persona context loading fails — graceful degradation', async () => {
+      // Make buildContext throw an error
+      mockBuildContext.mockImplementation(() => {
+        throw new Error('File not found: pm.md')
+      })
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      // Should NOT throw — message should still be sent
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Hello anyway!'
+      })
+
+      expect(message).toBeDefined()
+      expect(message!.content).toBe('Hello anyway!')
+
+      // spawnSession should be called with undefined personaContext (graceful degradation)
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'Hello anyway!',
+        undefined
+      )
     })
   })
 })

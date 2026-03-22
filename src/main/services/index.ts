@@ -91,6 +91,9 @@ export {
   type HealthResponse
 } from './hook-listener.service'
 
+// Persona context service for BMAD agent persona injection (Story 10.4)
+export { PersonaContextService, type BmadProjectConfig } from './persona-context.service'
+
 // Chat CLI service for managing Claude Code chat sessions (Story 10.3)
 import { join } from 'path'
 import { app } from 'electron'
