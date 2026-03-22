@@ -15,6 +15,18 @@ if (process.platform === 'linux' && !app.isPackaged) {
   app.commandLine.appendSwitch('no-sandbox')
 }
 
+// Fix multi-monitor input issues when running over X11 forwarding (SSH -X/-Y).
+// Chromium's XInput2 miscomputes coordinates across the virtual screen geometry.
+if (process.env.SSH_CONNECTION || process.env.SSH_CLIENT) {
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+  app.commandLine.appendSwitch('in-process-gpu')
+  app.commandLine.appendSwitch('disable-features', 'UseOzonePlatform')
+  app.commandLine.appendSwitch('disable-dev-shm-usage')
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
