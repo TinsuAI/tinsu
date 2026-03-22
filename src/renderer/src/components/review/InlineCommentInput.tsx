@@ -39,7 +39,7 @@ export interface InlineCommentInputProps {
 
 export function InlineCommentInput({
   lineNumber,
-  filePath,
+  filePath: _filePath,
   onSubmit,
   onCancel,
   className

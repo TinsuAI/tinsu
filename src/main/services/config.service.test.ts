@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import { ConfigService, ConfigError } from './config.service'
+import type { ProjectConfig } from '../../shared/types/config.types'
 
 // Mock the project root for testing
 const TEST_PROJECT_ROOT = '/tmp/tinsu-test-' + Date.now()
@@ -125,12 +126,15 @@ createdAt: "not-a-date"
 
   describe('saveConfig()', () => {
     it('should save config to YAML file', () => {
-      const config = {
+      const config: ProjectConfig = {
         projectName: 'SavedProject',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-04T00:00:00Z',
         version: '1.0.0',
-        planningTasksInitialized: false
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
 
       configService.saveConfig(config)
@@ -143,12 +147,15 @@ createdAt: "not-a-date"
     it('should create .tinsu directory if missing before save', () => {
       fs.rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
 
-      const config = {
+      const config: ProjectConfig = {
         projectName: 'NewProject',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-04T00:00:00Z',
         version: '1.0.0',
-        planningTasksInitialized: false
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
 
       configService.saveConfig(config)
@@ -158,22 +165,28 @@ createdAt: "not-a-date"
 
     it('should overwrite existing config', () => {
       // Create initial config
-      const initialConfig = {
+      const initialConfig: ProjectConfig = {
         projectName: 'Initial',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-01T00:00:00Z',
         version: '1.0.0',
-        planningTasksInitialized: false
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
       configService.saveConfig(initialConfig)
 
       // Update config
-      const updatedConfig = {
+      const updatedConfig: ProjectConfig = {
         projectName: 'Updated',
-        methodology: 'taskmaster' as const,
+        methodology: 'taskmaster',
         createdAt: '2026-01-04T00:00:00Z',
         version: '2.0.0',
-        planningTasksInitialized: true
+        planningTasksInitialized: true,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
       configService.saveConfig(updatedConfig)
 
@@ -186,12 +199,15 @@ createdAt: "not-a-date"
   describe('updateConfig()', () => {
     it('should update specific fields while preserving others', () => {
       // Create initial config
-      const initialConfig = {
+      const initialConfig: ProjectConfig = {
         projectName: 'Original',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-01T00:00:00Z',
         version: '1.0.0',
-        planningTasksInitialized: false
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
       configService.saveConfig(initialConfig)
 
@@ -269,13 +285,15 @@ version: "1.0.0"
     })
 
     it('should persist agent model changes', () => {
-      const initialConfig = {
+      const initialConfig: ProjectConfig = {
         projectName: 'TestProject',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-04T00:00:00Z',
         version: '1.0.0',
-        devAgentModel: 'opus' as const,
-        reviewAgentModel: 'sonnet' as const
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
       configService.saveConfig(initialConfig)
 
@@ -320,12 +338,15 @@ version: "1.0.0"
       // Create config dir with no write permission
       fs.chmodSync(TEST_CONFIG_DIR, 0o444)
 
-      const config = {
+      const config: ProjectConfig = {
         projectName: 'TestProject',
-        methodology: 'bmad' as const,
+        methodology: 'bmad',
         createdAt: '2026-01-04T00:00:00Z',
         version: '1.0.0',
-        planningTasksInitialized: false
+        planningTasksInitialized: false,
+        devAgentModel: 'opus',
+        reviewAgentModel: 'sonnet',
+        preserveWorktrees: false
       }
 
       try {

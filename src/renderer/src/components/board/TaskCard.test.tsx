@@ -32,7 +32,18 @@ const mockTask: Task = {
   story_file_path: null,
   story_file_status: null,
   full_content: null,
+  context_notes: null,
   project_id: null,
+  worktree_path: null,
+  branch_name: null,
+  merge_commit_sha: null,
+  has_merge_conflict: null,
+  conflict_files: null,
+  rejection_feedback: null,
+  rejected_agent_run_id: null,
+  inline_comments: null,
+  rejection_count: null,
+  last_review_commit: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }
@@ -259,7 +270,7 @@ describe('TaskCard with task type indicator', () => {
   it('should display imported story icon for tasks with story_number', () => {
     const importedStoryTask: Task = {
       ...mockTask,
-      story_number: 1,
+      story_number: '1',
       story_file_status: 'summary_only'
     }
 
@@ -303,7 +314,7 @@ describe('TaskCard with StoryFileStatusBadge', () => {
   it('should display story file status badge for summary_only', () => {
     const importedStoryTask: Task = {
       ...mockTask,
-      story_number: 1,
+      story_number: '1',
       story_file_status: 'summary_only'
     }
 
@@ -316,7 +327,7 @@ describe('TaskCard with StoryFileStatusBadge', () => {
   it('should display story file status badge for story_ready', () => {
     const readyStoryTask: Task = {
       ...mockTask,
-      story_number: 1,
+      story_number: '1',
       story_file_status: 'story_ready',
       story_file_path: '/path/to/1-1-story.md'
     }
@@ -342,7 +353,7 @@ describe('TaskCard with StoryFileStatusBadge', () => {
   it('should display story file link when story_ready with path', () => {
     const readyStoryTask: Task = {
       ...mockTask,
-      story_number: 2,
+      story_number: '2',
       story_file_status: 'story_ready',
       story_file_path: '/path/to/1-2-feature-story.md'
     }

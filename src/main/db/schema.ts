@@ -346,7 +346,8 @@ export const ACTIVITY_EVENT_TYPE = [
   'session_ended',
   'stall_detected',
   'stall_recovered',
-  'rejection'
+  'rejection',
+  'auto_commit'
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPE)[number]
 

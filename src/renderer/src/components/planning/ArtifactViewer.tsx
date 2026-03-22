@@ -63,7 +63,7 @@ function extractTextFromChildren(children: React.ReactNode): string {
   if (typeof children === 'number') return String(children)
   if (Array.isArray(children)) return children.map(extractTextFromChildren).join('')
   if (children && typeof children === 'object' && 'props' in (children as object)) {
-    return extractTextFromChildren((children as React.ReactElement).props.children)
+    return extractTextFromChildren((children as React.ReactElement & { props: { children?: React.ReactNode } }).props.children)
   }
   return ''
 }
@@ -215,7 +215,6 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
     if (!container || headings.length === 0) return
 
     const handleScroll = () => {
-      const scrollTop = container.scrollTop
       let current: string | null = null
 
       for (const heading of headings) {

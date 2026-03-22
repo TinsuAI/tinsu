@@ -64,7 +64,7 @@ describe('ActivitiesTab', () => {
         isLoading: true,
         error: null,
         refetch: mockRefetch
-      } as ReturnType<typeof trpc.activity.listActivities.useQuery>)
+      } as unknown as ReturnType<typeof trpc.activity.listActivities.useQuery>)
 
       renderWithProviders(<ActivitiesTab taskId="task-123" />)
 
@@ -340,7 +340,7 @@ describe('ActivitiesTab', () => {
 
       // Verify query was called with agent-related eventTypes
       const lastCall = vi.mocked(trpc.activity.listActivities.useQuery).mock.calls.at(-1)
-      const eventTypes = lastCall?.[0]?.eventTypes as string[]
+      const eventTypes = (lastCall?.[0] as Record<string, unknown>)?.eventTypes as string[]
 
       expect(eventTypes).toContain('agent_start')
       expect(eventTypes).toContain('agent_complete')
@@ -368,7 +368,7 @@ describe('ActivitiesTab', () => {
 
       // Verify query includes eventTypes from both categories (OR logic)
       const lastCall = vi.mocked(trpc.activity.listActivities.useQuery).mock.calls.at(-1)
-      const eventTypes = lastCall?.[0]?.eventTypes as string[]
+      const eventTypes = (lastCall?.[0] as Record<string, unknown>)?.eventTypes as string[]
 
       expect(eventTypes).toContain('status_change')
       expect(eventTypes).toContain('user_command')
@@ -440,13 +440,13 @@ describe('ActivitiesTab', () => {
   describe('Real-Time Streaming (TES-2.13)', () => {
     // Helper to get the activity subscription handler
     function getSubscriptionHandler() {
-      const mockApi = window.api as { onActivityCreated: ReturnType<typeof vi.fn> }
+      const mockApi = window.api as unknown as { onActivityCreated: ReturnType<typeof vi.fn> }
       return mockApi.onActivityCreated.mock.calls[0]?.[0]
     }
 
     beforeEach(() => {
       // Reset the mock for each test
-      const mockApi = window.api as { onActivityCreated: ReturnType<typeof vi.fn> }
+      const mockApi = window.api as unknown as { onActivityCreated: ReturnType<typeof vi.fn> }
       mockApi.onActivityCreated.mockClear()
     })
 

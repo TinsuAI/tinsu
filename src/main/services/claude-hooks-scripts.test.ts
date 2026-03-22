@@ -8,7 +8,7 @@
  * @see TES-2.3: Hook Listener HTTP Server
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import { execSync } from 'child_process'

@@ -26,7 +26,18 @@ describe('BasicTaskConfirmDialog', () => {
     story_file_path: null,
     full_content: null,
     story_file_status: null,
+    context_notes: null,
     project_id: 'project-1',
+    worktree_path: null,
+    branch_name: null,
+    merge_commit_sha: null,
+    has_merge_conflict: null,
+    conflict_files: null,
+    rejection_feedback: null,
+    rejected_agent_run_id: null,
+    inline_comments: null,
+    rejection_count: null,
+    last_review_commit: null,
     created_at: new Date(),
     updated_at: new Date()
   }

@@ -14,9 +14,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { eq, desc } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
-import { ActivityLogService, type ActivityEventType, type ActivityPayload } from './activity-log.service'
+import { ActivityLogService, type ActivityEventType } from './activity-log.service'
 
 // Mock electron BrowserWindow for ActivityEventEmitter
 vi.mock('electron', () => ({

@@ -130,7 +130,7 @@ export function TaskWorkspacePage() {
 
       {/* Task detail content with back button in header */}
       <div className="relative flex h-full flex-col">
-        <TaskDetailContent taskId={activeTaskId} task={task} onClose={handleBack} />
+        <TaskDetailContent taskId={activeTaskId} task={task as React.ComponentProps<typeof TaskDetailContent>['task']} onClose={handleBack} />
       </div>
     </div>
   )

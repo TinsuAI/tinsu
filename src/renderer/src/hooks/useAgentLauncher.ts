@@ -41,7 +41,7 @@ export function useAgentLauncher() {
     setAgentWorkflowType,
     clearAgent,
     agentTaskId,
-    agentWorkflowType,
+    agentWorkflowType: _agentWorkflowType,
     activeProcessId
   } = useTerminalStore()
 
@@ -74,9 +74,9 @@ export function useAgentLauncher() {
 
   // Planning agent mutation (existing)
   const launchPlanningMutation = trpc.agent.launchPlanningAgent.useMutation({
-    onSuccess: (result, variables) => {
-      // Track the active agent process
-      setActiveProcess(result.processId)
+    onSuccess: (_result, variables) => {
+      // Commands run in tmux sessions - no processId to track
+      setActiveProcess(null)
       // Track which task spawned this agent (Story 3.4)
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
@@ -84,7 +84,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'planning'
       taskIdRef.current = variables.taskId
-      processIdRef.current = result.processId
+      processIdRef.current = null
       // Expand terminal dock to show agent output
       setExpanded(true)
     },
@@ -93,9 +93,9 @@ export function useAgentLauncher() {
 
   // Create-story workflow mutation (Story 5.3 - AC: 1)
   const createStoryMutation = trpc.agent.startCreateStory.useMutation({
-    onSuccess: (result, variables) => {
-      // Track the active agent process
-      setActiveProcess(result.processId)
+    onSuccess: (_result, variables) => {
+      // Commands run in tmux sessions - no processId to track
+      setActiveProcess(null)
       // Track which task spawned this agent
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
@@ -103,7 +103,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'create_story'
       taskIdRef.current = variables.taskId
-      processIdRef.current = result.processId
+      processIdRef.current = null
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Create Story workflow started', {
@@ -115,9 +115,9 @@ export function useAgentLauncher() {
 
   // Dev-story workflow mutation (Story 5.3 - AC: 3)
   const devStoryMutation = trpc.agent.startDevStory.useMutation({
-    onSuccess: (result, variables) => {
-      // Track the active agent process
-      setActiveProcess(result.processId)
+    onSuccess: (_result, variables) => {
+      // Commands run in tmux sessions - no processId to track
+      setActiveProcess(null)
       // Track which task spawned this agent
       setAgentTask(variables.taskId)
       // Story 5.3 - AC: 2: Track workflow type for completion handling
@@ -125,7 +125,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'dev_story'
       taskIdRef.current = variables.taskId
-      processIdRef.current = result.processId
+      processIdRef.current = null
       // Story 5.3 Task 3: Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Dev Story workflow started', {
@@ -137,9 +137,9 @@ export function useAgentLauncher() {
 
   // Basic task mutation (Story 5.3b - AC: 1)
   const basicTaskMutation = trpc.agent.startBasicTask.useMutation({
-    onSuccess: (result, variables) => {
-      // Track the active agent process
-      setActiveProcess(result.processId)
+    onSuccess: (_result, variables) => {
+      // Commands run in tmux sessions - no processId to track
+      setActiveProcess(null)
       // Track which task spawned this agent
       setAgentTask(variables.taskId)
       // Story 5.3b - AC: 1: Track workflow type for completion handling
@@ -147,7 +147,7 @@ export function useAgentLauncher() {
       // Set refs for completion handler (immune to re-renders)
       workflowTypeRef.current = 'basic_task'
       taskIdRef.current = variables.taskId
-      processIdRef.current = result.processId
+      processIdRef.current = null
       // Expand terminal dock on workflow start
       setExpanded(true)
       toast.success('Basic task started', {
@@ -185,7 +185,7 @@ export function useAgentLauncher() {
         })
         // Invalidate tasks query to refresh UI
         utils.tasks.getAll.invalidate()
-      } else if (result.error) {
+      } else if ('error' in result && result.error) {
         console.warn(`[useAgentLauncher] Basic task completion: ${result.error}`)
       }
     },
@@ -205,7 +205,7 @@ export function useAgentLauncher() {
         // Invalidate tasks query to refresh UI
         utils.tasks.getAll.invalidate()
         // TODO: Story 5.6 will add automatic code review workflow trigger here
-      } else if (result.error) {
+      } else if ('error' in result && result.error) {
         console.warn(`[useAgentLauncher] Dev story completion: ${result.error}`)
       }
     },

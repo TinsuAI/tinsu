@@ -77,7 +77,7 @@ function createTestCaller(db: TestDb, projectId: string | null = TEST_PROJECT_ID
     db,
     projectRoot: process.cwd(),
     projectId
-  } as { db: typeof import('../../db').db; projectRoot: string; projectId: string | null })
+  } as any)
 }
 
 // Helper to insert a completed task at a specific date

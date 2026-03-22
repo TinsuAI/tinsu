@@ -17,7 +17,7 @@ vi.mock('@renderer/stores/diff.store', () => ({
 
 // Import the mocked hook
 import { useDiff } from '@renderer/hooks/useDiff'
-import type { GitDiffFile } from '@main/services/git.service'
+import type { GitDiffFile } from '@shared/types/git-diff.types'
 
 const mockUseDiff = vi.mocked(useDiff)
 
@@ -54,13 +54,16 @@ describe('DiffPlaceholder', () => {
   describe('keyboard navigation (TES-4.6)', () => {
     beforeEach(() => {
       mockUseDiff.mockReturnValue({
-        diff: { files: mockFiles },
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
+        diff: { files: mockFiles, summary: { filesChanged: 3, linesAdded: 30, linesRemoved: 20 } },
         isLoading: false,
         isRefreshing: false,
         error: null,
         refresh: vi.fn(),
         hasChanges: true,
-        summary: { totalFiles: 3, totalAdditions: 30, totalDeletions: 20 }
+        summary: { filesChanged: 3, linesAdded: 30, linesRemoved: 20 }
       })
     })
 
@@ -107,13 +110,16 @@ describe('DiffPlaceholder', () => {
 
     it('does not navigate when files list is empty', () => {
       mockUseDiff.mockReturnValue({
-        diff: { files: [] },
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
+        diff: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
         isLoading: false,
         isRefreshing: false,
         error: null,
         refresh: vi.fn(),
         hasChanges: false,
-        summary: { totalFiles: 0, totalAdditions: 0, totalDeletions: 0 }
+        summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 }
       })
 
       render(<DiffPlaceholder taskId="test-task" />)
@@ -138,13 +144,16 @@ describe('DiffPlaceholder', () => {
   describe('compact mode detection (TES-4.6)', () => {
     beforeEach(() => {
       mockUseDiff.mockReturnValue({
-        diff: { files: mockFiles },
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
+        diff: { files: mockFiles, summary: { filesChanged: 3, linesAdded: 30, linesRemoved: 20 } },
         isLoading: false,
         isRefreshing: false,
         error: null,
         refresh: vi.fn(),
         hasChanges: true,
-        summary: { totalFiles: 3, totalAdditions: 30, totalDeletions: 20 }
+        summary: { filesChanged: 3, linesAdded: 30, linesRemoved: 20 }
       })
     })
 
@@ -176,13 +185,16 @@ describe('DiffPlaceholder', () => {
   describe('loading state', () => {
     it('shows loading skeleton while fetching', () => {
       mockUseDiff.mockReturnValue({
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
         diff: null,
         isLoading: true,
         isRefreshing: false,
         error: null,
         refresh: vi.fn(),
         hasChanges: false,
-        summary: { totalFiles: 0, totalAdditions: 0, totalDeletions: 0 }
+        summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 }
       })
 
       render(<DiffPlaceholder taskId="test-task" />)
@@ -194,13 +206,16 @@ describe('DiffPlaceholder', () => {
   describe('error state', () => {
     it('shows error state with retry button', () => {
       mockUseDiff.mockReturnValue({
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
         diff: null,
         isLoading: false,
         isRefreshing: false,
         error: 'Failed to load diff',
         refresh: vi.fn(),
         hasChanges: false,
-        summary: { totalFiles: 0, totalAdditions: 0, totalDeletions: 0 }
+        summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 }
       })
 
       render(<DiffPlaceholder taskId="test-task" />)
@@ -214,13 +229,16 @@ describe('DiffPlaceholder', () => {
   describe('empty state', () => {
     it('shows empty state when no changes', () => {
       mockUseDiff.mockReturnValue({
-        diff: { files: [] },
+        isBaselineDiff: false,
+        isVersionComparison: false,
+        versionComparisonInfo: null,
+        diff: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
         isLoading: false,
         isRefreshing: false,
         error: null,
         refresh: vi.fn(),
         hasChanges: false,
-        summary: { totalFiles: 0, totalAdditions: 0, totalDeletions: 0 }
+        summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 }
       })
 
       render(<DiffPlaceholder taskId="test-task" />)

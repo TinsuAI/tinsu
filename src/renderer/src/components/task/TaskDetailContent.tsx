@@ -61,7 +61,7 @@ export interface TaskDetailContentProps {
     description: string | null
     status: string
     epic_id: string | null
-    story_number: number | null
+    story_number: number | string | null
     full_content: string | null
     // Story 8.3: Branch name for git worktree
     branch_name?: string | null
@@ -122,10 +122,11 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const rejectButtonRef = useRef<RejectButtonHandle>(null)
 
   // Fetch task data only if not provided via props
-  const { data: fetchedTask, isLoading } = trpc.tasks.getById.useQuery(
+  const { data: fetchedTaskData, isLoading } = trpc.tasks.getById.useQuery(
     { id: taskId },
     { enabled: !!taskId && !taskProp }
   )
+  const fetchedTask = fetchedTaskData as TaskDetailContentProps['task'] | undefined
 
   // Use provided task or fetched task
   const task = taskProp || fetchedTask
@@ -160,7 +161,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Story 7.3: Approval mutation hook for the 60-Second Velocity Loop
   const { approve, isPending: isApproving } = useApprovalMutation({
     taskId,
-    storyNumber: task?.story_number,
+    storyNumber: typeof task?.story_number === 'number' ? task.story_number : null,
     onSuccess: () => {
       // Story 7.3 AC 4: Auto-focus next review task if available
       try {
@@ -219,7 +220,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Story 7.5 Fix Issue #2: Load inline comments from database into store when task loads
   useEffect(() => {
     if (task?.inline_comments && Array.isArray(task.inline_comments)) {
-      loadComments(taskId, task.inline_comments)
+      loadComments(taskId, task.inline_comments as Parameters<typeof loadComments>[1])
     }
   }, [task?.inline_comments, taskId, loadComments])
 
@@ -787,7 +788,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         <div className="border-b border-border/30 px-6 py-3">
           <ReviewTimeline
             taskId={taskId}
-            currentVersionNumber={null}
+            selectedVersion={null}
             onVersionClick={handleVersionNavigate}
           />
         </div>

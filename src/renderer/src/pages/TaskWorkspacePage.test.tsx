@@ -61,7 +61,7 @@ describe('TaskWorkspacePage', () => {
         data: null,
         isLoading: false,
         error: null
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
 
       const { container } = render(<TaskWorkspacePage />)
       expect(container.firstChild).toBeNull()
@@ -76,7 +76,7 @@ describe('TaskWorkspacePage', () => {
         data: undefined,
         isLoading: true,
         error: null
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
 
       render(<TaskWorkspacePage />)
 
@@ -92,7 +92,7 @@ describe('TaskWorkspacePage', () => {
         data: null,
         isLoading: false,
         error: new Error('Task not found')
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
 
       render(<TaskWorkspacePage />)
 
@@ -107,7 +107,7 @@ describe('TaskWorkspacePage', () => {
         data: null,
         isLoading: false,
         error: new Error('Task not found')
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
 
       render(<TaskWorkspacePage />)
 
@@ -121,7 +121,7 @@ describe('TaskWorkspacePage', () => {
         data: null,
         isLoading: false,
         error: new Error('Task not found')
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
 
       render(<TaskWorkspacePage />)
 
@@ -141,7 +141,7 @@ describe('TaskWorkspacePage', () => {
         data: mockTask,
         isLoading: false,
         error: null
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
     })
 
     it('should render TaskDetailContent with correct taskId', () => {
@@ -176,7 +176,7 @@ describe('TaskWorkspacePage', () => {
         data: mockTask,
         isLoading: false,
         error: null
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
     })
 
     it('should navigate back when Escape key is pressed', async () => {
@@ -248,7 +248,7 @@ describe('TaskWorkspacePage', () => {
         data: mockTask,
         isLoading: false,
         error: null
-      } as ReturnType<typeof trpc.tasks.getById.useQuery>)
+      } as unknown as ReturnType<typeof trpc.tasks.getById.useQuery>)
     })
 
     it('should navigate back when back button is clicked', () => {

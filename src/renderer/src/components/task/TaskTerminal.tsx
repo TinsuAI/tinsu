@@ -1,6 +1,6 @@
 import { forwardRef, useRef, useImperativeHandle } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { useTaskTerminal, type SessionState } from '@renderer/hooks/useTaskTerminal'
+import { useTaskTerminal } from '@renderer/hooks/useTaskTerminal'
 import { XTerminal, type XTerminalRef } from '@renderer/components/terminal/XTerminal'
 import { TerminalInput } from './TerminalInput'
 import { Badge } from '@renderer/components/ui/badge'

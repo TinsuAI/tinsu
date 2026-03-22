@@ -11,10 +11,9 @@
  * @see Story 8.10: Task 10.3, 10.4 - Error recovery tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { gitRouter } from './git.router'
-import { TRPCError } from '../trpc'
-import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'fs'
+import { mkdirSync, rmSync, writeFileSync, existsSync } from 'fs'
 import { execSync } from 'child_process'
 import { join } from 'path'
 import { GitErrorRecoveryService } from '../../services/git-error-recovery.service'
@@ -57,7 +56,7 @@ describe('gitRouter - Worktree Integration Tests (Story 8.2)', () => {
       db: {} as never,
       projectRoot: testDir,
       projectId: null
-    })
+    } as any)
   })
 
   afterEach(() => {
@@ -81,11 +80,13 @@ describe('gitRouter - Worktree Integration Tests (Story 8.2)', () => {
       const taskId = 'test-task-123'
       const result = await caller.createWorktree({ taskId })
 
-      expect(result.worktreePath).toBe(`${testDir}/.tinsu/worktrees/${taskId}`)
-      expect(existsSync(result.worktreePath)).toBe(true)
+      expect(result.success).toBe(true)
+      const successResult = result as { success: true; worktreePath: string; branchName: string }
+      expect(successResult.worktreePath).toBe(`${testDir}/.tinsu/worktrees/${taskId}`)
+      expect(existsSync(successResult.worktreePath)).toBe(true)
 
       // Should contain a working copy
-      expect(existsSync(`${result.worktreePath}/README.md`)).toBe(true)
+      expect(existsSync(`${successResult.worktreePath}/README.md`)).toBe(true)
     })
 
     it('should create branch named task/{task-id} (AC: 4)', async () => {
@@ -196,7 +197,7 @@ describe('gitRouter - Error Recovery Tests (Story 8.10)', () => {
       db: testDb as never,
       projectRoot: testDir,
       projectId: null
-    })
+    } as any)
   })
 
   afterEach(() => {

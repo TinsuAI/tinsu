@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync, statSync, utimesSync } from 'fs'
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync, utimesSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { GitLogService, type GitLogEntry } from './git-log.service'

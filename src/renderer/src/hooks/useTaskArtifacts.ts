@@ -147,7 +147,7 @@ export function useTaskArtifacts(taskId: string | null) {
 
   return {
     /** List of artifacts linked to the task */
-    artifacts: artifacts as ArtifactWithStatus[],
+    artifacts: artifacts as unknown as ArtifactWithStatus[],
     /** Whether artifacts are being loaded */
     isLoading,
     /** Link a new artifact to the task */

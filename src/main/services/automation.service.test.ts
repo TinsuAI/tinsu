@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { eq, desc } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
 import { AutomationService } from './automation.service'
 import { ActivityLogService, setActivityLogServiceInstance } from './activity-log.service'
@@ -109,7 +109,7 @@ describe('AutomationService automation_trigger logging (TES-2.9)', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    activityLogService = new ActivityLogService(db)
+    activityLogService = new ActivityLogService(db as unknown as BetterSQLite3Database)
     // Set the global instance so static methods work
     setActivityLogServiceInstance(activityLogService)
   })

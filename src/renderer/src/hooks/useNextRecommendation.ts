@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import {
-  BMAD_RECOMMENDATION_CHAIN,
-  type BmadRecommendationEntry
+  BMAD_RECOMMENDATION_CHAIN
 } from '@renderer/constants/planning-workspace'
 import type { PlanningPhase } from '@renderer/stores/planning-workspace.store'
 

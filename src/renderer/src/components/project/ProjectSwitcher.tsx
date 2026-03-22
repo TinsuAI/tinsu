@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ChevronDown, FolderOpen, FolderPlus, AlertTriangle, Trash2, MoreHorizontal } from 'lucide-react'
+import { ChevronDown, FolderOpen, AlertTriangle, Trash2, MoreHorizontal } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
-import { NewProjectDialog } from '@renderer/components/NewProjectDialog'
+// NewProjectDialog import removed - component not currently used
 
 export function ProjectSwitcher() {
   const [open, setOpen] = useState(false)

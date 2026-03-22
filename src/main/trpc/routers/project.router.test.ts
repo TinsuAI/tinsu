@@ -72,7 +72,9 @@ function createTestContext(): Context {
   return {
     projectRoot: TEST_GIT_REPO,
     db: {} as Context['db'],
-    projectId: null
+    projectId: null,
+    activityLogService: {} as Context['activityLogService'],
+    hookListenerService: {} as Context['hookListenerService']
   }
 }
 

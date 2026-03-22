@@ -50,7 +50,7 @@ export interface GitDiffFile {
   /** File status: added, modified, deleted, renamed */
   status: 'added' | 'modified' | 'deleted' | 'renamed'
   /** Whether the file is binary */
-  isBinary: boolean
+  isBinary?: boolean
   /** Number of lines added */
   additions: number
   /** Number of lines deleted */

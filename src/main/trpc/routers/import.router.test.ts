@@ -96,7 +96,7 @@ function createCaller(db: TestDb, projectId: string | null = TEST_PROJECT_ID) {
     db,
     projectRoot: '/test/project',
     projectId
-  })
+  } as any)
 }
 
 describe('importRouter', () => {

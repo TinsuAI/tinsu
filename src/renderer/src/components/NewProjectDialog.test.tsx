@@ -7,7 +7,7 @@ const mockCreateMutate = vi.fn()
 const mockSelectDirMutate = vi.fn()
 let mockCreateIsPending = false
 let mockSelectDirIsPending = false
-let mockCreateOnSuccess: ((result: unknown) => void) | null = null
+// mockCreateOnSuccess callback captured from useMutation (write-only, used for mock setup)
 let mockCreateOnError: ((error: unknown) => void) | null = null
 let mockSelectDirOnSuccess: ((result: unknown) => void) | null = null
 
@@ -19,7 +19,7 @@ vi.mock('@renderer/lib/trpc', () => ({
           onSuccess?: (result: unknown) => void
           onError?: (error: unknown) => void
         }): object => {
-          mockCreateOnSuccess = options?.onSuccess || null
+          void options?.onSuccess
           mockCreateOnError = options?.onError || null
           return {
             mutate: mockCreateMutate,
@@ -58,7 +58,7 @@ describe('NewProjectDialog', () => {
     mockSelectDirMutate.mockReset()
     mockCreateIsPending = false
     mockSelectDirIsPending = false
-    mockCreateOnSuccess = null
+    // mockCreateOnSuccess reset handled by mock setup
     mockCreateOnError = null
     mockSelectDirOnSuccess = null
     defaultProps.onOpenChange.mockReset()

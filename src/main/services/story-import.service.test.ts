@@ -9,7 +9,7 @@ vi.mock('../db', () => ({
   db: null as unknown as BetterSQLite3Database<typeof schema>
 }))
 
-import * as dbModule from '../db'
+// db module is mocked above via vi.mock
 import { StoryImportService } from './story-import.service'
 import type { ParsedEpic } from './epics-parser.service'
 import type { StoryKey } from './detailed-story-parser.service'

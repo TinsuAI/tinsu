@@ -205,7 +205,8 @@ export class ConfigService {
       version: '1.0.0',
       planningTasksInitialized: false,
       devAgentModel: DEFAULT_DEV_AGENT_MODEL,
-      reviewAgentModel: DEFAULT_REVIEW_AGENT_MODEL
+      reviewAgentModel: DEFAULT_REVIEW_AGENT_MODEL,
+      preserveWorktrees: false
     }
   }
 

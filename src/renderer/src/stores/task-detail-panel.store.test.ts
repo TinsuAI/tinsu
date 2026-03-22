@@ -4,7 +4,6 @@ import { useTaskDetailPanelStore } from './task-detail-panel.store'
 describe('task-detail-panel.store', () => {
   // Reset store state before each test
   beforeEach(() => {
-    const store = useTaskDetailPanelStore.getState()
     // Reset to initial state
     useTaskDetailPanelStore.setState({
       isOpen: false,

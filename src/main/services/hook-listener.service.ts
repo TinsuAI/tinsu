@@ -330,9 +330,9 @@ export class HookListenerService {
         const body = await this.parseBody(req)
         const parseResult = StopHookPayloadSchema.safeParse(body)
         if (!parseResult.success) {
-          console.error('[HookListener] Invalid stop hook payload:', parseResult.error.errors)
+          console.error('[HookListener] Invalid stop hook payload:', parseResult.error.issues)
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onStopHook(parseResult.data)
@@ -360,9 +360,9 @@ export class HookListenerService {
         const body = await this.parseBody(req)
         const parseResult = ToolUseHookPayloadSchema.safeParse(body)
         if (!parseResult.success) {
-          console.error('[HookListener] Invalid tool-use hook payload:', parseResult.error.errors)
+          console.error('[HookListener] Invalid tool-use hook payload:', parseResult.error.issues)
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onToolUseHook(parseResult.data)
@@ -390,9 +390,9 @@ export class HookListenerService {
         const body = await this.parseBody(req)
         const parseResult = ChatStopHookPayloadSchema.safeParse(body)
         if (!parseResult.success) {
-          console.error('[HookListener] Invalid chat-stop hook payload:', parseResult.error.errors)
+          console.error('[HookListener] Invalid chat-stop hook payload:', parseResult.error.issues)
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onChatStopHook(parseResult.data)
@@ -426,10 +426,10 @@ export class HookListenerService {
         if (!parseResult.success) {
           console.error(
             '[HookListener] Invalid chat-tool-use hook payload:',
-            parseResult.error.errors
+            parseResult.error.issues
           )
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onChatToolUseHook(parseResult.data)
@@ -463,10 +463,10 @@ export class HookListenerService {
         if (!parseResult.success) {
           console.error(
             '[HookListener] Invalid chat-pre-tool-use hook payload:',
-            parseResult.error.errors
+            parseResult.error.issues
           )
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onChatPreToolUseHook(parseResult.data)
@@ -500,10 +500,10 @@ export class HookListenerService {
         if (!parseResult.success) {
           console.error(
             '[HookListener] Invalid chat-notification hook payload:',
-            parseResult.error.errors
+            parseResult.error.issues
           )
           res.writeHead(400)
-          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.errors }))
+          res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
         await this.onChatNotificationHook(parseResult.data)
@@ -623,7 +623,7 @@ export class HookListenerService {
       console.log(
         `[HookListener] Session not found for ${payload.session_id}, attempting auto-registration...`
       )
-      session = await this.tryRegisterOrphanSession(payload.session_id)
+      session = (await this.tryRegisterOrphanSession(payload.session_id)) ?? undefined
 
       if (!session) {
         console.warn(
@@ -816,7 +816,7 @@ export class HookListenerService {
       console.log(
         `[HookListener] Session not found for ${payload.session_id}, attempting auto-registration...`
       )
-      session = await this.tryRegisterOrphanSession(payload.session_id)
+      session = (await this.tryRegisterOrphanSession(payload.session_id)) ?? undefined
 
       if (!session) {
         console.warn(

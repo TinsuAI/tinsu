@@ -26,10 +26,7 @@ let mockCreateStoryOnSuccess: ((result: { processId: string; command: string; ar
 let mockCreateStoryOnError: ((error: Error) => void) | undefined
 let mockDevStoryOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
 let mockDevStoryOnError: ((error: Error) => void) | undefined
-let mockBasicTaskOnSuccess: ((result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void) | undefined
-let mockBasicTaskOnError: ((error: Error) => void) | undefined
 let mockHandleCompleteOnSuccess: ((result: { success: boolean; storyFilePath: string | null; error?: string }) => void) | undefined
-let mockHandleBasicTaskCompleteOnSuccess: ((result: { success: boolean; newStatus?: string; error?: string }) => void) | undefined
 let mockHandleDevStoryCompleteOnSuccess: ((result: { success: boolean; newStatus?: string; error?: string }) => void) | undefined
 let mockExitSubscriptionOnData: ((event: { processId: string; exitCode: number; signal?: number }) => void) | undefined
 const mockHandleDevStoryCompleteMutate = vi.fn()
@@ -100,8 +97,7 @@ vi.mock('@renderer/lib/trpc', () => ({
           onSuccess?: (result: { processId: string; command: string; args: string[] }, variables: { taskId: string }) => void
           onError?: (error: Error) => void
         }) => {
-          mockBasicTaskOnSuccess = options?.onSuccess
-          mockBasicTaskOnError = options?.onError
+          void options
           return {
             mutate: mockBasicTaskMutate,
             isPending: false
@@ -113,7 +109,7 @@ vi.mock('@renderer/lib/trpc', () => ({
           onSuccess?: (result: { success: boolean; newStatus?: string; error?: string }) => void
           onError?: (error: Error) => void
         }) => {
-          mockHandleBasicTaskCompleteOnSuccess = options?.onSuccess
+          void options
           return {
             mutate: mockHandleBasicTaskCompleteMutate,
             isPending: false
@@ -150,7 +146,7 @@ vi.mock('@renderer/lib/trpc', () => ({
 
 // Mock window.api for activity event subscription
 const mockActivityUnsubscribe = vi.fn()
-const mockOnActivityCreated = vi.fn(() => mockActivityUnsubscribe)
+const mockOnActivityCreated = vi.fn((_handler: unknown) => mockActivityUnsubscribe)
 
 describe('useAgentLauncher', () => {
   beforeEach(() => {
@@ -758,7 +754,7 @@ describe('useAgentLauncher', () => {
       expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
 
       // Get the activity handler that was registered
-      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0] as ((event: unknown) => void) | undefined
 
       // Simulate agent_complete event
       act(() => {
@@ -793,7 +789,7 @@ describe('useAgentLauncher', () => {
       expect(useTerminalStore.getState().agentTaskId).toBe('task-456')
 
       // Get the activity handler
-      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0] as ((event: unknown) => void) | undefined
 
       // Simulate agent_complete event for DIFFERENT task
       act(() => {
@@ -825,7 +821,7 @@ describe('useAgentLauncher', () => {
       })
 
       // Get the activity handler
-      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0]
+      const activityHandler = mockOnActivityCreated.mock.calls[0]?.[0] as ((event: unknown) => void) | undefined
 
       // Simulate agent_complete event
       act(() => {

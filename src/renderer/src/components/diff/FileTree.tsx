@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
-import type { GitDiffFile } from '@main/services/git.service'
+import type { GitDiffFile } from '@shared/types/git-diff.types'
 
 /**
  * Props for FileTree component

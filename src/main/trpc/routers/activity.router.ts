@@ -79,7 +79,7 @@ export const activityRouter = router({
       z.object({
         taskId: z.string().min(1, 'taskId is required'),
         eventType: z.enum(ACTIVITY_EVENT_TYPE),
-        payload: z.record(z.unknown()).optional()
+        payload: z.record(z.string(), z.unknown()).optional()
       })
     )
     .mutation(({ input, ctx }) => {

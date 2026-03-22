@@ -341,8 +341,10 @@ export function useTaskTerminal({
   }, [isAttached, processId, hasRestoredBackup, sessionEnded, sessionStalled])
 
   // TES-1.10: Get last backup timestamp for UI display
-  const lastBackupTime = useMemo(() => {
-    return scrollbackQuery.data?.metadata?.lastBackup ?? null
+  const lastBackupTime = useMemo((): number | null => {
+    const raw = scrollbackQuery.data?.metadata?.lastBackup
+    if (raw == null) return null
+    return typeof raw === 'number' ? raw : Number(raw)
   }, [scrollbackQuery.data?.metadata?.lastBackup])
 
   return {

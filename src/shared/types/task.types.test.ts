@@ -49,6 +49,16 @@ describe('Task Types (Story 3.1)', () => {
       story_file_status: null,
       context_notes: null, // Story 5.5
       full_content: null,
+      worktree_path: null,
+      branch_name: null,
+      merge_commit_sha: null,
+      has_merge_conflict: null,
+      conflict_files: null,
+      rejection_feedback: null,
+      rejected_agent_run_id: null,
+      inline_comments: null,
+      rejection_count: null,
+      last_review_commit: null,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -179,6 +189,16 @@ describe('Task Types (Story 3.1)', () => {
       story_file_status: null,
       context_notes: null, // Story 5.5
       full_content: null,
+      worktree_path: null,
+      branch_name: null,
+      merge_commit_sha: null,
+      has_merge_conflict: null,
+      conflict_files: null,
+      rejection_feedback: null,
+      rejected_agent_run_id: null,
+      inline_comments: null,
+      rejection_count: null,
+      last_review_commit: null,
       created_at: new Date(),
       updated_at: new Date()
     })
@@ -252,6 +272,16 @@ describe('isImportedStoryTask helper (Story 5.2c)', () => {
     story_file_path: null,
     context_notes: null, // Story 5.5
     full_content: null,
+    worktree_path: null,
+    branch_name: null,
+    merge_commit_sha: null,
+    has_merge_conflict: null,
+    conflict_files: null,
+    rejection_feedback: null,
+    rejected_agent_run_id: null,
+    inline_comments: null,
+    rejection_count: null,
+    last_review_commit: null,
     created_at: new Date(),
     updated_at: new Date()
   })
@@ -264,7 +294,7 @@ describe('isImportedStoryTask helper (Story 5.2c)', () => {
       phase_name: null,
       bmad_agent: null,
       bmad_workflow: null,
-      story_number: 1,
+      story_number: '1',
       story_file_status: 'summary_only'
     }
 
@@ -309,7 +339,7 @@ describe('isImportedStoryTask helper (Story 5.2c)', () => {
       phase_name: null,
       bmad_agent: null,
       bmad_workflow: null,
-      story_number: 2,
+      story_number: '2',
       story_file_status: 'story_ready'
     }
 

@@ -10,7 +10,7 @@ function createTestCaller(): ReturnType<typeof ptyRouter.createCaller> {
     db: {} as never,
     projectRoot: process.cwd(),
     projectId: null // Story 3.1.5: projectId added to context
-  })
+  } as any)
 }
 
 describe('ptyRouter', () => {

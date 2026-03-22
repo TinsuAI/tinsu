@@ -45,12 +45,12 @@ export const taskRouter = router({
       .all()
 
     // Story 7.5: Parse inline_comments JSON string to array
-    return allTasks.map((task) => ({
-      ...task,
-      inline_comments: task.inline_comments
+    return allTasks.map((task) => {
+      const parsed = task.inline_comments
         ? JSON.parse(task.inline_comments)
         : null
-    }))
+      return { ...task, inline_comments: parsed } as typeof task & { inline_comments: any }
+    })
   }),
 
   // Story 3.2: Get planning tasks ordered by phase_number
@@ -85,12 +85,10 @@ export const taskRouter = router({
     }
 
     // Story 7.5: Parse inline_comments JSON string to array
-    return {
-      ...task,
-      inline_comments: task.inline_comments
-        ? JSON.parse(task.inline_comments)
-        : null
-    }
+    const parsed = task.inline_comments
+      ? JSON.parse(task.inline_comments)
+      : null
+    return { ...task, inline_comments: parsed } as typeof task & { inline_comments: any }
   }),
 
   // Get task with epic and sprint relations (Story 2.5)
@@ -145,13 +143,16 @@ export const taskRouter = router({
     const epicMap = new Map(allEpics.map((e) => [e.id, e]))
 
     // Story 7.5: Parse inline_comments JSON string to array
-    return allTasks.map((task) => ({
-      ...task,
-      epic: task.epic_id ? epicMap.get(task.epic_id) ?? null : null,
-      inline_comments: task.inline_comments
+    return allTasks.map((task) => {
+      const parsed = task.inline_comments
         ? JSON.parse(task.inline_comments)
         : null
-    }))
+      return {
+        ...task,
+        epic: task.epic_id ? epicMap.get(task.epic_id) ?? null : null,
+        inline_comments: parsed
+      } as typeof task & { epic: typeof epicMap extends Map<any, infer V> ? V | null : never; inline_comments: any }
+    })
   }),
 
   // Create new task (inserts at top of column with sort_order = 0)
@@ -989,7 +990,7 @@ export const taskRouter = router({
       .delete(tasks)
       .where(eq(tasks.project_id, ctx.projectId))
       .returning()
-      .all()
+      .all() as any[]
 
     return { deletedCount: result.length }
   }),

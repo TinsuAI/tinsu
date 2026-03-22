@@ -153,7 +153,8 @@ function createTestDb(): TestDb {
 
 describe('planningRouter', () => {
   let db: TestDb
-  let caller: ReturnType<ReturnType<typeof createCallerFactory<typeof planningRouter>>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let caller: any
 
   beforeEach(() => {
     db = createTestDb()
@@ -170,7 +171,7 @@ describe('planningRouter', () => {
       .run()
 
     // Create caller for testing
-    const createCaller = createCallerFactory(planningRouter)
+    const createCaller = createCallerFactory(planningRouter as any)
     caller = createCaller({
       db,
       projectRoot: '/test/project',

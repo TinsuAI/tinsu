@@ -20,7 +20,7 @@ import {
 // Mock database and ActivityLogService for TES-2.6 tests
 const mockDbSelectGet = vi.fn()
 const mockDbSelectAll = vi.fn()
-const mockDbSelectWhereAll = vi.fn(() => []) // For tryRegisterOrphanSession
+const mockDbSelectWhereAll = vi.fn((): unknown[] => []) // For tryRegisterOrphanSession
 const mockDbSelect = vi.fn(() => ({
   from: vi.fn(() => ({
     where: vi.fn(() => ({
@@ -379,7 +379,7 @@ describe('HookListenerService', () => {
       // Create a body larger than 64KB (65KB)
       const largePayload = { data: 'x'.repeat(65 * 1024) }
 
-      const response = await new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+      const response = await new Promise<{ status: number; body: unknown }>((resolve, _reject) => {
         const req = http.request(
           {
             hostname: '127.0.0.1',

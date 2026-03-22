@@ -33,6 +33,17 @@ const mockPlanningTask: PlanningTask = {
   story_file_path: null,
   story_file_status: null,
   full_content: null,
+  context_notes: null,
+  worktree_path: null,
+  branch_name: null,
+  merge_commit_sha: null,
+  has_merge_conflict: null,
+  conflict_files: null,
+  rejection_feedback: null,
+  rejected_agent_run_id: null,
+  inline_comments: null,
+  rejection_count: null,
+  last_review_commit: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }
@@ -388,10 +399,10 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   })
 
   it('does NOT show persona badge when bmad_agent is null', () => {
-    const task: PlanningTask = {
+    const task = {
       ...mockPlanningTask,
       bmad_agent: null
-    }
+    } as unknown as PlanningTask
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
     expect(screen.queryByTestId('agent-persona-badge')).not.toBeInTheDocument()

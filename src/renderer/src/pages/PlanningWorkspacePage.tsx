@@ -177,7 +177,7 @@ export function PlanningWorkspacePage() {
 
     // Auto-parse if no gate decision exists, or if artifact is newer than last decision
     const shouldParse =
-      latestGate === null ||
+      latestGate == null ||
       (readinessArtifactLastModified && latestGate.created_at &&
         readinessArtifactLastModified > (
           typeof latestGate.created_at === 'number'

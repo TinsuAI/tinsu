@@ -324,7 +324,7 @@ export function ChatPanel() {
 
           {/* Message area */}
           <ChatMessageArea
-            messages={messages}
+            messages={messages as React.ComponentProps<typeof ChatMessageArea>['messages']}
             agentPersona={selectedPersona}
             isAgentThinking={isAgentThinking}
             currentToolActivity={currentToolActivity}

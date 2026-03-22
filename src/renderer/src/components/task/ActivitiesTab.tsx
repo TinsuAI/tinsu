@@ -7,7 +7,7 @@ import type { Activity } from '@shared/types/activity.types'
 import { ActivitiesFilter, type FilterCategory } from './ActivitiesFilter'
 import { useActivitySubscription } from '@renderer/hooks/useActivitySubscription'
 import { cn } from '@renderer/lib/utils'
-import type { ActivityEventType } from '../../../../main/db/schema'
+import type { ActivityEventType } from '@shared/types/activity.types'
 
 interface ActivitiesTabProps {
   /** Task ID to fetch activities for */

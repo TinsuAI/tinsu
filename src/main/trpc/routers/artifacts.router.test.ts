@@ -25,7 +25,10 @@ vi.mock('../../db', () => ({
 // Import after mocking
 import * as dbModule from '../../db'
 import { artifactsRouter } from './artifacts.router'
-import { createCallerFactory } from '@trpc/server'
+import { initTRPC } from '@trpc/server'
+
+const t = initTRPC.context<any>().create()
+const createCallerFactory = t.createCallerFactory
 
 type TestDb = BetterSQLite3Database<typeof schema>
 
@@ -85,14 +88,15 @@ function createTestDb(): TestDb {
 
 describe('artifactsRouter', () => {
   let db: TestDb
-  let caller: ReturnType<ReturnType<typeof createCallerFactory<typeof artifactsRouter>>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let caller: any
 
   beforeEach(() => {
     db = createTestDb()
     ;(dbModule as { db: TestDb }).db = db
 
     // Create caller for testing
-    const createCaller = createCallerFactory(artifactsRouter)
+    const createCaller = createCallerFactory(artifactsRouter as any)
     caller = createCaller({ db } as any)
 
     // Create a test task

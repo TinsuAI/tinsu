@@ -76,7 +76,7 @@ export class AutomationService {
       await ActivityLogService.logActivity(taskId, 'automation_trigger', {
         command: 'dev-story',
         trigger: 'status-in-progress'
-      } as AutomationTriggerPayload)
+      } as unknown as Record<string, unknown>)
     } catch (error) {
       console.warn('[AutomationService] Failed to log automation_trigger activity:', error)
       // Don't fail the automation - logging is non-critical
@@ -112,7 +112,7 @@ export class AutomationService {
       await ActivityLogService.logActivity(taskId, 'automation_trigger', {
         command: 'code-review',
         trigger: 'dev-story-complete'
-      } as AutomationTriggerPayload)
+      } as unknown as Record<string, unknown>)
     } catch (error) {
       console.warn('[AutomationService] Failed to log automation_trigger activity:', error)
       // Don't fail the automation - logging is non-critical

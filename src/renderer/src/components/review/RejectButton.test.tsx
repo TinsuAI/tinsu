@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { RejectButton } from './RejectButton'
 
 describe('RejectButton', () => {
-  let onReject: ReturnType<typeof vi.fn>
+  let onReject: ReturnType<typeof vi.fn<(feedback: string | null) => void>>
 
   beforeEach(() => {
-    onReject = vi.fn()
+    onReject = vi.fn<(feedback: string | null) => void>()
   })
 
   describe('button rendering', () => {

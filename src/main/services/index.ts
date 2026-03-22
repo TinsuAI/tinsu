@@ -60,10 +60,10 @@ export { GitLogService, type GitLogEntry } from './git-log.service'
 
 // Activity event emitter (TES-2.13)
 export { activityEmitter, ACTIVITY_EVENT_CHANNEL } from './activity-emitter'
-export type { ActivityEventPayload } from './activity-emitter'
+export type { ActivityEventPayload } from '../../shared/types/activity.types'
 
 /** Singleton activity log service instance for database persistence */
-export const activityLogService = new ActivityLogService(db)
+export const activityLogService = new ActivityLogService(db as unknown as import('drizzle-orm/better-sqlite3').BetterSQLite3Database)
 
 // Set the singleton instance for backward-compatible static methods
 setActivityLogServiceInstance(activityLogService)

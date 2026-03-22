@@ -33,7 +33,7 @@ const mockOnFileChange = vi.fn().mockReturnValue(mockUnsubscribe)
 beforeEach(() => {
   ;(window as { api?: typeof window.api }).api = {
     onFileChange: mockOnFileChange
-  } as typeof window.api
+  } as unknown as typeof window.api
   vi.clearAllMocks()
 })
 

@@ -20,9 +20,9 @@ describe('TmuxService', () => {
 
   describe('checkTmuxInstalled', () => {
     it('returns true when tmux is installed', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })
@@ -35,12 +35,12 @@ describe('TmuxService', () => {
     })
 
     it('returns false when tmux is not installed (exit code 127)', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         // Handle both (cmd, callback) and (cmd, options, callback) signatures
         const cb = typeof _options === 'function' ? _options : callback
         const error = new Error('Command failed: tmux -V') as Error & { code?: number }
         error.code = 127
-        ;(cb as (error: Error | null, result?: { stdout: string; stderr: string }) => void)(error)
+        ;(cb as any)(error)
         return {} as ReturnType<typeof exec>
       })
 
@@ -50,11 +50,11 @@ describe('TmuxService', () => {
     })
 
     it('throws error for non-installation failures (e.g., permission denied)', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
         const error = new Error('Permission denied') as Error & { code?: number }
         error.code = 126 // Permission denied exit code
-        ;(cb as (error: Error | null, result?: { stdout: string; stderr: string }) => void)(error)
+        ;(cb as any)(error)
         return {} as ReturnType<typeof exec>
       })
 
@@ -62,9 +62,9 @@ describe('TmuxService', () => {
     })
 
     it('caches the result after first check', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })
@@ -82,9 +82,9 @@ describe('TmuxService', () => {
 
   describe('getTmuxVersion', () => {
     it('returns version string when tmux is installed', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })
@@ -97,9 +97,9 @@ describe('TmuxService', () => {
     })
 
     it('returns version with prefix (e.g., next-3.5)', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux next-3.5\n',
           stderr: ''
         })
@@ -112,11 +112,11 @@ describe('TmuxService', () => {
     })
 
     it('returns null when tmux is not installed', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
         const error = new Error('Command failed') as Error & { code?: number }
         error.code = 127
-        ;(cb as (error: Error | null, result?: { stdout: string; stderr: string }) => void)(error)
+        ;(cb as any)(error)
         return {} as ReturnType<typeof exec>
       })
 
@@ -126,9 +126,9 @@ describe('TmuxService', () => {
     })
 
     it('trims whitespace from version', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: '  tmux 3.3a  \n',
           stderr: ''
         })
@@ -141,9 +141,9 @@ describe('TmuxService', () => {
     })
 
     it('caches the version after first check', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })
@@ -161,9 +161,9 @@ describe('TmuxService', () => {
 
   describe('clearCache', () => {
     it('allows re-checking after cache clear', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })
@@ -183,9 +183,9 @@ describe('TmuxService', () => {
     })
 
     it('clears both installed and version caches', async () => {
-      vi.mocked(exec).mockImplementation((_cmd, _options, callback) => {
+      (vi.mocked(exec) as any).mockImplementation((_cmd: string, _options: unknown, callback?: Function) => {
         const cb = typeof _options === 'function' ? _options : callback
-        ;(cb as (error: Error | null, result: { stdout: string; stderr: string }) => void)(null, {
+        ;(cb as any)(null, {
           stdout: 'tmux 3.4\n',
           stderr: ''
         })

@@ -1360,7 +1360,7 @@ export class GitService {
 
       // Story 8.5 AC 2: Attempt fast-forward merge first
       try {
-        const ffResult = await this.execGit(
+        await this.execGit(
           ['merge', '--ff-only', branchName],
           normalizedPath,
           GIT_LARGE_OP_TIMEOUT
@@ -2380,7 +2380,7 @@ export class GitService {
       )
 
       // Parse the diff output
-      return this.parseDiffOutput(diffOutput)
+      return this.parseDiff(diffOutput)
     } catch (error) {
       if (error instanceof GitError) {
         throw error

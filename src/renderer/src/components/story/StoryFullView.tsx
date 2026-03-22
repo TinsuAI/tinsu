@@ -13,6 +13,7 @@ import { DiffPlaceholder } from '@renderer/components/task/DiffPlaceholder'
 import { NotionEditor } from '@renderer/components/editor'
 import { useStoryViewStore, useThemeStore } from '@renderer/stores'
 import { trpc } from '@renderer/lib/trpc'
+import type { Task } from '@shared/types/task.types'
 import { toast } from 'sonner'
 
 /**
@@ -132,7 +133,7 @@ export function StoryFullView() {
   const { data: task, isLoading } = trpc.tasks.getById.useQuery(
     { id: activeStoryId! },
     { enabled: !!activeStoryId }
-  )
+  ) as { data: Task | undefined; isLoading: boolean }
 
   // Fetch all epics to find the matching one
   const { data: epics } = trpc.epics.getAll.useQuery()

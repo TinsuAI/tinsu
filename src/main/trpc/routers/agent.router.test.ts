@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync } from 'fs'
 import { agentRouter } from './agent.router'
 import { BmadAgentLauncherService } from '../../services/bmad-agent-launcher.service'
 import { ClaudeCliDetectorService } from '../../services/claude-cli-detector.service'
@@ -240,7 +240,7 @@ function createTestCaller(db: TestDb) {
     db: db as unknown as typeof import('../../db').db,
     projectRoot: TEST_PROJECT_ROOT,
     projectId: TEST_PROJECT_ID
-  })
+  } as any)
 }
 
 describe('agentRouter', () => {
@@ -672,7 +672,7 @@ describe('agentRouter', () => {
         })
 
         // Mock existsSync to return true for story file path
-        vi.mocked(existsSync).mockImplementation((path: string) => {
+        vi.mocked(existsSync).mockImplementation((path) => {
           if (typeof path === 'string' && path === mockStoryFilePath) return true
           if (typeof path === 'string' && path.includes('.tinsu/worktrees')) return false
           return true
@@ -707,7 +707,7 @@ describe('agentRouter', () => {
           inline_comments: null
         })
 
-        vi.mocked(existsSync).mockImplementation((path: string) => {
+        vi.mocked(existsSync).mockImplementation((path) => {
           if (typeof path === 'string' && path === mockStoryFilePath) return true
           return false
         })
@@ -747,7 +747,7 @@ describe('agentRouter', () => {
           inline_comments: inlineComments
         })
 
-        vi.mocked(existsSync).mockImplementation((path: string) => {
+        vi.mocked(existsSync).mockImplementation((path) => {
           if (typeof path === 'string' && path === mockStoryFilePath) return true
           return false
         })

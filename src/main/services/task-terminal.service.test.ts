@@ -121,7 +121,8 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
 
       // Mock: tmux commands succeed
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -157,7 +158,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session succeeds (session exists)
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           if (cmd.includes('has-session')) {
@@ -191,7 +193,8 @@ describe('TaskTerminalService', () => {
       const commandsCalled: string[] = []
 
       // Mock: tmux has-session fails (session doesn't exist), new-session succeeds
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -243,7 +246,8 @@ describe('TaskTerminalService', () => {
 
       const commandsCalled: string[] = []
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -302,7 +306,8 @@ describe('TaskTerminalService', () => {
       ])
 
       // Simulate tmux server completely unavailable
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('tmux server crashed') as ExecException
@@ -322,7 +327,8 @@ describe('TaskTerminalService', () => {
     it('sanitizes project name for session naming', async () => {
       mockFindFirst.mockReturnValue(undefined)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -340,7 +346,8 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
 
       // Mock: tmux command fails
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('tmux server not running') as ExecException
@@ -358,7 +365,8 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
 
       // Mock: new-session fails with duplicate error
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('duplicate session') as ExecException & { stderr?: string }
@@ -397,7 +405,8 @@ describe('TaskTerminalService', () => {
     it('accepts valid UUID-style taskId', async () => {
       mockFindFirst.mockReturnValue(undefined)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -426,7 +435,8 @@ describe('TaskTerminalService', () => {
           created_at: new Date()
         })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -457,7 +467,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -489,7 +500,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session fails (session doesn't exist)
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -515,7 +527,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -556,7 +569,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux kill-session fails (session already gone)
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -653,7 +667,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session succeeds (session exists)
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -685,7 +700,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session fails (session doesn't exist)
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -714,7 +730,8 @@ describe('TaskTerminalService', () => {
 
       const commandsCalled: string[] = []
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -750,7 +767,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session fails
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -777,7 +795,8 @@ describe('TaskTerminalService', () => {
 
       const commandsCalled: string[] = []
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -805,7 +824,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -834,7 +854,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -867,7 +888,8 @@ describe('TaskTerminalService', () => {
       mockLogActivity.mockRejectedValueOnce(new Error('Database error'))
 
       const commandsCalled: string[] = []
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -897,7 +919,8 @@ describe('TaskTerminalService', () => {
 
       const commandsCalled: string[] = []
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -933,7 +956,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux has-session fails
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -960,7 +984,8 @@ describe('TaskTerminalService', () => {
 
       const commandsCalled: string[] = []
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -983,7 +1008,8 @@ describe('TaskTerminalService', () => {
     beforeEach(() => {
       mockFindFirst.mockReturnValue(undefined)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1050,7 +1076,8 @@ describe('TaskTerminalService', () => {
       const commandsCalled: string[] = []
 
       // Mock: first session exists, second doesn't
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           commandsCalled.push(cmd)
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
@@ -1125,7 +1152,8 @@ describe('TaskTerminalService', () => {
       const sessionsChecked: string[] = []
 
       // Simulate: ALL tmux sessions are gone after reboot
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
 
@@ -1176,7 +1204,8 @@ describe('TaskTerminalService', () => {
         }
       ])
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1236,7 +1265,8 @@ describe('TaskTerminalService', () => {
       ])
 
       // Mock: tmux session doesn't exist
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -1283,7 +1313,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux session exists
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1306,7 +1337,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1340,7 +1372,8 @@ describe('TaskTerminalService', () => {
       })
 
       // Mock: tmux session doesn't exist
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('session not found') as ExecException
@@ -1366,7 +1399,8 @@ describe('TaskTerminalService', () => {
       })
 
       let callCount = 0
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           callCount++
@@ -1415,7 +1449,8 @@ describe('TaskTerminalService', () => {
       })
 
       let sessionExists = true
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           if (cmd.includes('has-session')) {
@@ -1453,7 +1488,8 @@ describe('TaskTerminalService', () => {
       })
 
       let sessionExists = true
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           if (cmd.includes('has-session')) {
@@ -1507,7 +1543,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1549,7 +1586,8 @@ describe('TaskTerminalService', () => {
         created_at: new Date()
       })
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           cb?.(null, '', '')
@@ -1575,7 +1613,8 @@ describe('TaskTerminalService', () => {
       mockCheckTmuxInstalled.mockResolvedValue(true)
 
       // Mock: tmux new-session command fails
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('tmux server not running') as ExecException
@@ -1605,7 +1644,8 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
       mockCheckTmuxInstalled.mockResolvedValue(true)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('tmux: invalid option -- x') as ExecException
@@ -1628,11 +1668,12 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
       mockCheckTmuxInstalled.mockResolvedValue(true)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
-          const error = new Error('Connection refused') as ExecException & { code: string }
-          error.code = 'ECONNREFUSED'
+          const error = new Error('Connection refused') as ExecException
+          ;(error as any).code = 'ECONNREFUSED'
           cb?.(error, '', '')
           return {} as ReturnType<typeof exec>
         }
@@ -1651,7 +1692,8 @@ describe('TaskTerminalService', () => {
       mockFindFirst.mockReturnValue(undefined)
       mockCheckTmuxInstalled.mockResolvedValue(true)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('Unknown error')
@@ -1676,7 +1718,8 @@ describe('TaskTerminalService', () => {
       // Make logActivity fail
       mockLogActivity.mockRejectedValue(new Error('DB error'))
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (_cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
           const error = new Error('tmux crashed')
@@ -1703,7 +1746,8 @@ describe('TaskTerminalService', () => {
       })
       mockCheckTmuxInstalled.mockResolvedValue(true)
 
-      vi.mocked(exec).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(vi.mocked(exec) as any).mockImplementation(
         (cmd: string, _options: unknown, callback?: ExecCallback) => {
           const cb = typeof _options === 'function' ? (_options as ExecCallback) : callback
 

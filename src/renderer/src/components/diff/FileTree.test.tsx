@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { FileTree } from './FileTree'
-import type { GitDiffFile } from '@main/services/git.service'
+import type { GitDiffFile } from '@shared/types/git-diff.types'
 
 /**
  * Test suite for FileTree component
@@ -382,7 +382,7 @@ describe('FileTree', () => {
     it('handles files with missing path gracefully', () => {
       const edgeCaseFiles: GitDiffFile[] = [
         // @ts-expect-error - Testing edge case with missing path
-        { path: null, status: 'modified', additions: 1, deletions: 0, hunks: [] }
+        { path: null, status: 'modified', additions: 1, deletions: 0, hunks: [], isBinary: false }
       ]
 
       render(<FileTree files={edgeCaseFiles} selectedFile={null} onFileSelect={vi.fn()} />)

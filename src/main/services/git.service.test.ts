@@ -393,7 +393,7 @@ index abc1234..def5678 100644
 
     beforeEach(async () => {
       // Create test directory
-      const { mkdirSync, writeFileSync, rmSync } = await import('fs')
+      const { mkdirSync, rmSync } = await import('fs')
       try {
         rmSync(testDir, { recursive: true, force: true })
       } catch {
@@ -594,7 +594,7 @@ index abc1234..def5678 100644
     })
 
     it('should clean up on failure (AC: 6, NFR12)', async () => {
-      const { existsSync, mkdirSync, writeFileSync } = await import('fs')
+      const { mkdirSync, writeFileSync } = await import('fs')
       const conflictingTaskId = 'conflict-task'
 
       // Create the worktree directory as a regular file to cause failure

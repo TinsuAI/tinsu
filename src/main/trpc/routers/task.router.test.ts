@@ -75,7 +75,8 @@ vi.mock('../../services/config.service', () => ({
 // Now import task.router after mocks are set up
 import { taskRouter } from './task.router'
 // TES-2.5: Import the mock functions for assertions
-import { __mocks } from '../../services'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { __mocks } = require('../../services') as any
 const { mockLogActivity, mockGetActivities, mockOnStatusInProgress } = __mocks as { mockLogActivity: ReturnType<typeof vi.fn>, mockGetActivities: ReturnType<typeof vi.fn>, mockOnStatusInProgress: ReturnType<typeof vi.fn> }
 
 type TestDb = BetterSQLite3Database<typeof schema>
@@ -209,7 +210,7 @@ function createTestCaller(db: TestDb, projectId: string | null = TEST_PROJECT_ID
     db,
     projectRoot: process.cwd(),
     projectId
-  } as { db: typeof import('../../db').db; projectRoot: string; projectId: string | null })
+  } as any)
 }
 
 describe('taskRouter', () => {

@@ -240,30 +240,30 @@ export function useDiff(options: UseDiffOptions): {
 
   if (useVersionComparison) {
     // Story 7.7: Version comparison mode
-    diff = versionDiff
+    diff = versionDiff as GitDiffResult | undefined
     isLoading = isVersionLoading
-    error = versionError
+    error = versionError as Error | null
     refetch = refetchVersion
     isFetching = isVersionFetching
   } else if (shouldUseStandardFallback) {
     // Baseline failed, use standard as fallback
-    diff = standardDiff
+    diff = standardDiff as GitDiffResult | undefined
     isLoading = isStandardLoading
     error = null
     refetch = refetchStandard
     isFetching = isStandardFetching
   } else if (useBaselineDiff) {
     // Story 7.6: Baseline diff mode
-    diff = baselineDiff
+    diff = baselineDiff as GitDiffResult | undefined
     isLoading = isBaselineLoading
-    error = baselineError
+    error = baselineError as Error | null
     refetch = refetchBaseline
     isFetching = isBaselineFetching
   } else {
     // Standard mode (worktree or historical)
-    diff = standardDiff
+    diff = standardDiff as GitDiffResult | undefined
     isLoading = isStandardLoading
-    error = standardError
+    error = standardError as Error | null
     refetch = refetchStandard
     isFetching = isStandardFetching
   }

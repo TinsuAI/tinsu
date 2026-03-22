@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ActivityItem, type Activity } from './ActivityItem'
+import { ActivityItem } from './ActivityItem'
+import type { Activity } from '@shared/types/activity.types'
 
 /**
  * Unit tests for ActivityItem component.
@@ -25,12 +26,6 @@ describe('ActivityItem', () => {
       // Implementation uses date-fns format(date, 'HH:mm:ss')
       // We import format in test file or just rely on the implementation being consistent
       // Let's use a regex that matches the time part to be safe, but ideally check exact string
-      const expectedTime = new Date(timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      })
       // Note: toLocaleTimeString might behave differently on different systems vs date-fns format
       // So we will just check that the element containing the time exists and matches strict pattern
       expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()

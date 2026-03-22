@@ -656,7 +656,7 @@ export class TaskTerminalService {
    */
   private static async logTmuxCreationError(
     taskId: string,
-    sessionName: string,
+    _sessionName: string,
     error: unknown
   ): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error)

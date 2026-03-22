@@ -95,7 +95,7 @@ export function ActivitiesFilter({
     }
 
     // Toggle category
-    let newFilters = selectedFilters.filter((f) => f !== 'all')
+    let newFilters: FilterCategory[] = selectedFilters.filter((f) => f !== 'all')
 
     if (newFilters.includes(category)) {
       // Remove the category

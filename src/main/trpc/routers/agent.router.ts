@@ -376,7 +376,7 @@ export const agentRouter = router({
       // Story 7.5 AC5: Prepend inline comments to story file if they exist
       if (typedTask.inline_comments) {
         try {
-          const comments = JSON.parse(typedTask.inline_comments) as InlineComment[]
+          const comments = JSON.parse(typedTask.inline_comments as unknown as string) as InlineComment[]
           if (comments && comments.length > 0) {
             const formattedComments = ContextBuilderService.formatInlineCommentsAsMarkdown(comments)
             storyContent = `${formattedComments}\n\n---\n\n${storyContent}`

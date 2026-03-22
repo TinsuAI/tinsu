@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { TaskTerminalService } from './task-terminal.service'
 import { db } from '../db'
 import { app } from 'electron'
@@ -48,8 +48,6 @@ describe('ScrollbackBackupService', () => {
   const mockUserDataPath = '/mock/user/data'
   const mockTaskId = 'task-123'
   const mockSessionName = 'tinsu-project-task-123'
-  const mockScrollback = 'line1\nline2\nline3\n'
-  const mockCompressedData = Buffer.from('compressed-data')
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -229,7 +227,7 @@ describe('ScrollbackBackupService', () => {
   describe('backupAllActiveSessions', () => {
     it('attempts backup for all sessions from database', async () => {
       const mockSessions = [{ task_id: 'task-1' }, { task_id: 'task-2' }, { task_id: 'task-3' }]
-      vi.mocked(db.query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
+      vi.mocked((db as any).query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
       // Make all sessions fail early (no session name) to avoid exec calls
       vi.mocked(TaskTerminalService.getSessionName).mockResolvedValue(null)
 
@@ -242,7 +240,7 @@ describe('ScrollbackBackupService', () => {
     it('continues with other sessions on individual failures', async () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const mockSessions = [{ task_id: 'task-1' }, { task_id: 'task-2' }]
-      vi.mocked(db.query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
+      vi.mocked((db as any).query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
 
       // Make all tasks fail (no session name) to avoid exec calls but still test iteration
       vi.mocked(TaskTerminalService.getSessionName).mockResolvedValue(null)
@@ -269,7 +267,7 @@ describe('ScrollbackBackupService', () => {
       ScrollbackBackupService.startPeriodicBackup('task-2')
       expect(ScrollbackBackupService.getActiveTimerCount()).toBe(2)
 
-      vi.mocked(db.query.task_sessions.findMany).mockResolvedValue([])
+      vi.mocked((db as any).query.task_sessions.findMany).mockResolvedValue([])
 
       await ScrollbackBackupService.backupOnShutdown()
 
@@ -278,7 +276,7 @@ describe('ScrollbackBackupService', () => {
 
     it('attempts backup for all active sessions', async () => {
       const mockSessions = [{ task_id: 'task-1' }]
-      vi.mocked(db.query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
+      vi.mocked((db as any).query.task_sessions.findMany).mockResolvedValue(mockSessions as unknown[])
       // Make session fail early (no session name) to avoid exec calls
       vi.mocked(TaskTerminalService.getSessionName).mockResolvedValue(null)
 

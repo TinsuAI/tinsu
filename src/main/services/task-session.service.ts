@@ -233,7 +233,7 @@ export class TaskSessionService {
    * @param sessionId - The Claude Code session ID
    */
   static async markSessionEnded(sessionId: string): Promise<void> {
-    const result = await db
+    await db
       .update(sessionHistory)
       .set({ ended_at: new Date() })
       .where(eq(sessionHistory.session_id, sessionId))

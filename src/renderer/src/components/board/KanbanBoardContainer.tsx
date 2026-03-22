@@ -18,7 +18,7 @@ import type { GitRecoverableError } from '@shared/types/git-error.types'
 
 export function KanbanBoardContainer() {
   const queryClient = useQueryClient()
-  const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery()
+  const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery() as { data: Task[] | undefined; isLoading: boolean; isError: boolean; error: Error | null }
   const { data: epics } = trpc.epics.getAll.useQuery()
 
   // Story 3.4: Agent launcher hook for planning tasks

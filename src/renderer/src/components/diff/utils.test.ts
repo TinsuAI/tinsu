@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { getLanguageFromPath, reconstructFileContent } from './utils'
-import type { GitDiffHunk } from '@main/services/git.service'
+import type { GitDiffHunk } from '@shared/types/git-diff.types'
 
 describe('getLanguageFromPath', () => {
   describe('JavaScript/TypeScript files', () => {

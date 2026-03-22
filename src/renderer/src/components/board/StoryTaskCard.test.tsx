@@ -24,7 +24,7 @@ const mockStoryTask: StoryTask = {
   sprint_id: null,
   project_id: 'proj-1',
   task_type: 'story',
-  story_number: 1,
+  story_number: '1',
   story_file_path: null,
   story_file_status: null,
   full_content: null,
@@ -36,6 +36,16 @@ const mockStoryTask: StoryTask = {
   artifact_path: null,
   // Story 5.5: Context notes for DEV agent
   context_notes: null,
+  worktree_path: null,
+  branch_name: null,
+  merge_commit_sha: null,
+  has_merge_conflict: null,
+  conflict_files: null,
+  rejection_feedback: null,
+  rejected_agent_run_id: null,
+  inline_comments: null,
+  rejection_count: null,
+  last_review_commit: null,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01')
 }

@@ -12,8 +12,7 @@ vi.mock('../db', () => ({
 // Import after mocking
 import * as dbModule from '../db'
 import {
-  ArtifactLinkingService,
-  type ArtifactWithStatus
+  ArtifactLinkingService
 } from './artifact-linking.service'
 
 type TestDb = BetterSQLite3Database<typeof schema>

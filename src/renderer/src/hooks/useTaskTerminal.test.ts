@@ -852,7 +852,7 @@ describe('useTaskTerminal', () => {
 
       // Mock the subscription to capture the callback
       vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
-        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+        .mockImplementation((_input: unknown, options: { onData: (data: unknown) => void }) => {
           onSessionStatusCallback = options.onData
         })
 
@@ -884,7 +884,7 @@ describe('useTaskTerminal', () => {
       let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
 
       vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
-        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+        .mockImplementation((_input: unknown, options: { onData: (data: unknown) => void }) => {
           onSessionStatusCallback = options.onData
         })
 
@@ -916,7 +916,7 @@ describe('useTaskTerminal', () => {
       let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
 
       vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
-        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+        .mockImplementation((_input: unknown, options: { onData: (data: unknown) => void }) => {
           onSessionStatusCallback = options.onData
         })
 
@@ -953,7 +953,7 @@ describe('useTaskTerminal', () => {
       let onSessionStatusCallback: ((data: { status: string }) => void) | undefined
 
       vi.mocked(require('@renderer/lib/trpc').trpc.agent.onSessionStatusChange.useSubscription)
-        .mockImplementation((input: unknown, options: { onData: (data: unknown) => void }) => {
+        .mockImplementation((_input: unknown, options: { onData: (data: unknown) => void }) => {
           onSessionStatusCallback = options.onData
         })
 

@@ -25,6 +25,16 @@ function createMockTask(overrides: Partial<Task>): Task {
     context_notes: null, // Story 5.5
     full_content: null,
     project_id: null,
+    worktree_path: null,
+    branch_name: null,
+    merge_commit_sha: null,
+    has_merge_conflict: null,
+    conflict_files: null,
+    rejection_feedback: null,
+    rejected_agent_run_id: null,
+    inline_comments: null,
+    rejection_count: null,
+    last_review_commit: null,
     created_at: new Date(),
     updated_at: new Date(),
     ...overrides
@@ -89,7 +99,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('blocks summary_only story from being dragged to in_progress', () => {
       const importedStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'summary_only'
       })
 
@@ -100,7 +110,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('blocks summary_only story from being dragged to review', () => {
       const importedStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'summary_only'
       })
 
@@ -111,7 +121,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('blocks summary_only story from being dragged to done', () => {
       const importedStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'summary_only'
       })
 
@@ -122,7 +132,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows summary_only story to go to backlog', () => {
       const importedStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'summary_only'
       })
 
@@ -133,7 +143,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows summary_only story to go to create_story', () => {
       const importedStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'summary_only'
       })
 
@@ -146,7 +156,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows story_ready to go to in_progress', () => {
       const readyStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'story_ready'
       })
 
@@ -157,7 +167,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows story_ready to go to review', () => {
       const readyStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'story_ready'
       })
 
@@ -168,7 +178,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows story_ready to go to done', () => {
       const readyStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'story_ready'
       })
 
@@ -179,7 +189,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows story_ready to go to backlog', () => {
       const readyStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'story_ready'
       })
 
@@ -190,7 +200,7 @@ describe('validateDragMove (Story 5.2c)', () => {
     it('allows story_ready to go to create_story', () => {
       const readyStory = createMockTask({
         task_type: 'story',
-        story_number: 1,
+        story_number: '1',
         story_file_status: 'story_ready'
       })
 

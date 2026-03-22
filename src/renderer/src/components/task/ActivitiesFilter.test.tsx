@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ActivitiesFilter, type FilterCategory } from './ActivitiesFilter'
+import { ActivitiesFilter } from './ActivitiesFilter'
 
 describe('ActivitiesFilter', () => {
   it('renders all filter chips', () => {

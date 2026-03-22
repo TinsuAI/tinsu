@@ -172,7 +172,7 @@ export function ChatMessageArea({
       data-testid="chat-message-area"
     >
       <div className="space-y-3">
-        {segments.map((segment, idx) => {
+        {segments.map((segment) => {
           switch (segment.type) {
             case 'message':
               return (
