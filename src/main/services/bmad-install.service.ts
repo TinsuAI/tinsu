@@ -1,5 +1,8 @@
 import { exec } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
 import { shell } from 'electron'
+import type { BmadStatus } from '../../shared/types/bmad.types'
 
 /**
  * Service for managing BMAD Method installation and status.
@@ -63,6 +66,83 @@ export class BmadInstallService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to open Node.js installer'
       }
+    }
+  }
+
+  /**
+   * Checks the BMAD installation status for a project.
+   *
+   * First checks if `_bmad/` directory exists, then runs the BMAD CLI
+   * status command. Falls back to reading config.yaml if CLI fails.
+   *
+   * @param projectPath - Path to the project root
+   * @returns BmadStatus with installed flag, version, and modules
+   */
+  static async checkBmadStatus(projectPath: string): Promise<BmadStatus> {
+    const bmadDir = path.join(projectPath, '_bmad')
+
+    if (!fs.existsSync(bmadDir)) {
+      return { installed: false }
+    }
+
+    try {
+      const stdout = await new Promise<string>((resolve, reject) => {
+        exec(
+          'npx --yes bmad-method status',
+          { cwd: projectPath },
+          (error, stdout) => {
+            if (error) {
+              reject(error)
+            } else {
+              resolve(stdout)
+            }
+          }
+        )
+      })
+
+      return BmadInstallService.parseStatusOutput(stdout)
+    } catch {
+      return BmadInstallService.parseConfigFallback(projectPath)
+    }
+  }
+
+  /**
+   * Parses the output of `npx bmad-method status` into a BmadStatus object.
+   */
+  private static parseStatusOutput(stdout: string): BmadStatus {
+    const status: BmadStatus = { installed: true }
+
+    // Parse version from "│  Version:       6.2.0"
+    const versionMatch = stdout.match(/Version:\s+(\S+)/)
+    if (versionMatch) {
+      status.version = versionMatch[1]
+    }
+
+    // Parse module names from lines like "│    core                 6.2.0 ✓"
+    const modules: string[] = []
+    const moduleRegex = /│\s{4}(\w+)\s+[\d.]+\s+[✓✗]/g
+    let match: RegExpExecArray | null
+    while ((match = moduleRegex.exec(stdout)) !== null) {
+      modules.push(match[1])
+    }
+
+    if (modules.length > 0) {
+      status.modules = modules
+    }
+
+    return status
+  }
+
+  /**
+   * Fallback: reads _bmad/bmm/config.yaml when CLI is unavailable.
+   */
+  private static parseConfigFallback(projectPath: string): BmadStatus {
+    try {
+      const configPath = path.join(projectPath, '_bmad', 'bmm', 'config.yaml')
+      fs.readFileSync(configPath, 'utf-8')
+      return { installed: true }
+    } catch {
+      return { installed: true }
     }
   }
 }
