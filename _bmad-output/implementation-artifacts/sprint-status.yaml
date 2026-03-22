@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-22T10-6-review
+# updated: 2026-03-22T10-7-ready-for-dev
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -266,5 +266,5 @@ development_status:
   10-4-bmad-agent-persona-context-injection: done  # Code review complete - 3 auto-fixes applied (hardcoded "TinSu" replaced with config.project_name in buildContext, persona-switch race guard added to handleSend to discard session if persona changed mid-flight, sessionPersonaRef added to useEffect reset), all 86 tests passing
   10-5-tool-activity-and-working-indicators: done  # Code review complete - 1 auto-fix applied (getToolActivity where clause changed from sql template to and(eq(),eq()) for type-safe consistency with project conventions), all 42 router tests + 91 renderer tests + 112 hook-listener tests passing
   10-6-session-persistence-and-resume: done  # Code review complete - 3 auto-fixes applied (lastActivityMap.delete added to killSession, mid-file imports moved to top of services/index.ts, raw sql IN filters replaced with inArray in getLastMessage and listWithPreview), all 123 tests passing (31 ChatCliService + 55 router + 16 ChatSessionList + 21 ChatPanel)
-  10-7-artifact-detection-and-planning-workspace-integration: backlog
+  10-7-artifact-detection-and-planning-workspace-integration: done  # Code review complete - 2 auto-fixes applied (unused `filename` variable removed from ChatArtifactNotification, sessionsForCheck undefined guard added to ChatPanel targetChatSessionId useEffect to prevent premature navigation before data loads), all 141 tests passing (13 hook-listener + 58 router + 4 ChatArtifactNotification + 17 ChatMessageArea + 26 ArtifactViewer + 23 ChatPanel)
   epic-10-retrospective: optional

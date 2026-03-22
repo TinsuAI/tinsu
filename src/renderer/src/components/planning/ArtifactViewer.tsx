@@ -10,13 +10,14 @@ import {
   AlertTriangle,
   RotateCw,
   Hash,
-  GitCompare
+  GitCompare,
+  MessageSquare
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
-import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
+import { BMAD_WORKFLOWS, AGENT_PERSONA_CONFIG } from '@renderer/constants/planning-workspace'
 import { markdownComponents } from '@renderer/components/task/MarkdownComponents'
 import { ArtifactVersionHistory } from './ArtifactVersionHistory'
 import { ArtifactDiffView } from './ArtifactDiffView'
@@ -149,6 +150,19 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
     { projectId },
     { enabled: !!projectId, refetchOnWindowFocus: true }
   )
+
+  // Story 10.7: Query artifact provenance — which chat session produced this artifact (AC: 2)
+  const artifactFilename = useMemo(() => {
+    const wf = BMAD_WORKFLOWS.find((w) => w.key === workflowKey)
+    return wf?.outputFilename ?? null
+  }, [workflowKey])
+
+  const { data: artifactProvenance } = trpc.chatSession.getSessionForArtifact.useQuery(
+    { projectId, filename: artifactFilename! },
+    { enabled: !!projectId && !!artifactFilename }
+  )
+
+  const openChatToSession = usePlanningWorkspaceStore((s) => s.openChatToSession)
 
   // Story 9.7: Prefetch version history to enable/disable Compare Versions button
   const { data: versionHistory } = trpc.planning.getArtifactVersionHistory.useQuery(
@@ -404,6 +418,32 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
           </span>
           <span className="text-muted-foreground/30">&middot;</span>
           <span>{workflow?.name ?? workflowKey}</span>
+
+          {/* Story 10.7: Artifact provenance badge (AC: 2) */}
+          {artifactProvenance && (() => {
+            const personaCfg = AGENT_PERSONA_CONFIG[artifactProvenance.agentPersona]
+            return (
+              <>
+                <span className="text-muted-foreground/30">&middot;</span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  data-testid="artifact-provenance-badge"
+                >
+                  <span className={cn('inline-block h-2 w-2 rounded-full', personaCfg?.dot ?? 'bg-muted-foreground')} />
+                  <span>{personaCfg?.displayName ?? 'Agent'}</span>
+                  <button
+                    type="button"
+                    onClick={() => openChatToSession(artifactProvenance.sessionId)}
+                    className="inline-flex items-center gap-0.5 text-cyan-400 transition-colors hover:text-cyan-300"
+                    data-testid="artifact-view-chat-link"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    View Chat
+                  </button>
+                </span>
+              </>
+            )
+          })()}
         </div>
       </div>
 

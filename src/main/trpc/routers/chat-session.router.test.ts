@@ -1454,4 +1454,113 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(mockKillSession).not.toHaveBeenCalled()
     })
   })
+
+  describe('getSessionForArtifact (Story 10.7, AC: 2)', () => {
+    it('should return session info when artifact message exists', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      // Create a session
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      // Insert an __artifact_created__ message
+      testDb
+        .insert(schema.chat_messages)
+        .values({
+          id: 'artifact-msg-1',
+          session_id: session!.id,
+          role: 'tool',
+          content: 'Artifact created: prd.md',
+          tool_name: '__artifact_created__',
+          tool_input: JSON.stringify({ filename: 'prd.md', workflowKey: 'prd', filePath: '/test/project/_bmad-output/planning-artifacts/prd.md' }),
+          created_at: new Date()
+        })
+        .run()
+
+      const result = await caller.chatSession.getSessionForArtifact({
+        projectId: 'project-1',
+        filename: 'prd.md'
+      })
+
+      expect(result).not.toBeNull()
+      expect(result!.sessionId).toBe(session!.id)
+      expect(result!.sessionUuid).toBe(session!.session_uuid)
+      expect(result!.agentPersona).toBe('bmad:bmm:agents:pm')
+    })
+
+    it('should return null when no artifact message for filename', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      // Create a session without any artifact messages
+      await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      const result = await caller.chatSession.getSessionForArtifact({
+        projectId: 'project-1',
+        filename: 'architecture.md'
+      })
+
+      expect(result).toBeNull()
+    })
+
+    it('should return most recent session when multiple artifact messages exist', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      // Create two sessions
+      const session1 = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      const session2 = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:architect',
+        projectId: 'project-1'
+      })
+
+      const pastDate = new Date('2026-03-20T10:00:00Z')
+      const recentDate = new Date('2026-03-22T10:00:00Z')
+
+      // Insert artifact messages — first session has older timestamp
+      testDb
+        .insert(schema.chat_messages)
+        .values({
+          id: 'artifact-msg-old',
+          session_id: session1!.id,
+          role: 'tool',
+          content: 'Artifact created: prd.md',
+          tool_name: '__artifact_created__',
+          tool_input: JSON.stringify({ filename: 'prd.md', workflowKey: 'prd', filePath: '/test/prd.md' }),
+          created_at: pastDate
+        })
+        .run()
+
+      // Second session has newer timestamp
+      testDb
+        .insert(schema.chat_messages)
+        .values({
+          id: 'artifact-msg-new',
+          session_id: session2!.id,
+          role: 'tool',
+          content: 'Artifact created: prd.md',
+          tool_name: '__artifact_created__',
+          tool_input: JSON.stringify({ filename: 'prd.md', workflowKey: 'prd', filePath: '/test/prd.md' }),
+          created_at: recentDate
+        })
+        .run()
+
+      const result = await caller.chatSession.getSessionForArtifact({
+        projectId: 'project-1',
+        filename: 'prd.md'
+      })
+
+      expect(result).not.toBeNull()
+      // Should return the most recent (session2 = architect)
+      expect(result!.sessionId).toBe(session2!.id)
+      expect(result!.agentPersona).toBe('bmad:bmm:agents:architect')
+    })
+  })
 })

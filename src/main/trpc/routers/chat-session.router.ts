@@ -451,6 +451,53 @@ export const chatSessionRouter = router({
     }),
 
   /**
+   * Get the chat session that produced a specific planning artifact.
+   *
+   * Finds the most recent `__artifact_created__` message matching the given filename,
+   * then returns the associated session details. Returns null if no match found.
+   *
+   * @example
+   * ```typescript
+   * const session = await trpc.chatSession.getSessionForArtifact.query({
+   *   projectId: 'project-1',
+   *   filename: 'prd.md'
+   * })
+   * ```
+   *
+   * @see Story 10.7: Artifact Detection & Planning Workspace Integration (AC: 2)
+   */
+  getSessionForArtifact: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().min(1),
+        filename: z.string().min(1)
+      })
+    )
+    .query(({ input }) => {
+      const result = db
+        .select({
+          sessionId: chat_sessions.id,
+          sessionUuid: chat_sessions.session_uuid,
+          agentPersona: chat_sessions.agent_persona,
+          createdAt: chat_sessions.created_at
+        })
+        .from(chat_messages)
+        .innerJoin(chat_sessions, eq(chat_messages.session_id, chat_sessions.id))
+        .where(
+          and(
+            eq(chat_messages.tool_name, '__artifact_created__'),
+            eq(chat_sessions.project_id, input.projectId),
+            sql`JSON_EXTRACT(${chat_messages.tool_input}, '$.filename') = ${input.filename}`
+          )
+        )
+        .orderBy(desc(chat_messages.created_at))
+        .limit(1)
+        .get()
+
+      return result ?? null
+    }),
+
+  /**
    * Send a chat message to a Claude Code CLI session.
    *
    * Combines storing the user message in DB AND sending it to the CLI.

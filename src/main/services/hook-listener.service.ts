@@ -11,6 +11,7 @@
 
 import * as http from 'http'
 import * as fs from 'fs'
+import { basename } from 'path'
 import { z } from 'zod'
 import { eq, desc, and, isNull, or } from 'drizzle-orm'
 import { db } from '../db'
@@ -992,6 +993,37 @@ export class HookListenerService {
     console.log(
       `[HookListener] Stored chat tool-use event for session ${session.id}: ${payload.tool_name}`
     )
+
+    // Story 10.7: Detect artifact writes in planning-artifacts directory (AC: 1)
+    const isArtifactWrite =
+      (payload.tool_name === 'Write' || payload.tool_name === 'Edit') &&
+      typeof payload.tool_input?.file_path === 'string' &&
+      payload.tool_input.file_path.includes('_bmad-output/planning-artifacts/')
+
+    if (isArtifactWrite) {
+      const filePath = payload.tool_input.file_path as string
+      const filename = basename(filePath)
+      const matchedWorkflow = BMAD_WORKFLOWS.find((w) => w.filename === filename)
+      const workflowKey = matchedWorkflow?.workflowKey ?? null
+
+      const artifactMessageId = crypto.randomUUID()
+
+      db.insert(chat_messages)
+        .values({
+          id: artifactMessageId,
+          session_id: session.id,
+          role: 'tool',
+          content: `Artifact created: ${filename}`,
+          tool_name: '__artifact_created__',
+          tool_input: JSON.stringify({ filename, workflowKey, filePath }),
+          created_at: now
+        })
+        .run()
+
+      console.log(
+        `[HookListener] Artifact detected in chat session ${session.id}: ${filename} (workflowKey: ${workflowKey})`
+      )
+    }
   }
 
   /**

@@ -61,7 +61,7 @@ export function PhaseProgressDashboard() {
 
   const { data: artifacts, refetch, isError } = trpc.planning.scanArtifacts.useQuery(
     { projectId },
-    { enabled: !!projectId, refetchOnWindowFocus: true }
+    { enabled: !!projectId, refetchOnWindowFocus: true, refetchInterval: 10000 }
   )
 
   const updateStatus = trpc.planning.updateArtifactStatus.useMutation({

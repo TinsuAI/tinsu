@@ -17,6 +17,8 @@ interface PlanningWorkspaceState {
   selectedWorkflowKey: string | null
   /** Whether the chat panel is open (Story 10.2) */
   isChatOpen: boolean
+  /** Target chat session ID for cross-component navigation (Story 10.7) */
+  targetChatSessionId: string | null
 }
 
 interface PlanningWorkspaceActions {
@@ -36,6 +38,10 @@ interface PlanningWorkspaceActions {
   openChat: () => void
   /** Close the chat panel (Story 10.2) */
   closeChat: () => void
+  /** Open chat panel and navigate to a specific session (Story 10.7, AC: 2) */
+  openChatToSession: (sessionId: string) => void
+  /** Clear the target chat session ID after ChatPanel processes it (Story 10.7) */
+  clearTargetChatSession: () => void
 }
 
 export const usePlanningWorkspaceStore = create<
@@ -46,6 +52,7 @@ export const usePlanningWorkspaceStore = create<
   activePhase: 'analysis',
   selectedWorkflowKey: null,
   isChatOpen: false,
+  targetChatSessionId: null,
 
   // Actions
   openWorkspace: (phase) =>
@@ -84,5 +91,9 @@ export const usePlanningWorkspaceStore = create<
   // Story 10.2: Chat panel actions
   toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
   openChat: () => set({ isChatOpen: true }),
-  closeChat: () => set({ isChatOpen: false })
+  closeChat: () => set({ isChatOpen: false }),
+
+  // Story 10.7: Cross-component chat session navigation
+  openChatToSession: (sessionId) => set({ isChatOpen: true, targetChatSessionId: sessionId }),
+  clearTargetChatSession: () => set({ targetChatSessionId: null })
 }))

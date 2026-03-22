@@ -81,7 +81,11 @@ vi.mock('./git.service', () => ({
 }))
 
 vi.mock('../trpc/routers/planning-workflow-constants', () => ({
-  BMAD_WORKFLOWS: []
+  BMAD_WORKFLOWS: [
+    { workflowKey: 'prd', filename: 'prd.md' },
+    { workflowKey: 'architecture', filename: 'architecture.md' },
+    { workflowKey: 'product-brief', filename: 'product-brief.md' }
+  ]
 }))
 
 /** Helper to make HTTP requests to the hook listener. */
@@ -343,6 +347,104 @@ describe('HookListenerService - Chat Endpoints (Story 10.1)', () => {
 
       // AutomationService.onAgentComplete should NOT have been called by chat-stop
       expect(AutomationService.onAgentComplete).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('artifact detection in chat-tool-use (Story 10.7, AC: 1)', () => {
+    it('should insert __artifact_created__ message when Write tool targets planning-artifacts', async () => {
+      await service.start(testPort)
+
+      // Mock: session found
+      mockGet.mockReturnValueOnce({
+        id: 'cs-1',
+        session_uuid: 'test-uuid',
+        agent_persona: 'bmad-pm',
+        project_id: 'project-1',
+        status: 'active'
+      })
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-tool-use', {
+        session_id: 'test-uuid',
+        tool_name: 'Write',
+        tool_input: { file_path: '/home/user/project/_bmad-output/planning-artifacts/prd.md', content: '# PRD' },
+        hook_event_name: 'PostToolUse'
+      })
+
+      expect(response.status).toBe(200)
+      // Should have inserted the regular tool message AND the artifact marker message (2 inserts)
+      expect(mockInsertRun).toHaveBeenCalledTimes(2)
+    })
+
+    it('should NOT insert __artifact_created__ message when Write tool targets non-planning path', async () => {
+      await service.start(testPort)
+
+      // Mock: session found
+      mockGet.mockReturnValueOnce({
+        id: 'cs-1',
+        session_uuid: 'test-uuid',
+        agent_persona: 'bmad-pm',
+        project_id: 'project-1',
+        status: 'active'
+      })
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-tool-use', {
+        session_id: 'test-uuid',
+        tool_name: 'Write',
+        tool_input: { file_path: '/home/user/project/src/main/index.ts', content: 'export {}' },
+        hook_event_name: 'PostToolUse'
+      })
+
+      expect(response.status).toBe(200)
+      // Should have inserted ONLY the regular tool message (1 insert)
+      expect(mockInsertRun).toHaveBeenCalledTimes(1)
+    })
+
+    it('should insert __artifact_created__ message when Edit tool targets planning-artifacts', async () => {
+      await service.start(testPort)
+
+      // Mock: session found
+      mockGet.mockReturnValueOnce({
+        id: 'cs-1',
+        session_uuid: 'test-uuid',
+        agent_persona: 'bmad-pm',
+        project_id: 'project-1',
+        status: 'active'
+      })
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-tool-use', {
+        session_id: 'test-uuid',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/home/user/project/_bmad-output/planning-artifacts/architecture.md', old_string: 'old', new_string: 'new' },
+        hook_event_name: 'PostToolUse'
+      })
+
+      expect(response.status).toBe(200)
+      // 2 inserts: tool message + artifact marker
+      expect(mockInsertRun).toHaveBeenCalledTimes(2)
+    })
+
+    it('should NOT insert __artifact_created__ message for Read tool', async () => {
+      await service.start(testPort)
+
+      // Mock: session found
+      mockGet.mockReturnValueOnce({
+        id: 'cs-1',
+        session_uuid: 'test-uuid',
+        agent_persona: 'bmad-pm',
+        project_id: 'project-1',
+        status: 'active'
+      })
+
+      const response = await makeRequest(testPort, 'POST', '/api/hooks/chat-tool-use', {
+        session_id: 'test-uuid',
+        tool_name: 'Read',
+        tool_input: { file_path: '/home/user/project/_bmad-output/planning-artifacts/prd.md' },
+        hook_event_name: 'PostToolUse'
+      })
+
+      expect(response.status).toBe(200)
+      // Only the regular tool message (1 insert), NOT an artifact marker
+      expect(mockInsertRun).toHaveBeenCalledTimes(1)
     })
   })
 })

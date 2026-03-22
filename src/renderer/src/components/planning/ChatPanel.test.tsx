@@ -151,12 +151,16 @@ vi.mock('@renderer/lib/trpc', () => ({
 
 // Mock stores
 const mockCloseChat = vi.fn()
+const mockClearTargetChatSession = vi.fn()
+let mockTargetChatSessionId: string | null = null
 
 vi.mock('@renderer/stores', () => ({
   usePlanningWorkspaceStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
       isChatOpen: true,
-      closeChat: mockCloseChat
+      closeChat: mockCloseChat,
+      targetChatSessionId: mockTargetChatSessionId,
+      clearTargetChatSession: mockClearTargetChatSession
     }
     return selector ? selector(state) : state
   }
@@ -640,5 +644,58 @@ describe('ChatPanel session list view (Story 10.6, AC: 1, 2, 3, 4)', () => {
     render(<ChatPanel />)
 
     expect(screen.getByText('Chat Sessions')).toBeInTheDocument()
+  })
+})
+
+describe('ChatPanel targetChatSessionId (Story 10.7, AC: 2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTargetChatSessionId = null
+  })
+
+  it('auto-selects session and switches to chat view when targetChatSessionId is set', async () => {
+    // Set up session list with a matching session
+    mockListWithPreviewQuery.mockReturnValue({
+      data: mockSessions
+    })
+
+    // Set target session ID
+    mockTargetChatSessionId = 'session-pm-1'
+
+    // Mock messages for the selected session
+    mockGetMessagesQuery.mockReturnValue({
+      data: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date('2026-03-22T10:00:00Z')
+        }
+      ]
+    })
+
+    render(<ChatPanel />)
+
+    // Should switch to chat view (since target session was set)
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+    })
+
+    // Should clear the target after processing
+    expect(mockClearTargetChatSession).toHaveBeenCalled()
+  })
+
+  it('clears targetChatSessionId after processing', async () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: mockSessions
+    })
+
+    mockTargetChatSessionId = 'session-arch-1'
+
+    render(<ChatPanel />)
+
+    await waitFor(() => {
+      expect(mockClearTargetChatSession).toHaveBeenCalled()
+    })
   })
 })

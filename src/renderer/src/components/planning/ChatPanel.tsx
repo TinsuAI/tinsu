@@ -26,6 +26,8 @@ import { ChatSessionList, type ChatSessionListItem } from './ChatSessionList'
 
 export function ChatPanel() {
   const closeChat = usePlanningWorkspaceStore((s) => s.closeChat)
+  const targetChatSessionId = usePlanningWorkspaceStore((s) => s.targetChatSessionId)
+  const clearTargetChatSession = usePlanningWorkspaceStore((s) => s.clearTargetChatSession)
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
 
@@ -63,6 +65,33 @@ export function ChatPanel() {
       setView('chat')
     }
   }, [view, projectId, sessionsForCheck])
+
+  // Story 10.7: Navigate to a specific session when targetChatSessionId is set (AC: 2)
+  useEffect(() => {
+    if (!targetChatSessionId) return
+
+    // Wait until the session list has loaded before processing navigation.
+    // If sessionsForCheck is undefined, the query is still in-flight — skip now
+    // and re-run when sessionsForCheck becomes defined (via the dependency array).
+    if (sessionsForCheck === undefined) return
+
+    // Find the session in the preview list to get its persona
+    const targetSession = sessionsForCheck.find((s) => s.id === targetChatSessionId)
+    if (targetSession) {
+      setSessionId(targetChatSessionId)
+      setSelectedPersona(targetSession.agent_persona as ChatPersonaKey)
+      sessionPersonaRef.current = targetSession.agent_persona as ChatPersonaKey
+      setIsAgentThinking(false)
+      setCurrentToolActivity(null)
+      prevMessageCountRef.current = 0
+      setView('chat')
+    } else {
+      // Session not in current list (e.g. different project), just set session ID
+      setSessionId(targetChatSessionId)
+      setView('chat')
+    }
+    clearTargetChatSession()
+  }, [targetChatSessionId, sessionsForCheck, clearTargetChatSession])
 
   // Story 10.4: Persona switch — reset session to force new CLI session for new persona
   // When persona changes, clear sessionId so the next message creates a new session

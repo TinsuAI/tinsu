@@ -18,6 +18,7 @@ import { MessageSquare, AlertTriangle } from 'lucide-react'
 import { ChatMessageBubble } from './ChatMessageBubble'
 import { ChatToolActivityGroup } from './ChatToolActivityGroup'
 import { ChatWorkingIndicator } from './ChatWorkingIndicator'
+import { ChatArtifactNotification } from './ChatArtifactNotification'
 
 interface ChatMessage {
   id: string
@@ -51,6 +52,7 @@ type MessageSegment =
   | { type: 'message'; message: ChatMessage }
   | { type: 'toolGroup'; messages: ChatMessage[] }
   | { type: 'notification'; message: ChatMessage }
+  | { type: 'artifactNotification'; message: ChatMessage }
 
 /**
  * Group messages into segments for rendering.
@@ -72,8 +74,12 @@ function groupMessages(messages: ChatMessage[]): MessageSegment[] {
 
   for (const msg of messages) {
     if (msg.role === 'tool') {
+      // Artifact created messages render as artifact notification cards (Story 10.7, AC: 3)
+      if (msg.tool_name === '__artifact_created__') {
+        flushToolGroup()
+        segments.push({ type: 'artifactNotification', message: msg })
       // Notification messages render standalone (AC: 5)
-      if (msg.tool_name === '__notification__') {
+      } else if (msg.tool_name === '__notification__') {
         flushToolGroup()
         segments.push({ type: 'notification', message: msg })
       } else {
@@ -191,6 +197,14 @@ export function ChatMessageArea({
                     tool_input: m.tool_input ?? null,
                     created_at: m.created_at
                   }))}
+                />
+              )
+
+            case 'artifactNotification':
+              return (
+                <ChatArtifactNotification
+                  key={segment.message.id}
+                  message={segment.message}
                 />
               )
 

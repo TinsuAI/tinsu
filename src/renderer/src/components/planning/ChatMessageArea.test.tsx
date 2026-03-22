@@ -59,6 +59,18 @@ vi.mock('@renderer/constants/planning-workspace', () => {
   }
 })
 
+// Mock planning workspace store for ChatArtifactNotification
+const mockOpenWorkspaceToArtifact = vi.fn()
+
+vi.mock('@renderer/stores', () => ({
+  usePlanningWorkspaceStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = {
+      openWorkspaceToArtifact: mockOpenWorkspaceToArtifact
+    }
+    return selector ? selector(state) : state
+  }
+}))
+
 // Mock scrollIntoView for auto-scroll tests
 const scrollIntoViewMock = vi.fn()
 window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
@@ -388,5 +400,74 @@ describe('ChatMessageArea notification display (Story 10.5, AC: 5)', () => {
     expect(screen.getByTestId('chat-notification-message')).toBeInTheDocument()
     // Notification should NOT be inside a tool activity group
     expect(screen.queryByTestId('chat-tool-group-toggle')).not.toBeInTheDocument()
+  })
+})
+
+describe('ChatMessageArea artifact notification (Story 10.7, AC: 3)', () => {
+  const baseTime = new Date('2026-03-22T10:00:00Z')
+
+  it('renders __artifact_created__ tool messages as artifact notification cards, not tool activity groups', () => {
+    const messages = [
+      {
+        id: 'msg-1',
+        role: 'user' as const,
+        content: 'Create the PRD',
+        created_at: new Date(baseTime.getTime())
+      },
+      {
+        id: 'msg-artifact',
+        role: 'tool' as const,
+        content: 'Artifact created: prd.md',
+        tool_name: '__artifact_created__',
+        tool_input: JSON.stringify({ filename: 'prd.md', workflowKey: 'prd', filePath: '/test/prd.md' }),
+        created_at: new Date(baseTime.getTime() + 1000)
+      },
+      {
+        id: 'msg-2',
+        role: 'assistant' as const,
+        content: 'I have created the PRD.',
+        created_at: new Date(baseTime.getTime() + 2000)
+      }
+    ]
+
+    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+
+    // Should render as artifact notification, not as tool activity group
+    expect(screen.getByTestId('chat-artifact-notification')).toBeInTheDocument()
+    expect(screen.queryByTestId('chat-tool-activity-group')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('chat-tool-activity-card')).not.toBeInTheDocument()
+  })
+
+  it('artifact notification is separate from regular tool groups', () => {
+    const messages = [
+      {
+        id: 'msg-1',
+        role: 'user' as const,
+        content: 'Read the file and create PRD',
+        created_at: new Date(baseTime.getTime())
+      },
+      {
+        id: 'msg-tool-1',
+        role: 'tool' as const,
+        content: 'Tool: Read',
+        tool_name: 'Read',
+        tool_input: JSON.stringify({ file_path: '/test/file.ts' }),
+        created_at: new Date(baseTime.getTime() + 1000)
+      },
+      {
+        id: 'msg-artifact',
+        role: 'tool' as const,
+        content: 'Artifact created: prd.md',
+        tool_name: '__artifact_created__',
+        tool_input: JSON.stringify({ filename: 'prd.md', workflowKey: 'prd', filePath: '/test/prd.md' }),
+        created_at: new Date(baseTime.getTime() + 2000)
+      }
+    ]
+
+    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+
+    // Both should be present and separate
+    expect(screen.getByTestId('chat-tool-activity-card')).toBeInTheDocument()
+    expect(screen.getByTestId('chat-artifact-notification')).toBeInTheDocument()
   })
 })

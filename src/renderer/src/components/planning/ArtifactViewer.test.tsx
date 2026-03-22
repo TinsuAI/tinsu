@@ -10,6 +10,7 @@ const mockGetCurrent = vi.fn()
 const mockUpdateArtifactStatus = vi.fn()
 const mockInvalidate = vi.fn()
 const mockGetVersionHistory = vi.fn()
+const mockGetSessionForArtifact = vi.fn()
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -33,6 +34,11 @@ vi.mock('@renderer/lib/trpc', () => ({
       },
       getArtifactVersionHistory: {
         useQuery: (_input: unknown, _opts: unknown) => mockGetVersionHistory()
+      }
+    },
+    chatSession: {
+      getSessionForArtifact: {
+        useQuery: (_input: unknown, _opts: unknown) => mockGetSessionForArtifact()
       }
     },
     useUtils: () => ({
@@ -60,6 +66,30 @@ vi.mock('remark-gfm', () => ({
 vi.mock('@renderer/components/task/MarkdownComponents', () => ({
   markdownComponents: {}
 }))
+
+// Mock planning workspace constants for AGENT_PERSONA_CONFIG (Story 10.7)
+vi.mock('@renderer/constants/planning-workspace', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@renderer/constants/planning-workspace')>()
+  return {
+    ...original,
+    AGENT_PERSONA_CONFIG: {
+      'bmad:bmm:agents:pm': {
+        displayName: 'PM',
+        bg: 'bg-green-500/20',
+        text: 'text-green-400',
+        border: 'border-green-500/30',
+        dot: 'bg-green-400'
+      },
+      'bmad:bmm:agents:architect': {
+        displayName: 'Architect',
+        bg: 'bg-orange-500/20',
+        text: 'text-orange-400',
+        border: 'border-orange-500/30',
+        dot: 'bg-orange-400'
+      }
+    }
+  }
+})
 
 describe('ArtifactViewer', () => {
   const mockArtifactContent = {
@@ -97,6 +127,7 @@ describe('ArtifactViewer', () => {
     mockGetArtifactContent.mockReturnValue({ data: mockArtifactContent, isError: false })
     mockScanArtifacts.mockReturnValue({ data: mockArtifactsData })
     mockGetVersionHistory.mockReturnValue({ data: [] })
+    mockGetSessionForArtifact.mockReturnValue({ data: null })
   })
 
   describe('content rendering', () => {
@@ -305,6 +336,58 @@ describe('ArtifactViewer', () => {
       render(<ArtifactViewer workflowKey="architecture" />)
       const btn = screen.getByTestId('compare-versions-btn')
       expect(btn.getAttribute('title')).toBe('Needs at least 2 committed versions')
+    })
+  })
+
+  // Story 10.7: Artifact provenance badge tests (AC: 2)
+  describe('Artifact provenance badge (Story 10.7, AC: 2)', () => {
+    it('renders provenance badge when getSessionForArtifact returns session data', () => {
+      mockGetSessionForArtifact.mockReturnValue({
+        data: {
+          sessionId: 'session-pm-1',
+          sessionUuid: 'uuid-pm-1',
+          agentPersona: 'bmad:bmm:agents:pm',
+          createdAt: new Date('2026-03-22T10:00:00Z')
+        }
+      })
+
+      render(<ArtifactViewer workflowKey="architecture" />)
+
+      const badge = screen.getByTestId('artifact-provenance-badge')
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveTextContent('PM')
+    })
+
+    it('does not render provenance badge when getSessionForArtifact returns null', () => {
+      mockGetSessionForArtifact.mockReturnValue({ data: null })
+
+      render(<ArtifactViewer workflowKey="architecture" />)
+
+      expect(screen.queryByTestId('artifact-provenance-badge')).not.toBeInTheDocument()
+    })
+
+    it('"View Chat" link calls openChatToSession with correct session ID', () => {
+      mockGetSessionForArtifact.mockReturnValue({
+        data: {
+          sessionId: 'session-arch-1',
+          sessionUuid: 'uuid-arch-1',
+          agentPersona: 'bmad:bmm:agents:architect',
+          createdAt: new Date('2026-03-22T10:00:00Z')
+        }
+      })
+
+      render(<ArtifactViewer workflowKey="architecture" />)
+
+      const viewChatLink = screen.getByTestId('artifact-view-chat-link')
+      expect(viewChatLink).toBeInTheDocument()
+      expect(viewChatLink).toHaveTextContent('View Chat')
+
+      fireEvent.click(viewChatLink)
+
+      // openChatToSession should have been called on the store
+      const state = usePlanningWorkspaceStore.getState()
+      expect(state.isChatOpen).toBe(true)
+      expect(state.targetChatSessionId).toBe('session-arch-1')
     })
   })
 })
