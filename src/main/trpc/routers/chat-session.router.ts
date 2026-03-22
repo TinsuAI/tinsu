@@ -1,18 +1,20 @@
 /**
- * Chat Session Router - Story 10.1, 10.3
+ * Chat Session Router - Story 10.1, 10.3, 10.6
  *
  * tRPC router for chat session CRUD operations and CLI session management.
  * Provides procedures for creating, listing, messaging, updating chat sessions,
- * and sending messages to Claude Code CLI sessions.
+ * sending messages to Claude Code CLI sessions, deleting sessions, and
+ * listing sessions with message previews.
  *
  * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 5)
  * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
+ * @see Story 10.6: Session Persistence & Resume (AC: 1, 5, 6)
  */
 
 import { z } from 'zod'
 import crypto from 'crypto'
 import { join } from 'path'
-import { eq, desc, asc, sql, and } from 'drizzle-orm'
+import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
 import { chat_sessions, chat_messages, projects, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
@@ -263,6 +265,11 @@ export const chatSessionRouter = router({
         })
       }
 
+      // Story 10.6 AC: 6 — Kill CLI process when marking as paused or completed
+      if (input.status === 'paused' || input.status === 'completed') {
+        chatCliService.killSession(input.sessionId)
+      }
+
       const now = new Date()
 
       db.update(chat_sessions)
@@ -274,6 +281,141 @@ export const chatSessionRouter = router({
         .run()
 
       return db.select().from(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).get()!
+    }),
+
+  /**
+   * Delete a chat session and all its messages.
+   *
+   * Kills any running CLI process, then deletes the session from the database.
+   * Messages are cascade-deleted by the ON DELETE CASCADE FK constraint.
+   *
+   * @example
+   * ```typescript
+   * const result = await trpc.chatSession.deleteSession.mutate({
+   *   sessionId: 'session-123'
+   * })
+   * ```
+   *
+   * @see Story 10.6: Session Persistence & Resume (AC: 6)
+   */
+  deleteSession: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1)
+      })
+    )
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      // Kill CLI session if running (safe if not running)
+      chatCliService.killSession(input.sessionId)
+
+      // Delete from chat_sessions — cascade deletes messages
+      db.delete(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .run()
+
+      return { deleted: true }
+    }),
+
+  /**
+   * Get the last non-tool message for a chat session.
+   *
+   * Returns the most recent user or assistant message for session list preview.
+   *
+   * @example
+   * ```typescript
+   * const message = await trpc.chatSession.getLastMessage.query({
+   *   sessionId: 'session-123'
+   * })
+   * ```
+   *
+   * @see Story 10.6: Session Persistence & Resume (AC: 1)
+   */
+  getLastMessage: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1)
+      })
+    )
+    .query(({ input }) => {
+      return db
+        .select()
+        .from(chat_messages)
+        .where(
+          and(
+            eq(chat_messages.session_id, input.sessionId),
+            inArray(chat_messages.role, ['user', 'assistant'])
+          )
+        )
+        .orderBy(desc(chat_messages.created_at))
+        .limit(1)
+        .get() ?? null
+    }),
+
+  /**
+   * List chat sessions with last message preview.
+   *
+   * Returns sessions ordered by most recently active, with each session
+   * including a preview of the last non-tool message content.
+   *
+   * @example
+   * ```typescript
+   * const sessions = await trpc.chatSession.listWithPreview.query({
+   *   projectId: 'project-123'
+   * })
+   * ```
+   *
+   * @see Story 10.6: Session Persistence & Resume (AC: 1)
+   */
+  listWithPreview: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().min(1)
+      })
+    )
+    .query(({ input }) => {
+      const sessions = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.project_id, input.projectId))
+        .orderBy(
+          desc(sql`COALESCE(${chat_sessions.last_message_at}, 0)`),
+          desc(chat_sessions.created_at)
+        )
+        .all()
+
+      // Post-fetch map: get last non-tool message for each session
+      return sessions.map((session) => {
+        const lastMessage = db
+          .select({ content: chat_messages.content })
+          .from(chat_messages)
+          .where(
+            and(
+              eq(chat_messages.session_id, session.id),
+              inArray(chat_messages.role, ['user', 'assistant'])
+            )
+          )
+          .orderBy(desc(chat_messages.created_at))
+          .limit(1)
+          .get()
+
+        return {
+          ...session,
+          lastMessagePreview: lastMessage?.content ?? null
+        }
+      })
     }),
 
   /**

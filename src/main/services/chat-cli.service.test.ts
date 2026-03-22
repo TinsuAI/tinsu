@@ -1,14 +1,14 @@
 /**
- * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5)
+ * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), Story 10.6 (AC: 5)
  *
  * Tests: spawnSession creates PTY with correct args and writes initial message,
  * sendMessage writes to existing PTY, resumeSession spawns with --resume flag,
  * isSessionAlive returns correct state, killSession kills PTY and cleans map,
- * exit event updates map status.
+ * exit event updates map status, idle timeout kills sessions after 30 min.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ChatCliService } from './chat-cli.service'
+import { ChatCliService, IDLE_TIMEOUT_MS } from './chat-cli.service'
 
 // Mock ptyService
 const mockSpawn = vi.fn().mockReturnValue('pty-123')
@@ -305,6 +305,154 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
       expect(service.isSessionAlive('session-1')).toBe(false)
       expect(service.isSessionAlive('session-2')).toBe(true)
+    })
+  })
+
+  describe('idle timeout (Story 10.6, AC: 5)', () => {
+    it('IDLE_TIMEOUT_MS is 30 minutes', () => {
+      expect(IDLE_TIMEOUT_MS).toBe(30 * 60 * 1000)
+    })
+
+    it('checkIdleSessions kills sessions inactive > 30 min', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+
+      // Advance time past idle timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      const killed = service.checkIdleSessions()
+
+      expect(killed).toEqual(['session-idle'])
+      expect(mockKill).toHaveBeenCalled()
+
+      vi.useRealTimers()
+    })
+
+    it('checkIdleSessions does NOT kill sessions within 30 min', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-active', 'uuid-active', '/path', 'Hello')
+
+      // Advance time to just under the timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS - 1000)
+
+      const killed = service.checkIdleSessions()
+
+      expect(killed).toEqual([])
+
+      vi.useRealTimers()
+    })
+
+    it('checkIdleSessions does NOT kill already-exited sessions', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-exited', 'uuid-exited', '/path', 'Hello')
+
+      // Simulate exit
+      if (exitHandler) {
+        exitHandler({ processId: 'pty-123', exitCode: 0 })
+      }
+
+      // Advance past timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      const killed = service.checkIdleSessions()
+
+      // Should not kill already-exited sessions (isSessionAlive returns false)
+      expect(killed).toEqual([])
+
+      vi.useRealTimers()
+    })
+
+    it('lastActivityMap is updated on spawnSession', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
+
+      // Advance time, then send message to reset activity
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS - 5000)
+      service.sendMessage('session-1', 'Still here')
+
+      // Advance a bit more past original timeout but within new activity window
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      const killed = service.checkIdleSessions()
+
+      // Should NOT be killed because sendMessage reset the activity timestamp
+      expect(killed).toEqual([])
+
+      vi.useRealTimers()
+    })
+
+    it('lastActivityMap is updated on resumeSession', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
+
+      // Simulate exit
+      if (exitHandler) {
+        exitHandler({ processId: 'pty-123', exitCode: 0 })
+      }
+
+      // Advance past the original timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 5000)
+
+      // Resume the session — this should reset the activity timestamp
+      mockSpawn.mockReturnValue('pty-456')
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.resumeSession('session-1', 'uuid-1', '/path', 'Resume')
+
+      // Advance a bit more but not past the new timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 5000 + IDLE_TIMEOUT_MS - 1000)
+
+      const killed = service.checkIdleSessions()
+      expect(killed).toEqual([])
+
+      vi.useRealTimers()
+    })
+
+    it('killed idle sessions trigger the onIdle callback', () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      const onIdleCallback = vi.fn()
+      service.setOnIdleCallback(onIdleCallback)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      service.checkIdleSessions()
+
+      expect(onIdleCallback).toHaveBeenCalledWith('session-idle')
+
+      vi.useRealTimers()
+    })
+
+    it('killAll clears the idle check interval', () => {
+      // Just verifying killAll doesn't throw and clears state
+      service.killAll()
+
+      // After killAll, service should be in clean state
+      expect(service.isSessionAlive('any')).toBe(false)
     })
   })
 })

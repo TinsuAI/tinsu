@@ -1,13 +1,15 @@
 /**
- * Chat Session Router Tests - Story 10.1, 10.3
+ * Chat Session Router Tests - Story 10.1, 10.3, 10.6
  *
  * Tests for all chatSession procedures:
- * create, list, getMessages, updateStatus, sendChatMessage.
+ * create, list, getMessages, updateStatus, sendChatMessage,
+ * deleteSession, getLastMessage, listWithPreview.
  *
  * Uses in-memory SQLite and mocks the db module.
  *
  * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 5)
  * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
+ * @see Story 10.6: Session Persistence & Resume (AC: 1, 5, 6)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -36,6 +38,7 @@ const mockHasSession = vi.fn().mockReturnValue(false)
 const mockSpawnSession = vi.fn().mockReturnValue('pty-test')
 const mockSendMessage = vi.fn()
 const mockResumeSession = vi.fn().mockReturnValue('pty-resumed')
+const mockKillSession = vi.fn()
 
 vi.mock('../../services', () => ({
   chatCliService: {
@@ -43,7 +46,8 @@ vi.mock('../../services', () => ({
     hasSession: (...args: unknown[]) => mockHasSession(...args),
     spawnSession: (...args: unknown[]) => mockSpawnSession(...args),
     sendMessage: (...args: unknown[]) => mockSendMessage(...args),
-    resumeSession: (...args: unknown[]) => mockResumeSession(...args)
+    resumeSession: (...args: unknown[]) => mockResumeSession(...args),
+    killSession: (...args: unknown[]) => mockKillSession(...args)
   }
 }))
 
@@ -1101,6 +1105,353 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
 
       expect(toolMessages).toHaveLength(1)
       expect(toolMessages[0].tool_name).toBe('__notification__')
+    })
+  })
+
+  describe('deleteSession (Story 10.6, AC: 6)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should delete a session and cascade delete its messages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // Add some messages
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'user',
+        content: 'Hello'
+      })
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'assistant',
+        content: 'Hi there'
+      })
+
+      const result = await caller.chatSession.deleteSession({
+        sessionId: session!.id
+      })
+
+      expect(result).toEqual({ deleted: true })
+
+      // Verify session is gone
+      const sessions = await caller.chatSession.list({ projectId: 'project-1' })
+      expect(sessions).toHaveLength(0)
+
+      // Verify messages are cascade deleted
+      const messages = await caller.chatSession.getMessages({ sessionId: session!.id })
+      expect(messages).toHaveLength(0)
+    })
+
+    it('should kill CLI session on delete', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.deleteSession({
+        sessionId: session!.id
+      })
+
+      expect(mockKillSession).toHaveBeenCalledWith(session!.id)
+    })
+
+    it('should throw NOT_FOUND for non-existent session', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.chatSession.deleteSession({
+          sessionId: 'non-existent'
+        })
+      ).rejects.toThrow('Chat session not found')
+    })
+  })
+
+  describe('getLastMessage (Story 10.6, AC: 1)', () => {
+    it('should return the last user/assistant message (not tool)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const baseTime = Date.now()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'msg-user-1',
+        session_id: session!.id,
+        role: 'user',
+        content: 'First user message',
+        created_at: new Date(baseTime)
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'msg-tool-1',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Read',
+        tool_name: 'Read',
+        tool_input: '{}',
+        created_at: new Date(baseTime + 1000)
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'msg-assistant-1',
+        session_id: session!.id,
+        role: 'assistant',
+        content: 'Last assistant message',
+        created_at: new Date(baseTime + 2000)
+      }).run()
+
+      // Add another tool message AFTER the assistant message
+      testDb.insert(schema.chat_messages).values({
+        id: 'msg-tool-2',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Grep',
+        tool_name: 'Grep',
+        tool_input: '{}',
+        created_at: new Date(baseTime + 3000)
+      }).run()
+
+      const lastMessage = await caller.chatSession.getLastMessage({
+        sessionId: session!.id
+      })
+
+      // Should return the assistant message, not the tool message
+      expect(lastMessage).toBeDefined()
+      expect(lastMessage!.content).toBe('Last assistant message')
+      expect(lastMessage!.role).toBe('assistant')
+    })
+
+    it('should return null for session with no messages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const lastMessage = await caller.chatSession.getLastMessage({
+        sessionId: session!.id
+      })
+
+      expect(lastMessage).toBeNull()
+    })
+
+    it('should return null for session with only tool messages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'msg-tool-only',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Read',
+        tool_name: 'Read',
+        tool_input: '{}',
+        created_at: new Date()
+      }).run()
+
+      const lastMessage = await caller.chatSession.getLastMessage({
+        sessionId: session!.id
+      })
+
+      expect(lastMessage).toBeNull()
+    })
+  })
+
+  describe('listWithPreview (Story 10.6, AC: 1)', () => {
+    it('should return sessions with lastMessagePreview', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.addMessage({
+        sessionId: session!.id,
+        role: 'user',
+        content: 'Hello world preview message'
+      })
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0].lastMessagePreview).toBe('Hello world preview message')
+    })
+
+    it('should return null preview for sessions with no messages', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0].lastMessagePreview).toBeNull()
+    })
+
+    it('should return preview of last user/assistant message (not tool)', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const baseTime = Date.now()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'preview-user',
+        session_id: session!.id,
+        role: 'user',
+        content: 'User says something',
+        created_at: new Date(baseTime)
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'preview-assistant',
+        session_id: session!.id,
+        role: 'assistant',
+        content: 'Agent responds',
+        created_at: new Date(baseTime + 1000)
+      }).run()
+
+      testDb.insert(schema.chat_messages).values({
+        id: 'preview-tool',
+        session_id: session!.id,
+        role: 'tool',
+        content: 'Tool: Read',
+        tool_name: 'Read',
+        tool_input: '{}',
+        created_at: new Date(baseTime + 2000)
+      }).run()
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      // Preview should be the assistant message (last non-tool)
+      expect(sessions[0].lastMessagePreview).toBe('Agent responds')
+    })
+
+    it('should order sessions by most recently active', async () => {
+      const earlier = new Date(Date.now() - 5000)
+      const later = new Date(Date.now())
+
+      testDb.insert(schema.chat_sessions).values({
+        id: 'cs-older-preview',
+        session_uuid: 'uuid-older-preview',
+        agent_persona: 'bmad-pm',
+        project_id: 'project-1',
+        status: 'active',
+        created_at: earlier,
+        updated_at: earlier
+      }).run()
+
+      testDb.insert(schema.chat_sessions).values({
+        id: 'cs-newer-preview',
+        session_uuid: 'uuid-newer-preview',
+        agent_persona: 'bmad-architect',
+        project_id: 'project-1',
+        status: 'active',
+        created_at: later,
+        updated_at: later
+      }).run()
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions).toHaveLength(2)
+      expect(sessions[0].id).toBe('cs-newer-preview')
+      expect(sessions[1].id).toBe('cs-older-preview')
+    })
+  })
+
+  describe('updateStatus kills CLI session (Story 10.6, AC: 6)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should kill CLI session when status set to paused', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'paused'
+      })
+
+      expect(mockKillSession).toHaveBeenCalledWith(session!.id)
+    })
+
+    it('should kill CLI session when status set to completed', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'completed'
+      })
+
+      expect(mockKillSession).toHaveBeenCalledWith(session!.id)
+    })
+
+    it('should NOT kill CLI session when status set to active', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // First pause it
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'paused'
+      })
+
+      mockKillSession.mockClear()
+
+      // Then set back to active
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'active'
+      })
+
+      expect(mockKillSession).not.toHaveBeenCalled()
     })
   })
 })

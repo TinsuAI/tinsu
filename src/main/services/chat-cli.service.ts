@@ -1,5 +1,5 @@
 /**
- * Chat CLI Service - Story 10.3
+ * Chat CLI Service - Story 10.3, 10.6
  *
  * Manages Claude Code CLI PTY processes for chat sessions.
  * Uses ptyService singleton (node-pty, NOT tmux) to spawn interactive
@@ -11,8 +11,10 @@
  * - CLAUDE_PROJECT_DIR env var points to a directory with chat-specific hooks
  *   that POST to /api/hooks/chat-stop (not /api/hooks/stop).
  * - Chat sessions are INTERACTIVE: no --dangerously-skip-permissions.
+ * - Idle sessions (>30 min) are auto-killed to free resources (Story 10.6).
  *
  * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
+ * @see Story 10.6: Session Persistence & Resume (AC: 5)
  */
 
 import { ptyService } from './pty.service'
@@ -31,6 +33,9 @@ export interface ChatCliSessionInfo {
   status: ChatCliSessionStatus
 }
 
+/** Idle timeout threshold: 30 minutes in milliseconds (Story 10.6 AC: 5) */
+export const IDLE_TIMEOUT_MS = 30 * 60 * 1000
+
 /**
  * Service for managing Claude Code CLI processes for chat sessions.
  *
@@ -44,8 +49,17 @@ export class ChatCliService {
   /** Map from TinSu sessionId (chat_sessions.id) to CLI process info */
   private sessions: Map<string, ChatCliSessionInfo> = new Map()
 
+  /** Map from sessionId to last activity timestamp (Date.now()) (Story 10.6) */
+  private lastActivityMap: Map<string, number> = new Map()
+
   /** Path to the chat-specific hooks directory */
   private chatHooksDir: string
+
+  /** Interval handle for idle session checks (Story 10.6) */
+  private idleCheckInterval: ReturnType<typeof setInterval> | null = null
+
+  /** Callback invoked when a session is killed due to idle timeout (Story 10.6) */
+  private onIdleCallback: ((sessionId: string) => void) | null = null
 
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
@@ -54,6 +68,52 @@ export class ChatCliService {
     ptyService.on('exit', (event: PtyExitEvent) => {
       this.handlePtyExit(event)
     })
+
+    // Start periodic idle session check (every 60 seconds) (Story 10.6 AC: 5)
+    this.idleCheckInterval = setInterval(() => this.checkIdleSessions(), 60_000)
+  }
+
+  /**
+   * Set the callback to be invoked when a session is killed due to idle timeout.
+   * Used by the main process initialization to update DB status to 'paused'.
+   *
+   * @param callback - Function called with the sessionId of each idle-killed session
+   *
+   * @see Story 10.6: Session Persistence & Resume (AC: 5)
+   */
+  setOnIdleCallback(callback: (sessionId: string) => void): void {
+    this.onIdleCallback = callback
+  }
+
+  /**
+   * Check for idle sessions and kill those inactive for > IDLE_TIMEOUT_MS.
+   *
+   * Iterates lastActivityMap, finds sessions where Date.now() - lastActivity > IDLE_TIMEOUT_MS
+   * AND isSessionAlive() returns true, kills those sessions, and invokes the onIdle callback.
+   *
+   * @returns Array of session IDs that were killed due to inactivity
+   *
+   * @see Story 10.6: Session Persistence & Resume (AC: 5)
+   */
+  checkIdleSessions(): string[] {
+    const now = Date.now()
+    const killedSessionIds: string[] = []
+
+    for (const [sessionId, lastActivity] of this.lastActivityMap) {
+      if (now - lastActivity > IDLE_TIMEOUT_MS && this.isSessionAlive(sessionId)) {
+        this.killSession(sessionId)
+        killedSessionIds.push(sessionId)
+        console.log(
+          `[ChatCliService] Killed idle session ${sessionId} (inactive for ${Math.round((now - lastActivity) / 60000)} min)`
+        )
+
+        if (this.onIdleCallback) {
+          this.onIdleCallback(sessionId)
+        }
+      }
+    }
+
+    return killedSessionIds
   }
 
   /**
@@ -100,6 +160,9 @@ export class ChatCliService {
       status: 'running'
     })
 
+    // Track activity for idle timeout (Story 10.6)
+    this.lastActivityMap.set(sessionId, Date.now())
+
     console.log(
       `[ChatCliService] Spawned session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
     )
@@ -128,6 +191,9 @@ export class ChatCliService {
     }
 
     ptyService.write(info.processId, message + '\n')
+
+    // Track activity for idle timeout (Story 10.6)
+    this.lastActivityMap.set(sessionId, Date.now())
   }
 
   /**
@@ -175,6 +241,9 @@ export class ChatCliService {
       sessionUuid,
       status: 'running'
     })
+
+    // Track activity for idle timeout (Story 10.6)
+    this.lastActivityMap.set(sessionId, Date.now())
 
     console.log(
       `[ChatCliService] Resumed session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
@@ -225,6 +294,7 @@ export class ChatCliService {
 
     ptyService.kill(info.processId)
     this.sessions.delete(sessionId)
+    this.lastActivityMap.delete(sessionId)
 
     console.log(`[ChatCliService] Killed session ${sessionId}`)
   }
@@ -234,11 +304,18 @@ export class ChatCliService {
    * Called on app shutdown to clean up.
    */
   killAll(): void {
+    // Clear idle check interval (Story 10.6)
+    if (this.idleCheckInterval) {
+      clearInterval(this.idleCheckInterval)
+      this.idleCheckInterval = null
+    }
+
     for (const [sessionId, info] of this.sessions) {
       ptyService.kill(info.processId)
       console.log(`[ChatCliService] Killed session ${sessionId} (cleanup)`)
     }
     this.sessions.clear()
+    this.lastActivityMap.clear()
   }
 
   /**

@@ -4,29 +4,33 @@
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 1, 2, 6)
  * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 4)
  * Story 10.5: Tool Activity & Working Indicators (AC: 1)
+ * Story 10.6: Session Persistence & Resume (AC: 1, 2, 3, 4, 5)
  *
- * Full-height flex column with three sections:
- * - Persona selector header
- * - Message area (center, scrollable)
- * - Input footer
+ * Full-height flex column with two view modes:
+ * - 'list' view: Shows ChatSessionList for browsing/resuming previous sessions
+ * - 'chat' view: Shows persona selector header, message area, and input footer
  *
  * Manages session creation on first message, persona selection state,
  * agent thinking indicator, and current tool activity tracking.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowLeft } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 import { ChatMessageArea } from './ChatMessageArea'
 import { ChatInput } from './ChatInput'
+import { ChatSessionList, type ChatSessionListItem } from './ChatSessionList'
 
 export function ChatPanel() {
   const closeChat = usePlanningWorkspaceStore((s) => s.closeChat)
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
+
+  // Story 10.6: View mode — 'list' or 'chat' (AC: 1, 4)
+  const [view, setView] = useState<'list' | 'chat'>('list')
 
   // Persona selection — local state, defaults to PM
   const [selectedPersona, setSelectedPersona] = useState<ChatPersonaKey>('bmad:bmm:agents:pm')
@@ -46,6 +50,19 @@ export function ChatPanel() {
   // Track the persona that was active when the current session was created.
   // Used to guard against a race where persona switches mid-flight during session creation.
   const sessionPersonaRef = useRef<ChatPersonaKey | null>(null)
+
+  // Story 10.6 AC: 1 — Check if sessions exist to decide initial view.
+  // If no sessions exist, go directly to 'chat' view to avoid empty list.
+  const { data: sessionsForCheck } = trpc.chatSession.listWithPreview.useQuery(
+    { projectId },
+    { enabled: !!projectId && view === 'list' }
+  )
+
+  useEffect(() => {
+    if (view === 'list' && projectId && sessionsForCheck !== undefined && sessionsForCheck.length === 0) {
+      setView('chat')
+    }
+  }, [view, projectId, sessionsForCheck])
 
   // Story 10.4: Persona switch — reset session to force new CLI session for new persona
   // When persona changes, clear sessionId so the next message creates a new session
@@ -122,6 +139,36 @@ export function ChatPanel() {
     }
   })
 
+  /** Story 10.6 AC: 2 — Select a session from the session list to resume it */
+  const handleSelectSession = useCallback(
+    (session: ChatSessionListItem) => {
+      setSessionId(session.id)
+      setSelectedPersona(session.agent_persona as ChatPersonaKey)
+      sessionPersonaRef.current = session.agent_persona as ChatPersonaKey
+      setIsAgentThinking(false)
+      setCurrentToolActivity(null)
+      prevMessageCountRef.current = 0
+      setView('chat')
+    },
+    []
+  )
+
+  /** Story 10.6 AC: 4 — Start a new chat session */
+  const handleNewChat = useCallback(() => {
+    setSessionId(null)
+    sessionPersonaRef.current = null
+    setIsAgentThinking(false)
+    setCurrentToolActivity(null)
+    prevMessageCountRef.current = 0
+    setView('chat')
+  }, [])
+
+  /** Story 10.6 AC: 5.5 — Back to session list without destroying session */
+  const handleBackToSessions = useCallback(() => {
+    setView('list')
+    // Don't clear sessionId — user can return to this session
+  }, [])
+
   /** Send a message, creating a session if needed */
   const handleSend = useCallback(
     async (content: string) => {
@@ -193,37 +240,75 @@ export function ChatPanel() {
       )}
       data-testid="chat-panel"
     >
-      {/* Header: persona selector + close button */}
-      <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
-        <ChatPersonaSelector
-          selectedPersona={selectedPersona}
-          onPersonaChange={setSelectedPersona}
-        />
-        <button
-          type="button"
-          onClick={closeChat}
-          className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
-          aria-label="Close chat panel"
-          data-testid="chat-close-button"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      {view === 'list' ? (
+        <>
+          {/* Header: title + close button (list view) */}
+          <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground">Chat Sessions</span>
+            <button
+              type="button"
+              onClick={closeChat}
+              className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
+              aria-label="Close chat panel"
+              data-testid="chat-close-button"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-      {/* Message area */}
-      <ChatMessageArea
-        messages={messages}
-        agentPersona={selectedPersona}
-        isAgentThinking={isAgentThinking}
-        currentToolActivity={currentToolActivity}
-      />
+          {/* Session list */}
+          <ChatSessionList
+            projectId={projectId}
+            onSelectSession={handleSelectSession}
+            onNewChat={handleNewChat}
+          />
+        </>
+      ) : (
+        <>
+          {/* Header: back button + persona selector + close button (chat view) */}
+          <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleBackToSessions}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
+                aria-label="Back to sessions"
+                data-testid="chat-back-button"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+              <ChatPersonaSelector
+                selectedPersona={selectedPersona}
+                onPersonaChange={setSelectedPersona}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={closeChat}
+              className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
+              aria-label="Close chat panel"
+              data-testid="chat-close-button"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-      {/* Input footer */}
-      <ChatInput
-        onSend={handleSend}
-        disabled={!projectId || sendChatMessage.isPending || createSession.isPending}
-        autoFocus
-      />
+          {/* Message area */}
+          <ChatMessageArea
+            messages={messages}
+            agentPersona={selectedPersona}
+            isAgentThinking={isAgentThinking}
+            currentToolActivity={currentToolActivity}
+          />
+
+          {/* Input footer */}
+          <ChatInput
+            onSend={handleSend}
+            disabled={!projectId || sendChatMessage.isPending || createSession.isPending}
+            autoFocus
+          />
+        </>
+      )}
     </div>
   )
 }

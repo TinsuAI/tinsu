@@ -97,6 +97,8 @@ export { PersonaContextService, type BmadProjectConfig } from './persona-context
 // Chat CLI service for managing Claude Code chat sessions (Story 10.3)
 import { join } from 'path'
 import { app } from 'electron'
+import { chat_sessions } from '../db/schema'
+import { eq } from 'drizzle-orm'
 import { ChatCliService } from './chat-cli.service'
 
 /**
@@ -115,6 +117,23 @@ const chatHooksDir = getChatHooksDir()
 
 /** Singleton chat CLI service instance for managing chat PTY processes */
 export const chatCliService = new ChatCliService(chatHooksDir)
+
+// Story 10.6 AC: 5 — Set idle callback to update DB status to 'paused' when sessions are auto-killed
+chatCliService.setOnIdleCallback((sessionId: string) => {
+  try {
+    db.update(chat_sessions)
+      .set({
+        status: 'paused',
+        updated_at: new Date()
+      })
+      .where(eq(chat_sessions.id, sessionId))
+      .run()
+    console.log(`[ChatCliService] Updated idle session ${sessionId} status to 'paused' in DB`)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[ChatCliService] Failed to update idle session ${sessionId} status: ${msg}`)
+  }
+})
 
 export {
   ChatCliService,
