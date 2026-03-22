@@ -14,6 +14,7 @@ import { activityRouter } from './routers/activity.router'
 import { gitRouter } from './routers/git.router'
 import { planningRouter } from './routers/planning.router'
 import { chatSessionRouter } from './routers/chat-session.router'
+import { bmadRouter } from './routers/bmad.router'
 import { createContext } from './context'
 
 export const appRouter = router({
@@ -31,7 +32,8 @@ export const appRouter = router({
   activity: activityRouter,
   git: gitRouter,
   planning: planningRouter,
-  chatSession: chatSessionRouter
+  chatSession: chatSessionRouter,
+  bmad: bmadRouter
 })
 
 // Export type for client consumption
