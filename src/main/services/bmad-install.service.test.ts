@@ -19,7 +19,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-// Mock fs module for existsSync/readFileSync
+// Mock fs module for existsSync
 vi.mock('fs')
 
 describe('BmadInstallService', () => {
@@ -84,6 +84,15 @@ describe('BmadInstallService', () => {
       expect(exec).toHaveBeenCalledWith(expect.stringContaining('nodesource'))
     })
 
+    it('opens nodejs.org on macOS', async () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' })
+
+      const result = await BmadInstallService.installNodejs()
+
+      expect(result.success).toBe(true)
+      expect(shell.openExternal).toHaveBeenCalledWith('https://nodejs.org/en/download/')
+    })
+
     it('opens nodejs.org on windows', async () => {
       Object.defineProperty(process, 'platform', { value: 'win32' })
 
@@ -137,7 +146,6 @@ describe('BmadInstallService', () => {
 
     it('falls back to config.yaml parsing when CLI fails', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
-      vi.mocked(fs.readFileSync).mockReturnValue('version: 6.0.0\nmodules:\n  - core\n')
 
       // Make exec fail for the CLI call
       vi.mocked(exec).mockImplementation((_cmd: unknown, optionsOrCb: unknown, cb?: unknown) => {

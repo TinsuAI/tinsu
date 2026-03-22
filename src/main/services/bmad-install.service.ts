@@ -50,9 +50,7 @@ export class BmadInstallService {
         )
         return { success: true }
       } else if (platform === 'darwin') {
-        exec(
-          'open -a Terminal.app "$(echo \'brew install node || (curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && nvm install --lts)\')"'
-        )
+        await shell.openExternal('https://nodejs.org/en/download/')
         return { success: true }
       } else if (platform === 'win32') {
         await shell.openExternal('https://nodejs.org/en/download/')
@@ -89,7 +87,7 @@ export class BmadInstallService {
       const stdout = await new Promise<string>((resolve, reject) => {
         exec(
           'npx --yes bmad-method status',
-          { cwd: projectPath },
+          { cwd: projectPath, timeout: 30000 },
           (error, stdout) => {
             if (error) {
               reject(error)
@@ -137,13 +135,11 @@ export class BmadInstallService {
    * Fallback: reads _bmad/bmm/config.yaml when CLI is unavailable.
    */
   private static parseConfigFallback(projectPath: string): BmadStatus {
-    try {
-      const configPath = path.join(projectPath, '_bmad', 'bmm', 'config.yaml')
-      fs.readFileSync(configPath, 'utf-8')
-      return { installed: true }
-    } catch {
+    const configPath = path.join(projectPath, '_bmad', 'bmm', 'config.yaml')
+    if (fs.existsSync(configPath)) {
       return { installed: true }
     }
+    return { installed: true } // _bmad dir exists even if config is missing
   }
 
   /**
@@ -188,16 +184,16 @@ export class BmadInstallService {
     action?: string
   ): Promise<{ success: boolean; error?: string }> {
     return new Promise((resolve) => {
+      const toolsArg = options.tools.length > 0 ? options.tools.join(',') : 'none'
+
       const args = [
-        '--yes',
-        'bmad-method',
-        'install',
+        '--yes', 'bmad-method', 'install', // --yes is for npx (auto-install package)
         '--directory',
         projectPath,
         '--modules',
         options.modules.join(','),
         '--tools',
-        options.tools.join(',') || 'none',
+        toolsArg,
         '--user-name',
         options.userName,
         '--communication-language',
@@ -206,7 +202,7 @@ export class BmadInstallService {
         options.documentOutputLanguage,
         '--output-folder',
         options.outputFolder,
-        '--yes'
+        '--yes' // --yes is for bmad-method (skip interactive prompts)
       ]
 
       if (action) {
@@ -214,11 +210,11 @@ export class BmadInstallService {
       }
 
       const child = spawn('npx', args, {
-        cwd: projectPath,
-        env: { ...process.env }
+        cwd: projectPath
       })
 
       let stderr = ''
+      let resolved = false
 
       child.stdout?.on('data', (data: Buffer) => {
         console.log(`[bmad-cli] ${data.toString().trim()}`)
@@ -231,24 +227,33 @@ export class BmadInstallService {
       // 120-second timeout
       const timeout = setTimeout(() => {
         child.kill()
-        resolve({ success: false, error: 'Installation timed out after 120 seconds' })
+        if (!resolved) {
+          resolved = true
+          resolve({ success: false, error: 'Installation timed out after 120 seconds' })
+        }
       }, 120_000)
 
       child.on('close', (code) => {
         clearTimeout(timeout)
-        if (code === 0) {
-          resolve({ success: true })
-        } else {
-          resolve({
-            success: false,
-            error: stderr || `Process exited with code ${code}`
-          })
+        if (!resolved) {
+          resolved = true
+          if (code === 0) {
+            resolve({ success: true })
+          } else {
+            resolve({
+              success: false,
+              error: stderr || `Process exited with code ${code}`
+            })
+          }
         }
       })
 
       child.on('error', (err) => {
         clearTimeout(timeout)
-        resolve({ success: false, error: err.message })
+        if (!resolved) {
+          resolved = true
+          resolve({ success: false, error: err.message })
+        }
       })
     })
   }
