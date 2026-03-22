@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync } from 'child_process'
+
+// Mock child_process for git init (Story 1.11)
+vi.mock('child_process', () => ({
+  execSync: vi.fn()
+}))
 
 // Mock the database module to avoid Electron/sqlite dependencies (Story 3.1.5)
 vi.mock('../../db', () => ({
@@ -8,8 +14,15 @@ vi.mock('../../db', () => ({
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          get: vi.fn().mockReturnValue(null) // No existing project found
-        })
+          get: vi.fn().mockReturnValue(null), // No existing project found
+          all: vi.fn().mockReturnValue([]) // No sprints found
+        }),
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            all: vi.fn().mockReturnValue([])
+          })
+        }),
+        all: vi.fn().mockReturnValue([])
       })
     }),
     insert: vi.fn().mockReturnValue({
@@ -22,6 +35,11 @@ vi.mock('../../db', () => ({
         where: vi.fn().mockReturnValue({
           run: vi.fn()
         })
+      })
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        run: vi.fn()
       })
     })
   }
@@ -223,6 +241,76 @@ version: "1.0.0"
       expect(result.path).toBe(TEST_EXISTING_TINSU)
       expect(result.config.projectName).toBe('ExistingProject')
       expect(result.isNewProject).toBe(false)
+    })
+  })
+
+  // Story 1.11: project.create tests
+  describe('project.create', () => {
+    const TEST_PARENT = path.join(TEST_BASE, 'create-parent')
+
+    beforeEach(() => {
+      fs.mkdirSync(TEST_PARENT, { recursive: true })
+      // Mock execSync to succeed and create .git dir (simulating real git init)
+      vi.mocked(execSync).mockImplementation((_cmd, opts) => {
+        const cwd = (opts as { cwd: string }).cwd
+        fs.mkdirSync(path.join(cwd, '.git'), { recursive: true })
+        return Buffer.from('')
+      })
+    })
+
+    it('should call createNewProject and return ProjectInfo', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+      const result = await caller.project.create({
+        parentDir: TEST_PARENT,
+        projectName: 'test-project'
+      })
+
+      expect(result).not.toBeNull()
+      expect(result.path).toBe(path.join(TEST_PARENT, 'test-project'))
+      expect(result.config).toBeDefined()
+    })
+
+    it('should convert ALREADY_EXISTS error to BAD_REQUEST TRPCError', async () => {
+      // Create folder first so it already exists
+      fs.mkdirSync(path.join(TEST_PARENT, 'existing-project'), { recursive: true })
+
+      const caller = testRouter.createCaller(createTestContext())
+
+      await expect(
+        caller.project.create({
+          parentDir: TEST_PARENT,
+          projectName: 'existing-project'
+        })
+      ).rejects.toThrow('already exists')
+    })
+  })
+
+  // Story 1.11: project.selectParentDirectory tests
+  describe('project.selectParentDirectory', () => {
+    it('should return selected path when dialog is not cancelled', async () => {
+      setDialogHandler(async () => ({
+        canceled: false,
+        filePaths: ['/some/parent/dir']
+      }))
+
+      const caller = testRouter.createCaller(createTestContext())
+      const result = await caller.project.selectParentDirectory()
+
+      expect(result.canceled).toBe(false)
+      expect(result.path).toBe('/some/parent/dir')
+    })
+
+    it('should return null path when dialog is cancelled', async () => {
+      setDialogHandler(async () => ({
+        canceled: true,
+        filePaths: []
+      }))
+
+      const caller = testRouter.createCaller(createTestContext())
+      const result = await caller.project.selectParentDirectory()
+
+      expect(result.canceled).toBe(true)
+      expect(result.path).toBeNull()
     })
   })
 })

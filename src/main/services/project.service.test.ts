@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync } from 'child_process'
 import { ProjectService, ProjectError } from './project.service'
 import { PlanningInitService } from './planning-init.service'
+
+// Mock child_process for git init
+vi.mock('child_process', () => ({
+  execSync: vi.fn()
+}))
 
 // Mock the database module to avoid Electron/sqlite dependencies (Story 3.1.5)
 // Track all insert values to verify default sprint creation
@@ -363,6 +369,91 @@ planningTasksInitialized: true
       expect(projectInsert).toBeDefined()
       expect(sprintInsert).toBeDefined()
       expect(sprintInsert.project_id).toBe(projectInsert.id)
+    })
+  })
+
+  // Story 1.11: createNewProject tests
+  describe('createNewProject()', () => {
+    const TEST_PARENT = path.join(TEST_BASE, 'parent-dir')
+    const PROJECT_NAME = 'my-new-project'
+
+    beforeEach(() => {
+      fs.mkdirSync(TEST_PARENT, { recursive: true })
+      // Mock execSync to succeed by default
+      vi.mocked(execSync).mockReturnValue(Buffer.from(''))
+    })
+
+    it('should create folder and call openProject on success', async () => {
+      const expectedPath = path.join(TEST_PARENT, PROJECT_NAME)
+
+      // Mock execSync to also create .git dir (simulating real git init)
+      vi.mocked(execSync).mockImplementation((_cmd, opts) => {
+        const cwd = (opts as { cwd: string }).cwd
+        fs.mkdirSync(path.join(cwd, '.git'), { recursive: true })
+        return Buffer.from('')
+      })
+
+      const result = await ProjectService.createNewProject(TEST_PARENT, PROJECT_NAME)
+
+      // Verify folder was created
+      expect(fs.existsSync(expectedPath)).toBe(true)
+
+      // Verify git init was called
+      expect(execSync).toHaveBeenCalledWith('git init', { cwd: expectedPath, stdio: 'pipe' })
+
+      // Verify openProject was effectively called (result has project info)
+      expect(result.path).toBe(expectedPath)
+      expect(result.config).toBeDefined()
+    })
+
+    it('should throw ALREADY_EXISTS when folder already exists', async () => {
+      // Create the folder first
+      const existingPath = path.join(TEST_PARENT, PROJECT_NAME)
+      fs.mkdirSync(existingPath, { recursive: true })
+
+      let caughtError: unknown
+      try {
+        await ProjectService.createNewProject(TEST_PARENT, PROJECT_NAME)
+      } catch (err) {
+        caughtError = err
+      }
+
+      expect(caughtError).toBeInstanceOf(ProjectError)
+      expect((caughtError as ProjectError).code).toBe('ALREADY_EXISTS')
+      expect((caughtError as ProjectError).message).toContain('already exists')
+    })
+
+    it('should throw GIT_INIT_FAILED when execSync throws', async () => {
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('git not found')
+      })
+
+      let caughtError: unknown
+      try {
+        await ProjectService.createNewProject(TEST_PARENT, PROJECT_NAME)
+      } catch (err) {
+        caughtError = err
+      }
+
+      expect(caughtError).toBeInstanceOf(ProjectError)
+      expect((caughtError as ProjectError).code).toBe('GIT_INIT_FAILED')
+      expect((caughtError as ProjectError).message).toContain('Failed to initialize git repository')
+
+      // Verify folder was cleaned up
+      expect(fs.existsSync(path.join(TEST_PARENT, PROJECT_NAME))).toBe(false)
+    })
+
+    it('should throw NOT_FOUND when parent directory does not exist', async () => {
+      let caughtError: unknown
+      try {
+        await ProjectService.createNewProject('/non/existent/parent', PROJECT_NAME)
+      } catch (err) {
+        caughtError = err
+      }
+
+      expect(caughtError).toBeInstanceOf(ProjectError)
+      expect((caughtError as ProjectError).code).toBe('NOT_FOUND')
+      expect((caughtError as ProjectError).message).toContain('Parent directory not found')
     })
   })
 })

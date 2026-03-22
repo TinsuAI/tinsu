@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Welcome } from './Welcome'
 
-// Mock tRPC
-const mockMutate = vi.fn()
-let mockIsPending = false
-let mockOnSuccess: ((result: unknown) => void) | null = null
-let mockOnError: ((error: unknown) => void) | null = null
+// Mock tRPC — must cover all hooks Welcome.tsx uses
+const mockOpenMutate = vi.fn()
+let mockOpenIsPending = false
+let mockOpenOnSuccess: ((result: unknown) => void) | null = null
+let mockOpenOnError: ((error: unknown) => void) | null = null
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -16,27 +16,76 @@ vi.mock('@renderer/lib/trpc', () => ({
           onSuccess?: (result: unknown) => void
           onError?: (error: unknown) => void
         }): object => {
-          mockOnSuccess = options?.onSuccess || null
-          mockOnError = options?.onError || null
+          mockOpenOnSuccess = options?.onSuccess || null
+          mockOpenOnError = options?.onError || null
           return {
-            mutate: mockMutate,
-            mutateAsync: mockMutate,
-            isPending: mockIsPending,
+            mutate: mockOpenMutate,
+            mutateAsync: mockOpenMutate,
+            isPending: mockOpenIsPending,
             isError: false,
             error: null
           }
         }
+      },
+      openPath: {
+        useMutation: (): object => ({
+          mutate: vi.fn(),
+          isPending: false,
+          isError: false,
+          error: null
+        })
+      },
+      remove: {
+        useMutation: (): object => ({
+          mutate: vi.fn(),
+          isPending: false,
+          isError: false,
+          error: null
+        })
+      },
+      getRecent: {
+        useQuery: (): object => ({
+          data: [],
+          isLoading: false,
+          isError: false
+        })
+      },
+      validatePath: {},
+      // Story 1.11: NewProjectDialog needs these
+      selectParentDirectory: {
+        useMutation: (): object => ({
+          mutate: vi.fn(),
+          isPending: false,
+          isError: false,
+          error: null
+        })
+      },
+      create: {
+        useMutation: (): object => ({
+          mutate: vi.fn(),
+          isPending: false,
+          isError: false,
+          error: null
+        })
       }
-    }
+    },
+    useUtils: () => ({
+      project: {
+        getRecent: {
+          invalidate: vi.fn()
+        }
+      }
+    }),
+    useQueries: () => []
   }
 }))
 
 describe('Welcome', () => {
   beforeEach(() => {
-    mockMutate.mockReset()
-    mockIsPending = false
-    mockOnSuccess = null
-    mockOnError = null
+    mockOpenMutate.mockReset()
+    mockOpenIsPending = false
+    mockOpenOnSuccess = null
+    mockOpenOnError = null
   })
 
   it('should render TinSu branding', () => {
@@ -49,9 +98,9 @@ describe('Welcome', () => {
     expect(screen.getByRole('button', { name: /open existing project/i })).toBeInTheDocument()
   })
 
-  it('should display git requirement text', () => {
+  it('should display updated hint text', () => {
     render(<Welcome onProjectOpened={() => {}} />)
-    expect(screen.getByText(/git repositories/i)).toBeInTheDocument()
+    expect(screen.getByText(/open an existing git repository or create a new project/i)).toBeInTheDocument()
   })
 
   it('should trigger project.open mutation when button is clicked', async () => {
@@ -60,7 +109,7 @@ describe('Welcome', () => {
     const button = screen.getByRole('button', { name: /open existing project/i })
     fireEvent.click(button)
 
-    expect(mockMutate).toHaveBeenCalled()
+    expect(mockOpenMutate).toHaveBeenCalled()
   })
 
   it('should call onProjectOpened callback when project is successfully opened', async () => {
@@ -72,8 +121,8 @@ describe('Welcome', () => {
     fireEvent.click(button)
 
     // Simulate successful mutation callback
-    if (mockOnSuccess) {
-      mockOnSuccess({
+    if (mockOpenOnSuccess) {
+      mockOpenOnSuccess({
         path: '/test/project',
         config: { projectName: 'TestProject' },
         isNewProject: true
@@ -97,23 +146,43 @@ describe('Welcome', () => {
     fireEvent.click(button)
 
     // Simulate cancelled dialog (null result)
-    if (mockOnSuccess) {
-      mockOnSuccess(null)
+    if (mockOpenOnSuccess) {
+      mockOpenOnSuccess(null)
     }
 
     // Wait a bit and verify callback was not called
     await waitFor(() => {
-      expect(mockMutate).toHaveBeenCalled()
+      expect(mockOpenMutate).toHaveBeenCalled()
     })
 
     expect(onProjectOpened).not.toHaveBeenCalled()
+  })
+
+  // Story 1.11: "Create New Project" button tests
+  it('should render "Create New Project" button on Welcome screen', () => {
+    render(<Welcome onProjectOpened={() => {}} />)
+    expect(screen.getByRole('button', { name: /create new project/i })).toBeInTheDocument()
+  })
+
+  it('should open NewProjectDialog when "Create New Project" is clicked', async () => {
+    render(<Welcome onProjectOpened={() => {}} />)
+
+    const createButton = screen.getByRole('button', { name: /create new project/i })
+    fireEvent.click(createButton)
+
+    // Dialog should appear - look for the dialog role element and its content
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      // The dialog contains the "Project Name" label and "Choose Folder" button
+      expect(screen.getByPlaceholderText('my-project')).toBeInTheDocument()
+    })
   })
 })
 
 describe('Welcome loading state', () => {
   it('should disable button when isPending is true', () => {
     // Set isPending to true for this test
-    mockIsPending = true
+    mockOpenIsPending = true
 
     render(<Welcome onProjectOpened={() => {}} />)
 
@@ -126,7 +195,7 @@ describe('Welcome loading state', () => {
 describe('Welcome error handling', () => {
   beforeEach(() => {
     // Reset state after loading state test
-    mockIsPending = false
+    mockOpenIsPending = false
   })
 
   it('should display error message when project.open fails', async () => {
@@ -137,8 +206,8 @@ describe('Welcome error handling', () => {
     fireEvent.click(button)
 
     // Simulate error callback
-    if (mockOnError) {
-      mockOnError({ message: 'TinSu requires a git repository' })
+    if (mockOpenOnError) {
+      mockOpenOnError({ message: 'TinSu requires a git repository' })
     }
 
     // Check error is displayed

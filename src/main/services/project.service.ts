@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync } from 'child_process'
 import { nanoid } from 'nanoid'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
@@ -21,7 +22,9 @@ export class ProjectError extends Error {
       | 'NOT_FOUND'
       | 'ALREADY_OPEN'
       | 'INIT_ERROR'
-      | 'INVALID_PATH',
+      | 'INVALID_PATH'
+      | 'ALREADY_EXISTS'
+      | 'GIT_INIT_FAILED',
     public readonly details?: string
   ) {
     super(message)
@@ -90,6 +93,61 @@ export class ProjectService {
     this.updateGitignore(projectPath)
 
     return config
+  }
+
+  /**
+   * Creates a brand-new project from scratch.
+   * Creates the project folder, initializes git, then delegates to openProject()
+   * for full TinSu initialization (.tinsu/, config, DB, sprints, planning tasks).
+   *
+   * @param parentDir - Path to the parent directory where the project folder will be created
+   * @param projectName - Name of the project (used as folder name)
+   * @returns Project info from openProject()
+   * @throws ProjectError if parent dir not found, folder already exists, or git init fails
+   */
+  static async createNewProject(parentDir: string, projectName: string): Promise<ProjectInfo> {
+    // Validate parent directory exists and is a directory
+    if (!fs.existsSync(parentDir) || !fs.statSync(parentDir).isDirectory()) {
+      throw new ProjectError(
+        `Parent directory not found: ${parentDir}`,
+        'NOT_FOUND'
+      )
+    }
+
+    const newProjectPath = path.join(parentDir, projectName)
+
+    // Check folder doesn't already exist
+    if (fs.existsSync(newProjectPath)) {
+      throw new ProjectError(
+        `A folder named '${projectName}' already exists at that location.`,
+        'ALREADY_EXISTS'
+      )
+    }
+
+    // Create folder
+    try {
+      fs.mkdirSync(newProjectPath, { recursive: false })
+    } catch (err) {
+      throw new ProjectError(
+        `Failed to create project folder: ${(err as Error).message}`,
+        'INIT_ERROR'
+      )
+    }
+
+    // Initialize git
+    try {
+      execSync('git init', { cwd: newProjectPath, stdio: 'pipe' })
+    } catch {
+      // Clean up folder on failure
+      try { fs.rmSync(newProjectPath, { recursive: true, force: true }) } catch { /* ignore cleanup errors */ }
+      throw new ProjectError(
+        'Failed to initialize git repository. Please ensure git is installed.',
+        'GIT_INIT_FAILED'
+      )
+    }
+
+    // Reuse existing openProject flow — handles .tinsu, config, DB, sprints, planning tasks
+    return this.openProject(newProjectPath)
   }
 
   /**

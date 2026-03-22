@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { FolderOpen, Clock, AlertTriangle, Trash2 } from 'lucide-react'
+import { FolderOpen, Clock, AlertTriangle, Trash2, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
 import { ThemeToggle } from './ui/theme-toggle'
+import { NewProjectDialog } from './NewProjectDialog'
 import { trpc } from '@renderer/lib/trpc'
 import { cn } from '@renderer/lib/utils'
 
@@ -22,6 +23,7 @@ interface WelcomeProps {
  */
 export function Welcome({ onProjectOpened, className }: WelcomeProps) {
   const [error, setError] = useState<string | null>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const utils = trpc.useUtils()
 
   // Query for recent projects
@@ -130,18 +132,31 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 shadow-lg">
         <h2 className="mb-4 text-xl font-semibold text-card-foreground">Get Started</h2>
 
-        <Button
-          onClick={handleOpenProject}
-          disabled={isLoading}
-          className="w-full"
-          size="lg"
-        >
-          {isLoading ? 'Opening...' : 'Open Existing Project'}
-        </Button>
+        <div className="flex flex-col gap-2.5">
+          <Button
+            onClick={handleOpenProject}
+            disabled={isLoading}
+            className="w-full"
+            size="lg"
+          >
+            {isLoading ? 'Opening...' : 'Open Existing Project'}
+          </Button>
 
-        {/* Git requirement hint */}
+          <Button
+            variant="outline"
+            onClick={() => setIsCreateDialogOpen(true)}
+            disabled={isLoading}
+            className="w-full"
+            size="lg"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create New Project
+          </Button>
+        </div>
+
+        {/* Hint text */}
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          TinSu works with existing git repositories
+          Open an existing git repository or create a new project
         </p>
 
         {/* Error display */}
@@ -206,6 +221,13 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
       <p className="mt-8 max-w-md text-center text-xs text-muted-foreground">
         Select a folder containing a .git directory to initialize TinSu in your project.
       </p>
+
+      {/* Create New Project Dialog */}
+      <NewProjectDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onProjectCreated={onProjectOpened}
+      />
     </div>
   )
 }

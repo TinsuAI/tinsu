@@ -67,6 +67,13 @@ function projectErrorToTRPCError(error: ProjectError): TRPCError {
         message: error.message,
         cause: error
       })
+    case 'ALREADY_EXISTS':
+    case 'GIT_INIT_FAILED':
+      return new TRPCError({
+        code: 'BAD_REQUEST',
+        message: error.message,
+        cause: error
+      })
     case 'ALREADY_OPEN':
     case 'INIT_ERROR':
     default:
@@ -107,6 +114,50 @@ export const projectRouter = router({
       throw error
     }
   }),
+
+  /**
+   * Opens the system file dialog to select a parent directory for new project creation.
+   * Returns the selected path or null if cancelled.
+   */
+  selectParentDirectory: publicProcedure.mutation(async (): Promise<{ canceled: boolean; path: string | null }> => {
+    if (dialogHandler) {
+      const result = await dialogHandler()
+      return {
+        canceled: result.canceled,
+        path: result.canceled ? null : result.filePaths[0]
+      }
+    }
+
+    const window = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(window!, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Select Parent Folder'
+    })
+    return {
+      canceled: result.canceled,
+      path: result.canceled ? null : result.filePaths[0]
+    }
+  }),
+
+  /**
+   * Creates a new project from scratch.
+   * Creates folder, initializes git, and completes TinSu initialization.
+   */
+  create: publicProcedure
+    .input(z.object({
+      parentDir: z.string().min(1, 'Parent directory is required'),
+      projectName: z.string().min(1, 'Project name is required')
+    }))
+    .mutation(async ({ input }): Promise<ProjectInfo> => {
+      try {
+        return await ProjectService.createNewProject(input.parentDir, input.projectName)
+      } catch (error) {
+        if (error instanceof ProjectError) {
+          throw projectErrorToTRPCError(error)
+        }
+        throw error
+      }
+    }),
 
   /**
    * Opens a project at a specific path (without dialog).
