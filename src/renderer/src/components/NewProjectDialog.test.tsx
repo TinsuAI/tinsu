@@ -1,28 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { NewProjectDialog } from './NewProjectDialog'
 
-// Mock tRPC mutations
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  }
+}))
+
+// Mock tRPC
+const mockCreateMutateAsync = vi.fn()
 const mockCreateMutate = vi.fn()
 const mockSelectDirMutate = vi.fn()
+const mockBmadInstallMutateAsync = vi.fn()
 let mockCreateIsPending = false
 let mockSelectDirIsPending = false
-// mockCreateOnSuccess callback captured from useMutation (write-only, used for mock setup)
-let mockCreateOnError: ((error: unknown) => void) | null = null
+let mockBmadInstallIsPending = false
 let mockSelectDirOnSuccess: ((result: unknown) => void) | null = null
+let mockNodeStatus: { installed: boolean; version?: string } = { installed: true, version: 'v20.0.0' }
+let mockAvailableModules: {
+  modules: { id: string; name: string; builtIn: boolean }[]
+  tools: { id: string; name: string }[]
+  languages: string[]
+} = {
+  modules: [
+    { id: 'core', name: 'Core Framework', builtIn: true },
+    { id: 'bmm', name: 'Core Method', builtIn: true },
+    { id: 'bmb', name: 'Build', builtIn: false },
+  ],
+  tools: [
+    { id: 'claude-code', name: 'Claude Code' },
+    { id: 'cursor', name: 'Cursor' },
+  ],
+  languages: ['English', 'Spanish', 'French'],
+}
 
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     project: {
       create: {
-        useMutation: (options?: {
-          onSuccess?: (result: unknown) => void
-          onError?: (error: unknown) => void
-        }): object => {
-          void options?.onSuccess
-          mockCreateOnError = options?.onError || null
+        useMutation: (): object => {
           return {
             mutate: mockCreateMutate,
+            mutateAsync: mockCreateMutateAsync,
             isPending: mockCreateIsPending,
             isError: false,
             error: null
@@ -42,6 +64,26 @@ vi.mock('@renderer/lib/trpc', () => ({
           }
         }
       }
+    },
+    bmad: {
+      checkNodejs: {
+        useQuery: (): object => ({
+          data: mockNodeStatus,
+          isLoading: false,
+        })
+      },
+      availableModules: {
+        useQuery: (): object => ({
+          data: mockAvailableModules,
+          isLoading: false,
+        })
+      },
+      installToPath: {
+        useMutation: (): object => ({
+          mutateAsync: mockBmadInstallMutateAsync,
+          isPending: mockBmadInstallIsPending,
+        })
+      }
     }
   }
 }))
@@ -55,12 +97,26 @@ describe('NewProjectDialog', () => {
 
   beforeEach(() => {
     mockCreateMutate.mockReset()
+    mockCreateMutateAsync.mockReset()
     mockSelectDirMutate.mockReset()
+    mockBmadInstallMutateAsync.mockReset()
     mockCreateIsPending = false
     mockSelectDirIsPending = false
-    // mockCreateOnSuccess reset handled by mock setup
-    mockCreateOnError = null
+    mockBmadInstallIsPending = false
     mockSelectDirOnSuccess = null
+    mockNodeStatus = { installed: true, version: 'v20.0.0' }
+    mockAvailableModules = {
+      modules: [
+        { id: 'core', name: 'Core Framework', builtIn: true },
+        { id: 'bmm', name: 'Core Method', builtIn: true },
+        { id: 'bmb', name: 'Build', builtIn: false },
+      ],
+      tools: [
+        { id: 'claude-code', name: 'Claude Code' },
+        { id: 'cursor', name: 'Cursor' },
+      ],
+      languages: ['English', 'Spanish', 'French'],
+    }
     defaultProps.onOpenChange.mockReset()
     defaultProps.onProjectCreated.mockReset()
   })
@@ -107,16 +163,26 @@ describe('NewProjectDialog', () => {
   })
 
   it('should show inline error on mutation failure', async () => {
+    mockCreateMutateAsync.mockRejectedValue(new Error("A folder named 'test-project' already exists at that location."))
+
     render(<NewProjectDialog {...defaultProps} />)
 
     // Fill in fields first
     const nameInput = screen.getByPlaceholderText('my-project')
     fireEvent.change(nameInput, { target: { value: 'test-project' } })
 
-    // Simulate error
-    if (mockCreateOnError) {
-      mockCreateOnError({ message: "A folder named 'test-project' already exists at that location." })
-    }
+    // Select a directory (state update needs act)
+    act(() => {
+      if (mockSelectDirOnSuccess) {
+        mockSelectDirOnSuccess({ canceled: false, path: '/Users/me/dev' })
+      }
+    })
+
+    // Click create
+    const createButton = screen.getByRole('button', { name: /create project/i })
+    await act(async () => {
+      fireEvent.click(createButton)
+    })
 
     await waitFor(() => {
       expect(screen.getByText(/already exists/i)).toBeInTheDocument()
@@ -158,5 +224,174 @@ describe('NewProjectDialog', () => {
 
     // Should show validation message
     expect(screen.getByText(/invalid characters/i)).toBeInTheDocument()
+  })
+
+  // --- BMAD Setup Section tests ---
+
+  it('should show BMAD setup section with checkbox checked by default', () => {
+    render(<NewProjectDialog {...defaultProps} />)
+
+    const bmadCheckbox = screen.getByTestId('install-bmad-checkbox')
+    expect(bmadCheckbox).toBeInTheDocument()
+    expect(bmadCheckbox).toHaveAttribute('data-state', 'checked')
+
+    expect(screen.getByText('Initialize BMAD Framework')).toBeInTheDocument()
+  })
+
+  it('should show module checkboxes when BMAD is enabled', () => {
+    render(<NewProjectDialog {...defaultProps} />)
+
+    // Module checkboxes should be visible since BMAD is enabled by default
+    expect(screen.getByText('Core Framework')).toBeInTheDocument()
+    expect(screen.getByText('Core Method')).toBeInTheDocument()
+    expect(screen.getByText('Build')).toBeInTheDocument()
+
+    // core and bmm should be checked by default
+    const coreCheckbox = screen.getByTestId('module-checkbox-core')
+    expect(coreCheckbox).toHaveAttribute('data-state', 'checked')
+
+    const bmmCheckbox = screen.getByTestId('module-checkbox-bmm')
+    expect(bmmCheckbox).toHaveAttribute('data-state', 'checked')
+
+    // bmb should not be checked
+    const bmbCheckbox = screen.getByTestId('module-checkbox-bmb')
+    expect(bmbCheckbox).toHaveAttribute('data-state', 'unchecked')
+  })
+
+  it('should show tool checkboxes when BMAD is enabled', () => {
+    render(<NewProjectDialog {...defaultProps} />)
+
+    expect(screen.getByText('Claude Code')).toBeInTheDocument()
+    expect(screen.getByText('Cursor')).toBeInTheDocument()
+
+    // Tools should not be checked by default
+    const claudeCodeCheckbox = screen.getByTestId('tool-checkbox-claude-code')
+    expect(claudeCodeCheckbox).toHaveAttribute('data-state', 'unchecked')
+  })
+
+  it('should show Node.js warning when Node is not installed', () => {
+    mockNodeStatus = { installed: false }
+
+    render(<NewProjectDialog {...defaultProps} />)
+
+    const warning = screen.getByTestId('node-warning')
+    expect(warning).toBeInTheDocument()
+    expect(screen.getByText(/Node\.js is required/i)).toBeInTheDocument()
+
+    // Module/tool checkboxes should NOT be shown
+    expect(screen.queryByTestId('bmad-config-section')).not.toBeInTheDocument()
+  })
+
+  it('should hide BMAD config when checkbox is unchecked', () => {
+    render(<NewProjectDialog {...defaultProps} />)
+
+    // Config section should be visible initially
+    expect(screen.getByTestId('bmad-config-section')).toBeInTheDocument()
+
+    // Uncheck the BMAD checkbox
+    const bmadCheckbox = screen.getByTestId('install-bmad-checkbox')
+    fireEvent.click(bmadCheckbox)
+
+    // Config section should be hidden
+    expect(screen.queryByTestId('bmad-config-section')).not.toBeInTheDocument()
+  })
+
+  it('should show "Installing BMAD..." when BMAD install is pending', () => {
+    mockBmadInstallIsPending = true
+
+    render(<NewProjectDialog {...defaultProps} />)
+
+    expect(screen.getByText(/installing bmad/i)).toBeInTheDocument()
+  })
+
+  it('should call mutateAsync with BMAD options on create', async () => {
+    mockCreateMutateAsync.mockResolvedValue({
+      path: '/Users/me/dev/test-project',
+      config: { projectName: 'test-project' }
+    })
+    mockBmadInstallMutateAsync.mockResolvedValue({ success: true })
+
+    render(<NewProjectDialog {...defaultProps} />)
+
+    // Fill in fields
+    const nameInput = screen.getByPlaceholderText('my-project')
+    fireEvent.change(nameInput, { target: { value: 'test-project' } })
+
+    act(() => {
+      if (mockSelectDirOnSuccess) {
+        mockSelectDirOnSuccess({ canceled: false, path: '/Users/me/dev' })
+      }
+    })
+
+    // Click create
+    const createButton = screen.getByRole('button', { name: /create project/i })
+    await act(async () => {
+      fireEvent.click(createButton)
+    })
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith({
+        parentDir: '/Users/me/dev',
+        projectName: 'test-project'
+      })
+    })
+
+    await waitFor(() => {
+      expect(mockBmadInstallMutateAsync).toHaveBeenCalledWith({
+        projectPath: '/Users/me/dev/test-project',
+        modules: ['core', 'bmm'],
+        tools: [],
+        userName: 'test-project',
+        communicationLanguage: 'English',
+        documentOutputLanguage: 'English',
+        outputFolder: '_bmad-output',
+      })
+    })
+
+    await waitFor(() => {
+      expect(defaultProps.onProjectCreated).toHaveBeenCalledWith({
+        path: '/Users/me/dev/test-project',
+        projectName: 'test-project'
+      })
+    })
+  })
+
+  it('should skip BMAD install when checkbox is unchecked', async () => {
+    mockCreateMutateAsync.mockResolvedValue({
+      path: '/Users/me/dev/test-project',
+      config: { projectName: 'test-project' }
+    })
+
+    render(<NewProjectDialog {...defaultProps} />)
+
+    // Uncheck BMAD
+    const bmadCheckbox = screen.getByTestId('install-bmad-checkbox')
+    fireEvent.click(bmadCheckbox)
+
+    // Fill in fields
+    const nameInput = screen.getByPlaceholderText('my-project')
+    fireEvent.change(nameInput, { target: { value: 'test-project' } })
+
+    act(() => {
+      if (mockSelectDirOnSuccess) {
+        mockSelectDirOnSuccess({ canceled: false, path: '/Users/me/dev' })
+      }
+    })
+
+    const createButton = screen.getByRole('button', { name: /create project/i })
+    await act(async () => {
+      fireEvent.click(createButton)
+    })
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalled()
+    })
+
+    // BMAD install should NOT have been called
+    expect(mockBmadInstallMutateAsync).not.toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(defaultProps.onProjectCreated).toHaveBeenCalled()
+    })
   })
 })
