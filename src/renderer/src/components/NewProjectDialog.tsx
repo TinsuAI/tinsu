@@ -15,6 +15,74 @@ import {
   DialogFooter
 } from './ui/dialog'
 import { trpc } from '@renderer/lib/trpc'
+import type { BmadTool } from '@shared/types/bmad.types'
+
+function ToolCheckboxSection({
+  tools,
+  selectedTools,
+  toggleTool,
+  disabled
+}: {
+  tools: BmadTool[]
+  selectedTools: string[]
+  toggleTool: (id: string) => void
+  disabled: boolean
+}): React.JSX.Element {
+  const [showAll, setShowAll] = useState(false)
+  const preferred = tools.filter((t) => t.preferred)
+  const other = tools.filter((t) => !t.preferred)
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Tools / IDE</Label>
+      <div className="grid grid-cols-2 gap-2">
+        {preferred.map((tool) => (
+          <label
+            key={tool.id}
+            className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
+          >
+            <Checkbox
+              checked={selectedTools.includes(tool.id)}
+              onCheckedChange={(): void => toggleTool(tool.id)}
+              disabled={disabled}
+              data-testid={`tool-checkbox-${tool.id}`}
+            />
+            <span>{tool.name}</span>
+          </label>
+        ))}
+      </div>
+      {other.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={(): void => setShowAll((v) => !v)}
+          >
+            {showAll ? '▾ Hide other tools' : `▸ Show ${other.length} more tools…`}
+          </button>
+          {showAll && (
+            <div className="grid grid-cols-2 gap-2">
+              {other.map((tool) => (
+                <label
+                  key={tool.id}
+                  className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
+                >
+                  <Checkbox
+                    checked={selectedTools.includes(tool.id)}
+                    onCheckedChange={(): void => toggleTool(tool.id)}
+                    disabled={disabled}
+                    data-testid={`tool-checkbox-${tool.id}`}
+                  />
+                  <span>{tool.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 const INVALID_CHARS_TEST = /[/\\:*?"<>|]/
 const INVALID_CHARS_REPLACE = /[/\\:*?"<>|]/g
@@ -273,24 +341,12 @@ export function NewProjectDialog({
 
                     {/* Tools / IDE */}
                     {tools.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Tools / IDE</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {tools.map((tool) => (
-                            <label
-                              key={tool.id}
-                              className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
-                            >
-                              <Checkbox
-                                checked={bmadTools.includes(tool.id)}
-                                onCheckedChange={() => toggleTool(tool.id)}
-                                data-testid={`tool-checkbox-${tool.id}`}
-                              />
-                              <span>{tool.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
+                      <ToolCheckboxSection
+                        tools={tools}
+                        selectedTools={bmadTools}
+                        toggleTool={toggleTool}
+                        disabled={isLoading}
+                      />
                     )}
 
                     {/* Language */}

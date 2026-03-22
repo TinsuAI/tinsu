@@ -86,7 +86,7 @@ describe('bmadRouter', () => {
 
       expect(result.modules).toHaveLength(6)
       expect(result.modules[0].id).toBe('core')
-      expect(result.tools).toHaveLength(3)
+      expect(result.tools).toHaveLength(19)
       expect(result.languages).toContain('English')
     })
   })

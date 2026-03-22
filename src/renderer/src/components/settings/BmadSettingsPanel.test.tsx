@@ -20,8 +20,8 @@ let mockAvailable = {
     { id: 'bmb', name: 'Build', builtIn: false }
   ],
   tools: [
-    { id: 'claude-code', name: 'Claude Code' },
-    { id: 'cursor', name: 'Cursor' }
+    { id: 'claude-code', name: 'Claude Code', preferred: true, category: 'cli' },
+    { id: 'cursor', name: 'Cursor', preferred: true, category: 'ide' }
   ],
   languages: ['English', 'Spanish', 'French']
 }

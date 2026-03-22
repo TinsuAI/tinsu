@@ -22,7 +22,7 @@ let mockSelectDirOnSuccess: ((result: unknown) => void) | null = null
 let mockNodeStatus: { installed: boolean; version?: string } = { installed: true, version: 'v20.0.0' }
 let mockAvailableModules: {
   modules: { id: string; name: string; builtIn: boolean }[]
-  tools: { id: string; name: string }[]
+  tools: { id: string; name: string; preferred: boolean; category: string }[]
   languages: string[]
 } = {
   modules: [
@@ -31,8 +31,8 @@ let mockAvailableModules: {
     { id: 'bmb', name: 'Build', builtIn: false },
   ],
   tools: [
-    { id: 'claude-code', name: 'Claude Code' },
-    { id: 'cursor', name: 'Cursor' },
+    { id: 'claude-code', name: 'Claude Code', preferred: true, category: 'cli' },
+    { id: 'cursor', name: 'Cursor', preferred: true, category: 'ide' },
   ],
   languages: ['English', 'Spanish', 'French'],
 }
@@ -112,8 +112,8 @@ describe('NewProjectDialog', () => {
         { id: 'bmb', name: 'Build', builtIn: false },
       ],
       tools: [
-        { id: 'claude-code', name: 'Claude Code' },
-        { id: 'cursor', name: 'Cursor' },
+        { id: 'claude-code', name: 'Claude Code', preferred: true, category: 'cli' },
+        { id: 'cursor', name: 'Cursor', preferred: true, category: 'ide' },
       ],
       languages: ['English', 'Spanish', 'French'],
     }
