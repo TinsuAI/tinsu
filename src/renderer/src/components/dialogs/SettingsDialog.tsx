@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): JSX.Element {
+export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): React.JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent

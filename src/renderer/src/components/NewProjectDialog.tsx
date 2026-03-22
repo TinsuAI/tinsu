@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { FolderOpen, Loader2, AlertTriangle, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from './ui/button'
@@ -29,7 +29,7 @@ export function NewProjectDialog({
   open,
   onOpenChange,
   onProjectCreated
-}: NewProjectDialogProps): JSX.Element {
+}: NewProjectDialogProps): React.JSX.Element {
   const [projectName, setProjectName] = useState('')
   const [parentDir, setParentDir] = useState<string | null>(null)
   const [nameError, setNameError] = useState<string | null>(null)

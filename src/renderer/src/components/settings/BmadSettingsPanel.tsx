@@ -5,7 +5,7 @@
  * Shows status, allows install/update, and manages modules/tools configuration.
  */
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Package, AlertTriangle, CheckCircle2, Loader2, Download, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpc } from '@renderer/lib/trpc'
@@ -23,7 +23,7 @@ import {
 } from '@renderer/components/ui/select'
 import type { BmadInstallOptions } from '@shared/types/bmad.types'
 
-export function BmadSettingsPanel(): JSX.Element {
+export function BmadSettingsPanel(): React.JSX.Element {
   const utils = trpc.useUtils()
 
   // --- Queries ---
