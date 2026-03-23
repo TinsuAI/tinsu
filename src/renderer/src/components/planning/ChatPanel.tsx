@@ -15,7 +15,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { X, ArrowLeft } from 'lucide-react'
+import { ArrowLeft, PanelLeftClose } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
@@ -24,10 +24,18 @@ import { ChatMessageArea } from './ChatMessageArea'
 import { ChatInput } from './ChatInput'
 import { ChatSessionList, type ChatSessionListItem } from './ChatSessionList'
 
-export function ChatPanel() {
-  const closeChat = usePlanningWorkspaceStore((s) => s.closeChat)
+interface ChatPanelProps {
+  /** Optional callback to collapse the panel from the header */
+  onCollapse?: () => void
+}
+
+export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const targetChatSessionId = usePlanningWorkspaceStore((s) => s.targetChatSessionId)
   const clearTargetChatSession = usePlanningWorkspaceStore((s) => s.clearTargetChatSession)
+  const selectedWorkflowKey = usePlanningWorkspaceStore((s) => s.selectedWorkflowKey)
+  const pendingChatPrefill = usePlanningWorkspaceStore((s) => s.pendingChatPrefill)
+  const pendingPersona = usePlanningWorkspaceStore((s) => s.pendingPersona)
+  const clearPendingChatPrefill = usePlanningWorkspaceStore((s) => s.clearPendingChatPrefill)
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
 
@@ -61,7 +69,12 @@ export function ChatPanel() {
   )
 
   useEffect(() => {
-    if (view === 'list' && projectId && sessionsForCheck !== undefined && sessionsForCheck.length === 0) {
+    if (
+      view === 'list' &&
+      projectId &&
+      sessionsForCheck !== undefined &&
+      sessionsForCheck.length === 0
+    ) {
       setView('chat')
     }
   }, [view, projectId, sessionsForCheck])
@@ -93,10 +106,59 @@ export function ChatPanel() {
     clearTargetChatSession()
   }, [targetChatSessionId, sessionsForCheck, clearTargetChatSession])
 
+  // Chat-centric layout: Look up session bound to selected workflow key
+  const { data: workflowSession, isLoading: isWorkflowSessionLoading } =
+    trpc.chatSession.getByWorkflowKey.useQuery(
+      { projectId, workflowKey: selectedWorkflowKey ?? '' },
+      { enabled: !!projectId && !!selectedWorkflowKey }
+    )
+
+  // Flag to suppress persona-switch effect when workflow binding sets the persona
+  const isWorkflowBindingRef = useRef(false)
+
+  // When selectedWorkflowKey changes, wait for query to resolve then bind session
+  const prevWorkflowKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedWorkflowKey) return
+    // Wait for the query to finish loading before acting
+    if (isWorkflowSessionLoading) return
+    if (selectedWorkflowKey === prevWorkflowKeyRef.current) return
+    prevWorkflowKeyRef.current = selectedWorkflowKey
+
+    if (workflowSession) {
+      // Resume existing workflow session — suppress persona effect
+      isWorkflowBindingRef.current = true
+      setSessionId(workflowSession.id)
+      setSelectedPersona(workflowSession.agent_persona as ChatPersonaKey)
+      sessionPersonaRef.current = workflowSession.agent_persona as ChatPersonaKey
+      setIsAgentThinking(false)
+      setCurrentToolActivity(null)
+      prevMessageCountRef.current = 0
+    } else {
+      // No session for this workflow yet — clear session so a new one is created on send
+      // Auto-select the persona matching this workflow
+      if (pendingPersona) {
+        isWorkflowBindingRef.current = true
+        setSelectedPersona(pendingPersona as ChatPersonaKey)
+        sessionPersonaRef.current = pendingPersona as ChatPersonaKey
+      }
+      setSessionId(null)
+      setIsAgentThinking(false)
+      setCurrentToolActivity(null)
+      prevMessageCountRef.current = 0
+    }
+    setView('chat')
+  }, [selectedWorkflowKey, workflowSession, isWorkflowSessionLoading, pendingPersona])
+
   // Story 10.4: Persona switch — reset session to force new CLI session for new persona
   // When persona changes, clear sessionId so the next message creates a new session
   // with the new persona. Old session remains in DB for future resume (Story 10.6).
+  // Skip when the persona change was caused by workflow session binding.
   useEffect(() => {
+    if (isWorkflowBindingRef.current) {
+      isWorkflowBindingRef.current = false
+      return
+    }
     // Reset session state when persona changes
     setSessionId(null)
     sessionPersonaRef.current = null
@@ -169,18 +231,15 @@ export function ChatPanel() {
   })
 
   /** Story 10.6 AC: 2 — Select a session from the session list to resume it */
-  const handleSelectSession = useCallback(
-    (session: ChatSessionListItem) => {
-      setSessionId(session.id)
-      setSelectedPersona(session.agent_persona as ChatPersonaKey)
-      sessionPersonaRef.current = session.agent_persona as ChatPersonaKey
-      setIsAgentThinking(false)
-      setCurrentToolActivity(null)
-      prevMessageCountRef.current = 0
-      setView('chat')
-    },
-    []
-  )
+  const handleSelectSession = useCallback((session: ChatSessionListItem) => {
+    setSessionId(session.id)
+    setSelectedPersona(session.agent_persona as ChatPersonaKey)
+    sessionPersonaRef.current = session.agent_persona as ChatPersonaKey
+    setIsAgentThinking(false)
+    setCurrentToolActivity(null)
+    prevMessageCountRef.current = 0
+    setView('chat')
+  }, [])
 
   /** Story 10.6 AC: 4 — Start a new chat session */
   const handleNewChat = useCallback(() => {
@@ -213,7 +272,8 @@ export function ChatPanel() {
         if (!activeSessionId) {
           const session = await createSession.mutateAsync({
             agentPersona: personaAtSendTime,
-            projectId
+            projectId,
+            workflowKey: selectedWorkflowKey ?? undefined
           })
           if (!session) {
             console.error('[ChatPanel] Session creation returned null')
@@ -222,7 +282,9 @@ export function ChatPanel() {
           // Guard: if persona changed while session was being created, discard the session.
           // The useEffect will have already reset sessionId to null for the new persona.
           if (selectedPersona !== personaAtSendTime) {
-            console.warn('[ChatPanel] Persona changed during session creation — discarding old session')
+            console.warn(
+              '[ChatPanel] Persona changed during session creation — discarding old session'
+            )
             return
           }
           activeSessionId = session.id
@@ -258,31 +320,27 @@ export function ChatPanel() {
         }
       }
     },
-    [projectId, sessionId, selectedPersona, createSession, sendChatMessage]
+    [projectId, sessionId, selectedPersona, selectedWorkflowKey, createSession, sendChatMessage]
   )
 
   return (
-    <div
-      className={cn(
-        'flex h-full w-[400px] shrink-0 flex-col',
-        'border-l border-border/50 bg-card/20'
-      )}
-      data-testid="chat-panel"
-    >
+    <div className={cn('flex h-full flex-col', 'bg-card/20')} data-testid="chat-panel">
       {view === 'list' ? (
         <>
-          {/* Header: title + close button (list view) */}
+          {/* Header: title (list view) */}
           <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
             <span className="text-xs font-medium text-muted-foreground">Chat Sessions</span>
-            <button
-              type="button"
-              onClick={closeChat}
-              className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
-              aria-label="Close chat panel"
-              data-testid="chat-close-button"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {onCollapse && (
+              <button
+                type="button"
+                onClick={onCollapse}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40 transition-colors"
+                aria-label="Collapse chat panel"
+                data-testid="collapse-chat-panel"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Session list */}
@@ -294,7 +352,7 @@ export function ChatPanel() {
         </>
       ) : (
         <>
-          {/* Header: back button + persona selector + close button (chat view) */}
+          {/* Header: back button + persona selector (chat view) */}
           <div className="flex items-center justify-between border-b border-border/30 px-3 py-2">
             <div className="flex items-center gap-1">
               <button
@@ -311,15 +369,17 @@ export function ChatPanel() {
                 onPersonaChange={setSelectedPersona}
               />
             </div>
-            <button
-              type="button"
-              onClick={closeChat}
-              className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
-              aria-label="Close chat panel"
-              data-testid="chat-close-button"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {onCollapse && (
+              <button
+                type="button"
+                onClick={onCollapse}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40 transition-colors"
+                aria-label="Collapse chat panel"
+                data-testid="collapse-chat-panel"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Message area */}
@@ -335,6 +395,8 @@ export function ChatPanel() {
             onSend={handleSend}
             disabled={!projectId || sendChatMessage.isPending || createSession.isPending}
             autoFocus
+            initialValue={pendingChatPrefill}
+            onInitialValueConsumed={clearPendingChatPrefill}
           />
         </>
       )}

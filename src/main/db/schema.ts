@@ -379,7 +379,12 @@ export type TaskActivity = InferSelectModel<typeof taskActivities>
 export type NewTaskActivity = InferInsertModel<typeof taskActivities>
 
 // Story 7.7: Version status outcome enum values
-export const VERSION_STATUS_OUTCOME = ['pending', 'rejected', 'changes_requested', 'approved'] as const
+export const VERSION_STATUS_OUTCOME = [
+  'pending',
+  'rejected',
+  'changes_requested',
+  'approved'
+] as const
 export type VersionStatusOutcome = (typeof VERSION_STATUS_OUTCOME)[number]
 
 // Story 7.7: Task versions table for review history tracking
@@ -408,7 +413,13 @@ export type TaskVersion = InferSelectModel<typeof taskVersions>
 export type NewTaskVersion = InferInsertModel<typeof taskVersions>
 
 // Story 9.5: Workflow run status values for tracking BMAD planning workflow executions
-export const WORKFLOW_RUN_STATUS = ['running', 'needs-input', 'succeeded', 'failed', 'cancelled'] as const
+export const WORKFLOW_RUN_STATUS = [
+  'running',
+  'needs-input',
+  'succeeded',
+  'failed',
+  'cancelled'
+] as const
 export type WorkflowRunStatus = (typeof WORKFLOW_RUN_STATUS)[number]
 
 // Story 9.5: Workflow runs table for tracking BMAD planning workflow executions
@@ -500,12 +511,15 @@ export const chat_sessions = sqliteTable(
     updated_at: integer('updated_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
-    last_message_at: integer('last_message_at', { mode: 'timestamp' })
+    last_message_at: integer('last_message_at', { mode: 'timestamp' }),
+    // Chat-centric layout: Bind session to a specific BMAD workflow step
+    workflow_key: text('workflow_key')
   },
   (table) => [
     index('idx_chat_sessions_project_id').on(table.project_id),
     index('idx_chat_sessions_status').on(table.status),
-    index('idx_chat_sessions_session_uuid').on(table.session_uuid)
+    index('idx_chat_sessions_session_uuid').on(table.session_uuid),
+    index('idx_chat_sessions_workflow_key').on(table.project_id, table.workflow_key)
   ]
 )
 

@@ -109,6 +109,10 @@ const mockDeleteSessionMutation = vi.fn().mockReturnValue({
   mutate: vi.fn()
 })
 
+const mockGetByWorkflowKeyQuery = vi.fn().mockReturnValue({
+  data: null
+})
+
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     project: {
@@ -134,6 +138,9 @@ vi.mock('@renderer/lib/trpc', () => ({
       },
       deleteSession: {
         useMutation: (...args: unknown[]) => mockDeleteSessionMutation(...args)
+      },
+      getByWorkflowKey: {
+        useQuery: (...args: unknown[]) => mockGetByWorkflowKeyQuery(...args)
       }
     },
     useUtils: () => ({
@@ -150,17 +157,20 @@ vi.mock('@renderer/lib/trpc', () => ({
 }))
 
 // Mock stores
-const mockCloseChat = vi.fn()
 const mockClearTargetChatSession = vi.fn()
+const mockClearPendingChatPrefill = vi.fn()
 let mockTargetChatSessionId: string | null = null
+let mockSelectedWorkflowKey: string | null = null
+let mockPendingChatPrefill: string | null = null
 
 vi.mock('@renderer/stores', () => ({
   usePlanningWorkspaceStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
-      isChatOpen: true,
-      closeChat: mockCloseChat,
       targetChatSessionId: mockTargetChatSessionId,
-      clearTargetChatSession: mockClearTargetChatSession
+      clearTargetChatSession: mockClearTargetChatSession,
+      selectedWorkflowKey: mockSelectedWorkflowKey,
+      pendingChatPrefill: mockPendingChatPrefill,
+      clearPendingChatPrefill: mockClearPendingChatPrefill
     }
     return selector ? selector(state) : state
   }
@@ -230,19 +240,6 @@ describe('ChatPanel (Story 10.2, AC: 1, 2)', () => {
       expect(screen.getByTestId('chat-empty-state')).toBeInTheDocument()
       expect(screen.getByText('Start a conversation with your agent')).toBeInTheDocument()
     })
-  })
-
-  it('renders close button', () => {
-    render(<ChatPanel />)
-
-    expect(screen.getByTestId('chat-close-button')).toBeInTheDocument()
-  })
-
-  it('calls closeChat when close button is clicked', () => {
-    render(<ChatPanel />)
-
-    fireEvent.click(screen.getByTestId('chat-close-button'))
-    expect(mockCloseChat).toHaveBeenCalledTimes(1)
   })
 
   it('renders textarea and send button in chat view', async () => {
@@ -623,17 +620,6 @@ describe('ChatPanel session list view (Story 10.6, AC: 1, 2, 3, 4)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('chat-session-list')).toBeInTheDocument()
     })
-  })
-
-  it('close button works in list view', () => {
-    mockListWithPreviewQuery.mockReturnValue({
-      data: mockSessions
-    })
-
-    render(<ChatPanel />)
-
-    fireEvent.click(screen.getByTestId('chat-close-button'))
-    expect(mockCloseChat).toHaveBeenCalledTimes(1)
   })
 
   it('header shows "Chat Sessions" title in list view', () => {

@@ -119,8 +119,12 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     )
   `)
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_sessions_session_id ON task_sessions(session_id)')
-  sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_task_sessions_task_id_unique ON task_sessions(task_id)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_task_sessions_session_id ON task_sessions(session_id)'
+  )
+  sqlite.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_task_sessions_task_id_unique ON task_sessions(task_id)'
+  )
 
   // Session history table for tracking all Claude Code session_ids per task
   // This preserves the mapping for traceability after workflows complete
@@ -136,7 +140,9 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     )
   `)
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_session_history_task_id ON session_history(task_id)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_session_history_session_id ON session_history(session_id)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_session_history_session_id ON session_history(session_id)'
+  )
 
   // Story 3.10: Task artifacts table for linking artifacts to tasks
   sqlite.exec(`
@@ -161,9 +167,7 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_agent_runs_task_id ON agent_runs(task_id)')
 
   // Get existing columns in tasks table for incremental migrations
-  const columns = sqlite
-    .prepare("PRAGMA table_info(tasks)")
-    .all() as Array<{ name: string }>
+  const columns = sqlite.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
   const existingColumns = new Set(columns.map((c) => c.name))
 
   // Migration: Add task_type column (Story 3.1)
@@ -219,18 +223,16 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_projects_last_opened ON projects(last_opened_at)')
 
   // Ensure epics table has project_id (Story 3.1.5)
-  const epicColumns = sqlite
-    .prepare("PRAGMA table_info(epics)")
-    .all() as Array<{ name: string }>
+  const epicColumns = sqlite.prepare('PRAGMA table_info(epics)').all() as Array<{ name: string }>
   if (epicColumns.length > 0 && !epicColumns.some((c) => c.name === 'project_id')) {
     sqlite.exec('ALTER TABLE epics ADD COLUMN project_id TEXT REFERENCES projects(id)')
     sqlite.exec('CREATE INDEX IF NOT EXISTS idx_epics_project_id ON epics(project_id)')
   }
 
   // Ensure sprints table has project_id (Story 3.1.5)
-  const sprintColumns = sqlite
-    .prepare("PRAGMA table_info(sprints)")
-    .all() as Array<{ name: string }>
+  const sprintColumns = sqlite.prepare('PRAGMA table_info(sprints)').all() as Array<{
+    name: string
+  }>
   if (sprintColumns.length > 0 && !sprintColumns.some((c) => c.name === 'project_id')) {
     sqlite.exec('ALTER TABLE sprints ADD COLUMN project_id TEXT REFERENCES projects(id)')
     sqlite.exec('CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id)')
@@ -314,9 +316,9 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   }
 
   // Migration: Add epic_number and goal columns to epics (Story 3.7)
-  const epicColumnsCheck = sqlite
-    .prepare("PRAGMA table_info(epics)")
-    .all() as Array<{ name: string }>
+  const epicColumnsCheck = sqlite.prepare('PRAGMA table_info(epics)').all() as Array<{
+    name: string
+  }>
   const epicColNames = new Set(epicColumnsCheck.map((c) => c.name))
   if (epicColumnsCheck.length > 0 && !epicColNames.has('epic_number')) {
     sqlite.exec('ALTER TABLE epics ADD COLUMN epic_number INTEGER')
@@ -334,9 +336,9 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
   }
 
   // Migration: Add new sprint columns and migrate is_active to status
-  const sprintColumnsCheck = sqlite
-    .prepare("PRAGMA table_info(sprints)")
-    .all() as Array<{ name: string }>
+  const sprintColumnsCheck = sqlite.prepare('PRAGMA table_info(sprints)').all() as Array<{
+    name: string
+  }>
   const sprintColNames = new Set(sprintColumnsCheck.map((c) => c.name))
 
   // Add status column if missing (replacing is_active)
@@ -386,8 +388,12 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     )
   `)
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_task_id ON task_activities(task_id)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_task_activities_event_type ON task_activities(event_type)'
+  )
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_task_activities_created_at ON task_activities(created_at)'
+  )
   sqlite.exec(
     'CREATE INDEX IF NOT EXISTS idx_task_activities_task_id_created_at ON task_activities(task_id, created_at)'
   )
@@ -441,9 +447,13 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
     )
   `)
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_project_id ON workflow_runs(project_id)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_workflow_runs_project_id ON workflow_runs(project_id)'
+  )
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at)'
+  )
 
   // Story 9.6: Gate decisions table for readiness gate results
   sqlite.exec(`
@@ -459,8 +469,12 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(id) ON DELETE SET NULL
     )
   `)
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_project_id ON gate_decisions(project_id)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_gate_decisions_created_at ON gate_decisions(created_at)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_gate_decisions_project_id ON gate_decisions(project_id)'
+  )
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_gate_decisions_created_at ON gate_decisions(created_at)'
+  )
 
   // Story 10.1: Chat sessions table for agent planning chat
   sqlite.exec(`
@@ -477,7 +491,9 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
   `)
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_project_id ON chat_sessions(project_id)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_sessions_project_id ON chat_sessions(project_id)'
+  )
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_status ON chat_sessions(status)')
   sqlite.exec(
     'CREATE INDEX IF NOT EXISTS idx_chat_sessions_session_uuid ON chat_sessions(session_uuid)'
@@ -496,53 +512,74 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
       FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
     )
   `)
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id)')
-  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)')
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id)'
+  )
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)'
+  )
+
+  // Chat-centric layout: Add workflow_key column to chat_sessions
+  const chatSessionColumns = sqlite.prepare('PRAGMA table_info(chat_sessions)').all() as Array<{
+    name: string
+  }>
+  if (chatSessionColumns.length > 0 && !chatSessionColumns.some((c) => c.name === 'workflow_key')) {
+    sqlite.exec('ALTER TABLE chat_sessions ADD COLUMN workflow_key TEXT')
+  }
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_sessions_workflow_key ON chat_sessions(project_id, workflow_key)'
+  )
 
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 
   // Get all projects that have no sprints
   const projectsWithoutSprints = sqlite
-    .prepare(`
+    .prepare(
+      `
       SELECT p.id FROM projects p
       LEFT JOIN sprints s ON s.project_id = p.id
       WHERE s.id IS NULL
-    `)
+    `
+    )
     .all() as Array<{ id: string }>
 
   // Create default Backlog sprint for each project without sprints
   for (const project of projectsWithoutSprints) {
     const sprintId = crypto.randomUUID()
     sqlite
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO sprints (id, name, status, goal, project_id, created_at)
         VALUES (?, 'Backlog', 'active', 'Default sprint for organizing unscheduled work', ?, unixepoch())
-      `)
+      `
+      )
       .run(sprintId, project.id)
   }
 
   // === Migration: Assign orphaned epics to their project's first sprint ===
   // Get all orphaned epics (those with project_id but no sprint_id)
   const orphanedEpics = sqlite
-    .prepare(`
+    .prepare(
+      `
       SELECT e.id, e.project_id FROM epics e
       WHERE e.sprint_id IS NULL AND e.project_id IS NOT NULL
-    `)
+    `
+    )
     .all() as Array<{ id: string; project_id: string }>
 
   // For each orphaned epic, assign it to the first sprint of its project
   for (const epic of orphanedEpics) {
     const firstSprint = sqlite
-      .prepare(`
+      .prepare(
+        `
         SELECT id FROM sprints WHERE project_id = ? ORDER BY created_at ASC LIMIT 1
-      `)
+      `
+      )
       .get(epic.project_id) as { id: string } | undefined
 
     if (firstSprint) {
-      sqlite
-        .prepare('UPDATE epics SET sprint_id = ? WHERE id = ?')
-        .run(firstSprint.id, epic.id)
+      sqlite.prepare('UPDATE epics SET sprint_id = ? WHERE id = ?').run(firstSprint.id, epic.id)
     }
   }
 }

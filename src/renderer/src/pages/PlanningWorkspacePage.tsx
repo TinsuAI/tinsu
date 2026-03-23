@@ -1,9 +1,14 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
+import { Group, Panel, Separator, usePanelRef, type Layout } from 'react-resizable-panels'
 import {
   ArrowLeft,
   Compass,
   FileCode2,
   Keyboard,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   MessageSquare
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -33,6 +38,22 @@ import { KeyboardShortcutsOverlay } from '@renderer/components/planning/Keyboard
 import { ChatPanel } from '@renderer/components/planning/ChatPanel'
 import { usePlanningKeyboardShortcuts } from '@renderer/hooks/usePlanningKeyboardShortcuts'
 
+// localStorage key for planning workspace layout persistence
+const PLANNING_LAYOUT_STORAGE_KEY = 'tinsu-planning-workspace-layout'
+
+// Default panel sizes
+const DEFAULT_LAYOUT: Layout = { sidebar: 20, chat: 45, content: 35 }
+
+function loadSavedPlanningLayout(): Layout {
+  try {
+    const saved = localStorage.getItem(PLANNING_LAYOUT_STORAGE_KEY)
+    if (saved) return JSON.parse(saved)
+  } catch {
+    // Ignore parse errors
+  }
+  return DEFAULT_LAYOUT
+}
+
 /**
  * Full-screen BMAD Planning Workspace page.
  *
@@ -49,11 +70,10 @@ export function PlanningWorkspacePage() {
     isOpen,
     activePhase,
     selectedWorkflowKey,
-    isChatOpen,
     closeWorkspace,
     setActivePhase,
     setSelectedWorkflow,
-    toggleChat
+    setPendingChatPrefill
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
   const { data: project } = trpc.project.getCurrent.useQuery()
@@ -107,7 +127,9 @@ export function PlanningWorkspacePage() {
     onFocusWhatNext: () => {
       setSelectedWorkflow(null)
       requestAnimationFrame(() => {
-        const el = workspaceRef.current?.querySelector<HTMLElement>('[data-testid="what-next-section"]')
+        const el = workspaceRef.current?.querySelector<HTMLElement>(
+          '[data-testid="what-next-section"]'
+        )
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         el?.focus()
       })
@@ -115,7 +137,9 @@ export function PlanningWorkspacePage() {
     onFocusRecentRuns: () => {
       setSelectedWorkflow(null)
       requestAnimationFrame(() => {
-        const el = workspaceRef.current?.querySelector<HTMLElement>('[data-testid="recent-runs-section"]')
+        const el = workspaceRef.current?.querySelector<HTMLElement>(
+          '[data-testid="recent-runs-section"]'
+        )
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         el?.focus()
       })
@@ -145,10 +169,11 @@ export function PlanningWorkspacePage() {
   const isReadinessCheck = selectedWorkflowKey === 'readiness-check'
 
   // Story 9.6: Auto-parse gate result when readiness-check artifact is viewed
-  const { data: latestGate, isLoading: isGateLoading } = trpc.planning.getLatestGateDecision.useQuery(
-    { projectId },
-    { enabled: !!projectId && isReadinessCheck && artifactExists }
-  )
+  const { data: latestGate, isLoading: isGateLoading } =
+    trpc.planning.getLatestGateDecision.useQuery(
+      { projectId },
+      { enabled: !!projectId && isReadinessCheck && artifactExists }
+    )
   const trpcUtils = trpc.useUtils()
   const parseGateMutation = trpc.planning.parseAndSaveGateResult.useMutation({
     onSuccess: () => {
@@ -173,28 +198,67 @@ export function PlanningWorkspacePage() {
       autoParseTriggered ||
       parseGateMutation.isPending ||
       isGateLoading // wait for query to resolve before deciding whether to auto-parse
-    ) return
+    )
+      return
 
     // Auto-parse if no gate decision exists, or if artifact is newer than last decision
     const shouldParse =
       latestGate == null ||
-      (readinessArtifactLastModified && latestGate.created_at &&
-        readinessArtifactLastModified > (
-          typeof latestGate.created_at === 'number'
+      (readinessArtifactLastModified &&
+        latestGate.created_at &&
+        readinessArtifactLastModified >
+          (typeof latestGate.created_at === 'number'
             ? latestGate.created_at * 1000
-            : new Date(latestGate.created_at as string | Date).getTime()
-        ))
+            : new Date(latestGate.created_at as string | Date).getTime()))
 
     if (shouldParse) {
       setAutoParseTriggered(true)
       parseGate({ projectId })
     }
-  }, [isReadinessCheck, artifactExists, projectId, latestGate, readinessArtifactLastModified, autoParseTriggered, parseGateMutation.isPending, isGateLoading, parseGate])
+  }, [
+    isReadinessCheck,
+    artifactExists,
+    projectId,
+    latestGate,
+    readinessArtifactLastModified,
+    autoParseTriggered,
+    parseGateMutation.isPending,
+    isGateLoading,
+    parseGate
+  ])
 
   // Reset auto-parse trigger when workflow changes
   useEffect(() => {
     setAutoParseTriggered(false)
   }, [selectedWorkflowKey])
+
+  // Panel refs for collapse/expand
+  const sidebarPanelRef = usePanelRef()
+  const chatPanelRef = usePanelRef()
+  const contentPanelRef = usePanelRef()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [chatCollapsed, setChatCollapsed] = useState(false)
+  const [contentCollapsed, setContentCollapsed] = useState(false)
+
+  // Layout persistence for resizable panels
+  const savedLayout = useMemo(() => loadSavedPlanningLayout(), [])
+  const handleLayoutChanged = useCallback((layout: Layout) => {
+    try {
+      localStorage.setItem(PLANNING_LAYOUT_STORAGE_KEY, JSON.stringify(layout))
+    } catch {
+      // Ignore storage errors
+    }
+  }, [])
+
+  // Handle workflow selection — set selected workflow + prefill chat input with command
+  const handleWorkflowSelect = useCallback(
+    (wf: BmadWorkflowDefinition) => {
+      if (wf.key === selectedWorkflowKey) return
+      setSelectedWorkflow(wf.key)
+      setPendingChatPrefill(wf.command, wf.persona)
+    },
+    [selectedWorkflowKey, setSelectedWorkflow, setPendingChatPrefill]
+  )
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -290,39 +354,102 @@ export function PlanningWorkspacePage() {
           {/* Center: project + workspace label */}
           <div className="flex items-center gap-2.5">
             <Compass className="h-4 w-4 text-cyan-500" />
-            <span className="text-sm font-medium text-foreground">
-              {projectName ?? 'Project'}
-            </span>
+            <span className="text-sm font-medium text-foreground">{projectName ?? 'Project'}</span>
             <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-sm text-muted-foreground">
-              Planning Workspace
-            </span>
+            <span className="text-sm text-muted-foreground">Planning Workspace</span>
           </div>
 
-          {/* Right: chat toggle + shortcuts button + agent persona indicator */}
+          {/* Right: panel toggles + shortcuts button + agent persona indicator */}
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-7 w-7 p-0',
-                      isChatOpen && 'bg-cyan-500/10 text-cyan-400'
-                    )}
-                    onClick={toggleChat}
-                    aria-label={isChatOpen ? 'Close chat' : 'Open chat'}
-                    data-testid="chat-toggle-button"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isChatOpen ? 'Close chat' : 'Open chat'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {/* Panel toggle buttons */}
+            <div className="flex items-center gap-0.5 border-r border-border/30 pr-2 mr-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-7 w-7 p-0',
+                        !sidebarCollapsed && 'bg-accent/30 text-foreground'
+                      )}
+                      onClick={() =>
+                        sidebarCollapsed
+                          ? sidebarPanelRef.current?.expand()
+                          : sidebarPanelRef.current?.collapse()
+                      }
+                      aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+                      data-testid="toggle-sidebar-panel"
+                    >
+                      {sidebarCollapsed ? (
+                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                      ) : (
+                        <PanelLeftClose className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-7 w-7 p-0',
+                        !chatCollapsed && 'bg-cyan-500/10 text-cyan-400'
+                      )}
+                      onClick={() =>
+                        chatCollapsed
+                          ? chatPanelRef.current?.expand()
+                          : chatPanelRef.current?.collapse()
+                      }
+                      aria-label={chatCollapsed ? 'Show chat' : 'Hide chat'}
+                      data-testid="toggle-chat-panel"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {chatCollapsed ? 'Show chat' : 'Hide chat'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-7 w-7 p-0',
+                        !contentCollapsed && 'bg-accent/30 text-foreground'
+                      )}
+                      onClick={() =>
+                        contentCollapsed
+                          ? contentPanelRef.current?.expand()
+                          : contentPanelRef.current?.collapse()
+                      }
+                      aria-label={contentCollapsed ? 'Show content' : 'Hide content'}
+                      data-testid="toggle-content-panel"
+                    >
+                      {contentCollapsed ? (
+                        <PanelRightOpen className="h-3.5 w-3.5" />
+                      ) : (
+                        <PanelRightClose className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {contentCollapsed ? 'Show content' : 'Hide content'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -351,10 +478,7 @@ export function PlanningWorkspacePage() {
 
         {/* ── Phase tabs ── */}
         <div className="shrink-0 border-b border-border px-4 py-2">
-          <Tabs
-            value={activePhase}
-            onValueChange={(v) => setActivePhase(v as PlanningPhase)}
-          >
+          <Tabs value={activePhase} onValueChange={(v) => setActivePhase(v as PlanningPhase)}>
             <TabsList aria-label="Phase navigation" className="h-9 gap-1 bg-muted/50">
               {BMAD_PHASES.map((phase) => (
                 <TabsTrigger
@@ -369,61 +493,122 @@ export function PlanningWorkspacePage() {
           </Tabs>
         </div>
 
-        {/* ── Content area: sidebar + center ── */}
-        <div className="flex min-h-0 flex-1">
-          {/* Workflow sidebar */}
-          <aside aria-label="Workflow list" role="navigation" className="flex w-72 shrink-0 flex-col border-r border-border bg-card/50">
-            <div className="px-4 pb-2 pt-4">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Workflows
-              </h2>
-            </div>
-            <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-              {workflows.map((wf) => (
-                <WorkflowCard
-                  key={wf.key}
-                  workflow={wf}
-                  isSelected={selectedWorkflowKey === wf.key}
-                  onSelect={() => setSelectedWorkflow(wf.key)}
-                />
-              ))}
-            </nav>
-          </aside>
-
-          {/* Center content */}
-          <main aria-label="Workspace content" className="flex flex-1 flex-col">
-            {/* Story 9.5: Active workflow run banner — always top-aligned */}
-            <WorkflowRunPanel />
-
-            <div className={cn(
-              "flex min-h-0 flex-1",
-              selectedWorkflow && !artifactExists && !isReadinessCheck && "items-center justify-center p-8"
-            )}>
-              {!selectedWorkflow ? (
-                <PhaseProgressDashboard />
-              ) : isReadinessCheck && artifactExists ? (
-                /* Story 9.6: ReadinessGatePanel above ArtifactViewer for readiness-check */
-                <div className="h-full overflow-y-auto">
-                  <div className="space-y-4 p-6">
-                    <ReadinessGatePanel />
-                    <ArtifactViewer workflowKey={selectedWorkflow.key} />
-                  </div>
+        {/* ── Content area: Sidebar | Chat | Content — resizable panels ── */}
+        <div className="min-h-0 flex-1">
+          <Group
+            orientation="horizontal"
+            defaultLayout={savedLayout}
+            onLayoutChanged={handleLayoutChanged}
+          >
+            {/* Sidebar panel */}
+            <Panel
+              id="sidebar"
+              defaultSize={20}
+              minSize={10}
+              collapsible
+              panelRef={sidebarPanelRef}
+              onResize={() => setSidebarCollapsed(sidebarPanelRef.current?.isCollapsed() ?? false)}
+            >
+              <aside
+                aria-label="Workflow list"
+                role="navigation"
+                className="flex h-full flex-col bg-card/50"
+              >
+                <div className="flex items-center justify-between px-4 pb-2 pt-4">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Workflows
+                  </h2>
+                  <PanelCollapseButton panelRef={sidebarPanelRef} side="left" label="sidebar" />
                 </div>
-              ) : isReadinessCheck && !artifactExists ? (
-                /* Story 9.6: ReadinessGatePanel empty state for readiness-check */
-                <div className="flex h-full items-center justify-center p-8">
-                  <ReadinessGatePanel />
-                </div>
-              ) : artifactExists ? (
-                <ArtifactViewer workflowKey={selectedWorkflow.key} />
-              ) : (
-                <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
+                <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+                  {workflows.map((wf) => (
+                    <WorkflowCard
+                      key={wf.key}
+                      workflow={wf}
+                      isSelected={selectedWorkflowKey === wf.key}
+                      onSelect={() => handleWorkflowSelect(wf)}
+                    />
+                  ))}
+                </nav>
+              </aside>
+            </Panel>
+
+            <Separator
+              className={cn(
+                'mx-1 w-1',
+                'bg-border/30 hover:bg-cyan-500/50 active:bg-cyan-500/70',
+                'cursor-col-resize transition-colors duration-150 rounded-full'
               )}
-            </div>
-          </main>
+            />
 
-          {/* Story 10.2: Chat panel — right-side column */}
-          {isChatOpen && <ChatPanel />}
+            {/* Chat panel (center, always visible) */}
+            <Panel
+              id="chat"
+              defaultSize={45}
+              minSize={10}
+              collapsible
+              panelRef={chatPanelRef}
+              onResize={() => setChatCollapsed(chatPanelRef.current?.isCollapsed() ?? false)}
+            >
+              <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />
+            </Panel>
+
+            <Separator
+              className={cn(
+                'mx-1 w-1',
+                'bg-border/30 hover:bg-cyan-500/50 active:bg-cyan-500/70',
+                'cursor-col-resize transition-colors duration-150 rounded-full'
+              )}
+            />
+
+            {/* Content panel (right) */}
+            <Panel
+              id="content"
+              defaultSize={35}
+              minSize={10}
+              collapsible
+              panelRef={contentPanelRef}
+              onResize={() => setContentCollapsed(contentPanelRef.current?.isCollapsed() ?? false)}
+            >
+              <main aria-label="Workspace content" className="flex h-full flex-col">
+                {/* Content panel header with collapse button */}
+                <div className="flex h-8 shrink-0 items-center justify-end border-b border-border/30 px-2">
+                  <PanelCollapseButton panelRef={contentPanelRef} side="right" label="content" />
+                </div>
+                {/* Story 9.5: Active workflow run banner — always top-aligned */}
+                <WorkflowRunPanel />
+
+                <div
+                  className={cn(
+                    'flex min-h-0 flex-1',
+                    selectedWorkflow &&
+                      !artifactExists &&
+                      !isReadinessCheck &&
+                      'items-center justify-center p-8'
+                  )}
+                >
+                  {!selectedWorkflow ? (
+                    <PhaseProgressDashboard />
+                  ) : isReadinessCheck && artifactExists ? (
+                    <div className="h-full overflow-y-auto">
+                      <div className="space-y-4 p-6">
+                        <ReadinessGatePanel />
+                        <ArtifactViewer workflowKey={selectedWorkflow.key} />
+                      </div>
+                    </div>
+                  ) : isReadinessCheck && !artifactExists ? (
+                    <div className="flex h-full items-center justify-center p-8">
+                      <ReadinessGatePanel />
+                    </div>
+                  ) : artifactExists ? (
+                    <ArtifactViewer workflowKey={selectedWorkflow.key} />
+                  ) : (
+                    <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
+                  )}
+                </div>
+              </main>
+            </Panel>
+          </Group>
         </div>
       </div>
 
@@ -457,31 +642,68 @@ function WorkflowCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full rounded-lg px-3 py-2.5 text-left transition-colors',
+        'flex w-full gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
         'hover:bg-accent/60',
         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         isSelected && 'bg-accent ring-1 ring-cyan-500/40'
       )}
     >
-      <div className="text-sm font-medium text-foreground">{workflow.name}</div>
-      <div className="mt-0.5 text-xs text-muted-foreground">
-        {workflow.purpose}
+      {/* Step number badge */}
+      <span
+        className={cn(
+          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+          isSelected
+            ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/40'
+            : 'bg-muted/50 text-muted-foreground/60'
+        )}
+      >
+        {workflow.stepNumber}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-foreground">{workflow.name}</div>
+        <div className="mt-0.5 text-xs text-muted-foreground">{workflow.purpose}</div>
+        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground/60">
+          <FileCode2 className="h-3 w-3" />
+          <span className="font-mono">{workflow.outputFilename}</span>
+        </div>
       </div>
-      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground/60">
-        <FileCode2 className="h-3 w-3" />
-        <span className="font-mono">{workflow.outputFilename}</span>
-      </div>
+    </button>
+  )
+}
+
+/* ── Panel collapse button — sits inside each panel's header ── */
+
+function PanelCollapseButton({
+  panelRef,
+  side,
+  label
+}: {
+  panelRef: React.RefObject<{ collapse: () => void } | null>
+  side: 'left' | 'right'
+  label: string
+}) {
+  const Icon = side === 'left' ? PanelLeftClose : PanelRightClose
+
+  return (
+    <button
+      type="button"
+      onClick={() => panelRef.current?.collapse()}
+      className={cn(
+        'flex h-5 w-5 items-center justify-center rounded',
+        'text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40',
+        'transition-colors'
+      )}
+      aria-label={`Collapse ${label} panel`}
+      data-testid={`collapse-${label}-panel`}
+    >
+      <Icon className="h-3.5 w-3.5" />
     </button>
   )
 }
 
 /* ── Selected workflow placeholder (future stories replace this) ── */
 
-function SelectedWorkflowPlaceholder({
-  workflow
-}: {
-  workflow: BmadWorkflowDefinition
-}) {
+function SelectedWorkflowPlaceholder({ workflow }: { workflow: BmadWorkflowDefinition }) {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
@@ -489,9 +711,7 @@ function SelectedWorkflowPlaceholder({
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">{workflow.name}</p>
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          {workflow.purpose}
-        </p>
+        <p className="mt-1 max-w-sm text-xs text-muted-foreground">{workflow.purpose}</p>
         <p className="mt-3 text-[11px] text-muted-foreground/50">
           Workflow content coming in a future update
         </p>

@@ -7,7 +7,9 @@ describe('usePlanningWorkspaceStore', () => {
     usePlanningWorkspaceStore.setState({
       isOpen: false,
       activePhase: 'analysis',
-      selectedWorkflowKey: null
+      selectedWorkflowKey: null,
+      targetChatSessionId: null,
+      pendingChatPrefill: null
     })
   })
 
@@ -104,6 +106,29 @@ describe('usePlanningWorkspaceStore', () => {
       usePlanningWorkspaceStore.getState().setSelectedWorkflow(null)
 
       expect(usePlanningWorkspaceStore.getState().selectedWorkflowKey).toBeNull()
+    })
+  })
+
+  describe('pendingChatPrefill', () => {
+    it('starts as null', () => {
+      expect(usePlanningWorkspaceStore.getState().pendingChatPrefill).toBeNull()
+    })
+
+    it('sets and clears prefill', () => {
+      usePlanningWorkspaceStore.getState().setPendingChatPrefill('/bmad-brainstorming')
+      expect(usePlanningWorkspaceStore.getState().pendingChatPrefill).toBe('/bmad-brainstorming')
+
+      usePlanningWorkspaceStore.getState().clearPendingChatPrefill()
+      expect(usePlanningWorkspaceStore.getState().pendingChatPrefill).toBeNull()
+    })
+  })
+
+  describe('openChatToSession', () => {
+    it('sets targetChatSessionId', () => {
+      usePlanningWorkspaceStore.getState().openChatToSession('session-abc')
+
+      const state = usePlanningWorkspaceStore.getState()
+      expect(state.targetChatSessionId).toBe('session-abc')
     })
   })
 })

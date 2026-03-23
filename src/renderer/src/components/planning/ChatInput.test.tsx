@@ -117,4 +117,44 @@ describe('ChatInput (Story 10.2, AC: 6)', () => {
     const textarea = screen.getByTestId('chat-textarea')
     expect(document.activeElement).toBe(textarea)
   })
+
+  it('sets textarea value from initialValue prop', () => {
+    const onConsumed = vi.fn()
+    render(
+      <ChatInput
+        onSend={vi.fn()}
+        initialValue="/bmad-brainstorming"
+        onInitialValueConsumed={onConsumed}
+      />
+    )
+
+    const textarea = screen.getByTestId('chat-textarea') as HTMLTextAreaElement
+    expect(textarea.value).toBe('/bmad-brainstorming')
+    expect(onConsumed).toHaveBeenCalled()
+  })
+
+  it('does not re-set textarea when initialValue is the same', () => {
+    const onConsumed = vi.fn()
+    const { rerender } = render(
+      <ChatInput
+        onSend={vi.fn()}
+        initialValue="/bmad-brainstorming"
+        onInitialValueConsumed={onConsumed}
+      />
+    )
+
+    // First render consumes once
+    expect(onConsumed).toHaveBeenCalledTimes(1)
+
+    // Re-render with same initialValue — should not consume again
+    rerender(
+      <ChatInput
+        onSend={vi.fn()}
+        initialValue="/bmad-brainstorming"
+        onInitialValueConsumed={onConsumed}
+      />
+    )
+
+    expect(onConsumed).toHaveBeenCalledTimes(1)
+  })
 })

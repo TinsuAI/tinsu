@@ -17,7 +17,13 @@ import { join } from 'path'
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
-import { chat_sessions, chat_messages, projects, CHAT_SESSION_STATUS, CHAT_MESSAGE_ROLE } from '../../db/schema'
+import {
+  chat_sessions,
+  chat_messages,
+  projects,
+  CHAT_SESSION_STATUS,
+  CHAT_MESSAGE_ROLE
+} from '../../db/schema'
 import { chatCliService } from '../../services'
 import { PersonaContextService } from '../../services/persona-context.service'
 
@@ -78,7 +84,8 @@ export const chatSessionRouter = router({
       z.object({
         agentPersona: z.string().min(1),
         workflowPhase: z.string().optional(),
-        projectId: z.string().min(1)
+        projectId: z.string().min(1),
+        workflowKey: z.string().optional()
       })
     )
     .mutation(({ input }) => {
@@ -93,6 +100,7 @@ export const chatSessionRouter = router({
           agent_persona: input.agentPersona,
           workflow_phase: input.workflowPhase ?? null,
           project_id: input.projectId,
+          workflow_key: input.workflowKey ?? null,
           status: 'active',
           created_at: now,
           updated_at: now
@@ -130,6 +138,45 @@ export const chatSessionRouter = router({
           desc(chat_sessions.created_at)
         )
         .all()
+    }),
+
+  /**
+   * Get the most recent active/paused chat session bound to a specific workflow key.
+   *
+   * Used by the chat-centric planning workspace to resume the exact session
+   * for a workflow step when the user clicks it in the sidebar.
+   *
+   * @example
+   * ```typescript
+   * const session = await trpc.chatSession.getByWorkflowKey.query({
+   *   projectId: 'project-123',
+   *   workflowKey: 'brainstorming'
+   * })
+   * ```
+   */
+  getByWorkflowKey: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().min(1),
+        workflowKey: z.string().min(1)
+      })
+    )
+    .query(({ input }) => {
+      return (
+        db
+          .select()
+          .from(chat_sessions)
+          .where(
+            and(
+              eq(chat_sessions.project_id, input.projectId),
+              eq(chat_sessions.workflow_key, input.workflowKey),
+              inArray(chat_sessions.status, ['active', 'paused'])
+            )
+          )
+          .orderBy(desc(chat_sessions.updated_at))
+          .limit(1)
+          .get() ?? null
+      )
     }),
 
   /**
@@ -322,9 +369,7 @@ export const chatSessionRouter = router({
       chatCliService.killSession(input.sessionId)
 
       // Delete from chat_sessions — cascade deletes messages
-      db.delete(chat_sessions)
-        .where(eq(chat_sessions.id, input.sessionId))
-        .run()
+      db.delete(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).run()
 
       return { deleted: true }
     }),
@@ -350,18 +395,20 @@ export const chatSessionRouter = router({
       })
     )
     .query(({ input }) => {
-      return db
-        .select()
-        .from(chat_messages)
-        .where(
-          and(
-            eq(chat_messages.session_id, input.sessionId),
-            inArray(chat_messages.role, ['user', 'assistant'])
+      return (
+        db
+          .select()
+          .from(chat_messages)
+          .where(
+            and(
+              eq(chat_messages.session_id, input.sessionId),
+              inArray(chat_messages.role, ['user', 'assistant'])
+            )
           )
-        )
-        .orderBy(desc(chat_messages.created_at))
-        .limit(1)
-        .get() ?? null
+          .orderBy(desc(chat_messages.created_at))
+          .limit(1)
+          .get() ?? null
+      )
     }),
 
   /**
@@ -443,9 +490,7 @@ export const chatSessionRouter = router({
       return db
         .select()
         .from(chat_messages)
-        .where(
-          and(eq(chat_messages.session_id, input.sessionId), eq(chat_messages.role, 'tool'))
-        )
+        .where(and(eq(chat_messages.session_id, input.sessionId), eq(chat_messages.role, 'tool')))
         .orderBy(asc(chat_messages.created_at))
         .all()
     }),

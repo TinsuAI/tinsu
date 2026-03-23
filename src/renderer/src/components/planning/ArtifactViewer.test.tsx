@@ -386,7 +386,6 @@ describe('ArtifactViewer', () => {
 
       // openChatToSession should have been called on the store
       const state = usePlanningWorkspaceStore.getState()
-      expect(state.isChatOpen).toBe(true)
       expect(state.targetChatSessionId).toBe('session-arch-1')
     })
   })

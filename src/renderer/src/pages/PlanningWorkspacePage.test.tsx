@@ -65,6 +65,23 @@ vi.mock('@renderer/components/planning/WorkflowRunPanel', () => ({
   WorkflowRunPanel: () => <div data-testid="workflow-run-panel">Workflow Run Panel</div>
 }))
 
+// Mock ChatPanel to isolate page-level tests
+vi.mock('@renderer/components/planning/ChatPanel', () => ({
+  ChatPanel: () => <div data-testid="chat-panel">Chat Panel</div>
+}))
+
+// Mock react-resizable-panels
+vi.mock('react-resizable-panels', () => ({
+  Group: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="resizable-group">{children}</div>
+  ),
+  Panel: ({ children, id }: { children: React.ReactNode; id?: string }) => (
+    <div data-testid={`resizable-panel-${id || 'unknown'}`}>{children}</div>
+  ),
+  Separator: () => <div data-testid="resizable-separator" />,
+  usePanelRef: () => ({ current: { collapse: vi.fn(), expand: vi.fn(), isCollapsed: () => false } })
+}))
+
 // Mock KeyboardShortcutsOverlay (Story 9.9) to isolate page-level tests
 vi.mock('@renderer/components/planning/KeyboardShortcutsOverlay', () => ({
   KeyboardShortcutsOverlay: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>

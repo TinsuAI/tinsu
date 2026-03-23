@@ -36,37 +36,54 @@ export interface BmadWorkflowDefinition {
   name: string
   purpose: string
   outputFilename: string
+  command: string
+  /** Default agent persona for this workflow */
+  persona: string
+  /** Global step number across all phases for ordered display */
+  stepNumber: number
 }
 
 export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
-  // Analysis phase
+  // Analysis phase (canonical BMAD sequence)
   {
     key: 'brainstorming',
     phase: 'analysis',
     name: 'Brainstorming',
     purpose: 'Explore ideas and define product direction',
-    outputFilename: 'product-brief.md'
-  },
-  {
-    key: 'product-brief',
-    phase: 'analysis',
-    name: 'Product Brief',
-    purpose: 'Define product vision and target users',
-    outputFilename: 'product-brief.md'
+    outputFilename: 'product-brief.md',
+    command: '/bmad-brainstorming',
+    persona: 'bmad:bmm:agents:analyst',
+    stepNumber: 1
   },
   {
     key: 'market-research',
     phase: 'analysis',
     name: 'Market Research',
     purpose: 'Analyze competition and market landscape',
-    outputFilename: 'market-research.md'
+    outputFilename: 'market-research.md',
+    command: '/bmad-market-research',
+    persona: 'bmad:bmm:agents:analyst',
+    stepNumber: 2
   },
   {
     key: 'domain-research',
     phase: 'analysis',
     name: 'Domain Research',
     purpose: 'Deep dive into domain-specific knowledge',
-    outputFilename: 'domain-research.md'
+    outputFilename: 'domain-research.md',
+    command: '/bmad-domain-research',
+    persona: 'bmad:bmm:agents:analyst',
+    stepNumber: 3
+  },
+  {
+    key: 'product-brief',
+    phase: 'analysis',
+    name: 'Product Brief',
+    purpose: 'Define product vision and target users',
+    outputFilename: 'product-brief.md',
+    command: '/bmad-create-product-brief',
+    persona: 'bmad:bmm:agents:analyst',
+    stepNumber: 4
   },
 
   // Planning phase
@@ -75,14 +92,20 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'planning',
     name: 'Create PRD',
     purpose: 'Document detailed requirements and features',
-    outputFilename: 'prd.md'
+    outputFilename: 'prd.md',
+    command: '/bmad-create-prd',
+    persona: 'bmad:bmm:agents:pm',
+    stepNumber: 5
   },
   {
     key: 'ux-design',
     phase: 'planning',
     name: 'UX Design',
     purpose: 'Plan user experience and interface patterns',
-    outputFilename: 'ux-design-specification.md'
+    outputFilename: 'ux-design-specification.md',
+    command: '/bmad-create-ux-design',
+    persona: 'bmad:bmm:agents:ux-designer',
+    stepNumber: 6
   },
 
   // Solutioning phase
@@ -91,21 +114,30 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'solutioning',
     name: 'Architecture',
     purpose: 'Design technical architecture and stack decisions',
-    outputFilename: 'architecture.md'
+    outputFilename: 'architecture.md',
+    command: '/bmad-create-architecture',
+    persona: 'bmad:bmm:agents:architect',
+    stepNumber: 7
   },
   {
     key: 'epics-stories',
     phase: 'solutioning',
     name: 'Epics & Stories',
     purpose: 'Break down work into implementable stories',
-    outputFilename: 'epics.md'
+    outputFilename: 'epics.md',
+    command: '/bmad-create-epics-and-stories',
+    persona: 'bmad:bmm:agents:pm',
+    stepNumber: 8
   },
   {
     key: 'readiness-check',
     phase: 'solutioning',
     name: 'Implementation Readiness',
     purpose: 'Validate specs are complete before development',
-    outputFilename: 'readiness-check.md'
+    outputFilename: 'readiness-check.md',
+    command: '/bmad-check-implementation-readiness',
+    persona: 'bmad:bmm:agents:pm',
+    stepNumber: 9
   }
 ]
 

@@ -41,11 +41,13 @@ function createTestDb(): { db: TestDb; sqlite: Database.Database } {
       status TEXT NOT NULL DEFAULT 'active',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      last_message_at INTEGER
+      last_message_at INTEGER,
+      workflow_key TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_project_id ON chat_sessions(project_id);
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_status ON chat_sessions(status);
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_session_uuid ON chat_sessions(session_uuid);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_workflow_key ON chat_sessions(project_id, workflow_key);
   `)
 
   // Story 10.1: Create chat_messages table
@@ -213,6 +215,57 @@ describe('Chat Sessions Schema (Story 10.1)', () => {
       expect(session).toBeUndefined()
     })
 
+    it('creates a chat session with workflow_key', () => {
+      const now = new Date()
+
+      testDb
+        .insert(schema.chat_sessions)
+        .values({
+          id: 'cs-wk-1',
+          session_uuid: 'uuid-wk-1',
+          agent_persona: 'bmad-pm',
+          project_id: 'project-1',
+          workflow_key: 'brainstorming',
+          status: 'active',
+          created_at: now,
+          updated_at: now
+        })
+        .run()
+
+      const session = testDb
+        .select()
+        .from(schema.chat_sessions)
+        .where(eq(schema.chat_sessions.id, 'cs-wk-1'))
+        .get()
+
+      expect(session!.workflow_key).toBe('brainstorming')
+    })
+
+    it('workflow_key defaults to null when not provided', () => {
+      const now = new Date()
+
+      testDb
+        .insert(schema.chat_sessions)
+        .values({
+          id: 'cs-wk-2',
+          session_uuid: 'uuid-wk-2',
+          agent_persona: 'bmad-pm',
+          project_id: 'project-1',
+          status: 'active',
+          created_at: now,
+          updated_at: now
+        })
+        .run()
+
+      const session = testDb
+        .select()
+        .from(schema.chat_sessions)
+        .where(eq(schema.chat_sessions.id, 'cs-wk-2'))
+        .get()
+
+      expect(session!.workflow_key).toBeNull()
+    })
+
     it('defaults status to active', () => {
       const now = new Date()
 
@@ -376,6 +429,7 @@ describe('Chat Sessions Schema (Story 10.1)', () => {
       expect(indexNames).toContain('idx_chat_sessions_project_id')
       expect(indexNames).toContain('idx_chat_sessions_status')
       expect(indexNames).toContain('idx_chat_sessions_session_uuid')
+      expect(indexNames).toContain('idx_chat_sessions_workflow_key')
     })
 
     it('has indexes on chat_messages table', () => {
