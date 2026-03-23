@@ -222,6 +222,7 @@ export class ChatCliService {
    */
   private writeWhenReady(processId: string, sessionId: string, message: string): void {
     let written = false
+    let trustDismissed = false
 
     const doWrite = (): void => {
       if (written) return
@@ -235,6 +236,25 @@ export class ChatCliService {
 
     const outputHandler = (event: PtyOutputEvent): void => {
       if (event.processId !== processId) return
+
+      // Auto-dismiss the "trust this folder" safety prompt.
+      // On first launch in a new project dir, Claude CLI shows an interactive
+      // prompt asking "Is this a project you created or one you trust?" with
+      // option 1 ("Yes, I trust this") pre-selected. We send Enter to confirm.
+      // Strip ANSI codes for reliable text matching.
+      if (!trustDismissed) {
+        const clean = event.data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+        // The trust prompt text arrives split across multiple PTY events,
+        // so we can't require both "trust" and "Enter" in a single chunk.
+        // The first chunk contains "trust" (from "Is this a project you trust?").
+        if (clean.includes('trust')) {
+          trustDismissed = true
+          console.log(`[ChatCliService] Auto-dismissing trust prompt for session ${sessionId}`)
+          ptyService.write(processId, '\r')
+          return
+        }
+      }
+
       // Detect TUI input area ready: the input widget shows "ctrl+g" hint
       // or the effort indicator "high" / "/effort" when the prompt is active.
       // NOTE: The welcome box (╭╰) appears BEFORE the input widget is ready —

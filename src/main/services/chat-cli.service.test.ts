@@ -118,6 +118,27 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\r')
     })
 
+    it('auto-dismisses trust prompt before waiting for TUI ready', () => {
+      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+
+      // Message should NOT be written yet
+      expect(mockWrite).not.toHaveBeenCalled()
+
+      // Simulate trust prompt output (first PTY chunk contains "trust")
+      simulatePtyOutput('pty-123', 'Is this a project you trust?')
+
+      // Should have sent \r to dismiss the trust prompt, but NOT the user message yet
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', '\r')
+      expect(mockWrite).toHaveBeenCalledTimes(1)
+
+      // Now simulate TUI ready after trust is dismissed
+      simulatePtyOutput('pty-123', 'ctrl+g to edit in Vim')
+
+      // Now the actual message should be written
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\r')
+      expect(mockWrite).toHaveBeenCalledTimes(2)
+    })
+
     it('tracks session in internal map', () => {
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
