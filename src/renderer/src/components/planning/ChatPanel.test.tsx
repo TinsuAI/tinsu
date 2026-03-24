@@ -113,6 +113,25 @@ const mockGetByWorkflowKeyQuery = vi.fn().mockReturnValue({
   data: null
 })
 
+const mockGetMessageAttachmentsQuery = vi.fn().mockReturnValue({
+  data: []
+})
+
+const mockSaveAttachmentMutation = vi.fn().mockReturnValue({
+  mutateAsync: vi.fn().mockResolvedValue({ filePath: '/tmp/test.png', fileName: 'test.png', fileSize: 100 }),
+  isPending: false
+})
+
+const mockPickAttachmentFilesMutation = vi.fn().mockReturnValue({
+  mutateAsync: vi.fn().mockResolvedValue([]),
+  isPending: false
+})
+
+const mockCopyFilesToAttachmentsMutation = vi.fn().mockReturnValue({
+  mutateAsync: vi.fn().mockResolvedValue([]),
+  isPending: false
+})
+
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     project: {
@@ -141,6 +160,18 @@ vi.mock('@renderer/lib/trpc', () => ({
       },
       getByWorkflowKey: {
         useQuery: (...args: unknown[]) => mockGetByWorkflowKeyQuery(...args)
+      },
+      getMessageAttachments: {
+        useQuery: (...args: unknown[]) => mockGetMessageAttachmentsQuery(...args)
+      },
+      saveAttachment: {
+        useMutation: () => mockSaveAttachmentMutation()
+      },
+      pickAttachmentFiles: {
+        useMutation: () => mockPickAttachmentFilesMutation()
+      },
+      copyFilesToAttachments: {
+        useMutation: () => mockCopyFilesToAttachmentsMutation()
       }
     },
     useUtils: () => ({
@@ -149,6 +180,9 @@ vi.mock('@renderer/lib/trpc', () => ({
           invalidate: vi.fn()
         },
         listWithPreview: {
+          invalidate: vi.fn()
+        },
+        getMessageAttachments: {
           invalidate: vi.fn()
         }
       }
@@ -170,6 +204,7 @@ vi.mock('@renderer/stores', () => ({
       clearTargetChatSession: mockClearTargetChatSession,
       selectedWorkflowKey: mockSelectedWorkflowKey,
       pendingChatPrefill: mockPendingChatPrefill,
+      pendingPersona: null,
       clearPendingChatPrefill: mockClearPendingChatPrefill
     }
     return selector ? selector(state) : state

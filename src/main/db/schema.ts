@@ -552,3 +552,26 @@ export const chat_messages = sqliteTable(
 // Story 10.1: Chat message type exports
 export type ChatMessage = InferSelectModel<typeof chat_messages>
 export type NewChatMessage = InferInsertModel<typeof chat_messages>
+
+// Chat message attachments table for file/image sharing in chat
+export const chat_message_attachments = sqliteTable(
+  'chat_message_attachments',
+  {
+    id: text('id').primaryKey(),
+    message_id: text('message_id')
+      .notNull()
+      .references(() => chat_messages.id, { onDelete: 'cascade' }),
+    file_name: text('file_name').notNull(),
+    file_path: text('file_path').notNull(),
+    mime_type: text('mime_type').notNull(),
+    file_size: integer('file_size').notNull(),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`)
+  },
+  (table) => [index('idx_chat_message_attachments_message_id').on(table.message_id)]
+)
+
+// Chat message attachment type exports
+export type ChatMessageAttachment = InferSelectModel<typeof chat_message_attachments>
+export type NewChatMessageAttachment = InferInsertModel<typeof chat_message_attachments>

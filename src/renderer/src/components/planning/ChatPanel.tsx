@@ -5,24 +5,27 @@
  * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 4)
  * Story 10.5: Tool Activity & Working Indicators (AC: 1)
  * Story 10.6: Session Persistence & Resume (AC: 1, 2, 3, 4, 5)
+ * Chat Attachments: File & image sharing in planning workspace
  *
  * Full-height flex column with two view modes:
  * - 'list' view: Shows ChatSessionList for browsing/resuming previous sessions
  * - 'chat' view: Shows persona selector header, message area, and input footer
  *
  * Manages session creation on first message, persona selection state,
- * agent thinking indicator, and current tool activity tracking.
+ * agent thinking indicator, current tool activity tracking,
+ * and pending attachment state for file/image sharing.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { ArrowLeft, PanelLeftClose } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
 import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 import { ChatMessageArea } from './ChatMessageArea'
-import { ChatInput } from './ChatInput'
+import { ChatInput, type PendingAttachment } from './ChatInput'
 import { ChatSessionList, type ChatSessionListItem } from './ChatSessionList'
+import type { ChatMessageAttachment } from '../../../../main/db/schema'
 
 interface ChatPanelProps {
   /** Optional callback to collapse the panel from the header */
@@ -60,6 +63,19 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   // Track the persona that was active when the current session was created.
   // Used to guard against a race where persona switches mid-flight during session creation.
   const sessionPersonaRef = useRef<ChatPersonaKey | null>(null)
+
+  // Pending attachments — files staged before send
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+
+  // F5 fix: Revoke all pending object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      pendingAttachments.forEach((att) => {
+        if (att.previewUrl) URL.revokeObjectURL(att.previewUrl)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Story 10.6 AC: 1 — Check if sessions exist to decide initial view.
   // If no sessions exist, go directly to 'chat' view to avoid empty list.
@@ -178,6 +194,25 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     { enabled: !!sessionId, refetchInterval: 2000 }
   )
 
+  // Fetch attachments for user messages in this session
+  const userMessageIds = useMemo(
+    () => messages.filter((m) => m.role === 'user').map((m) => m.id),
+    [messages]
+  )
+
+  const { data: attachments = [] } = trpc.chatSession.getMessageAttachments.useQuery(
+    { messageIds: userMessageIds },
+    { enabled: userMessageIds.length > 0 }
+  )
+
+  const attachmentsByMessageId = useMemo(() => {
+    const map: Record<string, ChatMessageAttachment[]> = {}
+    for (const att of attachments) {
+      ;(map[att.message_id] ??= []).push(att)
+    }
+    return map
+  }, [attachments])
+
   const trpcUtils = trpc.useUtils()
 
   // Track when new messages arrive to update thinking indicator and tool activity
@@ -226,9 +261,51 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     onSuccess: () => {
       if (sessionId) {
         trpcUtils.chatSession.getMessages.invalidate({ sessionId })
+        trpcUtils.chatSession.getMessageAttachments.invalidate()
       }
     }
   })
+  const saveAttachment = trpc.chatSession.saveAttachment.useMutation()
+  const pickAttachmentFiles = trpc.chatSession.pickAttachmentFiles.useMutation()
+  const copyFilesToAttachments = trpc.chatSession.copyFilesToAttachments.useMutation()
+
+  /** Add files to pending attachments list */
+  const handleAttachmentsAdded = useCallback((files: File[]) => {
+    const newAttachments = files.map((file) => ({
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+      isImage: file.type.startsWith('image/')
+    }))
+    setPendingAttachments((prev) => [...prev, ...newAttachments])
+  }, [])
+
+  /** Remove a pending attachment by index */
+  const handleRemoveAttachment = useCallback((index: number) => {
+    setPendingAttachments((prev) => {
+      const removed = prev[index]
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+      return prev.filter((_, i) => i !== index)
+    })
+  }, [])
+
+  /** Open native file picker via tRPC, copy selected files to attachment storage */
+  const handleAttachClick = useCallback(async () => {
+    try {
+      const filePaths = await pickAttachmentFiles.mutateAsync()
+      if (!filePaths || filePaths.length === 0) return
+
+      // Store file paths as PendingAttachments with originalPath.
+      // Actual copying to .tinsu/data/attachments/ happens at send time.
+      const newAttachments = filePaths.map((filePath) => {
+        const fileName = filePath.split('/').pop() || 'file'
+        const file = new File([], fileName, { type: 'application/octet-stream' })
+        return { file, previewUrl: '', isImage: false, originalPath: filePath }
+      })
+      setPendingAttachments((prev) => [...prev, ...newAttachments])
+    } catch (err) {
+      console.error('[ChatPanel] File picker error:', err)
+    }
+  }, [pickAttachmentFiles])
 
   /** Story 10.6 AC: 2 — Select a session from the session list to resume it */
   const handleSelectSession = useCallback((session: ChatSessionListItem) => {
@@ -257,9 +334,23 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     // Don't clear sessionId — user can return to this session
   }, [])
 
+  /** Helper to read a File as base64 */
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // Remove the data URL prefix (e.g., "data:image/png;base64,")
+        const base64 = result.split(',')[1] || ''
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
   /** Send a message, creating a session if needed */
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachments: PendingAttachment[]) => {
       if (!projectId) return
 
       // Capture the persona at call-time to guard against mid-flight persona switches
@@ -292,6 +383,51 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
           setSessionId(activeSessionId)
         }
 
+        // Save attachments to disk and collect metadata
+        const savedAttachments: Array<{
+          filePath: string
+          fileName: string
+          mimeType: string
+          fileSize: number
+        }> = []
+
+        for (const att of attachments) {
+          // F8 fix: Guard against persona switch during attachment upload
+          if (selectedPersona !== personaAtSendTime) {
+            console.warn('[ChatPanel] Persona changed during attachment upload — aborting')
+            return
+          }
+
+          if (att.originalPath) {
+            // File from file picker — copy from original location
+            const copied = await copyFilesToAttachments.mutateAsync({
+              sessionId: activeSessionId,
+              filePaths: [att.originalPath]
+            })
+            if (copied.length > 0) {
+              savedAttachments.push(copied[0])
+            }
+          } else {
+            // File from paste or drag-and-drop — upload base64
+            const base64Data = await readFileAsBase64(att.file)
+            // F14 fix: Robust fallback for filename generation
+            const fileName =
+              att.file.name || `paste-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`
+            const saved = await saveAttachment.mutateAsync({
+              sessionId: activeSessionId,
+              fileName,
+              mimeType: att.file.type || 'image/png',
+              base64Data
+            })
+            savedAttachments.push({
+              filePath: saved.filePath,
+              fileName: saved.fileName,
+              mimeType: att.file.type || 'image/png',
+              fileSize: saved.fileSize
+            })
+          }
+        }
+
         // Set thinking indicator before sending
         setIsAgentThinking(true)
 
@@ -308,8 +444,15 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
         // Send via sendChatMessage — stores user message AND sends to CLI
         await sendChatMessage.mutateAsync({
           sessionId: activeSessionId,
-          content
+          content,
+          attachments: savedAttachments.length > 0 ? savedAttachments : undefined
         })
+
+        // Clear pending attachments after successful send
+        for (const att of attachments) {
+          if (att.previewUrl) URL.revokeObjectURL(att.previewUrl)
+        }
+        setPendingAttachments([])
       } catch (err) {
         console.error('[ChatPanel] Failed to send message:', err)
         setIsAgentThinking(false)
@@ -320,7 +463,16 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
         }
       }
     },
-    [projectId, sessionId, selectedPersona, selectedWorkflowKey, createSession, sendChatMessage]
+    [
+      projectId,
+      sessionId,
+      selectedPersona,
+      selectedWorkflowKey,
+      createSession,
+      sendChatMessage,
+      saveAttachment,
+      copyFilesToAttachments
+    ]
   )
 
   return (
@@ -388,11 +540,16 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             agentPersona={selectedPersona}
             isAgentThinking={isAgentThinking}
             currentToolActivity={currentToolActivity}
+            attachmentsByMessageId={attachmentsByMessageId}
           />
 
           {/* Input footer */}
           <ChatInput
             onSend={handleSend}
+            onAttachmentsAdded={handleAttachmentsAdded}
+            onAttachClick={handleAttachClick}
+            pendingAttachments={pendingAttachments}
+            onRemoveAttachment={handleRemoveAttachment}
             disabled={!projectId || sendChatMessage.isPending || createSession.isPending}
             autoFocus
             initialValue={pendingChatPrefill}

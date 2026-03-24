@@ -530,6 +530,23 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     'CREATE INDEX IF NOT EXISTS idx_chat_sessions_workflow_key ON chat_sessions(project_id, workflow_key)'
   )
 
+  // Chat message attachments table for file/image sharing in chat
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS chat_message_attachments (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+      FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE CASCADE
+    )
+  `)
+  sqlite.exec(
+    'CREATE INDEX IF NOT EXISTS idx_chat_message_attachments_message_id ON chat_message_attachments(message_id)'
+  )
+
   // === Migration: Create default sprints for projects without any sprints ===
   // This ensures every project has at least one sprint (Backlog)
 

@@ -13,19 +13,53 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
-import { join } from 'path'
+import { join, extname, basename } from 'path'
+import { mkdirSync, writeFileSync, readFileSync, statSync } from 'fs'
+import { dialog, BrowserWindow } from 'electron'
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { db } from '../../db'
 import {
   chat_sessions,
   chat_messages,
+  chat_message_attachments,
   projects,
   CHAT_SESSION_STATUS,
   CHAT_MESSAGE_ROLE
 } from '../../db/schema'
 import { chatCliService } from '../../services'
 import { PersonaContextService } from '../../services/persona-context.service'
+
+/** Simple mime type lookup from file extension */
+function mimeFromExt(filePath: string): string {
+  const ext = extname(filePath).toLowerCase()
+  const map: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.bmp': 'image/bmp',
+    '.pdf': 'application/pdf',
+    '.md': 'text/markdown',
+    '.txt': 'text/plain',
+    '.json': 'application/json',
+    '.csv': 'text/csv',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xls': 'application/vnd.ms-excel',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.zip': 'application/zip',
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.ts': 'application/typescript',
+    '.yaml': 'text/yaml',
+    '.yml': 'text/yaml'
+  }
+  return map[ext] ?? 'application/octet-stream'
+}
 
 /**
  * Get project path from project ID.
@@ -543,6 +577,170 @@ export const chatSessionRouter = router({
     }),
 
   /**
+   * Save an attachment file to disk from base64 data.
+   *
+   * Renderer reads a File as base64, sends it here. Main process writes to
+   * `.tinsu/data/attachments/<session-id>/` and returns file metadata.
+   */
+  saveAttachment: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        fileName: z.string().min(1),
+        mimeType: z.string().min(1),
+        // ~50MB base64 limit (~37MB decoded file)
+        base64Data: z.string().min(1).max(50 * 1024 * 1024)
+      })
+    )
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      const projectPath = getProjectPath(session.project_id)
+      const targetDir = join(projectPath, '.tinsu', 'data', 'attachments', input.sessionId)
+      mkdirSync(targetDir, { recursive: true })
+
+      // F1 fix: Sanitize filename — strip path components and dangerous characters
+      const sanitizedName = basename(input.fileName).replace(/[^a-zA-Z0-9._-]/g, '_')
+      const ext = extname(sanitizedName)
+      const nameWithoutExt = basename(sanitizedName, ext) || 'file'
+      const uniqueSuffix = crypto.randomUUID().slice(0, 8)
+      const uniqueFileName = `${nameWithoutExt}-${uniqueSuffix}${ext}`
+      const targetPath = join(targetDir, uniqueFileName)
+
+      const buffer = Buffer.from(input.base64Data, 'base64')
+      writeFileSync(targetPath, buffer)
+
+      return {
+        filePath: targetPath,
+        fileName: uniqueFileName,
+        fileSize: buffer.length
+      }
+    }),
+
+  /**
+   * Copy files from external locations to attachment storage.
+   *
+   * Used by the file picker — files selected via dialog.showOpenDialog are at
+   * arbitrary filesystem locations. We copy them to `.tinsu/data/attachments/<session-id>/`.
+   */
+  copyFilesToAttachments: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        filePaths: z.array(z.string().min(1))
+      })
+    )
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      const projectPath = getProjectPath(session.project_id)
+      const targetDir = join(projectPath, '.tinsu', 'data', 'attachments', input.sessionId)
+      mkdirSync(targetDir, { recursive: true })
+
+      return input.filePaths.map((srcPath) => {
+        // F2 fix: Validate source file exists and is a regular file
+        try {
+          const srcStat = statSync(srcPath)
+          if (!srcStat.isFile()) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Not a regular file: ${srcPath}`
+            })
+          }
+        } catch (err) {
+          if (err instanceof TRPCError) throw err
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `File not accessible: ${srcPath}`
+          })
+        }
+
+        const originalName = basename(srcPath)
+        const ext = extname(originalName)
+        const nameWithoutExt = basename(originalName, ext)
+        const uniqueSuffix = crypto.randomUUID().slice(0, 8)
+        const uniqueFileName = `${nameWithoutExt}-${uniqueSuffix}${ext}`
+        const targetPath = join(targetDir, uniqueFileName)
+
+        const fileData = readFileSync(srcPath)
+        writeFileSync(targetPath, fileData)
+
+        const mimeType = mimeFromExt(srcPath)
+        const fileSize = fileData.length
+
+        return {
+          filePath: targetPath,
+          fileName: uniqueFileName,
+          mimeType,
+          fileSize
+        }
+      })
+    }),
+
+  /**
+   * Open native file picker for attaching files.
+   *
+   * Returns selected file paths (multi-select enabled).
+   * Returns empty array if user cancels.
+   */
+  pickAttachmentFiles: publicProcedure.mutation(async () => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (!window) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'No application window available'
+      })
+    }
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openFile', 'multiSelections'],
+      title: 'Attach files'
+    })
+    return result.canceled ? [] : result.filePaths
+  }),
+
+  /**
+   * Get attachments for a batch of message IDs.
+   *
+   * Batching avoids N+1 queries when rendering a message list.
+   */
+  getMessageAttachments: publicProcedure
+    .input(
+      z.object({
+        messageIds: z.array(z.string().min(1))
+      })
+    )
+    .query(({ input }) => {
+      if (input.messageIds.length === 0) return []
+      return db
+        .select()
+        .from(chat_message_attachments)
+        .where(inArray(chat_message_attachments.message_id, input.messageIds))
+        .all()
+    }),
+
+  /**
    * Send a chat message to a Claude Code CLI session.
    *
    * Combines storing the user message in DB AND sending it to the CLI.
@@ -551,22 +749,28 @@ export const chatSessionRouter = router({
    * 2. CLI session alive: sends message to existing process
    * 3. CLI session exited: resumes with --resume flag
    *
-   * @example
-   * ```typescript
-   * const message = await trpc.chatSession.sendChatMessage.mutate({
-   *   sessionId: 'session-123',
-   *   content: 'Tell me about the architecture'
-   * })
-   * ```
-   *
    * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
    */
   sendChatMessage: publicProcedure
     .input(
-      z.object({
-        sessionId: z.string().min(1),
-        content: z.string().min(1)
-      })
+      z
+        .object({
+          sessionId: z.string().min(1),
+          content: z.string().min(0),
+          attachments: z
+            .array(
+              z.object({
+                filePath: z.string(),
+                fileName: z.string(),
+                mimeType: z.string(),
+                fileSize: z.number()
+              })
+            )
+            .optional()
+        })
+        .refine((data) => data.content.trim().length > 0 || (data.attachments && data.attachments.length > 0), {
+          message: 'Either content or at least one attachment is required'
+        })
     )
     .mutation(({ input }) => {
       // 1. Look up session to get session_uuid and project_id
@@ -597,54 +801,90 @@ export const chatSessionRouter = router({
         })
         .run()
 
+      // 2b. Store attachments if provided
+      if (input.attachments && input.attachments.length > 0) {
+        for (const att of input.attachments) {
+          db.insert(chat_message_attachments)
+            .values({
+              id: crypto.randomUUID(),
+              message_id: messageId,
+              file_name: att.fileName,
+              file_path: att.filePath,
+              mime_type: att.mimeType,
+              file_size: att.fileSize,
+              created_at: now
+            })
+            .run()
+        }
+      }
+
       // Update session's last_message_at
       db.update(chat_sessions)
         .set({ last_message_at: now })
         .where(eq(chat_sessions.id, input.sessionId))
         .run()
 
-      // 3. Send to CLI session — three cases:
+      // 3. Build CLI message — append file paths if attachments exist
+      let cliMessage = input.content
+      if (input.attachments && input.attachments.length > 0) {
+        const filePaths = input.attachments.map((a) => a.filePath).join('\n')
+        const prefix = input.content.trim() ? `${input.content}\n\n` : ''
+        cliMessage = `${prefix}[Attached files — please read and analyze these:]\n${filePaths}`
+      }
+
+      // 4. Send to CLI session — three cases:
       try {
         if (chatCliService.isSessionAlive(input.sessionId)) {
           // Case A: CLI session is alive — send to existing process (AC: 2)
-          chatCliService.sendMessage(input.sessionId, input.content)
+          chatCliService.sendMessage(input.sessionId, cliMessage)
         } else if (chatCliService.hasSession(input.sessionId)) {
           // Case B: CLI session was started but has exited — resume with --resume (AC: 5)
-          // Do NOT inject persona context on resume — Claude Code's --resume
-          // restores the full conversation history including the original persona injection.
           const projectPath = getProjectPath(session.project_id)
           chatCliService.resumeSession(
             input.sessionId,
             session.session_uuid,
             projectPath,
-            input.content
+            cliMessage
           )
         } else {
-          // Case C: No CLI session ever started — spawn fresh (AC: 1)
-          // Build persona context from BMAD agent files (Story 10.4 AC: 1-5)
+          // Case C: No in-memory CLI session tracked.
+          // Check if the session had prior messages (e.g., after app restart the
+          // in-memory map is empty but Claude CLI already knows this session UUID).
+          // If so, resume instead of spawning fresh to avoid "Session ID already in use".
+          const hadPriorMessages = session.last_message_at !== null
           const projectPath = getProjectPath(session.project_id)
-          let personaContext: string | undefined
-          try {
-            const bmadRoot = join(projectPath, '_bmad')
-            const personaContextService = new PersonaContextService(bmadRoot, projectPath)
-            personaContext = personaContextService.buildContext(session.agent_persona)
-          } catch (personaErr) {
-            // Graceful degradation: if persona loading fails, still send the message
-            const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
-            console.warn(
-              `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+
+          if (hadPriorMessages) {
+            // Session was used before (app restart wiped in-memory map) — resume
+            chatCliService.resumeSession(
+              input.sessionId,
+              session.session_uuid,
+              projectPath,
+              cliMessage
+            )
+          } else {
+            // Truly new session — spawn fresh with persona context
+            let personaContext: string | undefined
+            try {
+              const bmadRoot = join(projectPath, '_bmad')
+              const personaContextService = new PersonaContextService(bmadRoot, projectPath)
+              personaContext = personaContextService.buildContext(session.agent_persona)
+            } catch (personaErr) {
+              const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
+              console.warn(
+                `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+              )
+            }
+            chatCliService.spawnSession(
+              input.sessionId,
+              session.session_uuid,
+              projectPath,
+              cliMessage,
+              personaContext
             )
           }
-          chatCliService.spawnSession(
-            input.sessionId,
-            session.session_uuid,
-            projectPath,
-            input.content,
-            personaContext
-          )
         }
       } catch (err) {
-        // Remap CLI service errors to appropriate tRPC error codes
         const message = err instanceof Error ? err.message : String(err)
         if (message.includes('not found')) {
           throw new TRPCError({ code: 'NOT_FOUND', message })
@@ -658,7 +898,7 @@ export const chatSessionRouter = router({
         })
       }
 
-      // 4. Return the created user message
+      // 5. Return the created user message
       return db.select().from(chat_messages).where(eq(chat_messages.id, messageId)).get()!
     })
 })

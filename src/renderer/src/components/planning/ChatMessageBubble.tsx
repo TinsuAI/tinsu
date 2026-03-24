@@ -2,6 +2,7 @@
  * ChatMessageBubble - Individual chat message display.
  *
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 3, 4)
+ * Chat Attachments: Inline image display and file chips
  *
  * User messages: right-aligned, cyan-tinted background, "You" label, timestamp.
  * Agent messages: left-aligned, muted background, persona name + colored dot, timestamp.
@@ -12,9 +13,11 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { format } from 'date-fns'
+import { Paperclip } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { CodeBlock } from '@renderer/components/ui/code-block'
 import { getAgentPersona } from '@renderer/constants/planning-workspace'
+import type { ChatMessageAttachment } from '../../../../main/db/schema'
 
 interface ChatMessageBubbleProps {
   role: 'user' | 'assistant' | 'tool'
@@ -23,6 +26,14 @@ interface ChatMessageBubbleProps {
   agentPersona?: string | null
   /** Message creation timestamp — may be a Date, ISO string (from tRPC JSON), or unix-second number */
   createdAt: Date | string | number
+  /** Attachments for this message (images and files) */
+  attachments?: ChatMessageAttachment[]
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 /** Markdown components sized for chat context (smaller headings, tighter spacing) */
@@ -128,7 +139,8 @@ export function ChatMessageBubble({
   role,
   content,
   agentPersona,
-  createdAt
+  createdAt,
+  attachments
 }: ChatMessageBubbleProps) {
   const isUser = role === 'user'
   const persona = !isUser ? getAgentPersona(agentPersona ?? null) : null
@@ -168,9 +180,40 @@ export function ChatMessageBubble({
           </span>
         </div>
 
+        {/* Attachments — rendered above text content */}
+        {attachments && attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2" data-testid="message-attachments">
+            {attachments.map((att) =>
+              att.mime_type.startsWith('image/') ? (
+                <img
+                  key={att.id}
+                  src={`file://${att.file_path}`}
+                  alt={att.file_name}
+                  className="max-h-64 max-w-xs rounded border border-border/20 object-contain cursor-pointer"
+                  data-testid={`attachment-image-${att.id}`}
+                />
+              ) : (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-2 rounded border border-border/30 bg-muted/30 px-2.5 py-1.5"
+                  data-testid={`attachment-file-${att.id}`}
+                >
+                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-foreground/80">{att.file_name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatFileSize(att.file_size)}
+                  </span>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
         {/* Message content */}
         {isUser ? (
-          <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{content}</p>
+          content ? (
+            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{content}</p>
+          ) : null
         ) : (
           <div className="chat-markdown-content">
             <ReactMarkdown

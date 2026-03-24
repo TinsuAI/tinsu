@@ -228,6 +228,14 @@ export class ChatCliService {
       if (written) return
       written = true
       ptyService.off('output', outputHandler)
+
+      // Guard: don't write to a process that has already exited
+      const proc = ptyService.getProcess(processId)
+      if (!proc || proc.state !== 'running') {
+        console.warn(`[ChatCliService] Process ${processId} already exited, skipping write for session ${sessionId}`)
+        return
+      }
+
       console.log(`[ChatCliService] TUI ready, writing message to stdin (${message.length} chars): ${message.slice(0, 200)}`)
       // Use \r (carriage return) not \n — Claude's TUI is in raw mode
       // and expects \r (what Enter key sends) to submit the message.

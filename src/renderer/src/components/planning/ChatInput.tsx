@@ -2,19 +2,33 @@
  * ChatInput - Message input component for chat panel.
  *
  * Story 10.2: Chat Panel UI & Message Bubbles (AC: 6)
+ * Chat Attachments: Paste, drag-and-drop, file picker, preview strip
  *
  * Auto-expanding textarea (max 6 rows) with Send button.
  * Submit on Enter (Shift+Enter for newline).
- * Clears after submit. Send disabled when empty/whitespace.
+ * Clears after submit. Send disabled when empty/whitespace and no attachments.
  * Auto-focus when panel opens.
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { Send, ArrowUp } from 'lucide-react'
+import { Send, ArrowUp, Paperclip, FileIcon, X } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 
+/** A file staged for sending but not yet saved to disk */
+export interface PendingAttachment {
+  file: File
+  previewUrl: string // Object URL for image preview, empty for non-images
+  isImage: boolean
+  /** For files selected via file picker — original filesystem path */
+  originalPath?: string
+}
+
 interface ChatInputProps {
-  onSend: (content: string) => void
+  onSend: (content: string, attachments: PendingAttachment[]) => void
+  onAttachmentsAdded: (files: File[]) => void
+  onAttachClick: () => void
+  pendingAttachments: PendingAttachment[]
+  onRemoveAttachment: (index: number) => void
   disabled?: boolean
   autoFocus?: boolean
   /** Pre-fill value set externally (e.g., from workflow click). Consumed once per change. */
@@ -30,6 +44,10 @@ const MAX_HEIGHT = MAX_ROWS * LINE_HEIGHT
 
 export function ChatInput({
   onSend,
+  onAttachmentsAdded,
+  onAttachClick,
+  pendingAttachments,
+  onRemoveAttachment,
   disabled = false,
   autoFocus = true,
   initialValue,
@@ -39,8 +57,12 @@ export function ChatInput({
   const [value, setValue] = useState('')
   const [isPrefilled, setIsPrefilled] = useState(false)
   const lastConsumedPrefill = useRef<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragCounterRef = useRef(0)
 
   const isEmpty = value.trim().length === 0
+  const hasAttachments = pendingAttachments.length > 0
+  const canSend = !isEmpty || hasAttachments
 
   /** Auto-focus textarea when component mounts or autoFocus changes */
   useEffect(() => {
@@ -94,9 +116,9 @@ export function ChatInput({
   /** Handle message submission */
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim()
-    if (!trimmed || disabled) return
+    if (!canSend || disabled) return
 
-    onSend(trimmed)
+    onSend(trimmed, pendingAttachments)
     setValue('')
     setIsPrefilled(false)
 
@@ -107,7 +129,7 @@ export function ChatInput({
         textareaRef.current.focus()
       }
     })
-  }, [value, onSend, disabled])
+  }, [value, onSend, disabled, canSend, pendingAttachments])
 
   /** Handle keydown for Enter/Shift+Enter behavior */
   const handleKeyDown = useCallback(
@@ -120,8 +142,74 @@ export function ChatInput({
     [handleSubmit]
   )
 
+  /** Handle paste — intercept image paste from clipboard */
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = Array.from(e.clipboardData.items)
+      const imageItems = items.filter((item) => item.type.startsWith('image/'))
+      if (imageItems.length === 0) return // Let normal text paste proceed
+
+      e.preventDefault()
+      const files = imageItems.map((item) => item.getAsFile()).filter((f): f is File => f !== null)
+      if (files.length > 0) onAttachmentsAdded(files)
+    },
+    [onAttachmentsAdded]
+  )
+
+  /** Handle drag enter — use counter to avoid flicker on child boundaries (F11) */
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (dragCounterRef.current === 1) setIsDragOver(true)
+  }, [])
+
+  /** Handle drag over */
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  /** Handle drag leave */
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) setIsDragOver(false)
+  }, [])
+
+  /** Handle drop */
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current = 0
+      setIsDragOver(false)
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) onAttachmentsAdded(files)
+    },
+    [onAttachmentsAdded]
+  )
+
   return (
-    <div data-testid="chat-input">
+    <div
+      data-testid="chat-input"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="relative"
+    >
+      {/* Drop overlay */}
+      {isDragOver && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-cyan-500/60 bg-cyan-500/10"
+          data-testid="chat-drop-overlay"
+        >
+          <span className="text-sm text-cyan-400">Drop files here</span>
+        </div>
+      )}
+
       {/* Hint banner when command is prefilled */}
       {isPrefilled && !isEmpty && (
         <div
@@ -138,12 +226,69 @@ export function ChatInput({
           </span>
         </div>
       )}
-      <div className="flex items-end gap-2 border-t border-border/50 bg-card/30 px-3 py-2.5">
+
+      {/* Attachment preview strip */}
+      {hasAttachments && (
+        <div
+          className="flex gap-2 overflow-x-auto border-t border-border/30 px-3 py-2"
+          data-testid="chat-attachment-preview-strip"
+        >
+          {pendingAttachments.map((att, i) => (
+            <div
+              key={i}
+              className="group relative flex-shrink-0"
+              data-testid={`attachment-preview-${i}`}
+            >
+              {att.isImage ? (
+                <img
+                  src={att.previewUrl}
+                  alt={att.file.name}
+                  className="h-16 w-16 rounded border border-border/30 object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded border border-border/30 bg-muted/40">
+                  <FileIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => onRemoveAttachment(i)}
+                className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs group-hover:flex"
+                data-testid={`remove-attachment-${i}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+              <span className="mt-0.5 block max-w-[64px] truncate text-[10px] text-muted-foreground">
+                {att.file.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className={cn(
+          'flex items-end gap-2 border-t border-border/50 bg-card/30 px-3 py-2.5',
+          isDragOver && 'border-cyan-500/60 bg-cyan-500/5'
+        )}
+      >
+        {/* Attach button */}
+        <button
+          type="button"
+          onClick={onAttachClick}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="chat-attach-button"
+          title="Attach files"
+        >
+          <Paperclip className="h-4 w-4" />
+        </button>
+
         <textarea
           ref={textareaRef}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           disabled={disabled}
           placeholder="Message your agent..."
           rows={1}
@@ -160,11 +305,11 @@ export function ChatInput({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isEmpty || disabled}
+          disabled={!canSend || disabled}
           className={cn(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-150',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            isEmpty || disabled
+            !canSend || disabled
               ? 'cursor-not-allowed bg-muted/30 text-muted-foreground/30'
               : 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300 active:scale-95'
           )}

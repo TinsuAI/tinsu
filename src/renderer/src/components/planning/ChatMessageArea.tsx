@@ -19,6 +19,7 @@ import { ChatMessageBubble } from './ChatMessageBubble'
 import { ChatToolActivityGroup } from './ChatToolActivityGroup'
 import { ChatWorkingIndicator } from './ChatWorkingIndicator'
 import { ChatArtifactNotification } from './ChatArtifactNotification'
+import type { ChatMessageAttachment } from '../../../../main/db/schema'
 
 interface ChatMessage {
   id: string
@@ -40,6 +41,8 @@ interface ChatMessageAreaProps {
     toolName: string
     toolInput: Record<string, unknown>
   } | null
+  /** Pre-built lookup map: message_id -> attachments array */
+  attachmentsByMessageId?: Record<string, ChatMessageAttachment[]>
 }
 
 /** Threshold in pixels from bottom before auto-scroll is paused */
@@ -121,7 +124,8 @@ export function ChatMessageArea({
   messages,
   agentPersona,
   isAgentThinking = false,
-  currentToolActivity = null
+  currentToolActivity = null,
+  attachmentsByMessageId = {}
 }: ChatMessageAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -182,6 +186,7 @@ export function ChatMessageArea({
                   content={segment.message.content}
                   agentPersona={agentPersona}
                   createdAt={segment.message.created_at}
+                  attachments={attachmentsByMessageId[segment.message.id]}
                 />
               )
 
