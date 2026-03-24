@@ -12,10 +12,37 @@ import { GitService } from '../../services/git.service'
 import type { ArtifactVersionEntry } from '../../services/git.service'
 
 /**
- * Known artifact files to detect, mapped from workflow key to expected filename.
- * Story 9.2: Phase Progress Dashboard
+ * Resolve a workflow entry to an actual file path relative to the artifacts dir.
+ * For entries with `filename`, returns it directly.
+ * For entries with `glob`, scans the subdirectory and returns the most recent match.
  */
-const ARTIFACT_FILES: Array<{ workflowKey: string; filename: string }> = BMAD_WORKFLOWS
+function resolveArtifactFilename(artifactsDir: string, workflow: (typeof BMAD_WORKFLOWS)[number]): string | null {
+  if (workflow.filename) return workflow.filename
+
+  if (workflow.glob) {
+    // Pattern like "brainstorming/brainstorming-session-*.md"
+    const lastSlash = workflow.glob.lastIndexOf('/')
+    const subdir = lastSlash >= 0 ? workflow.glob.slice(0, lastSlash) : ''
+    const pattern = lastSlash >= 0 ? workflow.glob.slice(lastSlash + 1) : workflow.glob
+    // Convert glob * to regex
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
+
+    try {
+      const dir = subdir ? join(artifactsDir, subdir) : artifactsDir
+      const files = readdirSync(dir)
+        .filter((f) => regex.test(f))
+        .sort()
+        .reverse() // most recent first (date-stamped names sort naturally)
+      if (files.length > 0) {
+        return subdir ? join(subdir, files[0]) : files[0]
+      }
+    } catch {
+      // Directory doesn't exist yet
+    }
+  }
+
+  return null
+}
 
 /**
  * tRPC router for BMAD planning workspace artifact scanning and status tracking.
@@ -39,15 +66,17 @@ export const planningRouter = router({
 
       const statusMap = new Map(persistedStatuses.map((s) => [s.artifact_key, s.status]))
 
-      return ARTIFACT_FILES.map(({ workflowKey, filename }) => {
-        const filePath = join(artifactsDir, filename)
+      return BMAD_WORKFLOWS.map((workflow) => {
+        const resolved = resolveArtifactFilename(artifactsDir, workflow)
+        const filename = resolved ?? workflow.filename ?? workflow.glob ?? ''
 
-        // Use statSync inside try/catch to avoid TOCTOU race between existsSync and statSync
         let fileStat: Stats | null = null
-        try {
-          fileStat = statSync(filePath)
-        } catch {
-          // File does not exist
+        if (resolved) {
+          try {
+            fileStat = statSync(join(artifactsDir, resolved))
+          } catch {
+            // File does not exist
+          }
         }
         const exists = fileStat !== null
 
@@ -60,7 +89,7 @@ export const planningRouter = router({
         }
 
         // Determine status: missing if file doesn't exist, else check persisted status
-        const persistedStatus = statusMap.get(workflowKey)
+        const persistedStatus = statusMap.get(workflow.workflowKey)
         const status: 'draft' | 'in-review' | 'approved' | 'missing' = !exists
           ? 'missing'
           : persistedStatus === 'approved'
@@ -70,7 +99,7 @@ export const planningRouter = router({
               : 'draft'
 
         return {
-          workflowKey,
+          workflowKey: workflow.workflowKey,
           filename,
           exists,
           lastModified,
@@ -92,7 +121,7 @@ export const planningRouter = router({
       })
     )
     .query(({ ctx, input }) => {
-      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      const workflow = BMAD_WORKFLOWS.find((a) => a.workflowKey === input.workflowKey)
       if (!workflow) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -100,14 +129,22 @@ export const planningRouter = router({
         })
       }
 
-      const filePath = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts', workflow.filename)
+      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
+      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      if (!resolved) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Artifact not found for workflow: ${input.workflowKey}`
+        })
+      }
+      const filePath = join(artifactsDir, resolved)
       let content: string
       try {
         content = readFileSync(filePath, 'utf-8')
       } catch {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: `Artifact not found: ${workflow.filename}`
+          message: `Artifact not found: ${resolved}`
         })
       }
 
@@ -117,12 +154,12 @@ export const planningRouter = router({
       } catch {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: `Artifact not found: ${workflow.filename}`
+          message: `Artifact not found: ${resolved}`
         })
       }
       return {
         content,
-        filePath: `_bmad-output/planning-artifacts/${workflow.filename}`,
+        filePath: `_bmad-output/planning-artifacts/${resolved}`,
         lastModified: stat.mtimeMs,
         sizeBytes: stat.size,
         wordCount: content.split(/\s+/).filter(Boolean).length,
@@ -500,11 +537,15 @@ export const planningRouter = router({
   getArtifactVersionHistory: publicProcedure
     .input(z.object({ projectId: z.string(), workflowKey: z.string() }))
     .query(async ({ ctx, input }) => {
-      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      const workflow = BMAD_WORKFLOWS.find((a) => a.workflowKey === input.workflowKey)
       if (!workflow) return [] as ArtifactVersionEntry[]
 
+      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
+      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      if (!resolved) return [] as ArtifactVersionEntry[]
+
       // P8: Use forward slashes — git requires '/' regardless of OS
-      const relPath = `_bmad-output/planning-artifacts/${workflow.filename}`
+      const relPath = `_bmad-output/planning-artifacts/${resolved}`.replace(/\\/g, '/')
       return GitService.getFileVersionHistory(ctx.projectRoot, relPath)
     }),
 
@@ -522,7 +563,7 @@ export const planningRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const workflow = ARTIFACT_FILES.find((a) => a.workflowKey === input.workflowKey)
+      const workflow = BMAD_WORKFLOWS.find((a) => a.workflowKey === input.workflowKey)
       if (!workflow) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -530,8 +571,17 @@ export const planningRouter = router({
         })
       }
 
+      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
+      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      if (!resolved) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Artifact not found for workflow: ${input.workflowKey}`
+        })
+      }
+
       // P8: Use forward slashes — git requires '/' regardless of OS
-      const relPath = `_bmad-output/planning-artifacts/${workflow.filename}`
+      const relPath = `_bmad-output/planning-artifacts/${resolved}`.replace(/\\/g, '/')
 
       // Get "from" content — empty string if initial creation
       let original = ''

@@ -50,7 +50,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'analysis',
     name: 'Brainstorming',
     purpose: 'Explore ideas and define product direction',
-    outputFilename: 'product-brief.md',
+    outputFilename: 'brainstorming/brainstorming-session.md',
     command: '/bmad-brainstorming',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 1

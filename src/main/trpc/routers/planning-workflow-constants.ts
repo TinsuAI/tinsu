@@ -3,9 +3,11 @@
  * Story 9.2: Phase Progress Dashboard
  *
  * Maps workflow keys to their expected output filenames in _bmad-output/planning-artifacts/.
+ * Use `glob` instead of `filename` for workflows that produce date-stamped files
+ * in a subdirectory (e.g., brainstorming sessions).
  */
-export const BMAD_WORKFLOWS: Array<{ workflowKey: string; filename: string }> = [
-  { workflowKey: 'brainstorming', filename: 'product-brief.md' },
+export const BMAD_WORKFLOWS: Array<{ workflowKey: string; filename?: string; glob?: string }> = [
+  { workflowKey: 'brainstorming', glob: 'brainstorming/brainstorming-session-*.md' },
   { workflowKey: 'product-brief', filename: 'product-brief.md' },
   { workflowKey: 'market-research', filename: 'market-research.md' },
   { workflowKey: 'domain-research', filename: 'domain-research.md' },
