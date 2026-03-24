@@ -890,7 +890,7 @@ export class HookListenerService {
    * @see Story 10.1: Chat Session Schema & Hook Endpoint (AC: 3)
    */
   async onChatStopHook(payload: ChatStopHookPayload): Promise<void> {
-    console.log('[HookListener] Chat stop hook received:', JSON.stringify(payload, null, 2))
+    console.log('[HookListener] Chat stop hook received for session_id:', payload.session_id)
 
     // Look up chat_sessions by matching session_uuid = payload.session_id
     const session = db
@@ -907,9 +907,23 @@ export class HookListenerService {
       return
     }
 
-    // If last_assistant_message is present (non-null/undefined), store it in chat_messages
-    // Use != null check (not falsy) to correctly handle empty string values
-    if (payload.last_assistant_message != null) {
+    // Resolve the assistant message: check payload field first, then fall back
+    // to reading the Claude Code transcript JSONL file. Claude Code's Stop hook
+    // payload may or may not include the response depending on version and mode.
+    let assistantMessage: string | undefined =
+      payload.last_assistant_message ??
+      (payload as Record<string, unknown>).result as string | undefined
+
+    // Fallback: read the transcript JSONL file and extract the last assistant text
+    if (assistantMessage == null && payload.transcript_path) {
+      try {
+        assistantMessage = this.extractLastAssistantMessage(payload.transcript_path)
+      } catch (err) {
+        console.warn('[HookListener] Failed to read transcript for chat response:', err)
+      }
+    }
+
+    if (assistantMessage != null) {
       const messageId = crypto.randomUUID()
       const now = new Date()
 
@@ -918,7 +932,7 @@ export class HookListenerService {
           id: messageId,
           session_id: session.id,
           role: 'assistant',
-          content: payload.last_assistant_message,
+          content: assistantMessage,
           created_at: now
         })
         .run()
@@ -935,7 +949,51 @@ export class HookListenerService {
       console.log(
         `[HookListener] Stored chat assistant message for session ${session.id}`
       )
+    } else {
+      console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
     }
+  }
+
+  /**
+   * Extract the last assistant text message from a Claude Code transcript JSONL file.
+   *
+   * Claude Code stores conversations as JSONL where each line is a JSON object.
+   * Assistant messages have `type: "assistant"` with `message.content` containing
+   * an array of content blocks. We find the last entry with a `text` block.
+   *
+   * @param transcriptPath - Absolute path to the .jsonl transcript file
+   * @returns The last assistant text message, or undefined if not found
+   */
+  private extractLastAssistantMessage(transcriptPath: string): string | undefined {
+    if (!fs.existsSync(transcriptPath)) return undefined
+
+    const content = fs.readFileSync(transcriptPath, 'utf-8')
+    const lines = content.trim().split('\n')
+
+    // Walk backwards to find the last assistant message with text content
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]) as Record<string, unknown>
+        if (entry.type !== 'assistant') continue
+
+        const message = entry.message as Record<string, unknown> | undefined
+        if (!message || message.role !== 'assistant') continue
+
+        const contentBlocks = message.content as Array<Record<string, unknown>> | undefined
+        if (!Array.isArray(contentBlocks)) continue
+
+        // Find the last text block in the content array
+        for (let j = contentBlocks.length - 1; j >= 0; j--) {
+          if (contentBlocks[j].type === 'text' && typeof contentBlocks[j].text === 'string') {
+            return contentBlocks[j].text as string
+          }
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+
+    return undefined
   }
 
   /**

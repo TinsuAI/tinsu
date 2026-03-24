@@ -824,12 +824,16 @@ export const chatSessionRouter = router({
         .where(eq(chat_sessions.id, input.sessionId))
         .run()
 
-      // 3. Build CLI message — append file paths if attachments exist
+      // 3. Build CLI message — append file paths if attachments exist.
+      // IMPORTANT: The message MUST be single-line (no \n). Newlines cause
+      // Claude's TUI to enter paste/multi-line mode where \r is treated as
+      // a literal newline rather than as Enter (submit). The message then
+      // sits in the input buffer and is never submitted.
       let cliMessage = input.content
       if (input.attachments && input.attachments.length > 0) {
-        const filePaths = input.attachments.map((a) => a.filePath).join('\n')
-        const prefix = input.content.trim() ? `${input.content}\n\n` : ''
-        cliMessage = `${prefix}[Attached files — please read and analyze these:]\n${filePaths}`
+        const filePaths = input.attachments.map((a) => a.filePath).join(' ')
+        const prefix = input.content.trim() ? `${input.content} ` : ''
+        cliMessage = `${prefix}[Attached files: ${filePaths}]`
       }
 
       // 4. Send to CLI session — three cases:

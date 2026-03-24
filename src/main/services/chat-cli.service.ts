@@ -68,19 +68,6 @@ export class ChatCliService {
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
 
-    // Listen for PTY output events to log what Claude is saying/doing
-    ptyService.on('output', (event: PtyOutputEvent) => {
-      const sessionId = this.processToSessionMap.get(event.processId)
-      if (sessionId) {
-        // Strip ANSI codes for cleaner logging, truncate to 500 chars
-        const clean = event.data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').trim()
-        if (clean.length > 0) {
-          const truncated = clean.length > 500 ? clean.slice(0, 500) + '...' : clean
-          console.log(`[ChatCliService:output] session=${sessionId} | ${truncated}`)
-        }
-      }
-    })
-
     // Listen for PTY exit events to update session map
     ptyService.on('exit', (event: PtyExitEvent) => {
       this.handlePtyExit(event)
@@ -237,9 +224,18 @@ export class ChatCliService {
       }
 
       console.log(`[ChatCliService] TUI ready, writing message to stdin (${message.length} chars): ${message.slice(0, 200)}`)
-      // Use \r (carriage return) not \n — Claude's TUI is in raw mode
-      // and expects \r (what Enter key sends) to submit the message.
-      ptyService.write(processId, message + '\r')
+      // Write message content first, then send \r (Enter) separately after a
+      // short delay. When written in a single call, the terminal treats the
+      // entire payload (including \r) as a "paste" and the TUI interprets \r
+      // as a literal newline rather than as a submit action. The 150ms gap
+      // ensures the TUI exits paste mode before receiving Enter.
+      ptyService.write(processId, message)
+      setTimeout(() => {
+        const p = ptyService.getProcess(processId)
+        if (p && p.state === 'running') {
+          ptyService.write(processId, '\r')
+        }
+      }, 150)
     }
 
     const outputHandler = (event: PtyOutputEvent): void => {
@@ -304,8 +300,15 @@ export class ChatCliService {
       throw new Error(`Chat CLI session has exited: ${sessionId}`)
     }
 
-    // Use \r (carriage return) — Claude's TUI in raw mode expects \r for Enter
-    ptyService.write(info.processId, message + '\r')
+    // Write message content, then send \r (Enter) after a short delay.
+    // See writeWhenReady for explanation of why the delay is needed.
+    ptyService.write(info.processId, message)
+    setTimeout(() => {
+      const proc = ptyService.getProcess(info.processId)
+      if (proc && proc.state === 'running') {
+        ptyService.write(info.processId, '\r')
+      }
+    }, 150)
 
     // Track activity for idle timeout (Story 10.6)
     this.lastActivityMap.set(sessionId, Date.now())
@@ -336,8 +339,8 @@ export class ChatCliService {
     message: string,
     _personaContext?: string
   ): string {
-    const spawnArgs = ['--resume', '--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
-    console.log(`[ChatCliService] Resuming: claude --resume --session-id ${sessionUuid} --settings "<json>"`)
+    const spawnArgs = ['--resume', sessionUuid, '--settings', this.buildChatSettingsJson()]
+    console.log(`[ChatCliService] Resuming: claude --resume ${sessionUuid} --settings "<json>"`)
 
     const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
 

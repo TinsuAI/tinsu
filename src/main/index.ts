@@ -1,5 +1,6 @@
-import { app, shell, BrowserWindow, dialog } from 'electron'
+import { app, shell, BrowserWindow, dialog, protocol, net } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { db } from './db'
@@ -8,6 +9,12 @@ import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
 import { ptyService, TmuxService, TaskTerminalService, StallDetectorService, hookListenerService } from './services'
+
+// Register tinsu-file:// as a privileged scheme so it can load local files in the renderer.
+// Must be called before app.whenReady(). Used to serve attachment images/files.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'tinsu-file', privileges: { bypassCSP: true, supportFetchAPI: true, stream: true } }
+])
 
 // Disable sandbox for Linux development only (SUID sandbox not configured in dev environments)
 // Production builds should run with proper sandbox configuration via electron-builder
@@ -128,6 +135,14 @@ function initializeDatabase(): boolean {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // Register tinsu-file:// protocol handler to serve local attachment files.
+  // Maps tinsu-file:///absolute/path to the local filesystem via net.fetch.
+  protocol.handle('tinsu-file', (request) => {
+    // Strip scheme prefix to get the absolute file path
+    const filePath = decodeURIComponent(request.url.replace('tinsu-file://', ''))
+    return net.fetch(pathToFileURL(filePath).href)
+  })
+
   // Check tmux dependency before proceeding
   const tmuxAvailable = await checkTmuxDependency()
   if (!tmuxAvailable) {

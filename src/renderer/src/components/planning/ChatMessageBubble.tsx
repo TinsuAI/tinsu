@@ -187,7 +187,7 @@ export function ChatMessageBubble({
               att.mime_type.startsWith('image/') ? (
                 <img
                   key={att.id}
-                  src={`file://${att.file_path}`}
+                  src={`tinsu-file://${att.file_path}`}
                   alt={att.file_name}
                   className="max-h-64 max-w-xs rounded border border-border/20 object-contain cursor-pointer"
                   data-testid={`attachment-image-${att.id}`}
