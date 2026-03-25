@@ -43,6 +43,8 @@ interface ChatMessageAreaProps {
   } | null
   /** Pre-built lookup map: message_id -> attachments array */
   attachmentsByMessageId?: Record<string, ChatMessageAttachment[]>
+  /** Callback to delete a single message by ID */
+  onDeleteMessage?: (messageId: string) => void
 }
 
 /** Threshold in pixels from bottom before auto-scroll is paused */
@@ -125,7 +127,8 @@ export function ChatMessageArea({
   agentPersona,
   isAgentThinking = false,
   currentToolActivity = null,
-  attachmentsByMessageId = {}
+  attachmentsByMessageId = {},
+  onDeleteMessage
 }: ChatMessageAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -187,6 +190,7 @@ export function ChatMessageArea({
                   agentPersona={agentPersona}
                   createdAt={segment.message.created_at}
                   attachments={attachmentsByMessageId[segment.message.id]}
+                  onDelete={onDeleteMessage ? () => onDeleteMessage(segment.message.id) : undefined}
                 />
               )
 

@@ -409,6 +409,73 @@ export const chatSessionRouter = router({
     }),
 
   /**
+   * Delete a single message from a chat session.
+   */
+  deleteMessage: publicProcedure
+    .input(
+      z.object({
+        messageId: z.string().min(1),
+        sessionId: z.string().min(1)
+      })
+    )
+    .mutation(({ input }) => {
+      const message = db
+        .select()
+        .from(chat_messages)
+        .where(eq(chat_messages.id, input.messageId))
+        .get()
+
+      if (!message || message.session_id !== input.sessionId) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Message not found: ${input.messageId}`
+        })
+      }
+
+      // Delete message (cascade deletes attachments via FK)
+      db.delete(chat_messages).where(eq(chat_messages.id, input.messageId)).run()
+
+      return { deleted: true }
+    }),
+
+  /**
+   * Delete all messages in a chat session (clear chat history).
+   */
+  clearSessionMessages: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1)
+      })
+    )
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Chat session not found: ${input.sessionId}`
+        })
+      }
+
+      // Delete all messages for this session
+      db.delete(chat_messages)
+        .where(eq(chat_messages.session_id, input.sessionId))
+        .run()
+
+      // Reset last_message_at
+      db.update(chat_sessions)
+        .set({ last_message_at: null, updated_at: new Date() })
+        .where(eq(chat_sessions.id, input.sessionId))
+        .run()
+
+      return { cleared: true }
+    }),
+
+  /**
    * Get the last non-tool message for a chat session.
    *
    * Returns the most recent user or assistant message for session list preview.

@@ -22,6 +22,7 @@ import { ActivityLogService } from './activity-log.service'
 import { AutomationService } from './automation.service'
 import { TaskSessionService } from './task-session.service'
 import { GitService } from './git.service'
+import type { ChatCliService } from './chat-cli.service'
 
 /** Default port for the hook listener HTTP server */
 const DEFAULT_PORT = 3847
@@ -187,6 +188,9 @@ export class HookListenerService {
   /** Server start time for uptime calculation */
   private startTime: number = 0
 
+  /** Reference to ChatCliService for chat orphan UUID registration */
+  private chatCliService: ChatCliService | null = null
+
   /**
    * Start the HTTP server.
    *
@@ -247,6 +251,15 @@ export class HookListenerService {
    * console.log('Hook listener stopped')
    * ```
    */
+
+  /**
+   * Set the ChatCliService reference for chat orphan UUID registration.
+   * Called after both services are instantiated to avoid circular dependencies.
+   */
+  setChatCliService(service: ChatCliService): void {
+    this.chatCliService = service
+  }
+
   async stop(): Promise<void> {
     return new Promise((resolve) => {
       if (this.server) {
@@ -893,11 +906,17 @@ export class HookListenerService {
     console.log('[HookListener] Chat stop hook received for session_id:', payload.session_id)
 
     // Look up chat_sessions by matching session_uuid = payload.session_id
-    const session = db
+    let session = db
       .select()
       .from(chat_sessions)
       .where(eq(chat_sessions.session_uuid, payload.session_id))
       .get()
+
+    // If not found, Claude Code may have ignored --session-id and used its own UUID.
+    // Try to match with a recently-spawned session via chatCliService.
+    if (!session) {
+      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
+    }
 
     if (!session) {
       console.warn(
@@ -1011,11 +1030,15 @@ export class HookListenerService {
     console.log('[HookListener] Chat tool-use hook received:', JSON.stringify(payload, null, 2))
 
     // Look up chat_sessions by matching session_uuid = payload.session_id
-    const session = db
+    let session = db
       .select()
       .from(chat_sessions)
       .where(eq(chat_sessions.session_uuid, payload.session_id))
       .get()
+
+    if (!session) {
+      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
+    }
 
     if (!session) {
       console.warn(
@@ -1099,11 +1122,15 @@ export class HookListenerService {
     console.log('[HookListener] Chat pre-tool-use hook received:', JSON.stringify(payload, null, 2))
 
     // Look up chat_sessions by matching session_uuid = payload.session_id
-    const session = db
+    let session = db
       .select()
       .from(chat_sessions)
       .where(eq(chat_sessions.session_uuid, payload.session_id))
       .get()
+
+    if (!session) {
+      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
+    }
 
     if (!session) {
       console.warn(
@@ -1156,11 +1183,15 @@ export class HookListenerService {
     console.log('[HookListener] Chat notification hook received:', JSON.stringify(payload, null, 2))
 
     // Look up chat_sessions by matching session_uuid = payload.session_id
-    const session = db
+    let session = db
       .select()
       .from(chat_sessions)
       .where(eq(chat_sessions.session_uuid, payload.session_id))
       .get()
+
+    if (!session) {
+      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
+    }
 
     if (!session) {
       console.warn(
@@ -1278,6 +1309,44 @@ export class HookListenerService {
       .select()
       .from(task_sessions)
       .where(eq(task_sessions.session_id, sessionId))
+      .get() ?? null
+  }
+
+  /**
+   * Try to register an orphan chat session UUID.
+   *
+   * When Claude Code ignores the --session-id flag and generates its own UUID,
+   * hook events arrive with a session_id that doesn't match any chat_sessions.session_uuid.
+   * This method uses chatCliService to find the TinSu session that was expecting a
+   * different UUID, and updates the DB to match the actual Claude Code UUID.
+   *
+   * @param actualUuid - The actual Claude Code session UUID from the hook event
+   * @returns The chat_sessions record if registration succeeded, null otherwise
+   */
+  private tryRegisterChatOrphan(actualUuid: string): typeof chat_sessions.$inferSelect | null {
+    if (!this.chatCliService) return null
+
+    const orphan = this.chatCliService.findOrphanSession(actualUuid)
+    if (!orphan) return null
+
+    // Update DB session_uuid to match the actual Claude Code UUID
+    db.update(chat_sessions)
+      .set({ session_uuid: actualUuid, updated_at: new Date() })
+      .where(eq(chat_sessions.id, orphan.sessionId))
+      .run()
+
+    // Update the in-memory tracking in chatCliService
+    this.chatCliService.updateSessionUuid(orphan.sessionId, actualUuid)
+
+    console.log(
+      `[HookListener] Registered actual Claude Code UUID for chat session ${orphan.sessionId}: ` +
+        `${orphan.expectedUuid} → ${actualUuid}`
+    )
+
+    return db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.id, orphan.sessionId))
       .get() ?? null
   }
 

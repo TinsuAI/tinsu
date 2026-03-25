@@ -118,6 +118,9 @@ const chatHooksDir = getChatHooksDir()
 /** Singleton chat CLI service instance for managing chat PTY processes */
 export const chatCliService = new ChatCliService(chatHooksDir)
 
+// Wire up chatCliService reference for chat orphan UUID registration
+hookListenerService.setChatCliService(chatCliService)
+
 // Story 10.6 AC: 5 — Set idle callback to update DB status to 'paused' when sessions are auto-killed
 chatCliService.setOnIdleCallback((sessionId: string) => {
   try {
@@ -132,6 +135,25 @@ chatCliService.setOnIdleCallback((sessionId: string) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`[ChatCliService] Failed to update idle session ${sessionId} status: ${msg}`)
+  }
+})
+
+// Update DB session_uuid when resume discovers the correct Claude Code UUID
+chatCliService.setOnResumeFailedCallback((sessionId: string, correctUuid: string) => {
+  try {
+    db.update(chat_sessions)
+      .set({
+        session_uuid: correctUuid,
+        updated_at: new Date()
+      })
+      .where(eq(chat_sessions.id, sessionId))
+      .run()
+    console.log(
+      `[ChatCliService] Updated session ${sessionId} UUID to ${correctUuid} in DB`
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[ChatCliService] Failed to update session UUID: ${msg}`)
   }
 })
 

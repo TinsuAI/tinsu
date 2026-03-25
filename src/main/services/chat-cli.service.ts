@@ -18,6 +18,9 @@
  * @see Story 10.6: Session Persistence & Resume (AC: 5)
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 import { ptyService } from './pty.service'
 import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
 
@@ -34,8 +37,21 @@ export interface ChatCliSessionInfo {
   status: ChatCliSessionStatus
 }
 
+/** Context stored for retrying a failed resume */
+interface PendingRetryContext {
+  sessionId: string
+  message: string
+  projectPath: string
+  personaContext?: string
+  spawnedAt: number
+  expectedUuid: string
+}
+
 /** Idle timeout threshold: 30 minutes in milliseconds (Story 10.6 AC: 5) */
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000
+
+/** Max time (ms) after spawn to consider a quick exit as a resume failure worth retrying */
+const QUICK_EXIT_THRESHOLD_MS = 10_000
 
 /**
  * Service for managing Claude Code CLI processes for chat sessions.
@@ -65,6 +81,12 @@ export class ChatCliService {
   /** Reverse map: PTY processId -> sessionId (for output/exit log correlation) */
   private processToSessionMap: Map<string, string> = new Map()
 
+  /** Retry context for resume attempts — keyed by processId */
+  private pendingRetries: Map<string, PendingRetryContext> = new Map()
+
+  /** Callback invoked when a resume discovers the correct UUID */
+  private onResumeFailed: ((sessionId: string, correctUuid: string) => void) | null = null
+
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
 
@@ -87,6 +109,14 @@ export class ChatCliService {
    */
   setOnIdleCallback(callback: (sessionId: string) => void): void {
     this.onIdleCallback = callback
+  }
+
+  /**
+   * Set callback invoked when a --resume discovers the correct UUID.
+   * The callback receives (sessionId, correctUuid) to update the DB's session_uuid.
+   */
+  setOnResumeFailedCallback(callback: (sessionId: string, correctUuid: string) => void): void {
+    this.onResumeFailed = callback
   }
 
   /**
@@ -223,6 +253,9 @@ export class ChatCliService {
         return
       }
 
+      // TUI loaded — clear retry context since the session started successfully
+      this.pendingRetries.delete(processId)
+
       console.log(`[ChatCliService] TUI ready, writing message to stdin (${message.length} chars): ${message.slice(0, 200)}`)
       // Write message content first, then send \r (Enter) separately after a
       // short delay. When written in a single call, the terminal treats the
@@ -341,8 +374,20 @@ export class ChatCliService {
   ): string {
     const spawnArgs = ['--resume', sessionUuid, '--settings', this.buildChatSettingsJson()]
     console.log(`[ChatCliService] Resuming: claude --resume ${sessionUuid} --settings "<json>"`)
+    console.log(`[ChatCliService] cwd: ${projectPath}`)
 
     const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
+
+    // Store retry context so handlePtyExit can discover the correct UUID
+    // if --resume fails (e.g., UUID mismatch from --session-id being ignored)
+    this.pendingRetries.set(processId, {
+      sessionId,
+      message,
+      projectPath,
+      personaContext: _personaContext,
+      spawnedAt: Date.now(),
+      expectedUuid: sessionUuid
+    })
 
     // Update session map with new process
     this.sessions.set(sessionId, {
@@ -446,8 +491,148 @@ export class ChatCliService {
         console.warn(
           `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as Record<string, unknown>).signal ?? 'none'})`
         )
+
+        // Check if this was a failed resume that should be retried
+        this.maybeRetryResume(event.processId, event.exitCode, sessionId)
         break
       }
+    }
+  }
+
+  /**
+   * When --resume exits quickly with an error, the UUID may be wrong.
+   * Try to discover the correct UUID from Claude Code's session files
+   * and retry the resume.
+   */
+  private maybeRetryResume(processId: string, exitCode: number, sessionId: string): void {
+    const retry = this.pendingRetries.get(processId)
+    this.pendingRetries.delete(processId)
+
+    if (!retry) return
+    if (exitCode === 0) return
+
+    const elapsed = Date.now() - retry.spawnedAt
+    if (elapsed > QUICK_EXIT_THRESHOLD_MS) return
+
+    console.warn(
+      `[ChatCliService] Resume failed for session ${sessionId} (exit ${exitCode} after ${elapsed}ms). ` +
+        `Attempting to discover correct UUID from Claude Code session files.`
+    )
+
+    // Try to find the correct UUID by scanning Claude Code's session directory
+    const correctUuid = this.discoverCorrectUuid(retry.projectPath, retry.expectedUuid)
+
+    if (correctUuid) {
+      console.log(
+        `[ChatCliService] Discovered correct UUID: ${retry.expectedUuid} → ${correctUuid}. Retrying resume.`
+      )
+
+      // Update in-memory tracking
+      const info = this.sessions.get(sessionId)
+      if (info) info.sessionUuid = correctUuid
+
+      // Notify caller to update DB
+      if (this.onResumeFailed) {
+        this.onResumeFailed(sessionId, correctUuid)
+      }
+
+      // Retry resume with the correct UUID
+      const spawnArgs = ['--resume', correctUuid, '--settings', this.buildChatSettingsJson()]
+      const newProcessId = ptyService.spawn('claude', spawnArgs, { cwd: retry.projectPath })
+
+      this.sessions.set(sessionId, {
+        processId: newProcessId,
+        sessionUuid: correctUuid,
+        status: 'running'
+      })
+      this.processToSessionMap.set(newProcessId, sessionId)
+      this.lastActivityMap.set(sessionId, Date.now())
+
+      console.log(
+        `[ChatCliService] Retried resume for session ${sessionId} (uuid: ${correctUuid}, pid: ${newProcessId})`
+      )
+
+      this.writeWhenReady(newProcessId, sessionId, retry.message)
+    } else {
+      console.warn(
+        `[ChatCliService] Could not discover correct UUID for session ${sessionId}. ` +
+          `User may need to start a new chat.`
+      )
+    }
+  }
+
+  /**
+   * Scan Claude Code's session directory to find the most recent session file
+   * that doesn't match the expected UUID. This handles the case where --session-id
+   * was ignored and Claude Code used its own UUID.
+   *
+   * @param projectPath - The project directory (used to derive Claude Code's session dir)
+   * @param expectedUuid - The UUID TinSu expected (to exclude from results)
+   * @returns The actual session UUID, or null if not found
+   */
+  private discoverCorrectUuid(projectPath: string, expectedUuid: string): string | null {
+    try {
+      // Claude Code stores sessions at ~/.claude/projects/<path-hash>/
+      const homeDir = os.homedir()
+      const pathHash = projectPath.replace(/\//g, '-')
+      const sessionDir = path.join(homeDir, '.claude', 'projects', pathHash)
+
+      if (!fs.existsSync(sessionDir)) return null
+
+      const files = fs.readdirSync(sessionDir)
+        .filter(f => f.endsWith('.jsonl'))
+        .map(f => ({
+          name: f,
+          uuid: f.replace('.jsonl', ''),
+          mtime: fs.statSync(path.join(sessionDir, f)).mtimeMs
+        }))
+        .filter(f => f.uuid !== expectedUuid)
+        .sort((a, b) => b.mtime - a.mtime) // Most recent first
+
+      if (files.length === 0) return null
+
+      // Return the most recently modified session
+      return files[0].uuid
+    } catch (err) {
+      console.warn('[ChatCliService] Error scanning session directory:', err)
+      return null
+    }
+  }
+
+  /**
+   * Find the TinSu session ID for an orphan Claude Code UUID.
+   *
+   * When Claude Code ignores the --session-id flag and generates its own UUID,
+   * hook events arrive with an unknown session_id. This method checks if any
+   * tracked session has a DIFFERENT expected UUID — that session is the orphan
+   * whose DB record needs updating.
+   *
+   * @param actualUuid - The actual Claude Code session UUID from the hook event
+   * @returns The TinSu sessionId and old UUID if an orphan is found, null otherwise
+   */
+  findOrphanSession(actualUuid: string): { sessionId: string; expectedUuid: string } | null {
+    for (const [sessionId, info] of this.sessions) {
+      // Skip sessions that already have the correct UUID
+      if (info.sessionUuid === actualUuid) continue
+      // This session was expecting a different UUID — it's the orphan
+      // Only match running or recently-exited sessions (not old dead ones)
+      return { sessionId, expectedUuid: info.sessionUuid }
+    }
+    return null
+  }
+
+  /**
+   * Update the tracked session UUID after orphan registration.
+   * Called by the hook listener after updating the DB's session_uuid.
+   */
+  updateSessionUuid(sessionId: string, newUuid: string): void {
+    const info = this.sessions.get(sessionId)
+    if (info) {
+      const oldUuid = info.sessionUuid
+      info.sessionUuid = newUuid
+      console.log(
+        `[ChatCliService] Updated tracked UUID for session ${sessionId}: ${oldUuid} → ${newUuid}`
+      )
     }
   }
 }

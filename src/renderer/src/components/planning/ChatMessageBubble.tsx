@@ -9,11 +9,11 @@
  * Agent bubbles render markdown with syntax-highlighted code blocks.
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { format } from 'date-fns'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, X } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { CodeBlock } from '@renderer/components/ui/code-block'
 import { getAgentPersona } from '@renderer/constants/planning-workspace'
@@ -28,6 +28,8 @@ interface ChatMessageBubbleProps {
   createdAt: Date | string | number
   /** Attachments for this message (images and files) */
   attachments?: ChatMessageAttachment[]
+  /** Callback to delete this message */
+  onDelete?: () => void
 }
 
 function formatFileSize(bytes: number): string {
@@ -140,19 +142,40 @@ export function ChatMessageBubble({
   content,
   agentPersona,
   createdAt,
-  attachments
+  attachments,
+  onDelete
 }: ChatMessageBubbleProps) {
   const isUser = role === 'user'
   const persona = !isUser ? getAgentPersona(agentPersona ?? null) : null
+  const [hovered, setHovered] = useState(false)
 
   return (
     <div
       className={cn(
-        'flex w-full',
+        'group relative flex w-full',
         isUser ? 'justify-end' : 'justify-start'
       )}
       data-testid={`chat-bubble-${role}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
+      {/* Delete button — shows on hover */}
+      {onDelete && hovered && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className={cn(
+            'absolute top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full',
+            'bg-destructive/80 text-destructive-foreground hover:bg-destructive',
+            'transition-opacity',
+            isUser ? 'left-0' : 'right-0'
+          )}
+          aria-label="Delete message"
+          data-testid="delete-message-btn"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
       <div
         className={cn(
           'max-w-[85%] rounded-xl px-3.5 py-2.5',

@@ -17,7 +17,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { ArrowLeft, PanelLeftClose } from 'lucide-react'
+import { ArrowLeft, PanelLeftClose, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
@@ -268,6 +268,23 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const saveAttachment = trpc.chatSession.saveAttachment.useMutation()
   const pickAttachmentFiles = trpc.chatSession.pickAttachmentFiles.useMutation()
   const copyFilesToAttachments = trpc.chatSession.copyFilesToAttachments.useMutation()
+  const deleteMessage = trpc.chatSession.deleteMessage.useMutation({
+    onSuccess: () => {
+      if (sessionId) {
+        trpcUtils.chatSession.getMessages.invalidate({ sessionId })
+        trpcUtils.chatSession.getMessageAttachments.invalidate()
+      }
+    }
+  })
+  const clearSessionMessages = trpc.chatSession.clearSessionMessages.useMutation({
+    onSuccess: () => {
+      if (sessionId) {
+        trpcUtils.chatSession.getMessages.invalidate({ sessionId })
+        trpcUtils.chatSession.getMessageAttachments.invalidate()
+        trpcUtils.chatSession.listWithPreview.invalidate()
+      }
+    }
+  })
 
   /** Add files to pending attachments list */
   const handleAttachmentsAdded = useCallback((files: File[]) => {
@@ -475,6 +492,19 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     ]
   )
 
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      if (!sessionId) return
+      deleteMessage.mutate({ messageId, sessionId })
+    },
+    [sessionId, deleteMessage]
+  )
+
+  const handleClearAllMessages = useCallback(() => {
+    if (!sessionId) return
+    clearSessionMessages.mutate({ sessionId })
+  }, [sessionId, clearSessionMessages])
+
   return (
     <div className={cn('flex h-full flex-col', 'bg-card/20')} data-testid="chat-panel">
       {view === 'list' ? (
@@ -521,17 +551,32 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
                 onPersonaChange={setSelectedPersona}
               />
             </div>
-            {onCollapse && (
-              <button
-                type="button"
-                onClick={onCollapse}
-                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40 transition-colors"
-                aria-label="Collapse chat panel"
-                data-testid="collapse-chat-panel"
-              >
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {sessionId && messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllMessages}
+                  className="flex h-5 items-center gap-1 rounded px-1.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  aria-label="Clear all messages"
+                  data-testid="clear-all-messages-btn"
+                  disabled={clearSessionMessages.isPending}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span className="text-[10px]">Clear</span>
+                </button>
+              )}
+              {onCollapse && (
+                <button
+                  type="button"
+                  onClick={onCollapse}
+                  className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40 transition-colors"
+                  aria-label="Collapse chat panel"
+                  data-testid="collapse-chat-panel"
+                >
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Message area */}
@@ -541,6 +586,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             isAgentThinking={isAgentThinking}
             currentToolActivity={currentToolActivity}
             attachmentsByMessageId={attachmentsByMessageId}
+            onDeleteMessage={handleDeleteMessage}
           />
 
           {/* Input footer */}
