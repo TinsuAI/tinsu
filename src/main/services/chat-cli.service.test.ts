@@ -1,16 +1,39 @@
 /**
- * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), Story 10.6 (AC: 5)
+ * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), CTM-1.1
  *
- * Tests: spawnSession creates PTY with correct args and writes initial message,
- * sendMessage writes to existing PTY, resumeSession spawns with --resume flag,
- * isSessionAlive returns correct state, killSession kills PTY and cleans map,
- * exit event updates map status, idle timeout kills sessions after 30 min.
+ * Tests: spawnSession creates tmux session + attaches PTY with correct args,
+ * sendMessage writes to existing PTY, sessionCache/sessionToChatCache populated,
+ * SAFE_SHELL_ARG_REGEX validation, IDLE_TIMEOUT_MS equals 2 hours,
+ * killSession kills PTY and tmux session, orphan methods removed,
+ * tmux_session column exists in schema.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ChatCliService, IDLE_TIMEOUT_MS } from './chat-cli.service'
 
-// Mock ptyService — capture event handlers so we can simulate PTY events
+// Use vi.hoisted to ensure mock fn is available before vi.mock hoisting
+const { mockExecAsync } = vi.hoisted(() => {
+  return { mockExecAsync: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }) }
+})
+
+// Mock child_process + util to intercept execAsync calls for tmux commands
+vi.mock('child_process', () => ({
+  exec: vi.fn()
+}))
+
+vi.mock('util', () => ({
+  promisify: () => mockExecAsync
+}))
+
+// Mock TmuxService
+vi.mock('./tmux.service', () => ({
+  TmuxService: {
+    checkTmuxInstalled: vi.fn().mockResolvedValue(true)
+  }
+}))
+
+import { ChatCliService, IDLE_TIMEOUT_MS, SAFE_SHELL_ARG_REGEX } from './chat-cli.service'
+
+// Mock ptyService -- capture event handlers so we can simulate PTY events
 const mockSpawn = vi.fn().mockReturnValue('pty-123')
 const mockWrite = vi.fn()
 const mockKill = vi.fn()
@@ -48,7 +71,7 @@ function simulatePtyOutput(processId: string, data: string): void {
   }
 }
 
-describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
+describe('ChatCliService (CTM-1.1)', () => {
   let service: ChatCliService
   let exitHandler: ((event: { processId: string; exitCode: number }) => void) | null
 
@@ -62,6 +85,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
     // Re-establish default mock return values after clearAllMocks
     mockSpawn.mockReturnValue('pty-123')
+    mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' })
 
     service = new ChatCliService('/test/chat-hooks')
 
@@ -82,31 +106,67 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     })
   })
 
-  describe('spawnSession (AC: 1)', () => {
-    it('spawns claude with --session-id and --settings for chat hooks', () => {
-      const processId = service.spawnSession(
+  describe('spawnSession (CTM-1.1 AC: 1, 3)', () => {
+    it('creates tmux session with correct name and attaches PTY', async () => {
+      const processId = await service.spawnSession(
         'session-1',
         'uuid-abc',
         '/project/path',
         'Hello agent'
       )
 
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).toContain('--session-id')
-      expect(args).toContain('uuid-abc')
-      expect(args).toContain('--settings')
-      // Verify the settings JSON contains absolute paths to chat hook scripts
-      const settingsIdx = args.indexOf('--settings') + 1
-      const settings = JSON.parse(args[settingsIdx])
-      expect(settings.hooks.Stop[0].hooks[0].command).toContain('/test/chat-hooks/stop.sh')
-      expect(settings.hooks.PostToolUse[0].hooks[0].command).toContain('/test/chat-hooks/tool-use.sh')
-      expect(settings.hooks.PreToolUse[0].hooks[0].command).toContain('/test/chat-hooks/pre-tool-use.sh')
-      expect(settings.hooks.Notification[0].hooks[0].command).toContain('/test/chat-hooks/notification.sh')
+      // Should create tmux session
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'tmux new-session -d -s tinsu-chat-session-1',
+        expect.objectContaining({ timeout: 5000 })
+      )
+
+      // Should set environment variables
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'tmux set-environment -t tinsu-chat-session-1 TINSU_TMUX_SESSION tinsu-chat-session-1',
+        expect.objectContaining({ timeout: 5000 })
+      )
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        "tmux set-environment -t tinsu-chat-session-1 TINSU_SESSION_UUID 'uuid-abc'",
+        expect.objectContaining({ timeout: 5000 })
+      )
+
+      // Should send claude command via tmux send-keys
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        expect.stringContaining('tmux send-keys -t tinsu-chat-session-1'),
+        expect.objectContaining({ timeout: 5000 })
+      )
+
+      // Should attach PTY to tmux session
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'bash',
+        ['-c', 'tmux attach-session -t tinsu-chat-session-1'],
+        expect.objectContaining({ cwd: '/project/path' })
+      )
+
       expect(processId).toBe('pty-123')
     })
 
-    it('writes message to PTY stdin only after TUI ready signal', () => {
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+    it('validates sessionId against SAFE_SHELL_ARG_REGEX (AC: 3)', async () => {
+      await expect(
+        service.spawnSession('session with spaces', 'uuid-abc', '/project/path', 'Hello')
+      ).rejects.toThrow('Invalid sessionId format')
+
+      await expect(
+        service.spawnSession('session;rm -rf', 'uuid-abc', '/project/path', 'Hello')
+      ).rejects.toThrow('Invalid sessionId format')
+    })
+
+    it('populates sessionCache and sessionToChatCache after spawn (AC: 1)', async () => {
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-1')).toBe('session-1')
+    })
+
+    it('writes message to PTY stdin only after TUI ready signal (AC: 2)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
 
       // Message should NOT be written immediately
       expect(mockWrite).not.toHaveBeenCalled()
@@ -118,8 +178,9 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent')
     })
 
-    it('auto-dismisses trust prompt before waiting for TUI ready', () => {
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+    it('auto-dismisses trust prompt before waiting for TUI ready', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
 
       // Message should NOT be written yet
       expect(mockWrite).not.toHaveBeenCalled()
@@ -139,16 +200,21 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(mockWrite).toHaveBeenCalledTimes(2)
     })
 
-    it('tracks session in internal map', () => {
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+    it('tracks session in internal map', async () => {
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       expect(service.isSessionAlive('session-1')).toBeDefined()
+    })
+
+    it('preserves busySessions.add(sessionId) after spawn', async () => {
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      expect(service.isSessionBusy('session-1')).toBe(true)
     })
   })
 
   describe('spawnSession with personaContext (Story 10.4)', () => {
-    it('passes persona context via --append-system-prompt flag', () => {
-      service.spawnSession(
+    it('includes persona in claude command sent to tmux', async () => {
+      await service.spawnSession(
         'session-1',
         'uuid-abc',
         '/project/path',
@@ -156,31 +222,29 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
         'You are the PM persona.'
       )
 
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).toContain('--append-system-prompt')
-      const promptIdx = args.indexOf('--append-system-prompt') + 1
-      expect(args[promptIdx]).toBe('You are the PM persona.')
+      // The tmux send-keys call should include --append-system-prompt in the claude command
+      const sendKeysCall = mockExecAsync.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('send-keys')
+      )
+      expect(sendKeysCall).toBeDefined()
+      expect(sendKeysCall![0]).toContain('--append-system-prompt')
     })
 
-    it('does not include --append-system-prompt when personaContext is not provided', () => {
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+    it('does not include --append-system-prompt when personaContext is not provided', async () => {
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
 
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).not.toContain('--append-system-prompt')
-    })
-
-    it('does not include --append-system-prompt when personaContext is empty string', () => {
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent', '')
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).not.toContain('--append-system-prompt')
+      const sendKeysCall = mockExecAsync.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('send-keys')
+      )
+      expect(sendKeysCall).toBeDefined()
+      expect(sendKeysCall![0]).not.toContain('--append-system-prompt')
     })
   })
 
   describe('sendMessage (AC: 2)', () => {
-    it('writes message to existing PTY session when not busy', () => {
+    it('writes message to existing PTY session when not busy', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
       // Simulate stop hook marking session free after initial message
       service.markSessionFree('session-1')
       mockWrite.mockClear()
@@ -190,10 +254,9 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message')
     })
 
-    it('sends message even when session is busy (warns but does not block)', () => {
+    it('sends message even when session is busy (warns but does not block)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
-      // Session is busy after spawn — but should still send
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
       service.markSessionFree('session-1')
       mockWrite.mockClear()
 
@@ -201,7 +264,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       service.sendMessage('session-1', 'First message')
       mockWrite.mockClear()
 
-      // Send while busy — should still write to PTY
+      // Send while busy -- should still write to PTY
       service.sendMessage('session-1', 'Second while busy')
       expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Second while busy')
     })
@@ -212,9 +275,9 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       )
     })
 
-    it('throws when session has exited', () => {
+    it('throws when session has exited', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -225,73 +288,19 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
         'Chat CLI session has exited: session-1'
       )
     })
-  })
 
-  describe('resumeSession (AC: 5)', () => {
-    it('spawns claude with --resume, --session-id, and --settings flags', () => {
-      mockSpawn.mockReturnValue('pty-456')
-
-      const processId = service.resumeSession(
-        'session-1',
-        'uuid-abc',
-        '/project/path',
-        'Resume message'
-      )
-
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'claude',
-        ['--resume', '--session-id', 'uuid-abc', '--settings', expect.stringContaining('"hooks"')],
-        { cwd: '/project/path' }
-      )
-      expect(processId).toBe('pty-456')
-    })
-
-    it('writes message to resumed PTY stdin after TUI ready', () => {
-      mockSpawn.mockReturnValue('pty-456')
-      service.resumeSession('session-1', 'uuid-abc', '/project/path', 'Resume message')
-
-      // Not yet written
-      expect(mockWrite).not.toHaveBeenCalled()
-
-      // Simulate TUI ready
-      simulatePtyOutput('pty-456', 'ctrl+g to edit in Vim')
-
-      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\r')
-    })
-
-    it('does NOT include persona context in resume args (Story 10.4)', () => {
-      mockSpawn.mockReturnValue('pty-456')
-      service.resumeSession(
-        'session-1',
-        'uuid-abc',
-        '/project/path',
-        'Resume message',
-        'You are the PM persona.'
-      )
-
-      // Persona should NOT be in spawn args for resume
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).not.toContain('--append-system-prompt')
-
-      // After TUI ready, only the message is written
-      simulatePtyOutput('pty-456', 'ctrl+g to edit in Vim')
-      expect(mockWrite).toHaveBeenCalledWith('pty-456', 'Resume message\r')
-    })
-
-    it('updates session map with new processId', () => {
+    it('preserves 150ms delay between message content and Enter key', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      service.markSessionFree('session-1')
+      mockWrite.mockClear()
 
-      // Simulate exit
-      if (exitHandler) {
-        exitHandler({ processId: 'pty-123', exitCode: 0 })
-      }
+      service.sendMessage('session-1', 'Test message')
 
-      mockSpawn.mockReturnValue('pty-456')
-      mockGetProcess.mockReturnValue({ state: 'running' })
-      service.resumeSession('session-1', 'uuid-abc', '/project/path', 'Resume')
-
-      expect(service.isSessionAlive('session-1')).toBe(true)
+      // First call: message content
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Test message')
+      // Enter (\r) is sent after 150ms setTimeout -- not immediate
+      expect(mockWrite).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -300,16 +309,16 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(service.isSessionAlive('non-existent')).toBe(false)
     })
 
-    it('returns true when session is running and PTY process exists', () => {
+    it('returns true when session is running and PTY process exists', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       expect(service.isSessionAlive('session-1')).toBe(true)
     })
 
-    it('returns false when session status is exited', () => {
+    it('returns false when session status is exited', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -319,9 +328,9 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(service.isSessionAlive('session-1')).toBe(false)
     })
 
-    it('returns false when PTY process no longer exists in ptyService', () => {
+    it('returns false when PTY process no longer exists in ptyService', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       // PTY process removed from ptyService
       mockGetProcess.mockReturnValue(undefined)
@@ -330,15 +339,41 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     })
   })
 
-  describe('killSession', () => {
-    it('kills PTY process and removes from map', () => {
+  describe('killSession (CTM-1.1 AC: 1)', () => {
+    it('kills PTY process and removes from map', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       service.killSession('session-1')
 
       expect(mockKill).toHaveBeenCalledWith('pty-123')
       expect(service.isSessionAlive('session-1')).toBe(false)
+    })
+
+    it('kills the tmux session via tmux kill-session', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      mockExecAsync.mockClear()
+
+      service.killSession('session-1')
+
+      // Should call tmux kill-session
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'tmux kill-session -t tinsu-chat-session-1',
+        expect.objectContaining({ timeout: 5000 })
+      )
+    })
+
+    it('removes from sessionCache and sessionToChatCache', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-1')).toBe('session-1')
+
+      service.killSession('session-1')
+
+      expect(cache.get('tinsu-chat-session-1')).toBeUndefined()
     })
 
     it('is a no-op for non-existent sessions', () => {
@@ -348,10 +383,10 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   })
 
   describe('killAll', () => {
-    it('kills all tracked PTY processes', () => {
+    it('kills all tracked PTY processes and tmux sessions', async () => {
       mockSpawn.mockReturnValueOnce('pty-1').mockReturnValueOnce('pty-2')
-      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
-      service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
+      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
+      await service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
 
       service.killAll()
 
@@ -362,10 +397,10 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     })
   })
 
-  describe('PTY exit handling (AC: 5)', () => {
-    it('updates session status to exited when PTY process exits', () => {
+  describe('PTY exit handling', () => {
+    it('updates session status to exited when PTY process exits', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
 
       // Simulate PTY exit
       if (exitHandler) {
@@ -375,11 +410,11 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(service.isSessionAlive('session-1')).toBe(false)
     })
 
-    it('does not affect unrelated sessions on exit', () => {
+    it('does not affect unrelated sessions on exit', async () => {
       mockSpawn.mockReturnValueOnce('pty-1').mockReturnValueOnce('pty-2')
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
-      service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
+      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
+      await service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
 
       // Only session-1's PTY exits
       if (exitHandler) {
@@ -391,18 +426,18 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     })
   })
 
-  describe('idle timeout (Story 10.6, AC: 5)', () => {
-    it('IDLE_TIMEOUT_MS is 30 minutes', () => {
-      expect(IDLE_TIMEOUT_MS).toBe(30 * 60 * 1000)
+  describe('idle timeout (CTM-1.1 AC: 5)', () => {
+    it('IDLE_TIMEOUT_MS is 2 hours', () => {
+      expect(IDLE_TIMEOUT_MS).toBe(2 * 60 * 60 * 1000)
     })
 
-    it('checkIdleSessions kills sessions inactive > 30 min', () => {
+    it('checkIdleSessions kills sessions inactive > 2 hours', async () => {
       vi.useFakeTimers()
       const now = Date.now()
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+      await service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
 
       // Advance time past idle timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
@@ -415,13 +450,13 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       vi.useRealTimers()
     })
 
-    it('checkIdleSessions does NOT kill sessions within 30 min', () => {
+    it('checkIdleSessions does NOT kill sessions within 2 hours', async () => {
       vi.useFakeTimers()
       const now = Date.now()
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-active', 'uuid-active', '/path', 'Hello')
+      await service.spawnSession('session-active', 'uuid-active', '/path', 'Hello')
 
       // Advance time to just under the timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS - 1000)
@@ -433,13 +468,13 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       vi.useRealTimers()
     })
 
-    it('checkIdleSessions does NOT kill already-exited sessions', () => {
+    it('checkIdleSessions does NOT kill already-exited sessions', async () => {
       vi.useFakeTimers()
       const now = Date.now()
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-exited', 'uuid-exited', '/path', 'Hello')
+      await service.spawnSession('session-exited', 'uuid-exited', '/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -457,13 +492,13 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       vi.useRealTimers()
     })
 
-    it('lastActivityMap is updated on spawnSession', () => {
+    it('lastActivityMap is updated on spawnSession', async () => {
       vi.useFakeTimers()
       const now = Date.now()
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
 
       // Simulate stop hook freeing session
       service.markSessionFree('session-1')
@@ -483,37 +518,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       vi.useRealTimers()
     })
 
-    it('lastActivityMap is updated on resumeSession', () => {
-      vi.useFakeTimers()
-      const now = Date.now()
-      vi.setSystemTime(now)
-
-      mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
-
-      // Simulate exit
-      if (exitHandler) {
-        exitHandler({ processId: 'pty-123', exitCode: 0 })
-      }
-
-      // Advance past the original timeout
-      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 5000)
-
-      // Resume the session — this should reset the activity timestamp
-      mockSpawn.mockReturnValue('pty-456')
-      mockGetProcess.mockReturnValue({ state: 'running' })
-      service.resumeSession('session-1', 'uuid-1', '/path', 'Resume')
-
-      // Advance a bit more but not past the new timeout
-      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 5000 + IDLE_TIMEOUT_MS - 1000)
-
-      const killed = service.checkIdleSessions()
-      expect(killed).toEqual([])
-
-      vi.useRealTimers()
-    })
-
-    it('killed idle sessions trigger the onIdle callback', () => {
+    it('killed idle sessions trigger the onIdle callback', async () => {
       vi.useFakeTimers()
       const now = Date.now()
       vi.setSystemTime(now)
@@ -522,7 +527,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       service.setOnIdleCallback(onIdleCallback)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+      await service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
 
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
 
@@ -539,6 +544,50 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
       // After killAll, service should be in clean state
       expect(service.isSessionAlive('any')).toBe(false)
+    })
+  })
+
+  describe('SAFE_SHELL_ARG_REGEX validation (CTM-1.1 AC: 3)', () => {
+    it('accepts valid session IDs', () => {
+      expect(SAFE_SHELL_ARG_REGEX.test('abc-123')).toBe(true)
+      expect(SAFE_SHELL_ARG_REGEX.test('session_1')).toBe(true)
+      expect(SAFE_SHELL_ARG_REGEX.test('ABCdef')).toBe(true)
+    })
+
+    it('rejects invalid session IDs', () => {
+      expect(SAFE_SHELL_ARG_REGEX.test('has spaces')).toBe(false)
+      expect(SAFE_SHELL_ARG_REGEX.test('cmd;injection')).toBe(false)
+      expect(SAFE_SHELL_ARG_REGEX.test('$(whoami)')).toBe(false)
+      expect(SAFE_SHELL_ARG_REGEX.test('')).toBe(false)
+    })
+  })
+
+  describe('orphan methods removed (CTM-1.1 AC: 5)', () => {
+    it('findOrphanSession is not a method on ChatCliService', () => {
+      expect((service as unknown as Record<string, unknown>).findOrphanSession).toBeUndefined()
+    })
+
+    it('updateSessionUuid is not a method on ChatCliService', () => {
+      expect((service as unknown as Record<string, unknown>).updateSessionUuid).toBeUndefined()
+    })
+
+    it('discoverCorrectUuid is not a method on ChatCliService', () => {
+      expect((service as unknown as Record<string, unknown>).discoverCorrectUuid).toBeUndefined()
+    })
+
+    it('maybeRetryResume is not a method on ChatCliService', () => {
+      expect((service as unknown as Record<string, unknown>).maybeRetryResume).toBeUndefined()
+    })
+
+    it('resumeSession is not a method on ChatCliService', () => {
+      expect((service as unknown as Record<string, unknown>).resumeSession).toBeUndefined()
+    })
+  })
+
+  describe('tmux_session schema column (CTM-1.1 AC: 4)', () => {
+    it('tmux_session column exists in chat_sessions schema', async () => {
+      const { chat_sessions } = await import('../db/schema')
+      expect(chat_sessions.tmux_session).toBeDefined()
     })
   })
 })

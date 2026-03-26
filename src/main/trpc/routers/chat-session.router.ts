@@ -856,12 +856,12 @@ export const chatSessionRouter = router({
    * Send a chat message to a Claude Code CLI session.
    *
    * Combines storing the user message in DB AND sending it to the CLI.
-   * Handles three cases:
-   * 1. No CLI session started yet: spawns a new claude process
-   * 2. CLI session alive: sends message to existing process
-   * 3. CLI session exited: resumes with --resume flag
+   * CTM-1.1: Handles two cases:
+   * - Case A: CLI session alive -> send message to existing PTY
+   * - Case B/C: No session or exited -> create new tmux session + PTY
    *
    * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
+   * @see CTM-1.1: tmux Session Creation & PTY Attachment
    */
   sendChatMessage: publicProcedure
     .input(
@@ -884,7 +884,7 @@ export const chatSessionRouter = router({
           message: 'Either content or at least one attachment is required'
         })
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       // 1. Look up session to get session_uuid and project_id
       const session = db
         .select()
@@ -936,7 +936,7 @@ export const chatSessionRouter = router({
         .where(eq(chat_sessions.id, input.sessionId))
         .run()
 
-      // 3. Build CLI message — append file paths if attachments exist.
+      // 3. Build CLI message -- append file paths if attachments exist.
       // IMPORTANT: The message MUST be single-line (no \n). Newlines cause
       // Claude's TUI to enter paste/multi-line mode where \r is treated as
       // a literal newline rather than as Enter (submit). The message then
@@ -948,57 +948,50 @@ export const chatSessionRouter = router({
         cliMessage = `${prefix}[Attached files: ${filePaths}]`
       }
 
-      // 4. Send to CLI session — three cases:
+      // 4. Send to CLI session -- CTM-1.1: two cases (tmux-based)
       try {
         if (chatCliService.isSessionAlive(input.sessionId)) {
-          // Case A: CLI session is alive — send to existing process (AC: 2)
+          // Case A: CLI session is alive -- send to existing PTY (AC: 2)
           chatCliService.sendMessage(input.sessionId, cliMessage)
-        } else if (chatCliService.hasSession(input.sessionId)) {
-          // Case B: CLI session was started but has exited — resume with --resume (AC: 5)
+        } else {
+          // Case B/C: Session exited or never started -- create new tmux session
+          // CTM-1.1: Both cases create a new tmux session + PTY.
+          // Full recovery logic (reattach to existing tmux) comes in Story 1.3.
           const projectPath = getProjectPath(session.project_id)
-          chatCliService.resumeSession(
+
+          let personaContext: string | undefined
+          try {
+            const bmadRoot = join(projectPath, '_bmad')
+            const personaContextService = new PersonaContextService(bmadRoot, projectPath)
+            personaContext = personaContextService.buildContext(session.agent_persona)
+          } catch (personaErr) {
+            const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
+            console.warn(
+              `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+            )
+          }
+
+          await chatCliService.spawnSession(
             input.sessionId,
             session.session_uuid,
             projectPath,
-            cliMessage
+            cliMessage,
+            personaContext
           )
-        } else {
-          // Case C: No in-memory CLI session tracked.
-          // Check if the session had prior messages (e.g., after app restart the
-          // in-memory map is empty but Claude CLI already knows this session UUID).
-          // If so, resume instead of spawning fresh to avoid "Session ID already in use".
-          const hadPriorMessages = session.last_message_at !== null
-          const projectPath = getProjectPath(session.project_id)
 
-          if (hadPriorMessages) {
-            // Session was used before (app restart wiped in-memory map) — resume
-            chatCliService.resumeSession(
-              input.sessionId,
-              session.session_uuid,
-              projectPath,
-              cliMessage
-            )
-          } else {
-            // Truly new session — spawn fresh with persona context
-            let personaContext: string | undefined
-            try {
-              const bmadRoot = join(projectPath, '_bmad')
-              const personaContextService = new PersonaContextService(bmadRoot, projectPath)
-              personaContext = personaContextService.buildContext(session.agent_persona)
-            } catch (personaErr) {
-              const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
-              console.warn(
-                `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
-              )
-            }
-            chatCliService.spawnSession(
-              input.sessionId,
-              session.session_uuid,
-              projectPath,
-              cliMessage,
-              personaContext
-            )
-          }
+          // CTM-1.1 AC 1: Update chat_sessions.tmux_session in DB.
+          // NOTE: This name MUST stay in sync with the `tinsu-chat-${sessionId}` formula
+          // used inside ChatCliService.spawnSession(). If the naming scheme changes,
+          // update both locations together. Story 1.3 may expose a getter to centralize this.
+          const tmuxSessionName = `tinsu-chat-${input.sessionId}`
+          db.update(chat_sessions)
+            .set({ tmux_session: tmuxSessionName, updated_at: now })
+            .where(eq(chat_sessions.id, input.sessionId))
+            .run()
+
+          console.log(
+            `[ChatSessionRouter] Spawned tmux session for ${input.sessionId} (tmux: ${tmuxSessionName})`
+          )
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

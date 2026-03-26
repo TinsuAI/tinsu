@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-22T10-7-ready-for-dev
+# updated: 2026-03-26T-ctm-1-1-review
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -268,3 +268,26 @@ development_status:
   10-6-session-persistence-and-resume: done  # Code review complete - 3 auto-fixes applied (lastActivityMap.delete added to killSession, mid-file imports moved to top of services/index.ts, raw sql IN filters replaced with inArray in getLastMessage and listWithPreview), all 123 tests passing (31 ChatCliService + 55 router + 16 ChatSessionList + 21 ChatPanel)
   10-7-artifact-detection-and-planning-workspace-integration: done  # Code review complete - 2 auto-fixes applied (unused `filename` variable removed from ChatArtifactNotification, sessionsForCheck undefined guard added to ChatPanel targetChatSessionId useEffect to prevent premature navigation before data loads), all 141 tests passing (13 hook-listener + 58 router + 4 ChatArtifactNotification + 17 ChatMessageArea + 26 ArtifactViewer + 23 ChatPanel)
   epic-10-retrospective: optional
+
+  # ============================================================================
+  # CHAT SESSION TMUX MIGRATION (added 2026-03-26)
+  # ============================================================================
+  # Source: _bmad-output/planning-artifacts/epics-chat-tmux-migration.md
+  # Migrates Planning Workspace chat sessions from node-pty to tmux for
+  # persistent concurrent multi-agent sessions. Supersedes Epic 10 stories
+  # 10.3 and 10.6 (CLI spawning and session persistence).
+  # ============================================================================
+
+  # CTM Epic 1: Persistent Chat Sessions via tmux
+  ctm-epic-1: in-progress
+  ctm-1-1-tmux-session-creation-and-pty-attachment: done  # Code review complete - 4 auto-fixes applied (migration guard consistency, sessionUuid quoting, processId inlined, tmux naming coupling comment), all 98 tests passing
+  ctm-1-2-hook-routing-by-tmux-session-name: backlog
+  ctm-1-3-session-recovery-and-startup-validation: backlog
+  ctm-epic-1-retrospective: optional
+
+  # CTM Epic 2: Concurrent Multi-Agent Sessions
+  ctm-epic-2: backlog
+  ctm-2-1-concurrent-session-execution-and-background-persistence: backlog
+  ctm-2-2-session-health-monitoring-and-idle-timeout: backlog
+  ctm-2-3-session-list-with-live-status-badges: backlog
+  ctm-epic-2-retrospective: optional

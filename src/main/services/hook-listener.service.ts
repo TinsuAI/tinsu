@@ -1617,31 +1617,15 @@ export class HookListenerService {
     }
   }
 
-  private tryRegisterChatOrphan(actualUuid: string): typeof chat_sessions.$inferSelect | null {
-    if (!this.chatCliService) return null
-
-    const orphan = this.chatCliService.findOrphanSession(actualUuid)
-    if (!orphan) return null
-
-    // Update DB session_uuid to match the actual Claude Code UUID
-    db.update(chat_sessions)
-      .set({ session_uuid: actualUuid, updated_at: new Date() })
-      .where(eq(chat_sessions.id, orphan.sessionId))
-      .run()
-
-    // Update the in-memory tracking in chatCliService
-    this.chatCliService.updateSessionUuid(orphan.sessionId, actualUuid)
-
-    console.log(
-      `[HookListener] Registered actual Claude Code UUID for chat session ${orphan.sessionId}: ` +
-        `${orphan.expectedUuid} → ${actualUuid}`
-    )
-
-    return db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.id, orphan.sessionId))
-      .get() ?? null
+  /**
+   * CTM-1.1: Orphan registration is no longer needed with tmux sessions.
+   * tmux session names are stable and environment variables (TINSU_TMUX_SESSION,
+   * TINSU_SESSION_UUID) are set per-session, so UUID mismatches don't occur.
+   * Hook routing by tmux session name will be implemented in Story 1.2.
+   */
+  private tryRegisterChatOrphan(_actualUuid: string): typeof chat_sessions.$inferSelect | null {
+    // No-op: tmux sessions don't have orphan UUID issues
+    return null
   }
 
   /**

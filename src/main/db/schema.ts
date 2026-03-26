@@ -515,7 +515,9 @@ export const chat_sessions = sqliteTable(
     // Chat-centric layout: Bind session to a specific BMAD workflow step
     workflow_key: text('workflow_key'),
     // Per-conversation permission mode: true = auto-approve all tool use, false = require explicit approval
-    skip_permissions: integer('skip_permissions', { mode: 'boolean' }).notNull().default(true)
+    skip_permissions: integer('skip_permissions', { mode: 'boolean' }).notNull().default(true),
+    // CTM-1.1: tmux session name for persistent chat sessions
+    tmux_session: text('tmux_session')
   },
   (table) => [
     index('idx_chat_sessions_project_id').on(table.project_id),

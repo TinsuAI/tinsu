@@ -535,6 +535,13 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     sqlite.exec('ALTER TABLE chat_sessions ADD COLUMN skip_permissions INTEGER NOT NULL DEFAULT 1')
   }
 
+  // CTM-1.1: Add tmux_session column to chat_sessions
+  const chatCols = new Set(chatSessionColumns.map((c) => c.name))
+  if (chatSessionColumns.length > 0 && !chatCols.has('tmux_session')) {
+    sqlite.exec('ALTER TABLE chat_sessions ADD COLUMN tmux_session TEXT')
+  }
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_tmux_session ON chat_sessions(tmux_session)')
+
   // Chat message attachments table for file/image sharing in chat
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS chat_message_attachments (

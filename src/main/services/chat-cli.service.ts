@@ -1,28 +1,43 @@
 /**
- * Chat CLI Service - Story 10.3, 10.6
+ * Chat CLI Service - Story 10.3, 10.6, CTM-1.1
  *
- * Manages Claude Code CLI PTY processes for chat sessions.
- * Uses ptyService singleton (node-pty, NOT tmux) to spawn interactive
- * `claude` processes for conversational planning sessions.
+ * Manages Claude Code CLI processes for chat sessions via tmux.
+ * Uses a two-layer model: tmux session (persistence) + PTY (I/O).
+ *
+ * Architecture (CTM-1.1):
+ *   tmux session (persistence layer) --- tinsu-chat-{sessionId}
+ *     |-- PTY attached via ptyService.spawn(tmux attach ...) (I/O layer)
+ *          |-- claude --session-id {uuid} (agent process)
  *
  * Key design decisions:
- * - node-pty (not tmux) because chat sessions are interactive and lightweight.
- *   If the app restarts, PTY dies but Claude Code's --resume flag restores context.
- * - Uses --settings CLI flag to inject chat-specific hooks that POST to
- *   /api/hooks/chat-stop (not /api/hooks/stop). This is required because
- *   Claude Code resolves project settings from the git root, not from env vars.
+ * - tmux sessions survive app restarts for persistent conversations.
+ * - PTY is the I/O channel: messages written via ptyService.write() (byte-level stdin),
+ *   NOT via tmux send-keys (which has escaping issues with multi-line/special chars).
+ * - Uses --settings CLI flag to inject chat-specific hooks.
  * - Chat sessions are INTERACTIVE: no --dangerously-skip-permissions.
- * - Idle sessions (>30 min) are auto-killed to free resources (Story 10.6).
+ * - Idle sessions (>2 hours) are auto-killed to free resources.
  *
  * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
  * @see Story 10.6: Session Persistence & Resume (AC: 5)
+ * @see CTM-1.1: tmux Session Creation & PTY Attachment
  */
 
-import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { ptyService } from './pty.service'
+import { TmuxService } from './tmux.service'
 import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
+
+const execAsync = promisify(exec)
+
+/** Timeout for tmux commands in milliseconds */
+const TMUX_COMMAND_TIMEOUT = 5000
+
+/**
+ * Regex to validate safe shell arguments (alphanumeric, dash, underscore only).
+ * Used to prevent command injection attacks in tmux session names.
+ */
+export const SAFE_SHELL_ARG_REGEX = /^[a-zA-Z0-9_-]+$/
 
 /** Status of a chat CLI process */
 export type ChatCliSessionStatus = 'running' | 'exited'
@@ -37,27 +52,17 @@ export interface ChatCliSessionInfo {
   status: ChatCliSessionStatus
 }
 
-/** Context stored for retrying a failed resume */
-interface PendingRetryContext {
-  sessionId: string
-  message: string
-  projectPath: string
-  personaContext?: string
-  spawnedAt: number
-  expectedUuid: string
-}
-
-/** Idle timeout threshold: 30 minutes in milliseconds (Story 10.6 AC: 5) */
-export const IDLE_TIMEOUT_MS = 30 * 60 * 1000
-
-/** Max time (ms) after spawn to consider a quick exit as a resume failure worth retrying */
-const QUICK_EXIT_THRESHOLD_MS = 10_000
+/** Idle timeout threshold: 2 hours in milliseconds (CTM-1.1 AC: 5) */
+export const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000
 
 /**
  * Service for managing Claude Code CLI processes for chat sessions.
  *
- * Maintains an in-memory map: sessionId -> ChatCliSessionInfo
- * where sessionId is TinSu's internal chat_sessions.id (PK).
+ * Uses tmux sessions for persistence with PTY attachment for I/O.
+ * Maintains in-memory caches for O(1) lookups:
+ * - sessions: sessionId -> ChatCliSessionInfo (PTY process tracking)
+ * - sessionCache: chatSessionId -> tmuxSessionName (forward lookup)
+ * - sessionToChatCache: tmuxSessionName -> chatSessionId (reverse lookup for hooks)
  *
  * CRITICAL: This service runs in the main process only.
  * Never import this in the renderer process.
@@ -89,11 +94,11 @@ export class ChatCliService {
   /** Reverse map: PTY processId -> sessionId (for output/exit log correlation) */
   private processToSessionMap: Map<string, string> = new Map()
 
-  /** Retry context for resume attempts — keyed by processId */
-  private pendingRetries: Map<string, PendingRetryContext> = new Map()
+  /** CTM-1.1: Forward cache: chatSessionId -> tmuxSessionName */
+  private sessionCache: Map<string, string> = new Map()
 
-  /** Callback invoked when a resume discovers the correct UUID */
-  private onResumeFailed: ((sessionId: string, correctUuid: string) => void) | null = null
+  /** CTM-1.1: Reverse cache: tmuxSessionName -> chatSessionId (for hook routing in Story 1.2) */
+  private sessionToChatCache: Map<string, string> = new Map()
 
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
@@ -108,6 +113,14 @@ export class ChatCliService {
   }
 
   /**
+   * Get the reverse lookup cache (tmuxSessionName -> chatSessionId).
+   * Used by HookListenerService in Story 1.2 for routing hooks by tmux session name.
+   */
+  getSessionToChatCache(): Map<string, string> {
+    return this.sessionToChatCache
+  }
+
+  /**
    * Set the callback to be invoked when a session is killed due to idle timeout.
    * Used by the main process initialization to update DB status to 'paused'.
    *
@@ -117,14 +130,6 @@ export class ChatCliService {
    */
   setOnIdleCallback(callback: (sessionId: string) => void): void {
     this.onIdleCallback = callback
-  }
-
-  /**
-   * Set callback invoked when a --resume discovers the correct UUID.
-   * The callback receives (sessionId, correctUuid) to update the DB's session_uuid.
-   */
-  setOnResumeFailedCallback(callback: (sessionId: string, correctUuid: string) => void): void {
-    this.onResumeFailed = callback
   }
 
   /**
@@ -183,15 +188,14 @@ export class ChatCliService {
   }
 
   /**
-   * Spawn a new Claude Code CLI session for a chat.
+   * Spawn a new Claude Code CLI session inside a tmux session.
    *
-   * Creates an interactive `claude` process with --session-id flag.
-   * Persona context is injected via --append-system-prompt (not stdin).
-   * Uses --settings to inject chat-specific hooks that POST to
-   * /api/hooks/chat-stop (not /api/hooks/stop).
-   *
-   * The user message is written to stdin only AFTER Claude's TUI is ready,
-   * detected by watching PTY output for the interactive prompt.
+   * CTM-1.1: Two-layer model:
+   * 1. Creates a detached tmux session named `tinsu-chat-{sessionId}`
+   * 2. Sets environment variables on the tmux session
+   * 3. Sends `claude` command into the tmux session via send-keys
+   * 4. Attaches a PTY to the tmux session for I/O
+   * 5. Waits for TUI ready, then writes the user message via PTY
    *
    * @param sessionId - TinSu's internal chat session ID (chat_sessions.id)
    * @param sessionUuid - Claude Code session UUID (chat_sessions.session_uuid)
@@ -200,30 +204,78 @@ export class ChatCliService {
    * @param personaContext - Optional persona context injected as system prompt (Story 10.4)
    * @returns The PTY processId
    *
-   * @see AC 1: Spawns claude with --session-id UUID
+   * @see CTM-1.1 AC 1: tmux session creation with PTY attachment
+   * @see CTM-1.1 AC 3: tinsu-chat- prefix and SAFE_SHELL_ARG_REGEX validation
    * @see Story 10.4: Persona context via --append-system-prompt
    */
-  spawnSession(
+  async spawnSession(
     sessionId: string,
     sessionUuid: string,
     projectPath: string,
     initialMessage: string,
     personaContext?: string
-  ): string {
-    const spawnArgs = ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
-
-    // Story 10.4: Inject persona context as system prompt (not stdin)
-    if (personaContext) {
-      spawnArgs.push('--append-system-prompt', personaContext)
+  ): Promise<string> {
+    // CTM-1.1 AC 3: Validate sessionId against SAFE_SHELL_ARG_REGEX
+    if (!SAFE_SHELL_ARG_REGEX.test(sessionId)) {
+      throw new Error(`Invalid sessionId format: must contain only alphanumeric, dash, or underscore characters`)
     }
 
-    console.log(`[ChatCliService] Spawning: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
-    console.log(`[ChatCliService] cwd: ${projectPath}`)
+    // Check tmux is available
+    const tmuxInstalled = await TmuxService.checkTmuxInstalled()
+    if (!tmuxInstalled) {
+      throw new Error('tmux is not installed. Please install tmux to use chat sessions.')
+    }
 
-    const processId = ptyService.spawn('claude', spawnArgs, {
-      cwd: projectPath,
-      env: { TINSU_SESSION_UUID: sessionUuid }
+    const tmuxSessionName = `tinsu-chat-${sessionId}`
+
+    // CTM-1.1 AC 1: Create detached tmux session
+    console.log(`[ChatCliService] Creating tmux session: ${tmuxSessionName}`)
+    try {
+      await execAsync(`tmux new-session -d -s ${tmuxSessionName}`, {
+        timeout: TMUX_COMMAND_TIMEOUT
+      })
+    } catch (error) {
+      const execError = error as { stderr?: string }
+      // Session already exists - that's fine (idempotent)
+      if (!execError.stderr?.includes('duplicate session')) {
+        throw error
+      }
+    }
+
+    // CTM-1.1 AC 1: Set environment variables on the tmux session
+    await execAsync(
+      `tmux set-environment -t ${tmuxSessionName} TINSU_TMUX_SESSION ${tmuxSessionName}`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+    await execAsync(
+      `tmux set-environment -t ${tmuxSessionName} TINSU_SESSION_UUID '${sessionUuid}'`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+
+    // CTM-1.1 AC 1: Build and send claude command into tmux session
+    const claudeArgs = ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
+    if (personaContext) {
+      claudeArgs.push('--append-system-prompt', personaContext)
+    }
+
+    // Build the full command string for tmux send-keys
+    // Use single quotes to protect special characters in the settings JSON and persona
+    const claudeCommand = `claude ${claudeArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
+    console.log(`[ChatCliService] Sending claude command to tmux: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
+
+    await execAsync(
+      `tmux send-keys -t ${tmuxSessionName} ${JSON.stringify(claudeCommand)} Enter`,
+      { timeout: TMUX_COMMAND_TIMEOUT }
+    )
+
+    // CTM-1.1 AC 1: Attach PTY to the tmux session for I/O
+    const processId = ptyService.spawn('bash', ['-c', `tmux attach-session -t ${tmuxSessionName}`], {
+      cwd: projectPath
     })
+
+    // CTM-1.1 AC 1: Populate both caches atomically
+    this.sessionCache.set(sessionId, tmuxSessionName)
+    this.sessionToChatCache.set(tmuxSessionName, sessionId)
 
     // Track session and reverse map immediately
     this.sessions.set(sessionId, {
@@ -235,14 +287,14 @@ export class ChatCliService {
     this.lastActivityMap.set(sessionId, Date.now())
 
     console.log(
-      `[ChatCliService] Spawned session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
+      `[ChatCliService] Spawned session ${sessionId} (uuid: ${sessionUuid}, tmux: ${tmuxSessionName}, pid: ${processId})`
     )
 
     // Wait for Claude's TUI to be ready before writing the user message.
     // The TUI outputs escape sequences and prompt indicators when ready.
     this.writeWhenReady(processId, sessionId, initialMessage)
 
-    // Mark busy — message will be submitted once TUI is ready
+    // Mark busy -- message will be submitted once TUI is ready
     this.busySessions.add(sessionId)
 
     return processId
@@ -270,9 +322,6 @@ export class ChatCliService {
         console.warn(`[ChatCliService] Process ${processId} already exited, skipping write for session ${sessionId}`)
         return
       }
-
-      // TUI loaded — clear retry context since the session started successfully
-      this.pendingRetries.delete(processId)
 
       console.log(`[ChatCliService] TUI ready, writing message to stdin (${message.length} chars): ${message.slice(0, 200)}`)
       // Write message content first, then send \r (Enter) separately after a
@@ -312,7 +361,7 @@ export class ChatCliService {
 
       // Detect TUI input area ready: the input widget shows "ctrl+g" hint
       // or the effort indicator "high" / "/effort" when the prompt is active.
-      // NOTE: The welcome box (╭╰) appears BEFORE the input widget is ready —
+      // NOTE: The welcome box appears BEFORE the input widget is ready --
       // we must wait for the actual input area indicators.
       if (event.data.includes('ctrl+g') || event.data.includes('/effort')) {
         console.log(`[ChatCliService] Detected TUI input ready for session ${sessionId}`)
@@ -334,13 +383,15 @@ export class ChatCliService {
   /**
    * Send a message to an existing chat CLI session.
    *
-   * Writes the message followed by a newline to the PTY stdin.
+   * Writes the message to the PTY stdin (which is attached to the tmux session).
+   * The PTY is the I/O channel -- messages are written via ptyService.write(),
+   * NOT via tmux send-keys.
    *
    * @param sessionId - TinSu's internal chat session ID
    * @param message - Message content to send
    * @throws Error if session not found or exited
    *
-   * @see AC 2: Message sent to existing PTY session
+   * @see CTM-1.1 AC 2: Message written via ptyService.write()
    */
   sendMessage(sessionId: string, message: string): void {
     const info = this.sessions.get(sessionId)
@@ -351,7 +402,7 @@ export class ChatCliService {
       throw new Error(`Chat CLI session has exited: ${sessionId}`)
     }
 
-    // Log if session is busy (agent still generating) but still send —
+    // Log if session is busy (agent still generating) but still send --
     // blocking messages caused worse UX issues (permanently stuck sessions)
     // than the risk of messages being lost during generation.
     if (this.busySessions.has(sessionId)) {
@@ -359,7 +410,7 @@ export class ChatCliService {
     }
 
     // Write message content, then send \r (Enter) after a short delay.
-    // See writeWhenReady for explanation of why the delay is needed.
+    // See writeWhenReady for explanation of why the 150ms delay is needed.
     ptyService.write(info.processId, message)
     setTimeout(() => {
       const proc = ptyService.getProcess(info.processId)
@@ -393,73 +444,6 @@ export class ChatCliService {
   }
 
   /**
-   * Resume an exited or crashed CLI session.
-   *
-   * Spawns claude with --resume --session-id flags to pick up
-   * where the previous conversation left off.
-   *
-   * @param sessionId - TinSu's internal chat session ID
-   * @param sessionUuid - Claude Code session UUID
-   * @param projectPath - Working directory for the claude process
-   * @param message - Message to send after resuming
-   * @param _personaContext - Intentionally unused. On resume, Claude Code's --resume flag
-   *   restores the full conversation history including the original persona injection.
-   *   Parameter exists for API symmetry with spawnSession. (Story 10.4)
-   * @returns The new PTY processId
-   *
-   * @see AC 5: Resume with --resume --session-id
-   * @see Story 10.4: Persona context NOT re-injected on resume
-   */
-  resumeSession(
-    sessionId: string,
-    sessionUuid: string,
-    projectPath: string,
-    message: string,
-    _personaContext?: string
-  ): string {
-    const spawnArgs = ['--resume', sessionUuid, '--settings', this.buildChatSettingsJson()]
-    console.log(`[ChatCliService] Resuming: claude --resume ${sessionUuid} --settings "<json>"`)
-    console.log(`[ChatCliService] cwd: ${projectPath}`)
-
-    const processId = ptyService.spawn('claude', spawnArgs, {
-      cwd: projectPath,
-      env: { TINSU_SESSION_UUID: sessionUuid }
-    })
-
-    // Store retry context so handlePtyExit can discover the correct UUID
-    // if --resume fails (e.g., UUID mismatch from --session-id being ignored)
-    this.pendingRetries.set(processId, {
-      sessionId,
-      message,
-      projectPath,
-      personaContext: _personaContext,
-      spawnedAt: Date.now(),
-      expectedUuid: sessionUuid
-    })
-
-    // Update session map with new process
-    this.sessions.set(sessionId, {
-      processId,
-      sessionUuid,
-      status: 'running'
-    })
-    this.processToSessionMap.set(processId, sessionId)
-    this.lastActivityMap.set(sessionId, Date.now())
-
-    console.log(
-      `[ChatCliService] Resumed session ${sessionId} (uuid: ${sessionUuid}, pid: ${processId})`
-    )
-
-    // Wait for TUI ready before writing message
-    this.writeWhenReady(processId, sessionId, message)
-
-    // Mark busy — message will be submitted once TUI is ready
-    this.busySessions.add(sessionId)
-
-    return processId
-  }
-
-  /**
    * Check if a chat CLI session's PTY process is still alive.
    *
    * Checks both the in-memory map and the underlying PTY process state.
@@ -489,9 +473,9 @@ export class ChatCliService {
   }
 
   /**
-   * Kill a chat CLI session's PTY process.
+   * Kill a chat CLI session's PTY process and tmux session.
    *
-   * Kills the underlying PTY process and removes from the session map.
+   * CTM-1.1: Also kills the underlying tmux session and removes from caches.
    *
    * @param sessionId - TinSu's internal chat session ID
    */
@@ -499,9 +483,21 @@ export class ChatCliService {
     const info = this.sessions.get(sessionId)
     if (!info) return
 
+    // Kill tmux session (ignore errors if session doesn't exist)
+    const tmuxSessionName = this.sessionCache.get(sessionId)
+    if (tmuxSessionName) {
+      execAsync(`tmux kill-session -t ${tmuxSessionName}`, {
+        timeout: TMUX_COMMAND_TIMEOUT
+      }).catch(() => {
+        // Session might already be gone -- that's fine
+      })
+      this.sessionToChatCache.delete(tmuxSessionName)
+    }
+
     this.processToSessionMap.delete(info.processId)
     ptyService.kill(info.processId)
     this.sessions.delete(sessionId)
+    this.sessionCache.delete(sessionId)
     this.lastActivityMap.delete(sessionId)
     this.busySessions.delete(sessionId)
 
@@ -520,10 +516,22 @@ export class ChatCliService {
     }
 
     for (const [sessionId, info] of this.sessions) {
+      // Kill tmux session
+      const tmuxSessionName = this.sessionCache.get(sessionId)
+      if (tmuxSessionName) {
+        execAsync(`tmux kill-session -t ${tmuxSessionName}`, {
+          timeout: TMUX_COMMAND_TIMEOUT
+        }).catch(() => {
+          // Ignore errors during cleanup
+        })
+      }
+
       ptyService.kill(info.processId)
       console.log(`[ChatCliService] Killed session ${sessionId} (cleanup)`)
     }
     this.sessions.clear()
+    this.sessionCache.clear()
+    this.sessionToChatCache.clear()
     this.lastActivityMap.clear()
   }
 
@@ -531,9 +539,7 @@ export class ChatCliService {
    * Handle PTY exit events.
    * Updates the session map status to 'exited' when a PTY process dies.
    * Does NOT terminate the chat session or change DB status --
-   * the session remains 'active' so it can be resumed.
-   *
-   * @see AC 5: CLI crash handling
+   * the session remains 'active' so it can be recovered (Story 1.3).
    */
   private handlePtyExit(event: PtyExitEvent): void {
     for (const [sessionId, info] of this.sessions) {
@@ -541,154 +547,11 @@ export class ChatCliService {
         info.status = 'exited'
         this.processToSessionMap.delete(event.processId)
         this.busySessions.delete(sessionId)
-            console.warn(
+        console.warn(
           `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as unknown as Record<string, unknown>).signal ?? 'none'})`
         )
-
-        // Check if this was a failed resume that should be retried
-        this.maybeRetryResume(event.processId, event.exitCode, sessionId)
         break
       }
-    }
-  }
-
-  /**
-   * When --resume exits quickly with an error, the UUID may be wrong.
-   * Try to discover the correct UUID from Claude Code's session files
-   * and retry the resume.
-   */
-  private maybeRetryResume(processId: string, exitCode: number, sessionId: string): void {
-    const retry = this.pendingRetries.get(processId)
-    this.pendingRetries.delete(processId)
-
-    if (!retry) return
-    if (exitCode === 0) return
-
-    const elapsed = Date.now() - retry.spawnedAt
-    if (elapsed > QUICK_EXIT_THRESHOLD_MS) return
-
-    console.warn(
-      `[ChatCliService] Resume failed for session ${sessionId} (exit ${exitCode} after ${elapsed}ms). ` +
-        `Attempting to discover correct UUID from Claude Code session files.`
-    )
-
-    // Try to find the correct UUID by scanning Claude Code's session directory
-    const correctUuid = this.discoverCorrectUuid(retry.projectPath, retry.expectedUuid)
-
-    if (correctUuid) {
-      console.log(
-        `[ChatCliService] Discovered correct UUID: ${retry.expectedUuid} → ${correctUuid}. Retrying resume.`
-      )
-
-      // Update in-memory tracking
-      const info = this.sessions.get(sessionId)
-      if (info) info.sessionUuid = correctUuid
-
-      // Notify caller to update DB
-      if (this.onResumeFailed) {
-        this.onResumeFailed(sessionId, correctUuid)
-      }
-
-      // Retry resume with the correct UUID
-      const spawnArgs = ['--resume', correctUuid, '--settings', this.buildChatSettingsJson()]
-      const newProcessId = ptyService.spawn('claude', spawnArgs, {
-        cwd: retry.projectPath,
-        env: { TINSU_SESSION_UUID: correctUuid }
-      })
-
-      this.sessions.set(sessionId, {
-        processId: newProcessId,
-        sessionUuid: correctUuid,
-        status: 'running'
-      })
-      this.processToSessionMap.set(newProcessId, sessionId)
-      this.lastActivityMap.set(sessionId, Date.now())
-
-      console.log(
-        `[ChatCliService] Retried resume for session ${sessionId} (uuid: ${correctUuid}, pid: ${newProcessId})`
-      )
-
-      this.writeWhenReady(newProcessId, sessionId, retry.message)
-    } else {
-      console.warn(
-        `[ChatCliService] Could not discover correct UUID for session ${sessionId}. ` +
-          `User may need to start a new chat.`
-      )
-    }
-  }
-
-  /**
-   * Scan Claude Code's session directory to find the most recent session file
-   * that doesn't match the expected UUID. This handles the case where --session-id
-   * was ignored and Claude Code used its own UUID.
-   *
-   * @param projectPath - The project directory (used to derive Claude Code's session dir)
-   * @param expectedUuid - The UUID TinSu expected (to exclude from results)
-   * @returns The actual session UUID, or null if not found
-   */
-  private discoverCorrectUuid(projectPath: string, expectedUuid: string): string | null {
-    try {
-      // Claude Code stores sessions at ~/.claude/projects/<path-hash>/
-      const homeDir = os.homedir()
-      const pathHash = projectPath.replace(/\//g, '-')
-      const sessionDir = path.join(homeDir, '.claude', 'projects', pathHash)
-
-      if (!fs.existsSync(sessionDir)) return null
-
-      const files = fs.readdirSync(sessionDir)
-        .filter(f => f.endsWith('.jsonl'))
-        .map(f => ({
-          name: f,
-          uuid: f.replace('.jsonl', ''),
-          mtime: fs.statSync(path.join(sessionDir, f)).mtimeMs
-        }))
-        .filter(f => f.uuid !== expectedUuid)
-        .sort((a, b) => b.mtime - a.mtime) // Most recent first
-
-      if (files.length === 0) return null
-
-      // Return the most recently modified session
-      return files[0].uuid
-    } catch (err) {
-      console.warn('[ChatCliService] Error scanning session directory:', err)
-      return null
-    }
-  }
-
-  /**
-   * Find the TinSu session ID for an orphan Claude Code UUID.
-   *
-   * When Claude Code ignores the --session-id flag and generates its own UUID,
-   * hook events arrive with an unknown session_id. This method checks if any
-   * tracked session has a DIFFERENT expected UUID — that session is the orphan
-   * whose DB record needs updating.
-   *
-   * @param actualUuid - The actual Claude Code session UUID from the hook event
-   * @returns The TinSu sessionId and old UUID if an orphan is found, null otherwise
-   */
-  findOrphanSession(actualUuid: string): { sessionId: string; expectedUuid: string } | null {
-    for (const [sessionId, info] of this.sessions) {
-      // Skip sessions that already have the correct UUID
-      if (info.sessionUuid === actualUuid) continue
-      // This session was expecting a different UUID — it's the orphan
-      // Only match running or recently-exited sessions (not old dead ones)
-      return { sessionId, expectedUuid: info.sessionUuid }
-    }
-    return null
-  }
-
-  /**
-   * Update the tracked session UUID after orphan registration.
-   * Called by the hook listener after updating the DB's session_uuid.
-   */
-  updateSessionUuid(sessionId: string, newUuid: string): void {
-    const info = this.sessions.get(sessionId)
-    if (info) {
-      const oldUuid = info.sessionUuid
-      info.sessionUuid = newUuid
-      console.log(
-        `[ChatCliService] Updated tracked UUID for session ${sessionId}: ${oldUuid} → ${newUuid}`
-      )
     }
   }
 }

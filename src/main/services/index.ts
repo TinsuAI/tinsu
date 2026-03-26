@@ -141,24 +141,7 @@ chatCliService.setOnIdleCallback((sessionId: string) => {
   hookListenerService.cleanupPendingPermissions(sessionId)
 })
 
-// Update DB session_uuid when resume discovers the correct Claude Code UUID
-chatCliService.setOnResumeFailedCallback((sessionId: string, correctUuid: string) => {
-  try {
-    db.update(chat_sessions)
-      .set({
-        session_uuid: correctUuid,
-        updated_at: new Date()
-      })
-      .where(eq(chat_sessions.id, sessionId))
-      .run()
-    console.log(
-      `[ChatCliService] Updated session ${sessionId} UUID to ${correctUuid} in DB`
-    )
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[ChatCliService] Failed to update session UUID: ${msg}`)
-  }
-})
+// CTM-1.1: Removed setOnResumeFailedCallback -- orphan/resume logic superseded by tmux persistence
 
 export {
   ChatCliService,

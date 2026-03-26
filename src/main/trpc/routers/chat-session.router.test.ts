@@ -37,7 +37,6 @@ const mockIsSessionAlive = vi.fn().mockReturnValue(false)
 const mockHasSession = vi.fn().mockReturnValue(false)
 const mockSpawnSession = vi.fn().mockReturnValue('pty-test')
 const mockSendMessage = vi.fn()
-const mockResumeSession = vi.fn().mockReturnValue('pty-resumed')
 const mockKillSession = vi.fn()
 
 vi.mock('../../services', () => ({
@@ -46,7 +45,6 @@ vi.mock('../../services', () => ({
     hasSession: (...args: unknown[]) => mockHasSession(...args),
     spawnSession: (...args: unknown[]) => mockSpawnSession(...args),
     sendMessage: (...args: unknown[]) => mockSendMessage(...args),
-    resumeSession: (...args: unknown[]) => mockResumeSession(...args),
     killSession: (...args: unknown[]) => mockKillSession(...args)
   }
 }))
@@ -103,11 +101,16 @@ function setupTestDb(): void {
       status TEXT NOT NULL DEFAULT 'active',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      last_message_at INTEGER
+      last_message_at INTEGER,
+      workflow_key TEXT,
+      skip_permissions INTEGER NOT NULL DEFAULT 1,
+      tmux_session TEXT
     );
     CREATE INDEX idx_chat_sessions_project_id ON chat_sessions(project_id);
     CREATE INDEX idx_chat_sessions_status ON chat_sessions(status);
     CREATE INDEX idx_chat_sessions_session_uuid ON chat_sessions(session_uuid);
+    CREATE INDEX idx_chat_sessions_workflow_key ON chat_sessions(project_id, workflow_key);
+    CREATE INDEX idx_chat_sessions_tmux_session ON chat_sessions(tmux_session);
   `)
 
   mockSqlite.exec(`
@@ -704,7 +707,6 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
         'Hello agent!',
         'Mock persona context for testing'
       )
-      expect(mockResumeSession).not.toHaveBeenCalled()
       expect(mockSendMessage).not.toHaveBeenCalled()
     })
 
@@ -726,10 +728,9 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(message!.content).toBe('Follow-up message')
       expect(mockSendMessage).toHaveBeenCalledWith(session!.id, 'Follow-up message')
       expect(mockSpawnSession).not.toHaveBeenCalled()
-      expect(mockResumeSession).not.toHaveBeenCalled()
     })
 
-    it('should resume exited CLI session (AC: 5)', async () => {
+    it('CTM-1.1: exited CLI session spawns new tmux session (replaces resume)', async () => {
       const caller = testRouter.createCaller(createTestContext())
 
       const session = await caller.chatSession.create({
@@ -747,13 +748,14 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       })
 
       expect(message!.content).toBe('Resume message')
-      expect(mockResumeSession).toHaveBeenCalledWith(
+      // CTM-1.1: Now calls spawnSession instead of resumeSession
+      expect(mockSpawnSession).toHaveBeenCalledWith(
         session!.id,
         session!.session_uuid,
         '/test/project',
-        'Resume message'
+        'Resume message',
+        'Mock persona context for testing'
       )
-      expect(mockSpawnSession).not.toHaveBeenCalled()
       expect(mockSendMessage).not.toHaveBeenCalled()
     })
 
@@ -884,7 +886,7 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       )
     })
 
-    it('does NOT inject context on resume — Case B (AC: 6)', async () => {
+    it('CTM-1.1: Case B (exited session) creates new tmux session with persona context', async () => {
       const caller = testRouter.createCaller(createTestContext())
 
       const session = await caller.chatSession.create({
@@ -892,7 +894,7 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
         projectId: 'project-1'
       })
 
-      // CLI session was started but exited
+      // CLI session was started but exited -- CTM-1.1: both Case B and C call spawnSession
       mockIsSessionAlive.mockReturnValue(false)
       mockHasSession.mockReturnValue(true)
 
@@ -901,15 +903,13 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
         content: 'Resume message'
       })
 
-      // buildContext should NOT have been called for resume
-      expect(mockBuildContext).not.toHaveBeenCalled()
-
-      // resumeSession should NOT receive persona context
-      expect(mockResumeSession).toHaveBeenCalledWith(
+      // CTM-1.1: spawnSession is now called for Case B too (no more resumeSession)
+      expect(mockSpawnSession).toHaveBeenCalledWith(
         session!.id,
         session!.session_uuid,
         '/test/project',
-        'Resume message'
+        'Resume message',
+        'Mock persona context for testing'
       )
     })
 
