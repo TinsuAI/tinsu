@@ -21,10 +21,12 @@ import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert } from 'luc
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
+import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
 import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 import { ChatMessageArea } from './ChatMessageArea'
 import { ChatInput, type PendingAttachment } from './ChatInput'
 import { ChatSessionList, type ChatSessionListItem } from './ChatSessionList'
+import { ChatSessionUsage } from './ChatSessionUsage'
 import type { ChatMessageAttachment } from '../../../../main/db/schema'
 
 interface ChatPanelProps {
@@ -39,6 +41,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const pendingChatPrefill = usePlanningWorkspaceStore((s) => s.pendingChatPrefill)
   const pendingPersona = usePlanningWorkspaceStore((s) => s.pendingPersona)
   const clearPendingChatPrefill = usePlanningWorkspaceStore((s) => s.clearPendingChatPrefill)
+  const setSelectedWorkflow = usePlanningWorkspaceStore((s) => s.setSelectedWorkflow)
+  const setActivePhase = usePlanningWorkspaceStore((s) => s.setActivePhase)
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
 
@@ -371,7 +375,16 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     setCurrentToolActivity(null)
     prevMessageCountRef.current = 0
     setView('chat')
-  }, [])
+
+    // Navigate content panel to the session's workflow artifact
+    if (session.workflow_key) {
+      const wf = BMAD_WORKFLOWS.find((w) => w.key === session.workflow_key)
+      if (wf) {
+        setActivePhase(wf.phase)
+      }
+      setSelectedWorkflow(session.workflow_key)
+    }
+  }, [setSelectedWorkflow, setActivePhase])
 
   /** Story 10.6 AC: 4 — Start a new chat session */
   const handleNewChat = useCallback(() => {
@@ -649,6 +662,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             onDeleteMessage={handleDeleteMessage}
             onResolvePermission={handleResolvePermission}
           />
+
+          {/* Session usage — context & rate limits */}
+          {sessionId && (
+            <ChatSessionUsage sessionId={sessionId} />
+          )}
 
           {/* Input footer */}
           <ChatInput

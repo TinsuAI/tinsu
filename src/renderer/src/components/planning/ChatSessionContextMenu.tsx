@@ -16,6 +16,7 @@ export interface ChatSessionListItem {
   id: string
   session_uuid: string
   agent_persona: string
+  workflow_key: string | null
   status: string
   created_at: Date | string | number
   updated_at: Date | string | number

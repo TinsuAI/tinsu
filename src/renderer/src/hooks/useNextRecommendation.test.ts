@@ -163,13 +163,13 @@ describe('computeNextRecommendation', () => {
     })
   })
 
-  describe('brainstorming alias', () => {
-    it('treats brainstorming artifact as product-brief for prerequisite checking', () => {
+  describe('brainstorming does not substitute for product-brief', () => {
+    it('recommends product-brief even when brainstorming exists', () => {
       const result = computeNextRecommendation(buildArtifacts(['brainstorming']))
       expect(result).not.toBeNull()
       if (result && !('complete' in result)) {
-        // brainstorming covers product-brief, so prd should be next
-        expect(result.workflowKey).toBe('prd')
+        // brainstorming is a separate artifact, product-brief is still needed
+        expect(result.workflowKey).toBe('product-brief')
       }
     })
   })

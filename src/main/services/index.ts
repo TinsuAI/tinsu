@@ -88,7 +88,8 @@ export {
   ToolUseHookPayloadSchema,
   type StopHookPayload,
   type ToolUseHookPayload,
-  type HealthResponse
+  type HealthResponse,
+  type ChatSessionStatusData
 } from './hook-listener.service'
 
 // Persona context service for BMAD agent persona injection (Story 10.4)

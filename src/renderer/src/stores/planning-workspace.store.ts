@@ -15,6 +15,8 @@ interface PlanningWorkspaceState {
   activePhase: PlanningPhase
   /** Currently selected workflow key in the sidebar */
   selectedWorkflowKey: string | null
+  /** Whether the dashboard is explicitly shown (overrides selectedWorkflowKey) */
+  showDashboard: boolean
   /** Target chat session ID for cross-component navigation (Story 10.7) */
   targetChatSessionId: string | null
   /** Command to pre-fill in ChatInput when a workflow step is clicked */
@@ -32,6 +34,8 @@ interface PlanningWorkspaceActions {
   setActivePhase: (phase: PlanningPhase) => void
   /** Select a workflow in the sidebar */
   setSelectedWorkflow: (key: string | null) => void
+  /** Show the dashboard panel explicitly */
+  setShowDashboard: (show: boolean) => void
   /** Open workspace directly to a specific artifact (Story 9.3) */
   openWorkspaceToArtifact: (workflowKey: string) => void
   /** Navigate to a specific chat session (Story 10.7, AC: 2) */
@@ -51,6 +55,7 @@ export const usePlanningWorkspaceStore = create<
   isOpen: false,
   activePhase: 'analysis',
   selectedWorkflowKey: null,
+  showDashboard: false,
   targetChatSessionId: null,
   pendingChatPrefill: null,
   pendingPersona: null,
@@ -60,13 +65,15 @@ export const usePlanningWorkspaceStore = create<
     set({
       isOpen: true,
       activePhase: phase ?? 'analysis',
-      selectedWorkflowKey: null
+      selectedWorkflowKey: null,
+      showDashboard: false
     }),
 
   closeWorkspace: () =>
     set({
       isOpen: false,
       selectedWorkflowKey: null,
+      showDashboard: false,
       pendingChatPrefill: null,
       pendingPersona: null,
       targetChatSessionId: null
@@ -75,12 +82,20 @@ export const usePlanningWorkspaceStore = create<
   setActivePhase: (phase) =>
     set({
       activePhase: phase,
-      selectedWorkflowKey: null
+      selectedWorkflowKey: null,
+      showDashboard: false
     }),
 
   setSelectedWorkflow: (key) =>
     set({
-      selectedWorkflowKey: key
+      selectedWorkflowKey: key,
+      showDashboard: false
+    }),
+
+  setShowDashboard: (show) =>
+    set({
+      showDashboard: show,
+      ...(show ? { selectedWorkflowKey: null } : {})
     }),
 
   openWorkspaceToArtifact: (workflowKey) => {
@@ -88,7 +103,8 @@ export const usePlanningWorkspaceStore = create<
     set({
       isOpen: true,
       activePhase: workflow?.phase ?? 'analysis',
-      selectedWorkflowKey: workflowKey
+      selectedWorkflowKey: workflowKey,
+      showDashboard: false
     })
   },
 

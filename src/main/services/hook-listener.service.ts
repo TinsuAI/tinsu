@@ -157,6 +157,27 @@ export const ChatNotificationHookPayloadSchema = z
 export type ChatNotificationHookPayload = z.infer<typeof ChatNotificationHookPayloadSchema>
 
 /**
+ * Status data received from the Claude Code statusLine command.
+ * Updated in real-time as the CLI renders its status bar.
+ */
+export interface ChatSessionStatusData {
+  /** Context window usage percentage (0-100) */
+  contextUsedPercent: number | null
+  /** 5-hour rate limit usage percentage (0-100) */
+  fiveHourUsedPercent: number | null
+  /** 7-day rate limit usage percentage (0-100) */
+  sevenDayUsedPercent: number | null
+  /** 5-hour rate limit remaining seconds (null if unknown) */
+  fiveHourResetSeconds: number | null
+  /** 7-day rate limit remaining seconds (null if unknown) */
+  sevenDayResetSeconds: number | null
+  /** Model display name */
+  model: string | null
+  /** Timestamp when this status was last updated */
+  updatedAt: number
+}
+
+/**
  * Health check response.
  */
 export interface HealthResponse {
@@ -190,6 +211,13 @@ export class HookListenerService {
 
   /** Reference to ChatCliService for chat orphan UUID registration */
   private chatCliService: ChatCliService | null = null
+
+  /**
+   * In-memory cache of the latest status data for each chat session.
+   * Key: Claude Code session UUID, Value: status payload with timestamp.
+   * Updated by the /api/hooks/chat-status endpoint (from statusLine hook).
+   */
+  private chatSessionStatus: Map<string, ChatSessionStatusData> = new Map()
 
   /**
    * Pending permission requests — held HTTP responses waiting for user approval.
@@ -321,6 +349,14 @@ export class HookListenerService {
         console.log(`[HookListener] Auto-denied permission ${requestId} (session cleanup)`)
       }
     }
+  }
+
+  /**
+   * Get the latest status data for a chat session by its Claude Code UUID.
+   * Returns null if no status has been received yet.
+   */
+  getChatSessionStatus(sessionUuid: string): ChatSessionStatusData | null {
+    return this.chatSessionStatus.get(sessionUuid) ?? null
   }
 
   async stop(): Promise<void> {
@@ -625,6 +661,40 @@ export class HookListenerService {
           res.writeHead(500)
           res.end(JSON.stringify({ error: 'Internal server error' }))
         }
+      }
+      return
+    }
+
+    // Route: POST /api/hooks/chat-status (StatusLine data)
+    if (method === 'POST' && url === '/api/hooks/chat-status') {
+      try {
+        const body = await this.parseBody(req) as Record<string, unknown>
+        const sessionUuid = body.session_id as string
+        const status = body.status as Record<string, unknown> | undefined
+
+        if (sessionUuid && status) {
+          const contextWindow = status.context_window as Record<string, unknown> | undefined
+          const rateLimits = status.rate_limits as Record<string, unknown> | undefined
+          const fiveHour = rateLimits?.five_hour as Record<string, unknown> | undefined
+          const sevenDay = rateLimits?.seven_day as Record<string, unknown> | undefined
+          const model = status.model as Record<string, unknown> | undefined
+
+          this.chatSessionStatus.set(sessionUuid, {
+            contextUsedPercent: (contextWindow?.used_percentage as number) ?? null,
+            fiveHourUsedPercent: (fiveHour?.used_percentage as number) ?? null,
+            sevenDayUsedPercent: (sevenDay?.used_percentage as number) ?? null,
+            fiveHourResetSeconds: (fiveHour?.reset_seconds as number) ?? null,
+            sevenDayResetSeconds: (sevenDay?.reset_seconds as number) ?? null,
+            model: (model?.display_name as string) ?? null,
+            updatedAt: Date.now()
+          })
+        }
+
+        res.writeHead(200)
+        res.end(JSON.stringify({ received: true }))
+      } catch {
+        res.writeHead(400)
+        res.end(JSON.stringify({ error: 'Invalid payload' }))
       }
       return
     }

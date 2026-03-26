@@ -216,6 +216,8 @@ export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
 export interface AgentPersonaConfig {
   /** Display name shown in the UI (e.g., "Analyst", "PM") */
   displayName: string
+  /** BMAD agent character name (e.g., "Mary", "John") */
+  characterName: string
   /** Tailwind color classes for the persona badge */
   bg: string
   text: string
@@ -226,6 +228,7 @@ export interface AgentPersonaConfig {
 export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> = Object.freeze({
   'bmad:bmm:agents:analyst': {
     displayName: 'Analyst',
+    characterName: 'Mary',
     bg: 'bg-blue-500/20',
     text: 'text-blue-400',
     border: 'border-blue-500/30',
@@ -233,6 +236,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
   },
   'bmad:bmm:agents:pm': {
     displayName: 'PM',
+    characterName: 'John',
     bg: 'bg-green-500/20',
     text: 'text-green-400',
     border: 'border-green-500/30',
@@ -240,6 +244,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
   },
   'bmad:bmm:agents:architect': {
     displayName: 'Architect',
+    characterName: 'Winston',
     bg: 'bg-orange-500/20',
     text: 'text-orange-400',
     border: 'border-orange-500/30',
@@ -247,6 +252,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
   },
   'bmad:bmm:agents:ux-designer': {
     displayName: 'UX Designer',
+    characterName: 'Sally',
     bg: 'bg-purple-500/20',
     text: 'text-purple-400',
     border: 'border-purple-500/30',

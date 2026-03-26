@@ -42,14 +42,6 @@ export function computeNextRecommendation(
     existsMap.set(a.workflowKey, a.exists)
   }
 
-  // Check if product-brief exists via either 'product-brief' or 'brainstorming' key
-  // (both share product-brief.md)
-  const productBriefExists =
-    existsMap.get('product-brief') === true || existsMap.get('brainstorming') === true
-  if (productBriefExists) {
-    existsMap.set('product-brief', true)
-  }
-
   // Find first missing entry whose prerequisites are met (excluding skipped)
   for (const entry of BMAD_RECOMMENDATION_CHAIN) {
     const artifactExists = existsMap.get(entry.workflowKey) === true

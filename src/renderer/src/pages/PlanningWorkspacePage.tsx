@@ -5,6 +5,7 @@ import {
   Compass,
   FileCode2,
   Keyboard,
+  LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -70,9 +71,11 @@ export function PlanningWorkspacePage() {
     isOpen,
     activePhase,
     selectedWorkflowKey,
+    showDashboard,
     closeWorkspace,
     setActivePhase,
     setSelectedWorkflow,
+    setShowDashboard,
     setPendingChatPrefill
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
@@ -125,7 +128,7 @@ export function PlanningWorkspacePage() {
   usePlanningKeyboardShortcuts(workspaceRef, {
     onPhaseChange: (phase) => setActivePhase(phase),
     onFocusWhatNext: () => {
-      setSelectedWorkflow(null)
+      setShowDashboard(true)
       requestAnimationFrame(() => {
         const el = workspaceRef.current?.querySelector<HTMLElement>(
           '[data-testid="what-next-section"]'
@@ -135,7 +138,7 @@ export function PlanningWorkspacePage() {
       })
     },
     onFocusRecentRuns: () => {
-      setSelectedWorkflow(null)
+      setShowDashboard(true)
       requestAnimationFrame(() => {
         const el = workspaceRef.current?.querySelector<HTMLElement>(
           '[data-testid="recent-runs-section"]'
@@ -476,9 +479,26 @@ export function PlanningWorkspacePage() {
           </div>
         </header>
 
-        {/* ── Phase tabs ── */}
-        <div className="shrink-0 border-b border-border px-4 py-2">
-          <Tabs value={activePhase} onValueChange={(v) => setActivePhase(v as PlanningPhase)}>
+        {/* ── Phase tabs + Dashboard button ── */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setShowDashboard(true)}
+            className={cn(
+              'flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors',
+              showDashboard
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            )}
+            data-testid="dashboard-button"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Dashboard
+          </button>
+          <div className="h-5 w-px bg-border/40" />
+          <Tabs value={showDashboard ? '' : activePhase} onValueChange={(v) => {
+            if (v) setActivePhase(v as PlanningPhase)
+          }}>
             <TabsList aria-label="Phase navigation" className="h-9 gap-1 bg-muted/50">
               {BMAD_PHASES.map((phase) => (
                 <TabsTrigger
@@ -582,12 +602,13 @@ export function PlanningWorkspacePage() {
                   className={cn(
                     'flex min-h-0 flex-1',
                     selectedWorkflow &&
+                      !showDashboard &&
                       !artifactExists &&
                       !isReadinessCheck &&
                       'items-center justify-center p-8'
                   )}
                 >
-                  {!selectedWorkflow ? (
+                  {showDashboard || !selectedWorkflow ? (
                     <PhaseProgressDashboard />
                   ) : isReadinessCheck && artifactExists ? (
                     <div className="h-full overflow-y-auto">

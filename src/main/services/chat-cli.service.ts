@@ -174,6 +174,10 @@ export class ChatCliService {
         PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/tool-use.sh"` }] }],
         PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/pre-tool-use.sh"` }] }],
         Notification: [{ matcher: '', hooks: [{ type: 'command', command: `bash "${dir}/notification.sh"` }] }]
+      },
+      statusLine: {
+        type: 'command',
+        command: `bash "${dir}/status.sh"`
       }
     })
   }
@@ -216,7 +220,10 @@ export class ChatCliService {
     console.log(`[ChatCliService] Spawning: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
     console.log(`[ChatCliService] cwd: ${projectPath}`)
 
-    const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
+    const processId = ptyService.spawn('claude', spawnArgs, {
+      cwd: projectPath,
+      env: { TINSU_SESSION_UUID: sessionUuid }
+    })
 
     // Track session and reverse map immediately
     this.sessions.set(sessionId, {
@@ -414,7 +421,10 @@ export class ChatCliService {
     console.log(`[ChatCliService] Resuming: claude --resume ${sessionUuid} --settings "<json>"`)
     console.log(`[ChatCliService] cwd: ${projectPath}`)
 
-    const processId = ptyService.spawn('claude', spawnArgs, { cwd: projectPath })
+    const processId = ptyService.spawn('claude', spawnArgs, {
+      cwd: projectPath,
+      env: { TINSU_SESSION_UUID: sessionUuid }
+    })
 
     // Store retry context so handlePtyExit can discover the correct UUID
     // if --resume fails (e.g., UUID mismatch from --session-id being ignored)
@@ -581,7 +591,10 @@ export class ChatCliService {
 
       // Retry resume with the correct UUID
       const spawnArgs = ['--resume', correctUuid, '--settings', this.buildChatSettingsJson()]
-      const newProcessId = ptyService.spawn('claude', spawnArgs, { cwd: retry.projectPath })
+      const newProcessId = ptyService.spawn('claude', spawnArgs, {
+        cwd: retry.projectPath,
+        env: { TINSU_SESSION_UUID: correctUuid }
+      })
 
       this.sessions.set(sessionId, {
         processId: newProcessId,

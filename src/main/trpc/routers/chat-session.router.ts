@@ -27,7 +27,7 @@ import {
   CHAT_SESSION_STATUS,
   CHAT_MESSAGE_ROLE
 } from '../../db/schema'
-import { chatCliService } from '../../services'
+import { chatCliService, hookListenerService } from '../../services'
 import { PersonaContextService } from '../../services/persona-context.service'
 
 /** Simple mime type lookup from file extension */
@@ -1016,5 +1016,23 @@ export const chatSessionRouter = router({
 
       // 5. Return the created user message
       return db.select().from(chat_messages).where(eq(chat_messages.id, messageId)).get()!
+    }),
+
+  /**
+   * Get real-time session status (context usage, rate limits).
+   * Returns data from the Claude Code statusLine hook.
+   */
+  getSessionStatus: publicProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session) return null
+
+      return hookListenerService.getChatSessionStatus(session.session_uuid)
     })
 })
