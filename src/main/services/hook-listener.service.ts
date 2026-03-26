@@ -98,7 +98,9 @@ export const ChatStopHookPayloadSchema = z
     hook_event_name: z.literal('Stop'),
     last_assistant_message: z.string().nullish(),
     cwd: z.string(),
-    transcript_path: z.string()
+    transcript_path: z.string(),
+    /** CTM-1.2: tmux session name for routing to correct chat session */
+    tmux_session: z.string().optional()
   })
   .passthrough()
 
@@ -115,7 +117,9 @@ export const ChatToolUseHookPayloadSchema = z
     session_id: z.string(),
     tool_name: z.string(),
     tool_input: z.record(z.string(), z.any()),
-    hook_event_name: z.literal('PostToolUse')
+    hook_event_name: z.literal('PostToolUse'),
+    /** CTM-1.2: tmux session name for routing to correct chat session */
+    tmux_session: z.string().optional()
   })
   .passthrough()
 
@@ -132,7 +136,9 @@ export const ChatPreToolUseHookPayloadSchema = z
     session_id: z.string(),
     tool_name: z.string(),
     tool_input: z.record(z.string(), z.any()),
-    hook_event_name: z.literal('PreToolUse')
+    hook_event_name: z.literal('PreToolUse'),
+    /** CTM-1.2: tmux session name for routing to correct chat session */
+    tmux_session: z.string().optional()
   })
   .passthrough()
 
@@ -149,7 +155,9 @@ export const ChatNotificationHookPayloadSchema = z
     session_id: z.string(),
     type: z.string().default('unknown'),
     message: z.string().default(''),
-    hook_event_name: z.literal('Notification')
+    hook_event_name: z.literal('Notification'),
+    /** CTM-1.2: tmux session name for routing to correct chat session */
+    tmux_session: z.string().optional()
   })
   .passthrough()
 
@@ -209,7 +217,7 @@ export class HookListenerService {
   /** Server start time for uptime calculation */
   private startTime: number = 0
 
-  /** Reference to ChatCliService for chat orphan UUID registration */
+  /** Reference to ChatCliService for session cache access and session lifecycle management */
   private chatCliService: ChatCliService | null = null
 
   /**
@@ -315,18 +323,36 @@ export class HookListenerService {
   }
 
   /**
-   * Best-effort attempt to mark a session as free using the Claude Code session UUID.
-   * Used as a safety net when the stop hook handler fails (validation error, crash, etc.)
-   * to prevent sessions from being permanently stuck in "busy" state.
+   * Best-effort attempt to mark a session as free using the Claude Code session UUID
+   * or tmux session name. Used as a safety net when the stop hook handler fails
+   * (validation error, crash, etc.) to prevent sessions from being permanently stuck
+   * in "busy" state.
+   *
+   * CTM-1.2: Updated to also try lookup by tmux_session when session_uuid lookup fails.
    */
-  private tryMarkSessionFreeByUuid(sessionUuid: string | undefined): void {
-    if (!sessionUuid || !this.chatCliService) return
+  private tryMarkSessionFreeByUuid(sessionUuid: string | undefined, tmuxSession?: string): void {
+    if (!this.chatCliService) return
     try {
-      const session = db
-        .select()
-        .from(chat_sessions)
-        .where(eq(chat_sessions.session_uuid, sessionUuid))
-        .get()
+      let session: typeof chat_sessions.$inferSelect | undefined
+
+      // Try session_uuid first
+      if (sessionUuid) {
+        session = db
+          .select()
+          .from(chat_sessions)
+          .where(eq(chat_sessions.session_uuid, sessionUuid))
+          .get()
+      }
+
+      // CTM-1.2: Fall back to tmux_session lookup
+      if (!session && tmuxSession) {
+        session = db
+          .select()
+          .from(chat_sessions)
+          .where(eq(chat_sessions.tmux_session, tmuxSession))
+          .get()
+      }
+
       if (session) {
         this.chatCliService.markSessionFree(session.id)
         console.log(`[HookListener] Safety: marked session ${session.id} as free after stop hook error`)
@@ -334,6 +360,52 @@ export class HookListenerService {
     } catch {
       // Best effort — don't throw
     }
+  }
+
+  /**
+   * CTM-1.2: Centralized chat session resolution from hook payloads.
+   *
+   * Implements a three-strategy lookup:
+   * 1. tmux_session cache lookup via sessionToChatCache (O(1))
+   * 2. tmux_session DB fallback via chat_sessions.tmux_session (populates cache on hit)
+   * 3. Legacy session_uuid DB fallback via chat_sessions.session_uuid
+   *
+   * This replaces the repeated session_uuid-only lookup + tryRegisterChatOrphan() pattern
+   * across all 5 chat hook handlers.
+   *
+   * @param payload - Object containing session_id and optional tmux_session
+   * @returns The chat_sessions record if found, undefined otherwise
+   */
+  private resolveChatSession(payload: { session_id: string; tmux_session?: string }): typeof chat_sessions.$inferSelect | undefined {
+    // Strategy 1: tmux_session cache lookup (O(1))
+    if (payload.tmux_session) {
+      const cachedSessionId = this.chatCliService?.getSessionToChatCache().get(payload.tmux_session)
+      if (cachedSessionId) {
+        const session = db.select().from(chat_sessions).where(eq(chat_sessions.id, cachedSessionId)).get()
+        if (session) return session
+      }
+
+      // Strategy 2: tmux_session DB fallback
+      const dbSession = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.tmux_session, payload.tmux_session))
+        .get()
+      if (dbSession) {
+        // Populate cache for future O(1) lookups
+        if (this.chatCliService) {
+          this.chatCliService.getSessionToChatCache().set(payload.tmux_session, dbSession.id)
+        }
+        return dbSession
+      }
+    }
+
+    // Strategy 3: Legacy session_uuid fallback
+    return db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
   }
 
   /**
@@ -507,7 +579,7 @@ export class HookListenerService {
         if (!parseResult.success) {
           console.error('[HookListener] Invalid chat-stop hook payload:', parseResult.error.issues)
           // Still try to free the session even if payload validation fails
-          this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined)
+          this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined, rawBody?.tmux_session as string | undefined)
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
@@ -517,7 +589,7 @@ export class HookListenerService {
         res.end(JSON.stringify({ received: true }))
       } catch (err) {
         // Always try to free the session on error
-        this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined)
+        this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined, rawBody?.tmux_session as string | undefined)
         const isRequestError =
           err instanceof Error &&
           ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
@@ -666,11 +738,26 @@ export class HookListenerService {
     }
 
     // Route: POST /api/hooks/chat-status (StatusLine data)
+    // CTM-1.2: Updated to read tmux_session from body and resolve session UUID
+    // via tmux_session when session_uuid is missing or unresolvable.
     if (method === 'POST' && url === '/api/hooks/chat-status') {
       try {
         const body = await this.parseBody(req) as Record<string, unknown>
-        const sessionUuid = body.session_id as string
+        let sessionUuid = body.session_id as string | undefined
+        const tmuxSession = body.tmux_session as string | undefined
         const status = body.status as Record<string, unknown> | undefined
+
+        // CTM-1.2: If sessionUuid is empty/missing but tmux_session is present,
+        // resolve the session to discover its UUID for the status cache key
+        if ((!sessionUuid || sessionUuid === '') && tmuxSession) {
+          const resolved = this.resolveChatSession({
+            session_id: sessionUuid || '',
+            tmux_session: tmuxSession
+          })
+          if (resolved) {
+            sessionUuid = resolved.session_uuid ?? undefined
+          }
+        }
 
         if (sessionUuid && status) {
           const contextWindow = status.context_window as Record<string, unknown> | undefined
@@ -1062,18 +1149,8 @@ export class HookListenerService {
   async onChatStopHook(payload: ChatStopHookPayload): Promise<void> {
     console.log('[HookListener] Chat stop hook received for session_id:', payload.session_id)
 
-    // Look up chat_sessions by matching session_uuid = payload.session_id
-    let session = db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.session_uuid, payload.session_id))
-      .get()
-
-    // If not found, Claude Code may have ignored --session-id and used its own UUID.
-    // Try to match with a recently-spawned session via chatCliService.
-    if (!session) {
-      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
-    }
+    // CTM-1.2: Use centralized session resolution (tmux_session cache -> tmux_session DB -> session_uuid DB)
+    const session = this.resolveChatSession(payload)
 
     if (!session) {
       console.warn(
@@ -1191,16 +1268,8 @@ export class HookListenerService {
   async onChatToolUseHook(payload: ChatToolUseHookPayload): Promise<void> {
     console.log('[HookListener] Chat tool-use hook received:', JSON.stringify(payload, null, 2))
 
-    // Look up chat_sessions by matching session_uuid = payload.session_id
-    let session = db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.session_uuid, payload.session_id))
-      .get()
-
-    if (!session) {
-      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
-    }
+    // CTM-1.2: Use centralized session resolution (tmux_session cache -> tmux_session DB -> session_uuid DB)
+    const session = this.resolveChatSession(payload)
 
     if (!session) {
       console.warn(
@@ -1289,16 +1358,8 @@ export class HookListenerService {
   async onChatPreToolUseHook(payload: ChatPreToolUseHookPayload): Promise<void> {
     console.log('[HookListener] Chat pre-tool-use hook received:', JSON.stringify(payload, null, 2))
 
-    // Look up chat_sessions by matching session_uuid = payload.session_id
-    let session = db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.session_uuid, payload.session_id))
-      .get()
-
-    if (!session) {
-      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
-    }
+    // CTM-1.2: Use centralized session resolution (tmux_session cache -> tmux_session DB -> session_uuid DB)
+    const session = this.resolveChatSession(payload)
 
     if (!session) {
       console.warn(
@@ -1345,12 +1406,8 @@ export class HookListenerService {
    * then returns the decision.
    */
   private async resolvePreToolUseDecision(payload: ChatPreToolUseHookPayload): Promise<'allow' | 'deny'> {
-    // Look up session
-    const session = db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.session_uuid, payload.session_id))
-      .get()
+    // CTM-1.2: Use centralized session resolution
+    const session = this.resolveChatSession(payload)
 
     if (!session) {
       // Can't find session — auto-approve to avoid blocking
@@ -1433,16 +1490,8 @@ export class HookListenerService {
   async onChatNotificationHook(payload: ChatNotificationHookPayload): Promise<void> {
     console.log('[HookListener] Chat notification hook received:', JSON.stringify(payload, null, 2))
 
-    // Look up chat_sessions by matching session_uuid = payload.session_id
-    let session = db
-      .select()
-      .from(chat_sessions)
-      .where(eq(chat_sessions.session_uuid, payload.session_id))
-      .get()
-
-    if (!session) {
-      session = this.tryRegisterChatOrphan(payload.session_id) ?? undefined
-    }
+    // CTM-1.2: Use centralized session resolution (tmux_session cache -> tmux_session DB -> session_uuid DB)
+    const session = this.resolveChatSession(payload)
 
     if (!session) {
       console.warn(
@@ -1564,18 +1613,6 @@ export class HookListenerService {
   }
 
   /**
-   * Try to register an orphan chat session UUID.
-   *
-   * When Claude Code ignores the --session-id flag and generates its own UUID,
-   * hook events arrive with a session_id that doesn't match any chat_sessions.session_uuid.
-   * This method uses chatCliService to find the TinSu session that was expecting a
-   * different UUID, and updates the DB to match the actual Claude Code UUID.
-   *
-   * @param actualUuid - The actual Claude Code session UUID from the hook event
-   * @returns The chat_sessions record if registration succeeded, null otherwise
-   */
-
-  /**
    * Extract human-readable text from a tool_response payload.
    * Handles different response shapes: strings, arrays with text elements,
    * and objects with content/text fields. Truncates to 4000 chars.
@@ -1615,17 +1652,6 @@ export class HookListenerService {
     } catch {
       return null
     }
-  }
-
-  /**
-   * CTM-1.1: Orphan registration is no longer needed with tmux sessions.
-   * tmux session names are stable and environment variables (TINSU_TMUX_SESSION,
-   * TINSU_SESSION_UUID) are set per-session, so UUID mismatches don't occur.
-   * Hook routing by tmux session name will be implemented in Story 1.2.
-   */
-  private tryRegisterChatOrphan(_actualUuid: string): typeof chat_sessions.$inferSelect | null {
-    // No-op: tmux sessions don't have orphan UUID issues
-    return null
   }
 
   /**

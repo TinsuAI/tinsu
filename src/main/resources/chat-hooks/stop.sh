@@ -13,6 +13,13 @@
 # Read JSON from stdin
 INPUT=$(cat)
 
+# CTM-1.2: Inject tmux_session into payload if available
+# TINSU_TMUX_SESSION is set via tmux set-environment during session creation (CTM-1.1)
+TMUX_SESSION="${TINSU_TMUX_SESSION:-}"
+if [ -n "$TMUX_SESSION" ]; then
+  INPUT=$(echo "$INPUT" | jq --arg ts "$TMUX_SESSION" '. + {tmux_session: $ts}')
+fi
+
 # Get TinSu hook port from temp file, fallback to default 3847
 TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
 
