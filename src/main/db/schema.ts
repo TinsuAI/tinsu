@@ -513,7 +513,9 @@ export const chat_sessions = sqliteTable(
       .default(sql`(unixepoch())`),
     last_message_at: integer('last_message_at', { mode: 'timestamp' }),
     // Chat-centric layout: Bind session to a specific BMAD workflow step
-    workflow_key: text('workflow_key')
+    workflow_key: text('workflow_key'),
+    // Per-conversation permission mode: true = auto-approve all tool use, false = require explicit approval
+    skip_permissions: integer('skip_permissions', { mode: 'boolean' }).notNull().default(true)
   },
   (table) => [
     index('idx_chat_sessions_project_id').on(table.project_id),

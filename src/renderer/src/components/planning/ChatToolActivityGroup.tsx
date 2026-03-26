@@ -30,11 +30,18 @@ interface ChatToolActivityGroupProps {
   defaultExpanded?: boolean
 }
 
+/** Check if a tool message has meaningful output content */
+function hasOutput(msg: ToolMessage): boolean {
+  return msg.content.length > 0 && !msg.content.startsWith('PreToolUse:')
+}
+
 export function ChatToolActivityGroup({
   toolMessages,
   defaultExpanded = false
 }: ChatToolActivityGroupProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded)
+  // Auto-expand when any tool in the group has output content
+  const anyHasOutput = toolMessages.some(hasOutput)
+  const [expanded, setExpanded] = useState(defaultExpanded || anyHasOutput)
 
   // Single tool message — render directly, no group wrapper
   if (toolMessages.length === 1) {

@@ -17,7 +17,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { ArrowLeft, PanelLeftClose, Trash2 } from 'lucide-react'
+import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
@@ -210,7 +210,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const attachmentsByMessageId = useMemo(() => {
     const map: Record<string, ChatMessageAttachment[]> = {}
     for (const att of attachments) {
-      ;(map[att.message_id] ??= []).push(att)
+      ;(map[att.message_id] ??= []).push(att as unknown as ChatMessageAttachment)
     }
     return map
   }, [attachments])
@@ -287,6 +287,40 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       }
     }
   })
+  const updateSkipPermissions = trpc.chatSession.updateSkipPermissions.useMutation({
+    onSuccess: () => {
+      trpcUtils.chatSession.listWithPreview.invalidate()
+    }
+  })
+  const resolvePermissionMutation = trpc.chatSession.resolvePermission.useMutation({
+    onSuccess: () => {
+      if (sessionId) trpcUtils.chatSession.getMessages.invalidate({ sessionId })
+    }
+  })
+
+  // Track skip_permissions for the active session
+  const [skipPermissions, setSkipPermissions] = useState(true)
+
+  // Sync skip_permissions from workflow session or session list selection
+  useEffect(() => {
+    if (workflowSession) {
+      setSkipPermissions(workflowSession.skip_permissions as unknown as boolean)
+    }
+  }, [workflowSession])
+
+  const handleToggleSkipPermissions = useCallback(() => {
+    if (!sessionId) return
+    const newValue = !skipPermissions
+    setSkipPermissions(newValue)
+    updateSkipPermissions.mutate({ sessionId, skipPermissions: newValue })
+  }, [sessionId, skipPermissions, updateSkipPermissions])
+
+  const handleResolvePermission = useCallback(
+    (requestId: string, decision: 'allow' | 'deny') => {
+      resolvePermissionMutation.mutate({ requestId, decision })
+    },
+    [resolvePermissionMutation]
+  )
 
   /** Add files to pending attachments list */
   const handleAttachmentsAdded = useCallback((files: File[]) => {
@@ -332,6 +366,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     setSessionId(session.id)
     setSelectedPersona(session.agent_persona as ChatPersonaKey)
     sessionPersonaRef.current = session.agent_persona as ChatPersonaKey
+    setSkipPermissions(Boolean(session.skip_permissions))
     setIsAgentThinking(false)
     setCurrentToolActivity(null)
     prevMessageCountRef.current = 0
@@ -555,6 +590,28 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
               />
             </div>
             <div className="flex items-center gap-1">
+              {sessionId && (
+                <button
+                  type="button"
+                  onClick={handleToggleSkipPermissions}
+                  className={cn(
+                    'flex h-5 items-center gap-1 rounded px-1.5 transition-colors',
+                    skipPermissions
+                      ? 'text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/10'
+                      : 'text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10'
+                  )}
+                  aria-label={skipPermissions ? 'Auto-approve is ON — click to require manual approval' : 'Manual approval is ON — click to auto-approve'}
+                  title={skipPermissions ? 'Auto-approve: all tool uses approved automatically' : 'Manual: tool uses require your approval'}
+                  data-testid="toggle-skip-permissions"
+                >
+                  {skipPermissions ? (
+                    <ShieldCheck className="h-3 w-3" />
+                  ) : (
+                    <ShieldAlert className="h-3 w-3" />
+                  )}
+                  <span className="text-[10px]">{skipPermissions ? 'Auto' : 'Manual'}</span>
+                </button>
+              )}
               {sessionId && messages.length > 0 && (
                 <button
                   type="button"
@@ -590,6 +647,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             currentToolActivity={currentToolActivity}
             attachmentsByMessageId={attachmentsByMessageId}
             onDeleteMessage={handleDeleteMessage}
+            onResolvePermission={handleResolvePermission}
           />
 
           {/* Input footer */}

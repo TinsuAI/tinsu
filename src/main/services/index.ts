@@ -136,6 +136,8 @@ chatCliService.setOnIdleCallback((sessionId: string) => {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`[ChatCliService] Failed to update idle session ${sessionId} status: ${msg}`)
   }
+  // Clean up any pending permission requests for the killed session
+  hookListenerService.cleanupPendingPermissions(sessionId)
 })
 
 // Update DB session_uuid when resume discovers the correct Claude Code UUID

@@ -18,8 +18,11 @@ TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
 
 # Send to TinSu's chat-specific hook listener (silent failure if not running)
 # Use --connect-timeout and --max-time to prevent hanging
+# max-time 300 (5 min): For auto-approve sessions the response is instant.
+# For manual-approval sessions, the server holds the response until the user
+# clicks Approve/Deny in the chat UI (up to 4 min server-side timeout).
 curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/chat-pre-tool-use" \
   -H "Content-Type: application/json" \
   --connect-timeout 2 \
-  --max-time 5 \
+  --max-time 300 \
   -d "$INPUT" || true

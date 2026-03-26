@@ -193,6 +193,19 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatS
                         {persona?.displayName ?? session.agent_persona.split(':').pop() ?? 'Agent'}
                       </span>
 
+                      {/* Permission mode badge */}
+                      <span
+                        className={cn(
+                          'rounded-full border px-1 py-px text-[9px] font-medium leading-tight',
+                          session.skip_permissions
+                            ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                        )}
+                        title={session.skip_permissions ? 'Auto-approve tool use' : 'Manual tool approval'}
+                      >
+                        {session.skip_permissions ? 'Auto' : 'Manual'}
+                      </span>
+
                       {/* Status badge */}
                       <span
                         className={cn(

@@ -109,16 +109,16 @@ function formatTimestamp(ts: Date | string | number): string {
 }
 
 /** Truncate content to first N lines or M characters */
-function truncateContent(content: string, maxLines = 10, maxChars = 500): string {
+function truncateContent(content: string, maxLines = 10, maxChars = 500): { text: string; truncated: boolean } {
   const lines = content.split('\n')
   const sliced = lines.slice(0, maxLines).join('\n')
   if (sliced.length > maxChars) {
-    return sliced.slice(0, maxChars) + '...'
+    return { text: sliced.slice(0, maxChars) + '...', truncated: true }
   }
   if (lines.length > maxLines) {
-    return sliced + '\n...'
+    return { text: sliced + '\n...', truncated: true }
   }
-  return sliced
+  return { text: sliced, truncated: false }
 }
 
 export function ChatToolActivityCard({
@@ -127,17 +127,21 @@ export function ChatToolActivityCard({
   content,
   createdAt
 }: ChatToolActivityCardProps) {
-  const [expanded, setExpanded] = useState(false)
+  // Determine if content has meaningful preview data
+  // PreToolUse messages have content like "PreToolUse: Read" — not useful to show
+  const isPreToolUse = content.startsWith('PreToolUse:')
+  const hasContent = !isPreToolUse && content.length > 0
+
+  // Auto-expand when the tool has output content
+  const [expanded, setExpanded] = useState(hasContent)
+  const [showFull, setShowFull] = useState(false)
 
   const IconComponent = TOOL_ICON_MAP[toolName] ?? Wrench
   const description = getToolDescription(toolName, toolInput)
   const parsed = parseToolInput(toolInput)
 
-  // Determine if content has meaningful preview data
-  // PreToolUse messages have content like "PreToolUse: Read" — not useful to show
-  const isPreToolUse = content.startsWith('PreToolUse:')
-  const hasContent = !isPreToolUse && content.length > 0
   const hasInputDetails = parsed && Object.keys(parsed).length > 0
+  const truncated = hasContent ? truncateContent(content) : null
 
   return (
     <div
@@ -186,21 +190,30 @@ export function ChatToolActivityCard({
               <div className="mb-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
                 Input
               </div>
-              <pre className="overflow-x-auto rounded bg-background/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground/60">
+              <pre className="whitespace-pre-wrap break-words rounded bg-background/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground/60">
                 {JSON.stringify(parsed, null, 2)}
               </pre>
             </div>
           )}
 
-          {/* Content preview */}
-          {hasContent && (
+          {/* Content / output */}
+          {hasContent && truncated && (
             <div>
               <div className="mb-1 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
                 Output
               </div>
-              <pre className="overflow-x-auto rounded bg-background/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground/60">
-                {truncateContent(content)}
+              <pre className="whitespace-pre-wrap break-words rounded bg-background/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground/60">
+                {showFull ? content : truncated.text}
               </pre>
+              {truncated.truncated && (
+                <button
+                  type="button"
+                  onClick={() => setShowFull(!showFull)}
+                  className="mt-1 text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors"
+                >
+                  {showFull ? 'Show less' : 'Show full output'}
+                </button>
+              )}
             </div>
           )}
         </div>

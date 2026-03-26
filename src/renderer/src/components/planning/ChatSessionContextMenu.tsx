@@ -21,6 +21,7 @@ export interface ChatSessionListItem {
   updated_at: Date | string | number
   last_message_at: Date | string | number | null
   lastMessagePreview: string | null
+  skip_permissions: boolean | number | null
 }
 
 interface ChatSessionContextMenuProps {

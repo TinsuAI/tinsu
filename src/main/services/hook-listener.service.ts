@@ -96,7 +96,7 @@ export const ChatStopHookPayloadSchema = z
   .object({
     session_id: z.string(),
     hook_event_name: z.literal('Stop'),
-    last_assistant_message: z.string().optional(),
+    last_assistant_message: z.string().nullish(),
     cwd: z.string(),
     transcript_path: z.string()
   })
@@ -147,8 +147,8 @@ export type ChatPreToolUseHookPayload = z.infer<typeof ChatPreToolUseHookPayload
 export const ChatNotificationHookPayloadSchema = z
   .object({
     session_id: z.string(),
-    type: z.string(),
-    message: z.string(),
+    type: z.string().default('unknown'),
+    message: z.string().default(''),
     hook_event_name: z.literal('Notification')
   })
   .passthrough()
@@ -190,6 +190,17 @@ export class HookListenerService {
 
   /** Reference to ChatCliService for chat orphan UUID registration */
   private chatCliService: ChatCliService | null = null
+
+  /**
+   * Pending permission requests — held HTTP responses waiting for user approval.
+   * Key: requestId, Value: resolve callback + metadata.
+   */
+  private pendingPermissions: Map<string, {
+    resolve: (decision: 'allow' | 'deny') => void
+    sessionId: string
+    toolName: string
+    timeout: ReturnType<typeof setTimeout>
+  }> = new Map()
 
   /**
    * Start the HTTP server.
@@ -258,6 +269,58 @@ export class HookListenerService {
    */
   setChatCliService(service: ChatCliService): void {
     this.chatCliService = service
+  }
+
+  /**
+   * Resolve a pending permission request.
+   * Called by the tRPC resolvePermission mutation when the user clicks Approve/Deny.
+   * Unblocks the held PreToolUse hook HTTP response.
+   */
+  resolvePermission(requestId: string, decision: 'allow' | 'deny'): boolean {
+    const pending = this.pendingPermissions.get(requestId)
+    if (!pending) return false
+    clearTimeout(pending.timeout)
+    pending.resolve(decision)
+    this.pendingPermissions.delete(requestId)
+    console.log(`[HookListener] Permission ${requestId} resolved: ${decision}`)
+    return true
+  }
+
+  /**
+   * Best-effort attempt to mark a session as free using the Claude Code session UUID.
+   * Used as a safety net when the stop hook handler fails (validation error, crash, etc.)
+   * to prevent sessions from being permanently stuck in "busy" state.
+   */
+  private tryMarkSessionFreeByUuid(sessionUuid: string | undefined): void {
+    if (!sessionUuid || !this.chatCliService) return
+    try {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.session_uuid, sessionUuid))
+        .get()
+      if (session) {
+        this.chatCliService.markSessionFree(session.id)
+        console.log(`[HookListener] Safety: marked session ${session.id} as free after stop hook error`)
+      }
+    } catch {
+      // Best effort — don't throw
+    }
+  }
+
+  /**
+   * Clean up all pending permissions for a session (e.g., on CLI crash or session kill).
+   * Auto-denies any outstanding requests.
+   */
+  cleanupPendingPermissions(sessionId: string): void {
+    for (const [requestId, pending] of this.pendingPermissions) {
+      if (pending.sessionId === sessionId) {
+        clearTimeout(pending.timeout)
+        pending.resolve('deny')
+        this.pendingPermissions.delete(requestId)
+        console.log(`[HookListener] Auto-denied permission ${requestId} (session cleanup)`)
+      }
+    }
   }
 
   async stop(): Promise<void> {
@@ -398,12 +461,17 @@ export class HookListenerService {
     }
 
     // Route: POST /api/hooks/chat-stop (Story 10.1)
+    // CRITICAL: Always call markSessionFree even on errors to prevent
+    // sessions from being permanently stuck in "busy" state.
     if (method === 'POST' && url === '/api/hooks/chat-stop') {
+      let rawBody: Record<string, unknown> | null = null
       try {
-        const body = await this.parseBody(req)
-        const parseResult = ChatStopHookPayloadSchema.safeParse(body)
+        rawBody = await this.parseBody(req) as Record<string, unknown>
+        const parseResult = ChatStopHookPayloadSchema.safeParse(rawBody)
         if (!parseResult.success) {
           console.error('[HookListener] Invalid chat-stop hook payload:', parseResult.error.issues)
+          // Still try to free the session even if payload validation fails
+          this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined)
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
@@ -412,6 +480,8 @@ export class HookListenerService {
         res.writeHead(200)
         res.end(JSON.stringify({ received: true }))
       } catch (err) {
+        // Always try to free the session on error
+        this.tryMarkSessionFreeByUuid(rawBody?.session_id as string | undefined)
         const isRequestError =
           err instanceof Error &&
           ['Invalid JSON', 'Request body too large', 'Request aborted'].includes(err.message)
@@ -469,6 +539,9 @@ export class HookListenerService {
     }
 
     // Route: POST /api/hooks/chat-pre-tool-use (Story 10.5)
+    // When skip_permissions is ON: respond instantly with auto-approve.
+    // When skip_permissions is OFF: hold the HTTP response until the user
+    // clicks Approve/Deny in the chat UI, then respond with the decision.
     if (method === 'POST' && url === '/api/hooks/chat-pre-tool-use') {
       try {
         const body = await this.parseBody(req)
@@ -482,17 +555,21 @@ export class HookListenerService {
           res.end(JSON.stringify({ error: 'Invalid payload', details: parseResult.error.issues }))
           return
         }
+
+        // Store tool activity in DB (always, regardless of skip_permissions)
         await this.onChatPreToolUseHook(parseResult.data)
-        // Return auto-approve decision. Claude Code reads the hook script's stdout
-        // (which is the curl response body) and parses it for permissionDecision.
-        // Without this, Claude Code shows a permission prompt in the hidden PTY,
-        // blocking the agent until someone presses Enter.
+
+        // Look up session to check skip_permissions
+        const decision = await this.resolvePreToolUseDecision(parseResult.data)
+
         res.writeHead(200)
         res.end(JSON.stringify({
           hookSpecificOutput: {
             hookEventName: 'PreToolUse',
-            permissionDecision: 'allow',
-            permissionDecisionReason: 'Auto-approved by TinSu chat session'
+            permissionDecision: decision,
+            permissionDecisionReason: decision === 'allow'
+              ? 'Approved by TinSu chat session'
+              : 'Denied by user in TinSu chat'
           }
         }))
       } catch (err) {
@@ -1066,12 +1143,18 @@ export class HookListenerService {
     const messageId = crypto.randomUUID()
     const now = new Date()
 
+    // Extract text from tool_response for display in the chat UI
+    const responseText = this.extractToolResponseText(
+      (payload as Record<string, unknown>).tool_response
+    )
+    const content = responseText || `Tool: ${payload.tool_name}`
+
     db.insert(chat_messages)
       .values({
         id: messageId,
         session_id: session.id,
         role: 'tool',
-        content: `Tool: ${payload.tool_name}`,
+        content,
         tool_name: payload.tool_name,
         tool_input: JSON.stringify(payload.tool_input),
         created_at: now
@@ -1181,6 +1264,89 @@ export class HookListenerService {
     console.log(
       `[HookListener] Stored chat pre-tool-use event for session ${session.id}: ${payload.tool_name}`
     )
+  }
+
+  /**
+   * Determine whether to auto-approve or wait for user decision on a PreToolUse event.
+   *
+   * When skip_permissions is true (default): returns 'allow' immediately.
+   * When skip_permissions is false: stores a permission request in the DB,
+   * holds the response until the user clicks Approve/Deny in the chat UI,
+   * then returns the decision.
+   */
+  private async resolvePreToolUseDecision(payload: ChatPreToolUseHookPayload): Promise<'allow' | 'deny'> {
+    // Look up session
+    const session = db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.session_uuid, payload.session_id))
+      .get()
+
+    if (!session) {
+      // Can't find session — auto-approve to avoid blocking
+      return 'allow'
+    }
+
+    // Auto-approve mode: respond instantly
+    if (session.skip_permissions) {
+      return 'allow'
+    }
+
+    // Manual approval mode: hold response until user decides
+    const requestId = crypto.randomUUID()
+    console.log(
+      `[HookListener] Permission required for session ${session.id}: ${payload.tool_name} (requestId: ${requestId})`
+    )
+
+    // Store permission request as a special chat message so the UI can render it
+    db.insert(chat_messages)
+      .values({
+        id: crypto.randomUUID(),
+        session_id: session.id,
+        role: 'tool',
+        content: `Permission request: ${payload.tool_name}`,
+        tool_name: '__permission_request__',
+        tool_input: JSON.stringify({
+          requestId,
+          toolName: payload.tool_name,
+          toolInput: payload.tool_input
+        }),
+        created_at: new Date()
+      })
+      .run()
+
+    // Create a Promise that resolves when the user clicks Approve/Deny
+    return new Promise<'allow' | 'deny'>((resolve) => {
+      // 4-minute timeout (under the 5-min curl --max-time)
+      const timeout = setTimeout(() => {
+        if (this.pendingPermissions.has(requestId)) {
+          this.pendingPermissions.delete(requestId)
+          console.warn(`[HookListener] Permission ${requestId} timed out, auto-denying`)
+
+          // Store timeout message in chat
+          db.insert(chat_messages)
+            .values({
+              id: crypto.randomUUID(),
+              session_id: session.id,
+              role: 'tool',
+              content: 'Permission request timed out (auto-denied after 4 minutes)',
+              tool_name: '__notification__',
+              tool_input: JSON.stringify({ type: 'permission_timeout', message: `Tool "${payload.tool_name}" permission request timed out` }),
+              created_at: new Date()
+            })
+            .run()
+
+          resolve('deny')
+        }
+      }, 4 * 60 * 1000) // 4 minutes
+
+      this.pendingPermissions.set(requestId, {
+        resolve,
+        sessionId: session.id,
+        toolName: payload.tool_name,
+        timeout
+      })
+    })
   }
 
   /**
@@ -1338,6 +1504,49 @@ export class HookListenerService {
    * @param actualUuid - The actual Claude Code session UUID from the hook event
    * @returns The chat_sessions record if registration succeeded, null otherwise
    */
+
+  /**
+   * Extract human-readable text from a tool_response payload.
+   * Handles different response shapes: strings, arrays with text elements,
+   * and objects with content/text fields. Truncates to 4000 chars.
+   */
+  private extractToolResponseText(toolResponse: unknown): string | null {
+    if (!toolResponse) return null
+
+    try {
+      // Direct string response (e.g., Bash stdout, Read file content)
+      if (typeof toolResponse === 'string') {
+        return toolResponse.slice(0, 4000)
+      }
+
+      if (typeof toolResponse !== 'object') return null
+
+      const resp = toolResponse as Record<string, unknown>
+
+      // WebSearch: results array contains objects (title/url) and text strings
+      if (Array.isArray(resp.results)) {
+        const textParts = resp.results.filter((r): r is string => typeof r === 'string')
+        if (textParts.length > 0) {
+          return textParts.join('\n').slice(0, 4000)
+        }
+      }
+
+      // Generic: look for common text fields
+      if (typeof resp.content === 'string') return resp.content.slice(0, 4000)
+      if (typeof resp.text === 'string') return resp.text.slice(0, 4000)
+      if (typeof resp.stdout === 'string') return resp.stdout.slice(0, 4000)
+      if (typeof resp.output === 'string') return resp.output.slice(0, 4000)
+
+      // Fallback: stringify the response (truncated)
+      const json = JSON.stringify(resp, null, 2)
+      if (json.length > 50) return json.slice(0, 4000)
+
+      return null
+    } catch {
+      return null
+    }
+  }
+
   private tryRegisterChatOrphan(actualUuid: string): typeof chat_sessions.$inferSelect | null {
     if (!this.chatCliService) return null
 
@@ -1479,7 +1688,7 @@ export class HookListenerService {
     let outputArtifacts: string[] | null = null
     if (!hasError) {
       const wf = BMAD_WORKFLOWS.find((w) => w.workflowKey === activeRun.workflow_key)
-      if (wf) {
+      if (wf?.filename) {
         outputArtifacts = [wf.filename]
       }
     }

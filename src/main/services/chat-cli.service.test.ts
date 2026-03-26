@@ -68,7 +68,7 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
     // Extract the exit handler registered by the constructor
     const exitHandlers = eventHandlers['exit'] ?? []
     if (exitHandlers.length > 0) {
-      exitHandler = exitHandlers[0] as typeof exitHandler
+      exitHandler = exitHandlers[0] as unknown as typeof exitHandler
     }
   })
 
@@ -190,32 +190,20 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message')
     })
 
-    it('queues message when session is busy', () => {
+    it('sends message even when session is busy (warns but does not block)', () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
-      // Session is busy after spawn — don't call markSessionFree
-      mockWrite.mockClear()
-
-      service.sendMessage('session-1', 'Follow-up while busy')
-
-      // Should not write to PTY
-      expect(mockWrite).not.toHaveBeenCalled()
-      expect(service.isSessionBusy('session-1')).toBe(true)
-    })
-
-    it('flushes queued message when markSessionFree is called', () => {
-      mockGetProcess.mockReturnValue({ state: 'running' })
-      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
-      mockWrite.mockClear()
-
-      // Queue a message while busy
-      service.sendMessage('session-1', 'Queued message')
-      expect(mockWrite).not.toHaveBeenCalled()
-
-      // Mark free — should flush queued message
+      // Session is busy after spawn — but should still send
       service.markSessionFree('session-1')
+      mockWrite.mockClear()
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Queued message')
+      // Make busy again
+      service.sendMessage('session-1', 'First message')
+      mockWrite.mockClear()
+
+      // Send while busy — should still write to PTY
+      service.sendMessage('session-1', 'Second while busy')
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Second while busy')
     })
 
     it('throws when session not found', () => {

@@ -530,6 +530,11 @@ function applyIncrementalMigrations(sqlite: Database.Database): void {
     'CREATE INDEX IF NOT EXISTS idx_chat_sessions_workflow_key ON chat_sessions(project_id, workflow_key)'
   )
 
+  // Per-conversation permission mode: skip_permissions column
+  if (chatSessionColumns.length > 0 && !chatSessionColumns.some((c) => c.name === 'skip_permissions')) {
+    sqlite.exec('ALTER TABLE chat_sessions ADD COLUMN skip_permissions INTEGER NOT NULL DEFAULT 1')
+  }
+
   // Chat message attachments table for file/image sharing in chat
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS chat_message_attachments (

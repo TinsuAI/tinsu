@@ -13,8 +13,8 @@
  * Shows empty state when no messages exist.
  */
 
-import { useEffect, useRef, useCallback, useMemo } from 'react'
-import { MessageSquare, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { MessageSquare, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { ChatMessageBubble } from './ChatMessageBubble'
 import { ChatToolActivityGroup } from './ChatToolActivityGroup'
 import { ChatWorkingIndicator } from './ChatWorkingIndicator'
@@ -45,6 +45,8 @@ interface ChatMessageAreaProps {
   attachmentsByMessageId?: Record<string, ChatMessageAttachment[]>
   /** Callback to delete a single message by ID */
   onDeleteMessage?: (messageId: string) => void
+  /** Callback to resolve a permission request (approve or deny) */
+  onResolvePermission?: (requestId: string, decision: 'allow' | 'deny') => void
 }
 
 /** Threshold in pixels from bottom before auto-scroll is paused */
@@ -58,6 +60,7 @@ type MessageSegment =
   | { type: 'toolGroup'; messages: ChatMessage[] }
   | { type: 'notification'; message: ChatMessage }
   | { type: 'artifactNotification'; message: ChatMessage }
+  | { type: 'permissionRequest'; message: ChatMessage }
 
 /**
  * Group messages into segments for rendering.
@@ -79,8 +82,12 @@ function groupMessages(messages: ChatMessage[]): MessageSegment[] {
 
   for (const msg of messages) {
     if (msg.role === 'tool') {
+      // Permission request messages render as interactive approve/deny cards
+      if (msg.tool_name === '__permission_request__') {
+        flushToolGroup()
+        segments.push({ type: 'permissionRequest', message: msg })
       // Artifact created messages render as artifact notification cards (Story 10.7, AC: 3)
-      if (msg.tool_name === '__artifact_created__') {
+      } else if (msg.tool_name === '__artifact_created__') {
         flushToolGroup()
         segments.push({ type: 'artifactNotification', message: msg })
       // Notification messages render standalone (AC: 5)
@@ -122,13 +129,113 @@ function parseNotificationInput(
   }
 }
 
+/**
+ * Parse permission request tool_input JSON.
+ */
+function parsePermissionInput(
+  toolInput: string | null | undefined
+): { requestId: string; toolName: string; toolInput: Record<string, unknown> } | null {
+  if (!toolInput) return null
+  try {
+    const parsed = JSON.parse(toolInput) as Record<string, unknown>
+    return {
+      requestId: (parsed.requestId as string) ?? '',
+      toolName: (parsed.toolName as string) ?? '',
+      toolInput: (parsed.toolInput as Record<string, unknown>) ?? {}
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Permission request card — shows tool name, input summary, and Approve/Deny buttons.
+ * Buttons are disabled after the user makes a decision.
+ */
+function PermissionRequestCard({
+  requestId,
+  toolName,
+  toolInput,
+  onResolve
+}: {
+  requestId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  onResolve?: (requestId: string, decision: 'allow' | 'deny') => void
+}) {
+  const [resolved, setResolved] = useState<'allow' | 'deny' | null>(null)
+
+  const handleApprove = (): void => {
+    setResolved('allow')
+    onResolve?.(requestId, 'allow')
+  }
+
+  const handleDeny = (): void => {
+    setResolved('deny')
+    onResolve?.(requestId, 'deny')
+  }
+
+  // Build a short summary of what the tool wants to do
+  const summary = toolInput.command
+    ? String(toolInput.command).slice(0, 120)
+    : toolInput.file_path
+      ? String(toolInput.file_path)
+      : toolInput.path
+        ? String(toolInput.path)
+        : toolInput.pattern
+          ? String(toolInput.pattern)
+          : null
+
+  return (
+    <div
+      className="mx-1 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2.5"
+      data-testid="permission-request-card"
+    >
+      <div className="flex items-center gap-2">
+        <ShieldAlert className="h-4 w-4 shrink-0 text-orange-400" />
+        <span className="text-xs font-medium text-orange-300">
+          Permission required: {toolName}
+        </span>
+      </div>
+      {summary && (
+        <p className="mt-1 truncate pl-6 font-mono text-[11px] text-orange-200/60">
+          {summary}
+        </p>
+      )}
+      {resolved ? (
+        <p className="mt-2 pl-6 text-[11px] font-medium text-muted-foreground/60">
+          {resolved === 'allow' ? 'Approved' : 'Denied'}
+        </p>
+      ) : (
+        <div className="mt-2 flex items-center gap-2 pl-6">
+          <button
+            type="button"
+            onClick={handleApprove}
+            className="rounded bg-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/30"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            onClick={handleDeny}
+            className="rounded bg-red-500/20 px-2.5 py-1 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30"
+          >
+            Deny
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ChatMessageArea({
   messages,
   agentPersona,
   isAgentThinking = false,
   currentToolActivity = null,
   attachmentsByMessageId = {},
-  onDeleteMessage
+  onDeleteMessage,
+  onResolvePermission
 }: ChatMessageAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -209,6 +316,19 @@ export function ChatMessageArea({
                 />
               )
 
+            case 'permissionRequest': {
+              const permInput = parsePermissionInput(segment.message.tool_input)
+              return (
+                <PermissionRequestCard
+                  key={segment.message.id}
+                  requestId={permInput?.requestId ?? ''}
+                  toolName={permInput?.toolName ?? 'Unknown'}
+                  toolInput={permInput?.toolInput ?? {}}
+                  onResolve={onResolvePermission}
+                />
+              )
+            }
+
             case 'artifactNotification':
               return (
                 <ChatArtifactNotification
@@ -220,23 +340,29 @@ export function ChatMessageArea({
             case 'notification': {
               const notifInput = parseNotificationInput(segment.message.tool_input)
               const isPermissionPrompt = notifInput?.type === 'permission_prompt'
+              // Use the message as the headline when type is missing/unknown
+              const hasKnownType = notifInput?.type && notifInput.type !== 'unknown'
+              const headline = isPermissionPrompt
+                ? 'Agent needs permission to proceed'
+                : hasKnownType
+                  ? `Notification: ${notifInput.type}`
+                  : notifInput?.message || 'Notification'
+              const subtitle = (isPermissionPrompt || hasKnownType) ? notifInput?.message : null
               return (
                 <div
                   key={segment.message.id}
-                  className="mx-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+                  className="mx-1 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2"
                   data-testid="chat-notification-message"
                 >
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
-                    <span className="text-xs font-medium text-amber-300">
-                      {isPermissionPrompt
-                        ? 'Agent needs permission to proceed'
-                        : `Notification: ${notifInput?.type ?? 'unknown'}`}
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-sky-400" />
+                    <span className="text-xs font-medium text-foreground/80">
+                      {headline}
                     </span>
                   </div>
-                  {notifInput?.message && (
-                    <p className="mt-1 pl-6 text-xs text-amber-200/70">
-                      {notifInput.message}
+                  {subtitle && (
+                    <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                      {subtitle}
                     </p>
                   )}
                 </div>

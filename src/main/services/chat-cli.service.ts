@@ -77,13 +77,6 @@ export class ChatCliService {
    */
   private busySessions: Set<string> = new Set()
 
-  /**
-   * Queued messages for sessions that are currently busy.
-   * Each entry is the raw CLI message string to send when the session becomes free.
-   * Only the latest queued message is kept — intermediate messages are superseded.
-   */
-  private messageQueue: Map<string, string> = new Map()
-
   /** Path to the chat-specific hooks directory */
   private chatHooksDir: string
 
@@ -351,13 +344,11 @@ export class ChatCliService {
       throw new Error(`Chat CLI session has exited: ${sessionId}`)
     }
 
-    // If Claude is currently generating a response, queue the message instead
-    // of writing to PTY. Writing while the TUI is in output mode would either
-    // lose the text or cancel Claude's current generation.
+    // Log if session is busy (agent still generating) but still send —
+    // blocking messages caused worse UX issues (permanently stuck sessions)
+    // than the risk of messages being lost during generation.
     if (this.busySessions.has(sessionId)) {
-      console.log(`[ChatCliService] Session ${sessionId} is busy, queuing message (${message.length} chars)`)
-      this.messageQueue.set(sessionId, message)
-      return
+      console.warn(`[ChatCliService] Session ${sessionId} is busy, sending anyway (agent may be generating)`)
     }
 
     // Write message content, then send \r (Enter) after a short delay.
@@ -380,24 +371,11 @@ export class ChatCliService {
   /**
    * Mark a session as no longer busy (Claude finished generating).
    * Called by the hook listener when a chat-stop hook fires.
-   * If a queued message exists, sends it immediately.
    *
    * @param sessionId - TinSu's internal chat session ID
    */
   markSessionFree(sessionId: string): void {
     this.busySessions.delete(sessionId)
-
-    // Flush queued message if any
-    const queuedMessage = this.messageQueue.get(sessionId)
-    if (queuedMessage) {
-      this.messageQueue.delete(sessionId)
-      console.log(`[ChatCliService] Session ${sessionId} free, sending queued message (${queuedMessage.length} chars)`)
-      try {
-        this.sendMessage(sessionId, queuedMessage)
-      } catch (err) {
-        console.warn(`[ChatCliService] Failed to send queued message for session ${sessionId}:`, err)
-      }
-    }
   }
 
   /**
@@ -516,7 +494,6 @@ export class ChatCliService {
     this.sessions.delete(sessionId)
     this.lastActivityMap.delete(sessionId)
     this.busySessions.delete(sessionId)
-    this.messageQueue.delete(sessionId)
 
     console.log(`[ChatCliService] Killed session ${sessionId}`)
   }
@@ -554,9 +531,8 @@ export class ChatCliService {
         info.status = 'exited'
         this.processToSessionMap.delete(event.processId)
         this.busySessions.delete(sessionId)
-        this.messageQueue.delete(sessionId)
-        console.warn(
-          `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as Record<string, unknown>).signal ?? 'none'})`
+            console.warn(
+          `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as unknown as Record<string, unknown>).signal ?? 'none'})`
         )
 
         // Check if this was a failed resume that should be retried

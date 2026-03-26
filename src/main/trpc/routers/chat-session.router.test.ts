@@ -404,44 +404,13 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       }
 
       const messages = await caller.chatSession.getMessages({
-        sessionId: session!.id,
-        limit: 3
+        sessionId: session!.id
       })
 
-      expect(messages).toHaveLength(3)
+      expect(messages).toHaveLength(5)
     })
 
-    it('should respect offset parameter', async () => {
-      const caller = testRouter.createCaller(createTestContext())
-
-      const session = await caller.chatSession.create({
-        agentPersona: 'bmad-pm',
-        projectId: 'project-1'
-      })
-
-      for (let i = 0; i < 5; i++) {
-        testDb
-          .insert(schema.chat_messages)
-          .values({
-            id: `msg-offset-${i}`,
-            session_id: session!.id,
-            role: 'user',
-            content: `Message ${i}`,
-            created_at: new Date(Date.now() + i * 1000)
-          })
-          .run()
-      }
-
-      const messages = await caller.chatSession.getMessages({
-        sessionId: session!.id,
-        offset: 2
-      })
-
-      expect(messages).toHaveLength(3)
-      expect(messages[0].content).toBe('Message 2')
-    })
-
-    it('should use default limit of 100', async () => {
+    it('should return empty array for session with no messages', async () => {
       const caller = testRouter.createCaller(createTestContext())
 
       const session = await caller.chatSession.create({

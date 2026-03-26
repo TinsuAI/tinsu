@@ -119,7 +119,8 @@ export const chatSessionRouter = router({
         agentPersona: z.string().min(1),
         workflowPhase: z.string().optional(),
         projectId: z.string().min(1),
-        workflowKey: z.string().optional()
+        workflowKey: z.string().optional(),
+        skipPermissions: z.boolean().default(true)
       })
     )
     .mutation(({ input }) => {
@@ -135,6 +136,7 @@ export const chatSessionRouter = router({
           workflow_phase: input.workflowPhase ?? null,
           project_id: input.projectId,
           workflow_key: input.workflowKey ?? null,
+          skip_permissions: input.skipPermissions,
           status: 'active',
           created_at: now,
           updated_at: now
@@ -230,9 +232,7 @@ export const chatSessionRouter = router({
   getMessages: publicProcedure
     .input(
       z.object({
-        sessionId: z.string().min(1),
-        limit: z.number().int().min(1).max(1000).default(100),
-        offset: z.number().int().min(0).default(0)
+        sessionId: z.string().min(1)
       })
     )
     .query(({ input }) => {
@@ -241,8 +241,6 @@ export const chatSessionRouter = router({
         .from(chat_messages)
         .where(eq(chat_messages.session_id, input.sessionId))
         .orderBy(asc(chat_messages.created_at))
-        .limit(input.limit)
-        .offset(input.offset)
         .all()
     }),
 
@@ -362,6 +360,53 @@ export const chatSessionRouter = router({
         .run()
 
       return db.select().from(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).get()!
+    }),
+
+  /**
+   * Update the skip_permissions setting for a chat session.
+   * Controls whether tool use is auto-approved or requires explicit user approval.
+   */
+  updateSkipPermissions: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        skipPermissions: z.boolean()
+      })
+    )
+    .mutation(({ input }) => {
+      const now = new Date()
+      db.update(chat_sessions)
+        .set({
+          skip_permissions: input.skipPermissions,
+          updated_at: now
+        })
+        .where(eq(chat_sessions.id, input.sessionId))
+        .run()
+
+      return db.select().from(chat_sessions).where(eq(chat_sessions.id, input.sessionId)).get()!
+    }),
+
+  /**
+   * Resolve a pending permission request (approve or deny).
+   * Unblocks the held PreToolUse hook HTTP response so Claude Code can proceed.
+   */
+  resolvePermission: publicProcedure
+    .input(
+      z.object({
+        requestId: z.string().min(1),
+        decision: z.enum(['allow', 'deny'])
+      })
+    )
+    .mutation(({ input }) => {
+      const { hookListenerService } = require('../../services') as typeof import('../../services')
+      const resolved = hookListenerService.resolvePermission(input.requestId, input.decision)
+      if (!resolved) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Permission request not found or already resolved: ${input.requestId}`
+        })
+      }
+      return { resolved: true }
     }),
 
   /**
