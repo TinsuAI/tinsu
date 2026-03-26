@@ -52,7 +52,11 @@ vi.mock('../../services', () => ({
     killSession: (...args: unknown[]) => mockKillSession(...args),
     isTmuxAlive: (...args: unknown[]) => mockIsTmuxAlive(...args),
     reattachSession: (...args: unknown[]) => mockReattachSession(...args),
-    getSessionStatus: (...args: unknown[]) => mockGetSessionStatus(...args)
+    getSessionStatus: (...args: unknown[]) => mockGetSessionStatus(...args),
+    buildTmuxSessionName: (projectName: string, sessionId: string) => {
+      const sanitized = projectName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      return `tinsu-${sanitized}-${sessionId}`
+    }
   }
 }))
 
@@ -898,22 +902,23 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
 
       expect(message!.content).toBe('New session message')
 
-      // Should call spawnSession (not reattachSession)
+      // Should call spawnSession (not reattachSession) — with project name
       expect(mockSpawnSession).toHaveBeenCalledWith(
         session!.id,
         session!.session_uuid,
+        'Test Project',
         '/test/project',
         'New session message',
         'Mock persona context for testing'
       )
       expect(mockReattachSession).not.toHaveBeenCalled()
 
-      // Direct DB check for updated status
+      // Direct DB check for updated status — name follows tinsu-{projectName}-{sessionId} convention
       const dbSession = mockSqlite
         .prepare('SELECT tmux_session, status FROM chat_sessions WHERE id = ?')
         .get(session!.id) as { tmux_session: string; status: string }
 
-      expect(dbSession.tmux_session).toBe(`tinsu-chat-${session!.id}`)
+      expect(dbSession.tmux_session).toBe(`tinsu-test-project-${session!.id}`)
       expect(dbSession.status).toBe('active')
     })
 

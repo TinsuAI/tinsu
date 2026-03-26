@@ -71,9 +71,9 @@ function mimeFromExt(filePath: string): string {
  *
  * @see Story 10.3 Task 3.2
  */
-function getProjectPath(projectId: string): string {
+function getProject(projectId: string): { path: string; name: string } {
   const project = db
-    .select({ path: projects.path })
+    .select({ path: projects.path, name: projects.name })
     .from(projects)
     .where(eq(projects.id, projectId))
     .get()
@@ -85,7 +85,11 @@ function getProjectPath(projectId: string): string {
     })
   }
 
-  return project.path
+  return project
+}
+
+function getProjectPath(projectId: string): string {
+  return getProject(projectId).path
 }
 
 /**
@@ -965,7 +969,8 @@ export const chatSessionRouter = router({
           // Case A: tmux alive + PTY attached -> send message directly
           chatCliService.sendMessage(input.sessionId, cliMessage)
         } else {
-          const projectPath = getProjectPath(session.project_id)
+          const project = getProject(session.project_id)
+          const projectPath = project.path
 
           if (await chatCliService.isTmuxAlive(input.sessionId)) {
             // Case B: tmux alive + PTY detached -> re-attach PTY, then send
@@ -997,13 +1002,14 @@ export const chatSessionRouter = router({
             await chatCliService.spawnSession(
               input.sessionId,
               session.session_uuid,
+              project.name,
               projectPath,
               cliMessage,
               personaContext
             )
 
             // Update tmux_session and status='active' in DB (session was 'paused' from dead tmux)
-            const tmuxSessionName = `tinsu-chat-${input.sessionId}`
+            const tmuxSessionName = chatCliService.buildTmuxSessionName(project.name, input.sessionId)
             db.update(chat_sessions)
               .set({
                 tmux_session: tmuxSessionName,

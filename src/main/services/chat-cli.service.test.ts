@@ -23,7 +23,8 @@ const { mockExecAsync } = vi.hoisted(() => {
 
 // Mock child_process + util to intercept execAsync calls for tmux commands
 vi.mock('child_process', () => ({
-  exec: vi.fn()
+  exec: vi.fn(),
+  execFile: vi.fn()
 }))
 
 vi.mock('util', () => ({
@@ -147,36 +148,38 @@ describe('ChatCliService (CTM-1.1)', () => {
       const processId = await service.spawnSession(
         'session-1',
         'uuid-abc',
+        'TestProject',
         '/project/path',
         'Hello agent'
       )
 
       // Should create tmux session
       expect(mockExecAsync).toHaveBeenCalledWith(
-        'tmux new-session -d -s tinsu-chat-session-1',
+        'tmux new-session -d -s tinsu-testproject-session-1',
         expect.objectContaining({ timeout: 5000 })
       )
 
       // Should set environment variables
       expect(mockExecAsync).toHaveBeenCalledWith(
-        'tmux set-environment -t tinsu-chat-session-1 TINSU_TMUX_SESSION tinsu-chat-session-1',
+        'tmux set-environment -t tinsu-testproject-session-1 TINSU_TMUX_SESSION tinsu-testproject-session-1',
         expect.objectContaining({ timeout: 5000 })
       )
       expect(mockExecAsync).toHaveBeenCalledWith(
-        "tmux set-environment -t tinsu-chat-session-1 TINSU_SESSION_UUID 'uuid-abc'",
+        "tmux set-environment -t tinsu-testproject-session-1 TINSU_SESSION_UUID 'uuid-abc'",
         expect.objectContaining({ timeout: 5000 })
       )
 
-      // Should send claude command via tmux send-keys
+      // Should send claude command via execFileAsync (bypasses shell for safe escaping)
       expect(mockExecAsync).toHaveBeenCalledWith(
-        expect.stringContaining('tmux send-keys -t tinsu-chat-session-1'),
+        'tmux',
+        expect.arrayContaining(['send-keys', '-t', 'tinsu-testproject-session-1']),
         expect.objectContaining({ timeout: 5000 })
       )
 
       // Should attach PTY to tmux session
       expect(mockSpawn).toHaveBeenCalledWith(
         'bash',
-        ['-c', 'tmux attach-session -t tinsu-chat-session-1'],
+        ['-c', 'tmux attach-session -t tinsu-testproject-session-1'],
         expect.objectContaining({ cwd: '/project/path' })
       )
 
@@ -185,24 +188,24 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('validates sessionId against SAFE_SHELL_ARG_REGEX (AC: 3)', async () => {
       await expect(
-        service.spawnSession('session with spaces', 'uuid-abc', '/project/path', 'Hello')
+        service.spawnSession('session with spaces', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       ).rejects.toThrow('Invalid sessionId format')
 
       await expect(
-        service.spawnSession('session;rm -rf', 'uuid-abc', '/project/path', 'Hello')
+        service.spawnSession('session;rm -rf', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       ).rejects.toThrow('Invalid sessionId format')
     })
 
     it('populates sessionCache and sessionToChatCache after spawn (AC: 1)', async () => {
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello agent')
 
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-1')).toBe('session-1')
+      expect(cache.get('tinsu-testproject-session-1')).toBe('session-1')
     })
 
     it('writes message to PTY stdin only after TUI ready signal (AC: 2)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello agent')
 
       // Message should NOT be written immediately
       expect(mockWrite).not.toHaveBeenCalled()
@@ -216,7 +219,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('auto-dismisses trust prompt before waiting for TUI ready', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello agent')
 
       // Message should NOT be written yet
       expect(mockWrite).not.toHaveBeenCalled()
@@ -237,13 +240,13 @@ describe('ChatCliService (CTM-1.1)', () => {
     })
 
     it('tracks session in internal map', async () => {
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       expect(service.isSessionAlive('session-1')).toBeDefined()
     })
 
     it('preserves busySessions.add(sessionId) after spawn', async () => {
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       expect(service.isSessionBusy('session-1')).toBe(true)
     })
   })
@@ -253,34 +256,40 @@ describe('ChatCliService (CTM-1.1)', () => {
       await service.spawnSession(
         'session-1',
         'uuid-abc',
+        'TestProject',
         '/project/path',
         'Hello agent',
         'You are the PM persona.'
       )
 
-      // The tmux send-keys call should include --append-system-prompt in the claude command
+      // The execFileAsync send-keys call should include --append-system-prompt in the claude command
+      // Call signature: execFileAsync('tmux', ['send-keys', '-t', name, claudeCommand, 'Enter'], opts)
       const sendKeysCall = mockExecAsync.mock.calls.find(
-        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('send-keys')
+        (call: unknown[]) => call[0] === 'tmux' && Array.isArray(call[1]) &&
+          (call[1] as string[]).includes('send-keys')
       )
       expect(sendKeysCall).toBeDefined()
-      expect(sendKeysCall![0]).toContain('--append-system-prompt')
+      const claudeCommandArg = (sendKeysCall![1] as string[])[3]
+      expect(claudeCommandArg).toContain('--append-system-prompt')
     })
 
     it('does not include --append-system-prompt when personaContext is not provided', async () => {
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello agent')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello agent')
 
       const sendKeysCall = mockExecAsync.mock.calls.find(
-        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('send-keys')
+        (call: unknown[]) => call[0] === 'tmux' && Array.isArray(call[1]) &&
+          (call[1] as string[]).includes('send-keys')
       )
       expect(sendKeysCall).toBeDefined()
-      expect(sendKeysCall![0]).not.toContain('--append-system-prompt')
+      const claudeCommandArg = (sendKeysCall![1] as string[])[3]
+      expect(claudeCommandArg).not.toContain('--append-system-prompt')
     })
   })
 
   describe('sendMessage (AC: 2)', () => {
     it('writes message to existing PTY session when not busy', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       // Simulate stop hook marking session free after initial message
       service.markSessionFree('session-1')
       mockWrite.mockClear()
@@ -292,7 +301,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('sends message even when session is busy (warns but does not block)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       service.markSessionFree('session-1')
       mockWrite.mockClear()
 
@@ -313,7 +322,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('throws when session has exited', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -327,7 +336,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('preserves 150ms delay between message content and Enter key', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       service.markSessionFree('session-1')
       mockWrite.mockClear()
 
@@ -347,14 +356,14 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('returns true when session is running and PTY process exists', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       expect(service.isSessionAlive('session-1')).toBe(true)
     })
 
     it('returns false when session status is exited', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -366,7 +375,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('returns false when PTY process no longer exists in ptyService', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       // PTY process removed from ptyService
       mockGetProcess.mockReturnValue(undefined)
@@ -378,7 +387,7 @@ describe('ChatCliService (CTM-1.1)', () => {
   describe('killSession (CTM-1.1 AC: 1)', () => {
     it('kills PTY process and removes from map', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       service.killSession('session-1')
 
@@ -388,28 +397,28 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('kills the tmux session via tmux kill-session', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
       mockExecAsync.mockClear()
 
       service.killSession('session-1')
 
       // Should call tmux kill-session
       expect(mockExecAsync).toHaveBeenCalledWith(
-        'tmux kill-session -t tinsu-chat-session-1',
+        'tmux kill-session -t tinsu-testproject-session-1',
         expect.objectContaining({ timeout: 5000 })
       )
     })
 
     it('removes from sessionCache and sessionToChatCache', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-1')).toBe('session-1')
+      expect(cache.get('tinsu-testproject-session-1')).toBe('session-1')
 
       service.killSession('session-1')
 
-      expect(cache.get('tinsu-chat-session-1')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-1')).toBeUndefined()
     })
 
     it('is a no-op for non-existent sessions', () => {
@@ -421,8 +430,8 @@ describe('ChatCliService (CTM-1.1)', () => {
   describe('killAll', () => {
     it('kills all tracked PTY processes and tmux sessions', async () => {
       mockSpawn.mockReturnValueOnce('pty-1').mockReturnValueOnce('pty-2')
-      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
-      await service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
+      await service.spawnSession('session-1', 'uuid-1', 'TestProject', '/path', 'Hello 1')
+      await service.spawnSession('session-2', 'uuid-2', 'TestProject', '/path', 'Hello 2')
 
       service.killAll()
 
@@ -436,7 +445,7 @@ describe('ChatCliService (CTM-1.1)', () => {
   describe('PTY exit handling', () => {
     it('updates session status to exited when PTY process exits', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello')
 
       // Simulate PTY exit
       if (exitHandler) {
@@ -449,8 +458,8 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('does not affect unrelated sessions on exit', async () => {
       mockSpawn.mockReturnValueOnce('pty-1').mockReturnValueOnce('pty-2')
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello 1')
-      await service.spawnSession('session-2', 'uuid-2', '/path', 'Hello 2')
+      await service.spawnSession('session-1', 'uuid-1', 'TestProject', '/path', 'Hello 1')
+      await service.spawnSession('session-2', 'uuid-2', 'TestProject', '/path', 'Hello 2')
 
       // Only session-1's PTY exits
       if (exitHandler) {
@@ -473,7 +482,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+      await service.spawnSession('session-idle', 'uuid-idle', 'TestProject', '/path', 'Hello')
 
       // Advance time past idle timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
@@ -492,7 +501,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-active', 'uuid-active', '/path', 'Hello')
+      await service.spawnSession('session-active', 'uuid-active', 'TestProject', '/path', 'Hello')
 
       // Advance time to just under the timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS - 1000)
@@ -510,7 +519,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-exited', 'uuid-exited', '/path', 'Hello')
+      await service.spawnSession('session-exited', 'uuid-exited', 'TestProject', '/path', 'Hello')
 
       // Simulate exit
       if (exitHandler) {
@@ -534,7 +543,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
+      await service.spawnSession('session-1', 'uuid-1', 'TestProject', '/path', 'Hello')
 
       // Simulate stop hook freeing session
       service.markSessionFree('session-1')
@@ -563,7 +572,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       service.setOnIdleCallback(onIdleCallback)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-idle', 'uuid-idle', '/path', 'Hello')
+      await service.spawnSession('session-idle', 'uuid-idle', 'TestProject', '/path', 'Hello')
 
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
 
@@ -632,11 +641,11 @@ describe('ChatCliService (CTM-1.1)', () => {
       mockExecAsync.mockResolvedValueOnce({ stdout: '', stderr: '' })
 
       // Access private method via type assertion
-      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-chat-session-1')
+      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-testproject-session-1')
 
       expect(result).toBe(true)
       expect(mockExecAsync).toHaveBeenCalledWith(
-        'tmux has-session -t tinsu-chat-session-1',
+        'tmux has-session -t tinsu-testproject-session-1',
         expect.objectContaining({ timeout: 5000 })
       )
     })
@@ -644,7 +653,7 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('returns false when tmux has-session exits non-zero', async () => {
       mockExecAsync.mockRejectedValueOnce(new Error('exit code 1'))
 
-      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-chat-dead')
+      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-testproject-dead')
 
       expect(result).toBe(false)
     })
@@ -654,9 +663,9 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('populates caches for alive sessions and marks dead sessions as paused', async () => {
       // Setup: 3 active sessions (2 alive, 1 dead)
       const mockSessions = [
-        { id: 'session-alive-1', tmux_session: 'tinsu-chat-session-alive-1', status: 'active' },
-        { id: 'session-alive-2', tmux_session: 'tinsu-chat-session-alive-2', status: 'active' },
-        { id: 'session-dead', tmux_session: 'tinsu-chat-session-dead', status: 'active' }
+        { id: 'session-alive-1', tmux_session: 'tinsu-testproject-session-alive-1', status: 'active' },
+        { id: 'session-alive-2', tmux_session: 'tinsu-testproject-session-alive-2', status: 'active' },
+        { id: 'session-dead', tmux_session: 'tinsu-testproject-session-dead', status: 'active' }
       ]
 
       // Mock db.select().from().where().all() chain
@@ -678,9 +687,9 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Alive sessions should be in sessionToChatCache
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-alive-1')).toBe('session-alive-1')
-      expect(cache.get('tinsu-chat-session-alive-2')).toBe('session-alive-2')
-      expect(cache.get('tinsu-chat-session-dead')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-alive-1')).toBe('session-alive-1')
+      expect(cache.get('tinsu-testproject-session-alive-2')).toBe('session-alive-2')
+      expect(cache.get('tinsu-testproject-session-dead')).toBeUndefined()
 
       // Dead session should have been marked as paused in DB
       expect(mockDbUpdate).toHaveBeenCalled()
@@ -713,8 +722,8 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('treats rejected Promise.allSettled results as dead (conservative)', async () => {
       const mockSessions = [
-        { id: 'session-ok', tmux_session: 'tinsu-chat-session-ok', status: 'active' },
-        { id: 'session-fail', tmux_session: 'tinsu-chat-session-fail', status: 'active' }
+        { id: 'session-ok', tmux_session: 'tinsu-testproject-session-ok', status: 'active' },
+        { id: 'session-fail', tmux_session: 'tinsu-testproject-session-fail', status: 'active' }
       ]
 
       mockDbSelectAll.mockReturnValueOnce(mockSessions)
@@ -732,10 +741,10 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // session-ok should be in cache
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-ok')).toBe('session-ok')
+      expect(cache.get('tinsu-testproject-session-ok')).toBe('session-ok')
 
       // session-fail should NOT be in cache (treated as dead)
-      expect(cache.get('tinsu-chat-session-fail')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-fail')).toBeUndefined()
     })
   })
 
@@ -745,7 +754,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       // We'll access it through spawn + cache population
       // Manually populate the cache via spawnSession
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-reattach', 'uuid-reattach', '/project/path', 'Hello')
+      await service.spawnSession('session-reattach', 'uuid-reattach', 'TestProject', '/project/path', 'Hello')
 
       // Simulate PTY exit (so isSessionAlive returns false)
       const exitHandlers = eventHandlers['exit'] ?? []
@@ -768,7 +777,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       // PTY spawn with tmux attach
       expect(mockSpawn).toHaveBeenCalledWith(
         'bash',
-        ['-c', 'tmux attach-session -t tinsu-chat-session-reattach'],
+        ['-c', 'tmux attach-session -t tinsu-testproject-session-reattach'],
         expect.objectContaining({ cwd: '/project/path' })
       )
 
@@ -780,7 +789,7 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('throws if tmux session is not alive', async () => {
       // Populate cache
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-dead-reattach', 'uuid-dead', '/project/path', 'Hello')
+      await service.spawnSession('session-dead-reattach', 'uuid-dead', 'TestProject', '/project/path', 'Hello')
 
       // Simulate PTY exit
       const exitHandlers = eventHandlers['exit'] ?? []
@@ -808,7 +817,7 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('does NOT call writeWhenReady or add to busySessions', async () => {
       // Populate cache
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-no-ready', 'uuid-no-ready', '/project/path', 'Hello')
+      await service.spawnSession('session-no-ready', 'uuid-no-ready', 'TestProject', '/project/path', 'Hello')
 
       // Simulate PTY exit
       const exitHandlers = eventHandlers['exit'] ?? []
@@ -847,7 +856,7 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('returns true when sessionCache has entry and tmux session exists', async () => {
       // Populate cache via spawnSession
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-alive-check', 'uuid-alive', '/project/path', 'Hello')
+      await service.spawnSession('session-alive-check', 'uuid-alive', 'TestProject', '/project/path', 'Hello')
 
       // tmux has-session succeeds
       mockExecAsync.mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -864,7 +873,7 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('returns false when sessionCache has entry but tmux session is dead', async () => {
       // Populate cache
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-dead-check', 'uuid-dead', '/project/path', 'Hello')
+      await service.spawnSession('session-dead-check', 'uuid-dead', 'TestProject', '/project/path', 'Hello')
 
       // tmux has-session fails
       mockExecAsync.mockRejectedValueOnce(new Error('exit code 1'))
@@ -877,7 +886,7 @@ describe('ChatCliService (CTM-1.1)', () => {
   describe('getSessionStatus (CTM-2.1 Task 6, AC: 2, 3)', () => {
     it('returns "thinking" when session is in busySessions (Task 7.5)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-thinking', 'uuid-thinking', '/project/path', 'Hello')
+      await service.spawnSession('session-thinking', 'uuid-thinking', 'TestProject', '/project/path', 'Hello')
 
       // spawnSession adds to busySessions automatically
       const status = service.getSessionStatus('session-thinking')
@@ -886,7 +895,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('returns "idle" when session is alive but not busy (Task 7.5)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-idle-status', 'uuid-idle', '/project/path', 'Hello')
+      await service.spawnSession('session-idle-status', 'uuid-idle', 'TestProject', '/project/path', 'Hello')
 
       // Mark session as free (simulates stop hook)
       service.markSessionFree('session-idle-status')
@@ -897,7 +906,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('returns "exited" when PTY has exited (Task 7.5)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-exited-status', 'uuid-exited', '/project/path', 'Hello')
+      await service.spawnSession('session-exited-status', 'uuid-exited', 'TestProject', '/project/path', 'Hello')
 
       // Simulate PTY exit
       const exitHandlers = eventHandlers['exit'] ?? []
@@ -919,7 +928,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('prioritizes "thinking" over "idle" even if session info shows running', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-busy-check', 'uuid-busy', '/project/path', 'Hello')
+      await service.spawnSession('session-busy-check', 'uuid-busy', 'TestProject', '/project/path', 'Hello')
 
       // Session is in busySessions (added by spawnSession) AND sessions map has running status
       // getSessionStatus should return 'thinking' because busySessions check comes first
@@ -932,9 +941,9 @@ describe('ChatCliService (CTM-1.1)', () => {
       mockSpawn.mockReturnValueOnce('pty-a').mockReturnValueOnce('pty-b').mockReturnValueOnce('pty-c')
       mockGetProcess.mockReturnValue({ state: 'running' })
 
-      await service.spawnSession('session-a', 'uuid-a', '/path', 'Hello A')
-      await service.spawnSession('session-b', 'uuid-b', '/path', 'Hello B')
-      await service.spawnSession('session-c', 'uuid-c', '/path', 'Hello C')
+      await service.spawnSession('session-a', 'uuid-a', 'TestProject', '/path', 'Hello A')
+      await service.spawnSession('session-b', 'uuid-b', 'TestProject', '/path', 'Hello B')
+      await service.spawnSession('session-c', 'uuid-c', 'TestProject', '/path', 'Hello C')
 
       // All 3 should be alive and tracked independently
       expect(service.isSessionAlive('session-a')).toBe(true)
@@ -943,9 +952,9 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // All 3 should have independent caches
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-a')).toBe('session-a')
-      expect(cache.get('tinsu-chat-session-b')).toBe('session-b')
-      expect(cache.get('tinsu-chat-session-c')).toBe('session-c')
+      expect(cache.get('tinsu-testproject-session-a')).toBe('session-a')
+      expect(cache.get('tinsu-testproject-session-b')).toBe('session-b')
+      expect(cache.get('tinsu-testproject-session-c')).toBe('session-c')
 
       // All 3 should have independent status
       expect(service.getSessionStatus('session-a')).toBe('thinking')
@@ -957,9 +966,9 @@ describe('ChatCliService (CTM-1.1)', () => {
       mockSpawn.mockReturnValueOnce('pty-x').mockReturnValueOnce('pty-y').mockReturnValueOnce('pty-z')
       mockGetProcess.mockReturnValue({ state: 'running' })
 
-      await service.spawnSession('session-x', 'uuid-x', '/path', 'Hello X')
-      await service.spawnSession('session-y', 'uuid-y', '/path', 'Hello Y')
-      await service.spawnSession('session-z', 'uuid-z', '/path', 'Hello Z')
+      await service.spawnSession('session-x', 'uuid-x', 'TestProject', '/path', 'Hello X')
+      await service.spawnSession('session-y', 'uuid-y', 'TestProject', '/path', 'Hello Y')
+      await service.spawnSession('session-z', 'uuid-z', 'TestProject', '/path', 'Hello Z')
 
       // Kill the middle session
       service.killSession('session-y')
@@ -976,9 +985,9 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Caches for surviving sessions should be intact
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-x')).toBe('session-x')
-      expect(cache.get('tinsu-chat-session-z')).toBe('session-z')
-      expect(cache.get('tinsu-chat-session-y')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-x')).toBe('session-x')
+      expect(cache.get('tinsu-testproject-session-z')).toBe('session-z')
+      expect(cache.get('tinsu-testproject-session-y')).toBeUndefined()
     })
   })
 
@@ -1005,7 +1014,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('health poll detects dead tmux session and removes from cache (Task 6.2)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-health-dead', 'uuid-dead', '/path', 'Hello')
+      await service.spawnSession('session-health-dead', 'uuid-dead', 'TestProject', '/path', 'Hello')
       mockExecAsync.mockClear()
 
       // Mock tmux has-session to return false (dead)
@@ -1028,7 +1037,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       // Instead, test the behavior directly:
       // Verify the session is in cache, then simulate what the poll does.
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-health-dead')).toBe('session-health-dead')
+      expect(cache.get('tinsu-testproject-session-health-dead')).toBe('session-health-dead')
 
       // Since the interval is async, let's test by calling startMonitoring with fake timers
       vi.useFakeTimers()
@@ -1041,7 +1050,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       await vi.advanceTimersByTimeAsync(2100)
 
       // Session should be removed from sessionToChatCache
-      expect(cache.get('tinsu-chat-session-health-dead')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-health-dead')).toBeUndefined()
 
       // DB should have been updated with status: 'paused'
       expect(mockDbUpdate).toHaveBeenCalled()
@@ -1054,7 +1063,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
     it('health poll keeps alive tmux sessions in cache (Task 6.3)', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-health-alive', 'uuid-alive', '/path', 'Hello')
+      await service.spawnSession('session-health-alive', 'uuid-alive', 'TestProject', '/path', 'Hello')
       mockExecAsync.mockClear()
 
       vi.useFakeTimers()
@@ -1068,7 +1077,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Session should still be in sessionToChatCache
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-health-alive')).toBe('session-health-alive')
+      expect(cache.get('tinsu-testproject-session-health-alive')).toBe('session-health-alive')
 
       vi.useRealTimers()
     })
@@ -1078,7 +1087,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       service.onSessionStatus(listener)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-emit-test', 'uuid-emit', '/path', 'Hello')
+      await service.spawnSession('session-emit-test', 'uuid-emit', 'TestProject', '/path', 'Hello')
       mockExecAsync.mockClear()
 
       vi.useFakeTimers()
@@ -1108,7 +1117,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       unsubscribe()
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-unsub-test', 'uuid-unsub', '/path', 'Hello')
+      await service.spawnSession('session-unsub-test', 'uuid-unsub', 'TestProject', '/path', 'Hello')
       mockExecAsync.mockClear()
 
       vi.useFakeTimers()
@@ -1135,7 +1144,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-idle-2h', 'uuid-idle-2h', '/path', 'Hello')
+      await service.spawnSession('session-idle-2h', 'uuid-idle-2h', 'TestProject', '/path', 'Hello')
 
       // Advance time past idle timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
@@ -1152,7 +1161,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       vi.setSystemTime(now)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-active-2h', 'uuid-active-2h', '/path', 'Hello')
+      await service.spawnSession('session-active-2h', 'uuid-active-2h', 'TestProject', '/path', 'Hello')
 
       // Advance time to just under the timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS - 60000)
@@ -1179,9 +1188,9 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Spawn 3 sessions
       mockSpawn.mockReturnValueOnce('pty-h1').mockReturnValueOnce('pty-h2').mockReturnValueOnce('pty-h3')
-      await service.spawnSession('session-h1', 'uuid-h1', '/path', 'Hello 1')
-      await service.spawnSession('session-h2', 'uuid-h2', '/path', 'Hello 2')
-      await service.spawnSession('session-h3', 'uuid-h3', '/path', 'Hello 3')
+      await service.spawnSession('session-h1', 'uuid-h1', 'TestProject', '/path', 'Hello 1')
+      await service.spawnSession('session-h2', 'uuid-h2', 'TestProject', '/path', 'Hello 2')
+      await service.spawnSession('session-h3', 'uuid-h3', 'TestProject', '/path', 'Hello 3')
 
       mockExecAsync.mockClear()
 
@@ -1204,9 +1213,9 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Only dead session should be removed
       const cache = service.getSessionToChatCache()
-      expect(cache.get('tinsu-chat-session-h1')).toBeUndefined()
-      expect(cache.get('tinsu-chat-session-h2')).toBe('session-h2')
-      expect(cache.get('tinsu-chat-session-h3')).toBe('session-h3')
+      expect(cache.get('tinsu-testproject-session-h1')).toBeUndefined()
+      expect(cache.get('tinsu-testproject-session-h2')).toBe('session-h2')
+      expect(cache.get('tinsu-testproject-session-h3')).toBe('session-h3')
 
       vi.useRealTimers()
     })
@@ -1220,7 +1229,7 @@ describe('ChatCliService (CTM-1.1)', () => {
       service.onSessionStatus(listener)
 
       mockGetProcess.mockReturnValue({ state: 'running' })
-      await service.spawnSession('session-idle-emit', 'uuid-idle-emit', '/path', 'Hello')
+      await service.spawnSession('session-idle-emit', 'uuid-idle-emit', 'TestProject', '/path', 'Hello')
 
       // Advance time past idle timeout
       vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)

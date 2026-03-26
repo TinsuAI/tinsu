@@ -5,7 +5,7 @@
  * Uses a two-layer model: tmux session (persistence) + PTY (I/O).
  *
  * Architecture (CTM-1.1):
- *   tmux session (persistence layer) --- tinsu-chat-{sessionId}
+ *   tmux session (persistence layer) --- tinsu-{projectName}-{sessionId}
  *     |-- PTY attached via ptyService.spawn(tmux attach ...) (I/O layer)
  *          |-- claude --session-id {uuid} (agent process)
  *
@@ -28,7 +28,7 @@
  * @see CTM-1.3: Session Recovery & Startup Validation
  */
 
-import { exec } from 'child_process'
+import { exec, execFile } from 'child_process'
 import { promisify } from 'util'
 import { ptyService } from './pty.service'
 import { TmuxService } from './tmux.service'
@@ -38,6 +38,7 @@ import { eq, and, isNotNull } from 'drizzle-orm'
 import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
 
 const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 /** Timeout for tmux commands in milliseconds */
 const TMUX_COMMAND_TIMEOUT = 5000
@@ -458,10 +459,22 @@ export class ChatCliService {
   }
 
   /**
+   * Build tmux session name following project convention: tinsu-{projectName}-{sessionId}
+   * Matches the task terminal naming pattern from TaskTerminalService.
+   */
+  buildTmuxSessionName(projectName: string, sessionId: string): string {
+    const sanitizedProject = projectName
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+    return `tinsu-${sanitizedProject}-${sessionId}`
+  }
+
+  /**
    * Spawn a new Claude Code CLI session inside a tmux session.
    *
    * CTM-1.1: Two-layer model:
-   * 1. Creates a detached tmux session named `tinsu-chat-{sessionId}`
+   * 1. Creates a detached tmux session named `tinsu-{projectName}-{sessionId}`
    * 2. Sets environment variables on the tmux session
    * 3. Sends `claude` command into the tmux session via send-keys
    * 4. Attaches a PTY to the tmux session for I/O
@@ -469,18 +482,20 @@ export class ChatCliService {
    *
    * @param sessionId - TinSu's internal chat session ID (chat_sessions.id)
    * @param sessionUuid - Claude Code session UUID (chat_sessions.session_uuid)
+   * @param projectName - Project name for tmux session naming
    * @param projectPath - Working directory for the claude process
    * @param initialMessage - First user message to send to stdin
    * @param personaContext - Optional persona context injected as system prompt (Story 10.4)
    * @returns The PTY processId
    *
    * @see CTM-1.1 AC 1: tmux session creation with PTY attachment
-   * @see CTM-1.1 AC 3: tinsu-chat- prefix and SAFE_SHELL_ARG_REGEX validation
+   * @see CTM-1.1 AC 3: SAFE_SHELL_ARG_REGEX validation
    * @see Story 10.4: Persona context via --append-system-prompt
    */
   async spawnSession(
     sessionId: string,
     sessionUuid: string,
+    projectName: string,
     projectPath: string,
     initialMessage: string,
     personaContext?: string
@@ -496,7 +511,7 @@ export class ChatCliService {
       throw new Error('tmux is not installed. Please install tmux to use chat sessions.')
     }
 
-    const tmuxSessionName = `tinsu-chat-${sessionId}`
+    const tmuxSessionName = this.buildTmuxSessionName(projectName, sessionId)
 
     // CTM-1.1 AC 1: Create detached tmux session
     console.log(`[ChatCliService] Creating tmux session: ${tmuxSessionName}`)
@@ -530,13 +545,16 @@ export class ChatCliService {
 
     // Build the full command string for tmux send-keys
     // Use single quotes to protect special characters in the settings JSON and persona
+    // (bash inside the tmux session interprets these single-quoted arguments)
     const claudeCommand = `claude ${claudeArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
     console.log(`[ChatCliService] Sending claude command to tmux: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
 
-    await execAsync(
-      `tmux send-keys -t ${tmuxSessionName} ${JSON.stringify(claudeCommand)} Enter`,
-      { timeout: TMUX_COMMAND_TIMEOUT }
-    )
+    // Use execFileAsync (not execAsync) to bypass shell interpretation entirely.
+    // The persona text can contain backticks, <>, $, etc. that /bin/sh would
+    // misinterpret as command substitution or redirections.
+    await execFileAsync('tmux', ['send-keys', '-t', tmuxSessionName, claudeCommand, 'Enter'], {
+      timeout: TMUX_COMMAND_TIMEOUT
+    })
 
     // CTM-1.1 AC 1: Attach PTY to the tmux session for I/O
     const processId = ptyService.spawn('bash', ['-c', `tmux attach-session -t ${tmuxSessionName}`], {
