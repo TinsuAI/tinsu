@@ -1,5 +1,5 @@
 /**
- * Chat CLI Service - Story 10.3, 10.6, CTM-1.1, CTM-1.3
+ * Chat CLI Service - Story 10.3, 10.6, CTM-1.1, CTM-1.3, CTM-2.1
  *
  * Manages Claude Code CLI processes for chat sessions via tmux.
  * Uses a two-layer model: tmux session (persistence) + PTY (I/O).
@@ -623,6 +623,31 @@ export class ChatCliService {
    */
   isSessionBusy(sessionId: string): boolean {
     return this.busySessions.has(sessionId)
+  }
+
+  /**
+   * Get the live status of a chat session.
+   *
+   * CTM-2.1 Task 6: Returns a high-level status for session visibility:
+   * - 'thinking': Agent is actively generating a response (busySessions)
+   * - 'idle': Session is alive but not generating
+   * - 'exited': PTY process has exited (session may still be alive in tmux)
+   * - 'unknown': Session was never tracked or has been fully cleaned up
+   *
+   * Foundation for Story 2.3 (live status badges) but needed now
+   * for background session visibility and <500ms switch verification.
+   *
+   * @param sessionId - TinSu's internal chat session ID
+   * @returns Live status of the session
+   *
+   * @see CTM-2.1 AC 2, 3
+   */
+  getSessionStatus(sessionId: string): 'thinking' | 'idle' | 'exited' | 'unknown' {
+    if (this.busySessions.has(sessionId)) return 'thinking'
+    const info = this.sessions.get(sessionId)
+    if (!info) return 'unknown'
+    if (info.status === 'exited') return 'exited'
+    return 'idle'
   }
 
   /**

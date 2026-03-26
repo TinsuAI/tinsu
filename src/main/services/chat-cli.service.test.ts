@@ -870,4 +870,112 @@ describe('ChatCliService (CTM-1.1)', () => {
       expect(result).toBe(false)
     })
   })
+
+  describe('getSessionStatus (CTM-2.1 Task 6, AC: 2, 3)', () => {
+    it('returns "thinking" when session is in busySessions (Task 7.5)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-thinking', 'uuid-thinking', '/project/path', 'Hello')
+
+      // spawnSession adds to busySessions automatically
+      const status = service.getSessionStatus('session-thinking')
+      expect(status).toBe('thinking')
+    })
+
+    it('returns "idle" when session is alive but not busy (Task 7.5)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-idle-status', 'uuid-idle', '/project/path', 'Hello')
+
+      // Mark session as free (simulates stop hook)
+      service.markSessionFree('session-idle-status')
+
+      const status = service.getSessionStatus('session-idle-status')
+      expect(status).toBe('idle')
+    })
+
+    it('returns "exited" when PTY has exited (Task 7.5)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-exited-status', 'uuid-exited', '/project/path', 'Hello')
+
+      // Simulate PTY exit
+      const exitHandlers = eventHandlers['exit'] ?? []
+      if (exitHandlers.length > 0) {
+        (exitHandlers[0] as (event: { processId: string; exitCode: number }) => void)({
+          processId: 'pty-123',
+          exitCode: 0
+        })
+      }
+
+      const status = service.getSessionStatus('session-exited-status')
+      expect(status).toBe('exited')
+    })
+
+    it('returns "unknown" when session was never tracked (Task 7.5)', () => {
+      const status = service.getSessionStatus('non-existent-session')
+      expect(status).toBe('unknown')
+    })
+
+    it('prioritizes "thinking" over "idle" even if session info shows running', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-busy-check', 'uuid-busy', '/project/path', 'Hello')
+
+      // Session is in busySessions (added by spawnSession) AND sessions map has running status
+      // getSessionStatus should return 'thinking' because busySessions check comes first
+      expect(service.getSessionStatus('session-busy-check')).toBe('thinking')
+    })
+  })
+
+  describe('concurrent session independence (CTM-2.1 Task 5, AC: 3)', () => {
+    it('multiple concurrent sessions tracked independently in sessions Map (Task 7.6)', async () => {
+      mockSpawn.mockReturnValueOnce('pty-a').mockReturnValueOnce('pty-b').mockReturnValueOnce('pty-c')
+      mockGetProcess.mockReturnValue({ state: 'running' })
+
+      await service.spawnSession('session-a', 'uuid-a', '/path', 'Hello A')
+      await service.spawnSession('session-b', 'uuid-b', '/path', 'Hello B')
+      await service.spawnSession('session-c', 'uuid-c', '/path', 'Hello C')
+
+      // All 3 should be alive and tracked independently
+      expect(service.isSessionAlive('session-a')).toBe(true)
+      expect(service.isSessionAlive('session-b')).toBe(true)
+      expect(service.isSessionAlive('session-c')).toBe(true)
+
+      // All 3 should have independent caches
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-a')).toBe('session-a')
+      expect(cache.get('tinsu-chat-session-b')).toBe('session-b')
+      expect(cache.get('tinsu-chat-session-c')).toBe('session-c')
+
+      // All 3 should have independent status
+      expect(service.getSessionStatus('session-a')).toBe('thinking')
+      expect(service.getSessionStatus('session-b')).toBe('thinking')
+      expect(service.getSessionStatus('session-c')).toBe('thinking')
+    })
+
+    it('killing one session does not affect others (Task 7.7)', async () => {
+      mockSpawn.mockReturnValueOnce('pty-x').mockReturnValueOnce('pty-y').mockReturnValueOnce('pty-z')
+      mockGetProcess.mockReturnValue({ state: 'running' })
+
+      await service.spawnSession('session-x', 'uuid-x', '/path', 'Hello X')
+      await service.spawnSession('session-y', 'uuid-y', '/path', 'Hello Y')
+      await service.spawnSession('session-z', 'uuid-z', '/path', 'Hello Z')
+
+      // Kill the middle session
+      service.killSession('session-y')
+
+      // session-y should be dead
+      expect(service.isSessionAlive('session-y')).toBe(false)
+      expect(service.getSessionStatus('session-y')).toBe('unknown')
+
+      // session-x and session-z should still be alive
+      expect(service.isSessionAlive('session-x')).toBe(true)
+      expect(service.isSessionAlive('session-z')).toBe(true)
+      expect(service.getSessionStatus('session-x')).toBe('thinking')
+      expect(service.getSessionStatus('session-z')).toBe('thinking')
+
+      // Caches for surviving sessions should be intact
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-x')).toBe('session-x')
+      expect(cache.get('tinsu-chat-session-z')).toBe('session-z')
+      expect(cache.get('tinsu-chat-session-y')).toBeUndefined()
+    })
+  })
 })

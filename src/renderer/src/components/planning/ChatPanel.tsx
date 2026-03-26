@@ -5,6 +5,7 @@
  * Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 4)
  * Story 10.5: Tool Activity & Working Indicators (AC: 1)
  * Story 10.6: Session Persistence & Resume (AC: 1, 2, 3, 4, 5)
+ * CTM-2.1: Concurrent Session Execution & Background Persistence (AC: 1, 2, 5)
  * Chat Attachments: File & image sharing in planning workspace
  *
  * Full-height flex column with two view modes:
@@ -83,9 +84,12 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
 
   // Story 10.6 AC: 1 — Check if sessions exist to decide initial view.
   // If no sessions exist, go directly to 'chat' view to avoid empty list.
+  // CTM-2.1: Query sessions for both list view and persona-switch session lookup.
+  // Removed view === 'list' restriction — sessionsForCheck is needed in chat view
+  // to find existing sessions when switching personas (AC: 1, 2).
   const { data: sessionsForCheck } = trpc.chatSession.listWithPreview.useQuery(
     { projectId },
-    { enabled: !!projectId && view === 'list' }
+    { enabled: !!projectId }
   )
 
   useEffect(() => {
@@ -172,27 +176,42 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     setView('chat')
   }, [selectedWorkflowKey, workflowSession, isWorkflowSessionLoading, pendingPersona])
 
-  // Story 10.4: Persona switch — reset session to force new CLI session for new persona
-  // When persona changes, clear sessionId so the next message creates a new session
-  // with the new persona. Old session remains in DB for future resume (Story 10.6).
+  // CTM-2.1: Persona switch — preserve background sessions and resume existing ones.
+  // When persona changes, look for an existing alive session with the new persona.
+  // If found, bind to it (resume). If not found, set sessionId(null) to create
+  // a new session on next message. Old sessions continue running in background.
   // Skip when the persona change was caused by workflow session binding.
   useEffect(() => {
     if (isSessionBindingRef.current) {
       isSessionBindingRef.current = false
       return
     }
-    // Reset session state when persona changes
-    setSessionId(null)
-    sessionPersonaRef.current = null
+
+    // Look for an existing session with the new persona
+    const existingSession = sessionsForCheck?.find(
+      (s) => s.agent_persona === selectedPersona && s.status !== 'completed'
+    )
+
+    if (existingSession) {
+      // Resume existing session for this persona (don't create new)
+      isSessionBindingRef.current = true // suppress recursive effect
+      setSessionId(existingSession.id)
+      sessionPersonaRef.current = selectedPersona
+      prevMessageCountRef.current = 0 // reset so message-arrival effect fires correctly for resumed session
+    } else {
+      // No existing session — will create on next message
+      setSessionId(null)
+      sessionPersonaRef.current = null
+    }
+
     setIsAgentThinking(false)
     setCurrentToolActivity(null)
     if (thinkingTimeoutRef.current) {
       clearTimeout(thinkingTimeoutRef.current)
       thinkingTimeoutRef.current = null
     }
-    // Intentionally only depend on selectedPersona — runs when persona changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPersona])
+  }, [selectedPersona, sessionsForCheck])
 
   // Fetch messages when a session is active
   const { data: messages = [] } = trpc.chatSession.getMessages.useQuery(

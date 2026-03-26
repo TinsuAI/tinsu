@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-26T-ctm-1-3-done
+# updated: 2026-03-26T-ctm-2-1-review
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -286,8 +286,8 @@ development_status:
   ctm-epic-1-retrospective: optional
 
   # CTM Epic 2: Concurrent Multi-Agent Sessions
-  ctm-epic-2: backlog
-  ctm-2-1-concurrent-session-execution-and-background-persistence: backlog
+  ctm-epic-2: in-progress
+  ctm-2-1-concurrent-session-execution-and-background-persistence: done  # Code review complete - 1 auto-fix applied (prevMessageCountRef.current = 0 added to persona-switch useEffect resume path for correct message-arrival tracking), all 86 tests passing
   ctm-2-2-session-health-monitoring-and-idle-timeout: backlog
   ctm-2-3-session-list-with-live-status-badges: backlog
   ctm-epic-2-retrospective: optional

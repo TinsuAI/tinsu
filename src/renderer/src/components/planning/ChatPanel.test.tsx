@@ -172,6 +172,21 @@ vi.mock('@renderer/lib/trpc', () => ({
       },
       copyFilesToAttachments: {
         useMutation: () => mockCopyFilesToAttachmentsMutation()
+      },
+      deleteMessage: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false })
+      },
+      clearSessionMessages: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false })
+      },
+      updateSkipPermissions: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false })
+      },
+      resolvePermission: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false })
+      },
+      getSessionStatus: {
+        useQuery: () => ({ data: null })
       }
     },
     useUtils: () => ({
@@ -717,6 +732,302 @@ describe('ChatPanel targetChatSessionId (Story 10.7, AC: 2)', () => {
 
     await waitFor(() => {
       expect(mockClearTargetChatSession).toHaveBeenCalled()
+    })
+  })
+})
+
+describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTargetChatSessionId = null
+    mockSelectedWorkflowKey = null
+    mockPendingChatPrefill = null
+  })
+
+  it('persona switch to persona with existing session binds to that session (AC: 1, Task 7.2)', async () => {
+    // Sessions include an active PM session and active Architect session
+    const sessionsWithBoth = [
+      {
+        id: 'session-pm-active',
+        session_uuid: 'uuid-pm-active',
+        agent_persona: 'bmad:bmm:agents:pm',
+        status: 'active',
+        created_at: new Date('2026-03-22T10:00:00Z'),
+        updated_at: new Date('2026-03-22T12:00:00Z'),
+        last_message_at: new Date('2026-03-22T12:00:00Z'),
+        lastMessagePreview: 'PM session message'
+      },
+      {
+        id: 'session-arch-active',
+        session_uuid: 'uuid-arch-active',
+        agent_persona: 'bmad:bmm:agents:architect',
+        status: 'active',
+        created_at: new Date('2026-03-22T11:00:00Z'),
+        updated_at: new Date('2026-03-22T11:30:00Z'),
+        last_message_at: new Date('2026-03-22T11:30:00Z'),
+        lastMessagePreview: 'Architect session message'
+      }
+    ]
+
+    mockListWithPreviewQuery.mockReturnValue({ data: sessionsWithBoth })
+
+    const mockCreateMutateAsync = vi.fn().mockResolvedValue({
+      id: 'session-new',
+      session_uuid: 'uuid-new'
+    })
+    mockCreateMutation.mockReturnValue({
+      mutateAsync: mockCreateMutateAsync,
+      isPending: false
+    })
+    const mockSendMutateAsync = vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      role: 'user',
+      content: 'test'
+    })
+    mockSendChatMessageMutation.mockReturnValue({
+      mutateAsync: mockSendMutateAsync,
+      isPending: false
+    })
+
+    render(<ChatPanel />)
+
+    // Start in list view, select the Architect session (different from default PM persona)
+    // This changes selectedPersona to architect, consuming isSessionBindingRef
+    fireEvent.click(screen.getByTestId('session-card-button-session-arch-active'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+    })
+
+    // Now switch to PM persona — persona switch useEffect should find session-pm-active
+    const pmButton = screen.getByText('PM')
+    fireEvent.click(pmButton)
+
+    // Send a message — should NOT create a new session (should reuse session-pm-active)
+    const textarea = screen.getByTestId('chat-textarea')
+    const sendButton = screen.getByTestId('chat-send-button')
+    fireEvent.change(textarea, { target: { value: 'Hello PM!' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      // Should have sent to existing PM session, not created a new one
+      expect(mockSendMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'session-pm-active',
+          content: 'Hello PM!'
+        })
+      )
+    })
+
+    // Should NOT have created a new session
+    expect(mockCreateMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('persona switch to persona WITHOUT existing session sets sessionId(null) (AC: 1, Task 7.3)', async () => {
+    // Only Architect session exists, no UX Designer session
+    const sessionsOnlyArch = [
+      {
+        id: 'session-arch-only',
+        session_uuid: 'uuid-arch-only',
+        agent_persona: 'bmad:bmm:agents:architect',
+        status: 'active',
+        created_at: new Date('2026-03-22T10:00:00Z'),
+        updated_at: new Date('2026-03-22T12:00:00Z'),
+        last_message_at: new Date('2026-03-22T12:00:00Z'),
+        lastMessagePreview: 'Architect message'
+      }
+    ]
+
+    mockListWithPreviewQuery.mockReturnValue({ data: sessionsOnlyArch })
+
+    const mockCreateMutateAsync = vi.fn().mockResolvedValue({
+      id: 'session-new-ux',
+      session_uuid: 'uuid-new-ux'
+    })
+    mockCreateMutation.mockReturnValue({
+      mutateAsync: mockCreateMutateAsync,
+      isPending: false
+    })
+    const mockSendMutateAsync = vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      role: 'user',
+      content: 'test'
+    })
+    mockSendChatMessageMutation.mockReturnValue({
+      mutateAsync: mockSendMutateAsync,
+      isPending: false
+    })
+
+    render(<ChatPanel />)
+
+    // Select Architect session (different from default PM persona) to consume isSessionBindingRef
+    fireEvent.click(screen.getByTestId('session-card-button-session-arch-only'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+    })
+
+    // Switch to UX Designer (no existing session for this persona)
+    const uxButton = screen.getByText('UX Designer')
+    fireEvent.click(uxButton)
+
+    // Send a message — should create a NEW session since no UX Designer session exists
+    const textarea = screen.getByTestId('chat-textarea')
+    const sendButton = screen.getByTestId('chat-send-button')
+    fireEvent.change(textarea, { target: { value: 'Hello UX Designer!' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentPersona: 'bmad:bmm:agents:ux-designer',
+          projectId: 'project-1'
+        })
+      )
+    })
+  })
+
+  it('handleSelectSession correctly resumes a background session (Task 7.4)', async () => {
+    mockListWithPreviewQuery.mockReturnValue({ data: mockSessions })
+    mockGetMessagesQuery.mockReturnValue({
+      data: [
+        {
+          id: 'msg-resumed',
+          role: 'user',
+          content: 'Resumed message',
+          created_at: new Date('2026-03-22T10:00:00Z')
+        }
+      ]
+    })
+
+    render(<ChatPanel />)
+
+    // Click on the PM session
+    fireEvent.click(screen.getByTestId('session-card-button-session-pm-1'))
+
+    // Should switch to chat view with correct persona selected
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+      expect(screen.getByTestId('chat-persona-selector')).toBeInTheDocument()
+    })
+
+    // The message from the resumed session should be visible
+    await waitFor(() => {
+      expect(screen.getByText('Resumed message')).toBeInTheDocument()
+    })
+  })
+
+  it('persona switch does NOT call killSession — old session persists in background (Task 7.1)', async () => {
+    // This test verifies the core CTM-2.1 behavior: switching personas
+    // preserves background sessions. The old session's tmux process continues.
+    const sessionsWithActive = [
+      {
+        id: 'session-pm-bg',
+        session_uuid: 'uuid-pm-bg',
+        agent_persona: 'bmad:bmm:agents:pm',
+        status: 'active',
+        created_at: new Date('2026-03-22T10:00:00Z'),
+        updated_at: new Date('2026-03-22T12:00:00Z'),
+        last_message_at: new Date('2026-03-22T12:00:00Z'),
+        lastMessagePreview: 'PM background session'
+      }
+    ]
+
+    mockListWithPreviewQuery.mockReturnValue({ data: sessionsWithActive })
+
+    render(<ChatPanel />)
+
+    // Select PM session
+    fireEvent.click(screen.getByTestId('session-card-button-session-pm-bg'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+    })
+
+    // Switch to Architect persona — the PM session should NOT be killed
+    // (no killSession call, no PTY detach, just a UI session switch)
+    const architectButton = screen.getByText('Architect')
+    fireEvent.click(architectButton)
+
+    // The component should still be in chat view (not errored)
+    expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+
+    // Go back to session list and verify PM session is still there
+    const backButton = screen.getByTestId('chat-back-button')
+    fireEvent.click(backButton)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-session-list')).toBeInTheDocument()
+      // The PM session card should still be visible in the list
+      expect(screen.getByTestId('session-card-button-session-pm-bg')).toBeInTheDocument()
+    })
+  })
+
+  it('completed sessions are not resumed on persona switch (AC: 1)', async () => {
+    // The completed architect session should NOT be resumed
+    const sessionsWithCompleted = [
+      {
+        id: 'session-arch-completed',
+        session_uuid: 'uuid-arch-completed',
+        agent_persona: 'bmad:bmm:agents:architect',
+        status: 'completed',
+        created_at: new Date('2026-03-21T08:00:00Z'),
+        updated_at: new Date('2026-03-21T09:00:00Z'),
+        last_message_at: new Date('2026-03-21T09:00:00Z'),
+        lastMessagePreview: 'Completed session'
+      }
+    ]
+
+    mockListWithPreviewQuery.mockReturnValue({ data: sessionsWithCompleted })
+
+    const mockCreateMutateAsync = vi.fn().mockResolvedValue({
+      id: 'session-new-arch',
+      session_uuid: 'uuid-new-arch'
+    })
+    mockCreateMutation.mockReturnValue({
+      mutateAsync: mockCreateMutateAsync,
+      isPending: false
+    })
+    const mockSendMutateAsync = vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      role: 'user',
+      content: 'test'
+    })
+    mockSendChatMessageMutation.mockReturnValue({
+      mutateAsync: mockSendMutateAsync,
+      isPending: false
+    })
+
+    render(<ChatPanel />)
+
+    // Go to chat view (no incomplete sessions to auto-switch from list)
+    fireEvent.click(screen.getByTestId('session-card-button-session-arch-completed'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+    })
+
+    // Switch to a different persona then back to Architect
+    const pmButton = screen.getByText('PM')
+    fireEvent.click(pmButton)
+
+    // Now switch to Architect — should NOT resume the completed session
+    const archButton = screen.getByText('Architect')
+    fireEvent.click(archButton)
+
+    // Send a message — should create a NEW session (completed session ignored)
+    const textarea = screen.getByTestId('chat-textarea')
+    const sendButton = screen.getByTestId('chat-send-button')
+    fireEvent.change(textarea, { target: { value: 'Hello Architect!' } })
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentPersona: 'bmad:bmm:agents:architect',
+          projectId: 'project-1'
+        })
+      )
     })
   })
 })
