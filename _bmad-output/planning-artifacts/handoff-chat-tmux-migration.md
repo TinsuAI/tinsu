@@ -1,9 +1,11 @@
 ---
 title: "Handoff: Planning Workspace Chat Session tmux Migration"
 date: 2026-03-26
-status: ready-for-architecture
+status: architecture-complete
 prd: prd.md
 related_epics: epics.md
+architecture: architecture.md#chat-session-tmux-migration-feature-extension
+architecture_completed: 2026-03-26
 ---
 
 # Handoff: Chat Session tmux Migration
@@ -156,12 +158,17 @@ ALTER TABLE chat_sessions ADD COLUMN tmux_session TEXT;
 
 The `tmux_session` column stores the tmux session name (e.g., `tinsu-chat-abc123`). This becomes the stable identifier for hook routing, replacing the `session_uuid` lookup that was prone to orphan mismatches.
 
-## Open Questions for Architecture
+## Open Questions — Resolved in Architecture
 
-1. **Should chat tmux sessions share the tmux server with task sessions?** Both use the default tmux server. This is probably fine (tmux handles hundreds of sessions), but worth confirming.
+All open questions were resolved during the architecture session (2026-03-26). Decisions documented in `architecture.md` under "Chat Session tmux Migration (Feature Extension) > Architectural Decisions".
 
-2. **Idle timeout strategy:** Keep the 30-minute idle kill? With tmux, sessions are cheaper to keep alive (no --resume needed). Could extend to 2 hours or remove entirely. Trade-off: resource usage vs. convenience.
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| **1. Shared tmux server?** | Yes — shared default server | Distinct naming (`tinsu-chat-*` vs `tinsu-*`) prevents collision; separate servers add complexity with no benefit |
+| **2. Idle timeout?** | Extended to 2 hours (from 30 min) | tmux sessions are cheap; chat is conversational with longer gaps. Task sessions retain 30 min |
+| **3. PTY attachment lifecycle?** | Permanent attachment | PTY is the I/O channel for `ptyService.write()` — on-demand adds latency and a complex state machine. 5 concurrent PTYs is well within limits |
+| **4. Hook session identification?** | Option (b) — `TINSU_TMUX_SESSION` env var | Set at spawn time via `tmux set-environment`, included in hook POST payload for O(1) cache routing |
 
-3. **PTY attachment lifecycle:** Should the PTY remain attached to the tmux session permanently, or attach on-demand (when the user opens that chat) and detach when switching? Permanent attachment = simpler code. On-demand = fewer PTY processes.
-
-4. **Hook script session identification:** Currently hooks receive `session_id` (Claude Code's UUID) in the payload. To route by tmux session name, we need either: (a) look up tmux_session from session_uuid in DB, or (b) pass tmux session name via env var to hook scripts. Option (b) is cleaner — `TINSU_TMUX_SESSION` env var alongside existing `TINSU_SESSION_UUID`.
+**Additional decisions made:**
+- `writeWhenReady` pattern unchanged — TUI output flows through tmux transparently
+- `busySessions` tracking unchanged — application-level guard independent of PTY backing

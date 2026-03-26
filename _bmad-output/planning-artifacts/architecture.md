@@ -6,6 +6,7 @@ inputDocuments:
   - _bmad-output/planning-artifacts/prd-task-execution-sandbox.md
   - docs/research.md
   - docs/bmad-taskmaster-integration.md
+  - _bmad-output/planning-artifacts/handoff-chat-tmux-migration.md
 workflowType: 'architecture'
 project_name: 'TinSu'
 user_name: 'Tinxu'
@@ -17,11 +18,15 @@ addenda:
   - name: 'Sprint Management Feature'
     date: '2026-01-13'
     status: 'ready'
-lastUpdated: '2026-01-12'
+lastUpdated: '2026-03-26'
 featureExtensions:
   - name: 'Task Execution Sandbox'
     prd: 'prd-task-execution-sandbox.md'
     addedAt: '2026-01-12'
+  - name: 'Chat Session tmux Migration'
+    prd: 'prd.md (FR36-FR53, NFR25-NFR32)'
+    handoff: 'handoff-chat-tmux-migration.md'
+    addedAt: '2026-03-26'
 ---
 
 # Architecture Decision Document
@@ -1908,3 +1913,483 @@ export interface UpdateSprintInput {
 ---
 
 **Addendum Status:** READY FOR IMPLEMENTATION ✅
+
+---
+
+## Chat Session tmux Migration (Feature Extension)
+
+_Added: 2026-03-26 | PRD: prd.md (FR36-FR53, NFR25-NFR32) | Handoff: handoff-chat-tmux-migration.md_
+
+This section extends the architecture to migrate Planning Workspace chat sessions from node-pty to tmux, aligning with the task execution pattern and enabling persistent, concurrent multi-agent chat sessions.
+
+### Problem Summary
+
+The current chat system spawns one node-pty process per conversation. This breaks under concurrency:
+
+1. **Orphan UUID Routing** — `findOrphanSession()` returns the wrong session when multiple are active
+2. **No Session Persistence** — node-pty dies on app restart, requiring `--resume` + TUI ready detection
+3. **Single-Project Scoping** — `project.getCurrent` returns one project; other sessions are invisible
+4. **No Background Visibility** — switching agents disconnects the old session (`setSessionId(null)`)
+
+### Solution: Two-Layer tmux Model
+
+```
+tmux session (persistence layer)  ─── tinsu-chat-{sessionId}
+  └─ PTY attached via ptyService.spawn(tmux attach ...)  (I/O layer)
+       └─ claude --session-id {uuid}  (agent process)
+            └─ hooks POST to /api/hooks/chat-*  (event routing)
+```
+
+**Key insight:** Use tmux for session persistence and lifecycle, but attach a PTY to the tmux session for message I/O. This gives direct `ptyService.write()` control (byte-level stdin) instead of `tmux send-keys` (which has escaping issues with multi-line messages, code blocks, and special characters).
+
+This is the same two-layer pattern the task system uses — `ptyService.spawn('bash', ['-c', 'tmux attach-session -t ...'])` — but for programmatic stdin writing instead of visual xterm.js display.
+
+### Architectural Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **tmux server** | Shared with task sessions (default server) | Distinct naming (`tinsu-chat-*` vs `tinsu-*`) prevents collision; separate servers add complexity with no benefit |
+| **Idle timeout** | 2 hours (extended from 30 min) | tmux sessions are cheap to keep alive (no `--resume`); chat is conversational with longer gaps. Task sessions retain 30 min |
+| **PTY attachment** | Permanent (lifetime of session) | PTY is the I/O channel for `ptyService.write()` — on-demand attachment adds latency to message send and a complex attach/detach state machine |
+| **Hook session ID** | `TINSU_TMUX_SESSION` env var passed to hook scripts | Cleaner than DB lookup per hook event; set at spawn time, included in POST payload for O(1) cache routing |
+| **Ready detection** | Same `writeWhenReady` pattern on tmux-attached PTY | TUI output flows through tmux transparently; "ctrl+g"/"/effort" detection unchanged |
+| **Busy tracking** | Same `busySessions` Set pattern | Application-level guard independent of PTY backing; hook-based detection unchanged |
+
+### Schema Change
+
+```sql
+ALTER TABLE chat_sessions ADD COLUMN tmux_session TEXT;
+```
+
+The `tmux_session` column stores the tmux session name (e.g., `tinsu-chat-abc123`). This becomes the stable identifier for hook routing, replacing the `session_uuid` lookup that was prone to orphan mismatches.
+
+**No new tables required.** The existing `chat_sessions`, `chat_messages`, and `chat_message_attachments` tables are sufficient. The migration adds a single column.
+
+### Service Architecture Changes
+
+#### ChatCliService (`src/main/services/chat-cli.service.ts`) — Major Refactor
+
+**What changes:**
+
+| Current (node-pty) | New (tmux + PTY) |
+|---------------------|------------------|
+| `ptyService.spawn('claude', [...args])` | `tmux new-session -d -s tinsu-chat-{sessionId}` then `ptyService.spawn('bash', ['-c', 'tmux attach-session -t ...'])` |
+| In-memory `processId → sessionId` map | In-memory `chatSessionId → tmuxSessionName` cache (like task system's `taskToSessionCache`) |
+| `findOrphanSession()` orphan UUID matching | **Removed** — tmux session name is the stable identifier; no UUID mismatch possible |
+| `discoverCorrectUuid()` filesystem scan | **Removed** — orphan recovery no longer needed |
+| `maybeRetryResume()` | **Removed** — tmux sessions don't need `--resume` |
+| `IDLE_TIMEOUT_MS = 30 * 60 * 1000` | `IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000` (2 hours) |
+| `resumeSession()` with `--resume` flag | `tmux has-session` check + PTY re-attachment (session still alive in tmux) |
+
+**What stays the same:**
+
+| Pattern | Why |
+|---------|-----|
+| `writeWhenReady()` with TUI detection | PTY output stream is identical through tmux |
+| `busySessions` Set | Application-level guard, independent of backing |
+| `onData` callback for output capture | PTY data events flow the same way |
+| 150ms delay between message content and Enter | TUI paste-mode bug mitigation unchanged |
+| Persona injection via `--append-system-prompt` | Spawn-time argument, not affected by tmux |
+
+**New interface shape:**
+
+```typescript
+interface ChatCliService {
+  // Session lifecycle (replaces direct PTY spawn)
+  spawnSession(sessionId: string, opts: SpawnOpts): Promise<string>  // Returns tmux session name
+  killSession(sessionId: string): Promise<void>
+  isSessionAlive(sessionId: string): boolean  // Check tmux + PTY
+
+  // Message I/O (unchanged interface, different backing)
+  sendMessage(sessionId: string, message: string): Promise<void>  // writeWhenReady on attached PTY
+
+  // Session recovery (simplified — no --resume needed)
+  reattachSession(sessionId: string): Promise<void>  // PTY attach to existing tmux session
+
+  // Monitoring
+  checkIdleSessions(): void  // 2-hour timeout
+  validateSessionsOnStartup(): Promise<void>  // tmux has-session for all DB sessions
+
+  // Cache
+  sessionCache: Map<string, string>  // chatSessionId → tmuxSessionName
+}
+
+interface SpawnOpts {
+  sessionUuid: string      // Claude Code --session-id
+  persona: string          // --append-system-prompt content
+  projectDir: string       // Working directory
+  skipPermissions: boolean // Tool use auto-approve
+}
+```
+
+**Startup validation pattern** (adapted from `TaskTerminalService.validateSessionsOnStartup()`):
+
+```typescript
+async validateSessionsOnStartup(): Promise<void> {
+  const activeSessions = await db.query.chatSessions.findMany({
+    where: eq(chatSessions.status, 'active')
+  })
+
+  for (const session of activeSessions) {
+    if (!session.tmuxSession) continue
+
+    const alive = await tmuxHasSession(session.tmuxSession)
+    if (!alive) {
+      // Mark for re-creation on next message (FR52)
+      await db.update(chatSessions)
+        .set({ status: 'paused', updatedAt: Date.now() })
+        .where(eq(chatSessions.id, session.id))
+    } else {
+      // Rebuild cache
+      this.sessionCache.set(session.id, session.tmuxSession)
+    }
+  }
+}
+```
+
+#### HookListenerService (`src/main/services/hook-listener.service.ts`) — Routing Update
+
+**What changes:**
+
+| Current | New |
+|---------|-----|
+| `tryRegisterChatOrphan()` — find session by mismatched UUID | **Removed** — no orphan UUIDs with tmux |
+| Route by `session_uuid` DB lookup | Route by `tmux_session` from hook payload (O(1) cache lookup) |
+
+**New routing pattern:**
+
+```typescript
+// In-memory cache (like task system's sessionToTaskCache)
+private sessionToChatCache: Map<string, string>  // tmuxSessionName → chatSessionId
+
+async onChatStopHook(payload: ChatStopPayload): Promise<void> {
+  const tmuxSession = payload.tmux_session  // From TINSU_TMUX_SESSION env var
+  const chatSessionId = this.sessionToChatCache.get(tmuxSession)
+
+  if (!chatSessionId) {
+    // Fallback: DB lookup
+    const session = await db.query.chatSessions.findFirst({
+      where: eq(chatSessions.tmuxSession, tmuxSession)
+    })
+    if (!session) return  // Unknown session, ignore
+    chatSessionId = session.id
+    this.sessionToChatCache.set(tmuxSession, session.id)
+  }
+
+  // Process hook event for chatSessionId...
+}
+```
+
+**Permission system unchanged** — `pendingPermissions` Map, `resolvePreToolUseDecision()`, 4-minute timeout all stay the same. Only the session lookup changes.
+
+#### Session Monitoring — tmux Health Polling
+
+```typescript
+// Poll every 2 seconds (same interval as task system)
+private monitorInterval: NodeJS.Timeout
+
+startMonitoring(): void {
+  this.monitorInterval = setInterval(async () => {
+    for (const [sessionId, tmuxName] of this.sessionCache) {
+      const alive = await tmuxHasSession(tmuxName)
+      if (!alive) {
+        // Session exited — update status (NFR32: <2s detection)
+        this.sessionCache.delete(sessionId)
+        await db.update(chatSessions)
+          .set({ status: 'paused', updatedAt: Date.now() })
+          .where(eq(chatSessions.id, sessionId))
+        // Emit status change event for UI
+        this.emitSessionStatus(sessionId, 'exited')
+      }
+    }
+  }, 2000)
+}
+```
+
+### tRPC Router Changes
+
+#### `chat-session.router.ts` — Three-Case Handler Update
+
+The `sendChatMessage` mutation's three-case logic simplifies:
+
+```typescript
+// Case A: tmux session alive + PTY attached → sendMessage()
+// Case B: tmux session alive + PTY detached → reattachSession() then sendMessage()
+// Case C: No tmux session (new or paused):
+//   - If session.tmuxSession exists but tmux dead → create new tmux session, spawn claude
+//   - If no session.tmuxSession → spawnSession() (first message)
+```
+
+**Key simplification:** Case B no longer needs `--resume`. The tmux session is still alive with Claude Code running inside it. We just re-attach the PTY for I/O.
+
+**New procedures:**
+
+```typescript
+// Startup validation (called from app init)
+validateChatSessions: t.procedure
+  .mutation(async ({ ctx }) => {
+    await ctx.chatCliService.validateSessionsOnStartup()
+  }),
+
+// Session list with live status (FR46)
+listChatSessionsWithStatus: t.procedure
+  .input(z.object({ projectId: z.string() }))
+  .query(async ({ input, ctx }) => {
+    const sessions = await db.query.chatSessions.findMany({
+      where: eq(chatSessions.projectId, input.projectId),
+      orderBy: desc(chatSessions.lastMessageAt)
+    })
+
+    return sessions.map(s => ({
+      ...s,
+      liveStatus: ctx.chatCliService.getSessionStatus(s.id)
+      // 'thinking' | 'idle' | 'completed' | 'exited'
+    }))
+  }),
+```
+
+### Hook Script Changes
+
+#### All Chat Hook Scripts (`src/main/resources/chat-hooks/*.sh`)
+
+**Change:** Include `TINSU_TMUX_SESSION` in POST payload.
+
+```bash
+#!/bin/bash
+# stop.sh (updated)
+INPUT=$(cat)
+TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
+TMUX_SESSION="${TINSU_TMUX_SESSION:-unknown}"
+
+# Inject tmux session name into payload
+PAYLOAD=$(echo "$INPUT" | jq --arg ts "$TMUX_SESSION" '. + {tmux_session: $ts}')
+
+curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/chat-stop" \
+  -H "Content-Type: application/json" \
+  --connect-timeout 2 --max-time 5 \
+  -d "$PAYLOAD" || true
+```
+
+Same pattern for `tool-use.sh`, `pre-tool-use.sh`, and `status.sh`.
+
+**Environment variable injection** (in `ChatCliService.spawnSession()`):
+
+```typescript
+// When creating tmux session, set env vars in the tmux environment
+const tmuxName = `tinsu-chat-${sessionId}`
+await execAsync(`tmux new-session -d -s ${tmuxName}`)
+await execAsync(`tmux set-environment -t ${tmuxName} TINSU_TMUX_SESSION ${tmuxName}`)
+await execAsync(`tmux set-environment -t ${tmuxName} TINSU_SESSION_UUID ${sessionUuid}`)
+
+// Then send the claude command into the tmux session
+// PTY attachment handles I/O from this point
+```
+
+### UI Component Changes
+
+#### `ChatPanel.tsx` — Multi-Session Awareness
+
+| Current | New |
+|---------|-----|
+| `setSessionId(null)` on agent switch | Keep `sessionId` — session runs in background |
+| Single `isAgentThinking` state | Per-session status from `listChatSessionsWithStatus` |
+| No session status badges | Live status badges in session list (thinking/idle/completed/exited) |
+
+**Session list enhancement (FR46):**
+
+```typescript
+// ChatSessionList now shows live status
+interface SessionListItem {
+  id: string
+  agentPersona: string
+  lastMessageAt: number
+  liveStatus: 'thinking' | 'idle' | 'completed' | 'exited'
+  preview: string  // Last message snippet
+}
+```
+
+**Session switching (FR45):**
+
+```typescript
+// Switching agents no longer kills the old session
+const handlePersonaSwitch = (newPersona: string) => {
+  // Old session continues in tmux background
+  // Just update UI to show new/different session
+  const existingSession = sessions.find(
+    s => s.agentPersona === newPersona && s.liveStatus !== 'exited'
+  )
+  if (existingSession) {
+    setSessionId(existingSession.id)  // Resume existing
+  } else {
+    setSessionId(null)  // Will create on first message
+  }
+}
+```
+
+#### `PlanningWorkspacePage.tsx` — Session Status Visibility
+
+Add session status summary in sidebar or header showing count of active background sessions:
+
+```
+PM (payment PRD) — idle
+Architect (payment) — thinking
+PM (side project) — idle
+```
+
+### Integration Patterns
+
+**tmux Session Creation Flow:**
+
+```
+User sends first message
+  → chatSession.create() in DB (with tmux_session = null)
+  → chatCliService.spawnSession():
+      1. tmux new-session -d -s tinsu-chat-{sessionId}
+      2. tmux set-environment TINSU_TMUX_SESSION / TINSU_SESSION_UUID
+      3. tmux send-keys "claude --session-id {uuid} --append-system-prompt {persona} ..." Enter
+      4. ptyService.spawn('bash', ['-c', 'tmux attach-session -t tinsu-chat-{sessionId}'])
+      5. Update DB: chat_sessions.tmux_session = tinsu-chat-{sessionId}
+      6. Populate sessionCache
+      7. writeWhenReady() detects TUI → write user message
+```
+
+**Session Recovery Flow (App Restart):**
+
+```
+App starts
+  → validateSessionsOnStartup():
+      For each active chat_session in DB:
+        tmux has-session -t {tmux_session}?
+          YES → rebuild cache, status stays 'active'
+          NO  → set status = 'paused'
+  → User opens chat, selects paused session, sends message:
+      → spawnSession() creates NEW tmux session (fresh claude process)
+      → Claude Code's --session-id restores conversation context
+      → No --resume needed (claude starts fresh but session-id gives history)
+```
+
+**Multi-Project Isolation (FR48-FR50):**
+
+```
+Project A sessions:  tinsu-chat-{sessionId-a1}, tinsu-chat-{sessionId-a2}
+Project B sessions:  tinsu-chat-{sessionId-b1}
+
+DB query: WHERE project_id = ?  (existing filter, unchanged)
+tmux: All sessions on same server, but UI only shows current project's sessions
+File isolation: Claude Code's cwd set to project directory at spawn time
+```
+
+### Removed Code
+
+The following patterns are **deleted** in this migration:
+
+| Removed | Why |
+|---------|-----|
+| `findOrphanSession()` | tmux session name is stable — no UUID mismatch possible |
+| `discoverCorrectUuid()` | No filesystem scan for session recovery needed |
+| `maybeRetryResume()` | tmux sessions don't die and need `--resume` |
+| `tryRegisterChatOrphan()` in HookListenerService | Orphan concept eliminated |
+| `--resume` flag usage for chat sessions | tmux persistence replaces `--resume` |
+
+### NFR Coverage
+
+| NFR | Target | How Met |
+|-----|--------|---------|
+| NFR25 | 5+ concurrent sessions | Independent tmux sessions, shared server handles hundreds |
+| NFR26 | <500ms session switch | PTY permanently attached; switch = UI state change + cache lookup |
+| NFR27 | Zero background message loss | tmux sessions run independently; no PTY disconnect on switch |
+| NFR28 | Zero context loss on restart | tmux survives restart; `validateSessionsOnStartup()` reconciles |
+| NFR29 | <5s startup validation | Sequential `tmux has-session` calls (~50ms each, 20 sessions = 1s) |
+| NFR30 | 100% hook routing accuracy | `TINSU_TMUX_SESSION` env var → O(1) cache lookup, no orphan ambiguity |
+| NFR31 | <15s session creation | tmux new-session (<1s) + claude spawn + TUI ready (~10-12s) |
+| NFR32 | <2s stale detection | 2-second polling interval on `tmux has-session` |
+
+### FR Coverage
+
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR36 | Planning Workspace with BMAD sidebar | Existing UI — no architectural change |
+| FR37 | Agent persona selector | Existing `--append-system-prompt` injection — unchanged |
+| FR38 | Chat interface with message bubbles | Existing `chat_messages` table + ChatPanel — unchanged |
+| FR39 | Persistent isolated terminal session | tmux session per chat (`tinsu-chat-{sessionId}`) |
+| FR40 | Bidirectional communication channel | PTY attached to tmux; `ptyService.write()` for input, `onData` for output |
+| FR41 | Agent launch with session identity | `claude --session-id {uuid}` inside tmux with `TINSU_TMUX_SESSION` env var |
+| FR42 | Event routing without cross-session leakage | `TINSU_TMUX_SESSION` env var → O(1) cache routing, no orphan matching |
+| FR43 | Message persistence | Existing `chat_messages` + `chat-stop` hook transcript extraction — unchanged |
+| FR44 | Multiple simultaneous sessions | Independent tmux sessions, permanent PTY attachment each |
+| FR45 | Switch without interrupting background | Switching = UI state change; tmux sessions unaffected |
+| FR46 | Session list with live status | `listChatSessionsWithStatus` query + 2s polling health monitor |
+| FR47 | Resume previous sessions | Session list click → PTY re-attach if needed, or send message to alive session |
+| FR48 | Project-scoped sessions | `chat_sessions.project_id` filter (existing) + `tinsu-chat-*` naming |
+| FR49 | Cross-project concurrent sessions | Same tmux server, project isolation via DB filter and Claude cwd |
+| FR50 | Project-confined file operations | Claude Code cwd set to project directory at spawn time |
+| FR51 | Survive app restart | tmux sessions persist natively; `validateSessionsOnStartup()` reconciles |
+| FR52 | Startup health validation | `tmux has-session` for each active DB session; mark unavailable as 'paused' |
+| FR53 | Health monitoring with 2s detection | 2-second polling interval on `tmux has-session` for all cached sessions |
+
+### Files Changed
+
+**Backend (Main Process):**
+
+| File | Change |
+|------|--------|
+| `src/main/services/chat-cli.service.ts` | **Major refactor** — tmux session creation + PTY attachment, remove orphan logic, 2-hour idle timeout, startup validation, session cache |
+| `src/main/services/hook-listener.service.ts` | Route chat hooks by `tmux_session` payload field via `sessionToChatCache`; remove `tryRegisterChatOrphan()` |
+| `src/main/services/index.ts` | No new services — existing services refactored |
+| `src/main/trpc/routers/chat-session.router.ts` | Simplify three-case handler for tmux; add `validateChatSessions`, `listChatSessionsWithStatus` |
+| `src/main/db/schema.ts` | Add `tmux_session` column to `chat_sessions` table |
+| `src/main/db/index.ts` | Migration for `tmux_session` column |
+
+**Frontend (Renderer):**
+
+| File | Change |
+|------|--------|
+| `src/renderer/src/components/planning/ChatPanel.tsx` | Multi-session awareness; session switching without kill; live status badges |
+| `src/renderer/src/components/planning/ChatSessionList.tsx` | Live status indicators per session |
+| `src/renderer/src/pages/PlanningWorkspacePage.tsx` | Background session count/status in sidebar |
+
+**Hook Scripts:**
+
+| File | Change |
+|------|--------|
+| `src/main/resources/chat-hooks/stop.sh` | Include `TINSU_TMUX_SESSION` in POST payload via jq |
+| `src/main/resources/chat-hooks/tool-use.sh` | Same |
+| `src/main/resources/chat-hooks/pre-tool-use.sh` | Same |
+| `src/main/resources/chat-hooks/status.sh` | Same |
+
+### Implementation Checklist
+
+**Database Layer:**
+- [ ] Add `tmux_session TEXT` column to `chat_sessions` schema
+- [ ] Add migration in `db/index.ts`
+- [ ] Run `npm run rebuild:electron`
+
+**Service Layer:**
+- [ ] Refactor `ChatCliService.spawnSession()` to create tmux session + PTY attachment
+- [ ] Refactor `ChatCliService.resumeSession()` to PTY re-attachment (no `--resume`)
+- [ ] Add `validateSessionsOnStartup()` with `tmux has-session` checks
+- [ ] Add `sessionCache` (Map<chatSessionId, tmuxSessionName>)
+- [ ] Add `startMonitoring()` with 2-second polling
+- [ ] Change `IDLE_TIMEOUT_MS` to 2 hours
+- [ ] Remove `findOrphanSession()`, `discoverCorrectUuid()`, `maybeRetryResume()`
+- [ ] Update `HookListenerService` to route by `tmux_session` payload field
+- [ ] Add `sessionToChatCache` (Map<tmuxSessionName, chatSessionId>)
+- [ ] Remove `tryRegisterChatOrphan()`
+
+**tRPC Layer:**
+- [ ] Simplify `sendChatMessage` three-case handler for tmux
+- [ ] Add `validateChatSessions` mutation
+- [ ] Add `listChatSessionsWithStatus` query
+
+**Hook Scripts:**
+- [ ] Update all 4 chat hook scripts to include `TINSU_TMUX_SESSION` in payload
+- [ ] Set `TINSU_TMUX_SESSION` env var via `tmux set-environment` at session creation
+
+**UI Layer:**
+- [ ] Update `ChatPanel.tsx` for multi-session awareness
+- [ ] Add live status badges to `ChatSessionList`
+- [ ] Add background session visibility to `PlanningWorkspacePage`
+
+---
+
+**Extension Status:** READY FOR IMPLEMENTATION ✅
