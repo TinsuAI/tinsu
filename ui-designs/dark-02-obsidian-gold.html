@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Obsidian & Gold</title>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --obsidian: #0A0A0F;
+    --charcoal: #141419;
+    --charcoal-light: #1C1C24;
+    --midnight: #0F1628;
+    --midnight-light: #161D33;
+    --gold-dark: #B8860B;
+    --gold: #D4AF37;
+    --gold-light: #F5DEB3;
+    --gold-gradient: linear-gradient(135deg, #B8860B, #D4AF37, #F5DEB3);
+    --gold-shimmer: linear-gradient(105deg, #B8860B 0%, #D4AF37 25%, #F5DEB3 50%, #D4AF37 75%, #B8860B 100%);
+    --platinum: #E0E0E6;
+    --silver: #7A7A85;
+    --silver-dim: #4A4A55;
+    --emerald: #2DD4A8;
+    --emerald-muted: rgba(45, 212, 168, 0.12);
+    --rose: #E8A0A0;
+    --rose-muted: rgba(232, 160, 160, 0.12);
+    --blue: #6B9FD4;
+    --blue-muted: rgba(107, 159, 212, 0.12);
+    --purple: #A78BFA;
+    --purple-muted: rgba(167, 139, 250, 0.12);
+    --amber: #F5C542;
+    --amber-muted: rgba(245, 197, 66, 0.12);
+    --border: rgba(212, 175, 55, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-gold: rgba(212, 175, 55, 0.2);
+    --glass-bg: rgba(20, 20, 25, 0.65);
+    --glass-bg-light: rgba(28, 28, 36, 0.55);
+    --shadow-deep: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+    --shadow-card: 0 4px 16px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.2);
+    --shadow-gold: 0 0 24px rgba(212, 175, 55, 0.06);
+    --shadow-gold-hover: 0 0 32px rgba(212, 175, 55, 0.12), 0 4px 20px rgba(0,0,0,0.4);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  body {
+    font-family: 'Spectral', Georgia, serif;
+    background: var(--obsidian);
+    color: var(--platinum);
+    height: 100vh;
+    overflow: hidden;
+    font-size: 13.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Background mesh gradient */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 15% 20%, rgba(15, 22, 40, 0.8), transparent),
+      radial-gradient(ellipse 500px 350px at 85% 75%, rgba(20, 16, 30, 0.6), transparent),
+      radial-gradient(ellipse 400px 300px at 50% 50%, rgba(184, 134, 11, 0.03), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Gold shimmer keyframes */
+  @keyframes goldShimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  @keyframes fadeUpIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes pulseGold {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes thinkingDot {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.1); }
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes borderGlow {
+    0%, 100% { border-color: rgba(212, 175, 55, 0.1); }
+    50% { border-color: rgba(212, 175, 55, 0.25); }
+  }
+
+  /* Gold gradient text utility */
+  .gold-text {
+    background: var(--gold-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gold-shimmer-text {
+    background: var(--gold-shimmer);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: goldShimmer 4s linear infinite;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.15);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.3);
+  }
+
+  /* ============================
+     TITLE BAR
+     ============================ */
+  .title-bar {
+    height: 48px;
+    background: linear-gradient(135deg, #0D0D14 0%, #111118 50%, #0D0D14 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 10;
+    -webkit-app-region: drag;
+  }
+  .title-bar::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.2), rgba(245, 222, 179, 0.3), rgba(212, 175, 55, 0.2), transparent);
+  }
+
+  .title-bar-text {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11.5px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  .title-bar-text .accent {
+    background: var(--gold-shimmer);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: goldShimmer 6s linear infinite;
+    letter-spacing: 5px;
+  }
+
+  .window-controls {
+    position: absolute;
+    left: 16px;
+    display: flex;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+  }
+  .window-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transition: opacity 300ms var(--ease-out);
+  }
+  .window-dot:hover { opacity: 0.7; }
+  .window-dot.red { background: #FF5F57; }
+  .window-dot.yellow { background: #FEBC2E; }
+  .window-dot.green { background: #28C840; }
+
+  /* ============================
+     MAIN LAYOUT
+     ============================ */
+  .workspace {
+    display: grid;
+    grid-template-columns: 280px 1fr 380px;
+    height: calc(100vh - 48px);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ==============================
+     LEFT SIDEBAR
+     ============================== */
+  .sidebar {
+    background: linear-gradient(180deg, rgba(14, 14, 19, 0.95) 0%, rgba(10, 10, 15, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.12), transparent 30%, transparent 70%, rgba(212, 175, 55, 0.08));
+  }
+
+  .sidebar-header {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .sidebar-title {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--silver);
+    margin-bottom: 14px;
+  }
+
+  .new-chat-btn {
+    width: 100%;
+    padding: 11px 16px;
+    background: linear-gradient(135deg, rgba(184, 134, 11, 0.08), rgba(212, 175, 55, 0.04));
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 300ms var(--ease-out);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .new-chat-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gold-shimmer);
+    background-size: 200% auto;
+    opacity: 0;
+    transition: opacity 300ms var(--ease-out);
+  }
+  .new-chat-btn:hover {
+    border-color: rgba(212, 175, 55, 0.35);
+    box-shadow: var(--shadow-gold-hover);
+    transform: translateY(-1px);
+  }
+  .new-chat-btn:hover::before {
+    opacity: 0.06;
+    animation: goldShimmer 2s linear infinite;
+  }
+  .new-chat-btn .icon {
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
+  }
+
+  .session-card {
+    padding: 14px 14px 12px;
+    margin-bottom: 4px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 300ms var(--ease-out);
+    position: relative;
+    animation: fadeUpIn 500ms var(--ease-out) both;
+  }
+  .session-card:nth-child(1) { animation-delay: 80ms; }
+  .session-card:nth-child(2) { animation-delay: 140ms; }
+  .session-card:nth-child(3) { animation-delay: 200ms; }
+  .session-card:nth-child(4) { animation-delay: 260ms; }
+  .session-card:nth-child(5) { animation-delay: 320ms; }
+
+  .session-card:hover {
+    background: rgba(212, 175, 55, 0.03);
+    border-color: rgba(212, 175, 55, 0.08);
+  }
+  .session-card.active {
+    background: linear-gradient(135deg, rgba(184, 134, 11, 0.06), rgba(212, 175, 55, 0.03));
+    border-color: rgba(212, 175, 55, 0.15);
+    box-shadow: var(--shadow-gold);
+  }
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    background: var(--gold-gradient);
+    border-radius: 2px;
+  }
+
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .persona-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .persona-dot.architect { background: var(--gold); color: var(--gold); }
+  .persona-dot.engineer { background: var(--blue); color: var(--blue); }
+  .persona-dot.reviewer { background: var(--emerald); color: var(--emerald); }
+  .persona-dot.pm { background: var(--purple); color: var(--purple); }
+  .persona-dot.designer { background: var(--rose); color: var(--rose); }
+
+  .session-persona-name {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: var(--platinum);
+  }
+
+  .session-kebab {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--silver-dim);
+    font-size: 14px;
+    letter-spacing: 2px;
+    transition: all 200ms;
+    opacity: 0;
+  }
+  .session-card:hover .session-kebab { opacity: 1; }
+  .session-kebab:hover {
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+  }
+
+  .session-preview {
+    font-size: 12px;
+    color: var(--silver);
+    line-height: 1.5;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-style: italic;
+  }
+
+  .session-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .session-time {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--silver-dim);
+    text-transform: uppercase;
+  }
+  .session-badges {
+    display: flex;
+    gap: 5px;
+  }
+  .badge {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+  .badge-active {
+    background: var(--emerald-muted);
+    color: var(--emerald);
+    border: 1px solid rgba(45, 212, 168, 0.2);
+  }
+  .badge-complete {
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+  }
+  .badge-paused {
+    background: var(--amber-muted);
+    color: var(--amber);
+    border: 1px solid rgba(245, 197, 66, 0.2);
+  }
+  .badge-review {
+    background: var(--purple-muted);
+    color: var(--purple);
+    border: 1px solid rgba(167, 139, 250, 0.2);
+  }
+  .badge-permission {
+    background: var(--rose-muted);
+    color: var(--rose);
+    border: 1px solid rgba(232, 160, 160, 0.15);
+  }
+  .badge-auto {
+    background: var(--blue-muted);
+    color: var(--blue);
+    border: 1px solid rgba(107, 159, 212, 0.15);
+  }
+
+  /* ==============================
+     CENTER PANEL
+     ============================== */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, var(--obsidian) 0%, #0C0C12 100%);
+    position: relative;
+  }
+
+  /* Persona selector */
+  .persona-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(10, 10, 15, 0.8);
+    backdrop-filter: blur(12px);
+  }
+  .persona-btn {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-subtle);
+    background: transparent;
+    color: var(--silver);
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 300ms var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .persona-btn:hover {
+    border-color: rgba(212, 175, 55, 0.15);
+    color: var(--platinum);
+    background: rgba(212, 175, 55, 0.04);
+  }
+  .persona-btn.active {
+    border-color: rgba(212, 175, 55, 0.3);
+    color: var(--gold);
+    background: linear-gradient(135deg, rgba(184, 134, 11, 0.1), rgba(212, 175, 55, 0.05));
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.06);
+  }
+  .persona-btn .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Messages area */
+  .messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* Message bubbles */
+  .message {
+    max-width: 72%;
+    animation: fadeUpIn 400ms var(--ease-out) both;
+  }
+  .message:nth-child(1) { animation-delay: 100ms; }
+  .message:nth-child(2) { animation-delay: 200ms; }
+  .message:nth-child(3) { animation-delay: 300ms; }
+  .message:nth-child(4) { animation-delay: 400ms; }
+  .message:nth-child(5) { animation-delay: 500ms; }
+  .message:nth-child(6) { animation-delay: 600ms; }
+  .message:nth-child(7) { animation-delay: 700ms; }
+
+  .message-user {
+    align-self: flex-end;
+  }
+  .message-agent {
+    align-self: flex-start;
+  }
+
+  .message-user .message-bubble {
+    background: linear-gradient(135deg, rgba(184, 134, 11, 0.12), rgba(212, 175, 55, 0.06));
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: var(--radius) var(--radius) 4px var(--radius);
+    padding: 14px 18px;
+    color: var(--platinum);
+    font-size: 13.5px;
+    line-height: 1.65;
+    box-shadow: var(--shadow-card);
+  }
+
+  .message-agent .message-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .message-agent .agent-name {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .message-agent .agent-tag {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--silver-dim);
+    text-transform: uppercase;
+    background: var(--border-subtle);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .message-agent .message-bubble {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px var(--radius) var(--radius) var(--radius);
+    padding: 16px 18px;
+    color: var(--platinum);
+    font-size: 13.5px;
+    line-height: 1.7;
+    box-shadow: var(--shadow-card);
+  }
+  .message-agent .message-bubble:hover {
+    border-color: rgba(212, 175, 55, 0.08);
+  }
+
+  .message-time {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--silver-dim);
+    margin-top: 5px;
+    text-transform: uppercase;
+  }
+  .message-user .message-time { text-align: right; }
+
+  /* Tool Activity Group */
+  .tool-group {
+    align-self: flex-start;
+    max-width: 72%;
+    animation: fadeUpIn 400ms var(--ease-out) both;
+    animation-delay: 500ms;
+  }
+  .tool-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .tool-group-title {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  .tool-group-count {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+  }
+
+  .tool-group-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .tool-action {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: background 200ms;
+  }
+  .tool-action:last-child { border-bottom: none; }
+  .tool-action:hover { background: rgba(212, 175, 55, 0.02); }
+
+  .tool-timeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding-top: 2px;
+    position: relative;
+  }
+  .tool-timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .tool-timeline-dot.success { background: var(--emerald); box-shadow: 0 0 6px rgba(45, 212, 168, 0.4); }
+  .tool-timeline-dot.warning { background: var(--amber); box-shadow: 0 0 6px rgba(245, 197, 66, 0.4); }
+  .tool-timeline-dot.info { background: var(--blue); box-shadow: 0 0 6px rgba(107, 159, 212, 0.4); }
+  .tool-timeline-line {
+    width: 1px;
+    flex: 1;
+    min-height: 24px;
+    background: linear-gradient(180deg, var(--silver-dim), transparent);
+  }
+
+  .tool-action-content { flex: 1; }
+  .tool-action-name {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: var(--platinum);
+    margin-bottom: 2px;
+  }
+  .tool-action-detail {
+    font-size: 12px;
+    color: var(--silver);
+    font-style: italic;
+  }
+  .tool-action-time {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    color: var(--silver-dim);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  /* Thinking Indicator */
+  .thinking-indicator {
+    align-self: flex-start;
+    animation: fadeUpIn 400ms var(--ease-out) both;
+    animation-delay: 700ms;
+  }
+  .thinking-bubble {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px var(--radius) var(--radius) var(--radius);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-card);
+    animation: borderGlow 3s ease-in-out infinite;
+  }
+  .thinking-label {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  .thinking-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .thinking-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: thinkingDot 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.16s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+  /* Input Area */
+  .input-area {
+    padding: 16px 28px 20px;
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(10, 10, 15, 0.9);
+    backdrop-filter: blur(16px);
+  }
+  .input-wrapper {
+    background: var(--glass-bg);
+    border: 1px solid rgba(212, 175, 55, 0.08);
+    border-radius: var(--radius);
+    padding: 4px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    transition: all 300ms var(--ease-out);
+    box-shadow: var(--shadow-card);
+  }
+  .input-wrapper:focus-within {
+    border-color: rgba(212, 175, 55, 0.25);
+    box-shadow: var(--shadow-gold-hover);
+  }
+  .input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--platinum);
+    font-family: 'Spectral', serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    resize: none;
+    line-height: 1.5;
+    min-height: 42px;
+    max-height: 120px;
+  }
+  .input-field::placeholder {
+    color: var(--silver-dim);
+    font-style: italic;
+  }
+  .input-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px 6px 0;
+  }
+  .input-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--silver);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 250ms var(--ease-out);
+    font-size: 16px;
+  }
+  .input-btn:hover {
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+  }
+  .input-send {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    color: var(--obsidian);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .input-send:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.3);
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  }
+
+  /* ==============================
+     RIGHT PANEL
+     ============================== */
+  .right-panel {
+    background: linear-gradient(180deg, rgba(14, 14, 19, 0.95) 0%, rgba(10, 10, 15, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .right-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.1), transparent 30%, transparent 70%, rgba(212, 175, 55, 0.06));
+  }
+
+  /* Tabs */
+  .panel-tabs {
+    display: flex;
+    padding: 12px 16px 0;
+    gap: 2px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .panel-tab {
+    padding: 10px 18px;
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--silver);
+    cursor: pointer;
+    border: none;
+    background: none;
+    position: relative;
+    transition: color 300ms var(--ease-out);
+  }
+  .panel-tab:hover { color: var(--platinum); }
+  .panel-tab.active {
+    color: var(--gold);
+  }
+  .panel-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--gold-gradient);
+    border-radius: 2px 2px 0 0;
+  }
+
+  /* Panel content */
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px;
+  }
+
+  /* What Next Card */
+  .what-next-card {
+    background: linear-gradient(135deg, rgba(184, 134, 11, 0.06), rgba(212, 175, 55, 0.02));
+    border: 1px solid rgba(212, 175, 55, 0.12);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUpIn 500ms var(--ease-out) both;
+    animation-delay: 100ms;
+  }
+  .what-next-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gold-gradient);
+  }
+  .what-next-label {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .what-next-label .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulseGold 2s ease-in-out infinite;
+  }
+  .what-next-title {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 15px;
+    color: var(--platinum);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .what-next-desc {
+    font-size: 12.5px;
+    color: var(--silver);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  /* Project Health */
+  .section-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    transition: all 300ms var(--ease-out);
+    box-shadow: var(--shadow-card);
+  }
+  .section-card:hover {
+    border-color: rgba(212, 175, 55, 0.1);
+    box-shadow: var(--shadow-gold);
+  }
+
+  .section-title {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--silver);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title .percentage {
+    font-size: 20px;
+    letter-spacing: 0;
+    background: var(--gold-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .health-bar-track {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .health-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--gold-gradient);
+    transition: width 1s var(--ease-out);
+    position: relative;
+  }
+  .health-bar-fill::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -1px;
+    bottom: -1px;
+    width: 12px;
+    background: radial-gradient(circle at right, rgba(245, 222, 179, 0.4), transparent);
+  }
+
+  .checklist { list-style: none; }
+  .checklist li {
+    padding: 6px 0;
+    font-size: 12.5px;
+    color: var(--silver);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 300ms var(--ease-out) both;
+  }
+  .checklist li:nth-child(1) { animation-delay: 200ms; }
+  .checklist li:nth-child(2) { animation-delay: 260ms; }
+  .checklist li:nth-child(3) { animation-delay: 320ms; }
+  .checklist li:nth-child(4) { animation-delay: 380ms; }
+  .checklist li:nth-child(5) { animation-delay: 440ms; }
+
+  .check-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .check-icon.done {
+    background: var(--emerald-muted);
+    color: var(--emerald);
+    border: 1px solid rgba(45, 212, 168, 0.3);
+  }
+  .check-icon.pending {
+    background: var(--amber-muted);
+    color: var(--amber);
+    border: 1px solid rgba(245, 197, 66, 0.3);
+  }
+  .check-icon.blocked {
+    background: var(--rose-muted);
+    color: var(--rose);
+    border: 1px solid rgba(232, 160, 160, 0.3);
+  }
+  .checklist li.completed { color: var(--platinum); }
+
+  /* Phase Cards */
+  .phase-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 300ms var(--ease-out);
+    cursor: pointer;
+    animation: fadeUpIn 400ms var(--ease-out) both;
+  }
+  .phase-card:nth-child(1) { animation-delay: 300ms; }
+  .phase-card:nth-child(2) { animation-delay: 360ms; }
+  .phase-card:nth-child(3) { animation-delay: 420ms; }
+  .phase-card:hover {
+    border-color: rgba(212, 175, 55, 0.12);
+    transform: translateX(3px);
+    box-shadow: var(--shadow-gold);
+  }
+
+  .phase-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .phase-number {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 18px;
+    color: var(--gold);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(212, 175, 55, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .phase-details {}
+  .phase-name {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--platinum);
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+  }
+  .phase-desc {
+    font-size: 11px;
+    color: var(--silver);
+    font-style: italic;
+  }
+
+  .phase-status {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 9.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .phase-status.complete {
+    background: var(--emerald-muted);
+    color: var(--emerald);
+    border: 1px solid rgba(45, 212, 168, 0.2);
+  }
+  .phase-status.in-progress {
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+  }
+  .phase-status.planned {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--silver);
+    border: 1px solid var(--border-subtle);
+  }
+
+  /* Recent Runs Table */
+  .runs-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 3px;
+  }
+  .runs-table thead th {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--silver-dim);
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .runs-table tbody tr {
+    transition: all 200ms var(--ease-out);
+  }
+  .runs-table tbody tr:hover {
+    background: rgba(212, 175, 55, 0.03);
+  }
+  .runs-table td {
+    padding: 9px 10px;
+    font-size: 12px;
+    color: var(--silver);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .runs-table td:first-child {
+    color: var(--platinum);
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 11.5px;
+    letter-spacing: 0.3px;
+  }
+  .run-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .run-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .run-dot.pass { background: var(--emerald); box-shadow: 0 0 4px rgba(45, 212, 168, 0.4); }
+  .run-dot.fail { background: var(--rose); box-shadow: 0 0 4px rgba(232, 160, 160, 0.4); }
+  .run-dot.running { background: var(--gold); box-shadow: 0 0 4px rgba(212, 175, 55, 0.4); animation: pulseGold 1.5s infinite; }
+
+  /* Sections spacing */
+  .dashboard-section {
+    margin-bottom: 18px;
+  }
+  .dashboard-section-title {
+    font-family: 'Tenor Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--silver-dim);
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  /* Message code blocks */
+  .message-bubble code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: rgba(212, 175, 55, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--gold-light);
+  }
+
+  .message-bubble ul {
+    padding-left: 18px;
+    margin: 6px 0;
+  }
+  .message-bubble li {
+    margin-bottom: 3px;
+    color: var(--silver);
+  }
+  .message-bubble li::marker {
+    color: var(--gold);
+  }
+  .message-bubble strong {
+    color: var(--platinum);
+    font-weight: 600;
+  }
+
+  /* SVG Icons inline */
+  .icon-svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>
+</head>
+<body>
+
+<!-- TITLE BAR -->
+<div class="title-bar">
+  <div class="window-controls">
+    <div class="window-dot red"></div>
+    <div class="window-dot yellow"></div>
+    <div class="window-dot green"></div>
+  </div>
+  <div class="title-bar-text">
+    Tinsu Planning Workspace &mdash; <span class="accent">Obsidian &amp; Gold</span>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- ========== LEFT SIDEBAR ========== -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Chat Sessions</div>
+      <button class="new-chat-btn">
+        <span class="icon">+</span>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+      <!-- Session 1 - Active -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot architect"></div>
+            <span class="session-persona-name">Architect Agent</span>
+          </div>
+          <div class="session-kebab">&middot;&middot;&middot;</div>
+        </div>
+        <div class="session-preview">"Reviewing the migration strategy for the payment service decomposition..."</div>
+        <div class="session-meta">
+          <span class="session-time">2 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-active">Active</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot engineer"></div>
+            <span class="session-persona-name">Dev Agent</span>
+          </div>
+          <div class="session-kebab">&middot;&middot;&middot;</div>
+        </div>
+        <div class="session-preview">"Implementing the webhook retry mechanism with exponential backoff..."</div>
+        <div class="session-meta">
+          <span class="session-time">18 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-paused">Paused</span>
+            <span class="badge badge-permission">Approval</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot reviewer"></div>
+            <span class="session-persona-name">Review Agent</span>
+          </div>
+          <div class="session-kebab">&middot;&middot;&middot;</div>
+        </div>
+        <div class="session-preview">"Code review complete for PR #247 &mdash; 3 suggestions, no blockers found."</div>
+        <div class="session-meta">
+          <span class="session-time">1 hr ago</span>
+          <div class="session-badges">
+            <span class="badge badge-complete">Done</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot pm"></div>
+            <span class="session-persona-name">PM Agent</span>
+          </div>
+          <div class="session-kebab">&middot;&middot;&middot;</div>
+        </div>
+        <div class="session-preview">"Sprint velocity analysis shows 23-point average with declining trend..."</div>
+        <div class="session-meta">
+          <span class="session-time">3 hr ago</span>
+          <div class="session-badges">
+            <span class="badge badge-review">Review</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot designer"></div>
+            <span class="session-persona-name">Design Agent</span>
+          </div>
+          <div class="session-kebab">&middot;&middot;&middot;</div>
+        </div>
+        <div class="session-preview">"Component library audit: 14 inconsistencies flagged in spacing tokens..."</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <div class="session-badges">
+            <span class="badge badge-complete">Done</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CENTER PANEL ========== -->
+  <div class="center-panel">
+    <!-- Persona Selector -->
+    <div class="persona-header">
+      <button class="persona-btn active">
+        <span class="dot" style="background: var(--gold)"></span>
+        Architect
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--blue)"></span>
+        Developer
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--emerald)"></span>
+        Reviewer
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--purple)"></span>
+        PM
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area">
+      <!-- User Message 1 -->
+      <div class="message message-user">
+        <div class="message-bubble">
+          Analyze the current payment service and propose a decomposition strategy. We need to break the monolith into domain-bounded microservices while maintaining transactional integrity.
+        </div>
+        <div class="message-time">10:42 AM</div>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message message-agent">
+        <div class="message-header">
+          <span class="agent-name">Architect Agent</span>
+          <span class="agent-tag">GPT-4 Turbo</span>
+        </div>
+        <div class="message-bubble">
+          I've analyzed the payment service codebase and identified <strong>four bounded contexts</strong> that can be decomposed:
+          <ul>
+            <li><strong>Payment Processing</strong> &mdash; core transaction handling, gateway abstraction</li>
+            <li><strong>Billing & Invoicing</strong> &mdash; recurring charges, invoice generation</li>
+            <li><strong>Settlement</strong> &mdash; reconciliation, payout orchestration</li>
+            <li><strong>Fraud Detection</strong> &mdash; rule engine, anomaly scoring</li>
+          </ul>
+          For transactional integrity across services, I recommend the <strong>Saga pattern</strong> with choreography-based coordination using an event bus. The <code>PaymentOrchestrator</code> would serve as the initial saga coordinator.
+        </div>
+        <div class="message-time">10:43 AM</div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message message-user">
+        <div class="message-bubble">
+          Good analysis. Can you scaffold the service boundaries and generate the initial proto definitions for the inter-service contracts?
+        </div>
+        <div class="message-time">10:45 AM</div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message message-agent">
+        <div class="message-header">
+          <span class="agent-name">Architect Agent</span>
+          <span class="agent-tag">Executing</span>
+        </div>
+        <div class="message-bubble">
+          Understood. I'll generate the protobuf definitions for all four service contracts and create the directory scaffold. Let me execute the necessary file operations.
+        </div>
+        <div class="message-time">10:45 AM</div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <span class="tool-group-title">Tool Activity</span>
+          <span class="tool-group-count">3 actions</span>
+        </div>
+        <div class="tool-group-card">
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot success"></div>
+              <div class="tool-timeline-line"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Write File</div>
+              <div class="tool-action-detail">Created proto/payment_processing.proto &mdash; 47 lines</div>
+            </div>
+            <div class="tool-action-time">1.2s</div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot success"></div>
+              <div class="tool-timeline-line"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Write File</div>
+              <div class="tool-action-detail">Created proto/billing_invoicing.proto &mdash; 38 lines</div>
+            </div>
+            <div class="tool-action-time">0.8s</div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot info"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Bash Command</div>
+              <div class="tool-action-detail">mkdir -p services/{payment,billing,settlement,fraud}</div>
+            </div>
+            <div class="tool-action-time">0.3s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 3 -->
+      <div class="message message-agent">
+        <div class="message-header">
+          <span class="agent-name">Architect Agent</span>
+          <span class="agent-tag">GPT-4 Turbo</span>
+        </div>
+        <div class="message-bubble">
+          Service scaffold and proto definitions are in place. The <code>settlement</code> and <code>fraud</code> protos are ready for your review. Shall I proceed with generating the saga coordinator implementation, or would you prefer to review the contracts first?
+        </div>
+        <div class="message-time">10:46 AM</div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="thinking-bubble">
+          <span class="thinking-label">Analyzing dependencies</span>
+          <div class="thinking-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea class="input-field" placeholder="Describe your next architectural decision..." rows="1"></textarea>
+        <div class="input-actions">
+          <button class="input-btn" title="Attach file">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="input-btn" title="Voice input">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="input-btn input-send" title="Send message">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="stroke: var(--obsidian);"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== RIGHT PANEL ========== -->
+  <div class="right-panel">
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <button class="panel-tab active">Dashboard</button>
+      <button class="panel-tab">Artifact</button>
+      <button class="panel-tab">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="panel-content">
+
+      <!-- What Next -->
+      <div class="what-next-card">
+        <div class="what-next-label">
+          <span class="pulse-dot"></span>
+          What Next
+        </div>
+        <div class="what-next-title">Review Proto Contracts</div>
+        <div class="what-next-desc">
+          The Architect Agent has generated service boundary definitions. Review the protobuf contracts for payment processing and billing before proceeding to saga coordinator implementation.
+        </div>
+      </div>
+
+      <!-- Project Health -->
+      <div class="dashboard-section" style="animation: fadeUpIn 500ms var(--ease-out) both; animation-delay: 200ms;">
+        <div class="section-card">
+          <div class="section-title">
+            Project Health
+            <span class="percentage">65%</span>
+          </div>
+          <div class="health-bar-track">
+            <div class="health-bar-fill" style="width: 65%"></div>
+          </div>
+          <ul class="checklist">
+            <li class="completed">
+              <span class="check-icon done">&#10003;</span>
+              Domain analysis complete
+            </li>
+            <li class="completed">
+              <span class="check-icon done">&#10003;</span>
+              Service boundaries defined
+            </li>
+            <li>
+              <span class="check-icon done">&#10003;</span>
+              Proto contracts generated
+            </li>
+            <li>
+              <span class="check-icon pending">&#9679;</span>
+              Saga coordinator pending
+            </li>
+            <li>
+              <span class="check-icon blocked">&#10007;</span>
+              Integration tests blocked
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Phase Cards -->
+      <div class="dashboard-section" style="animation: fadeUpIn 500ms var(--ease-out) both; animation-delay: 300ms;">
+        <div class="dashboard-section-title">Project Phases</div>
+
+        <div class="phase-card">
+          <div class="phase-info">
+            <div class="phase-number">1</div>
+            <div class="phase-details">
+              <div class="phase-name">Discovery & Analysis</div>
+              <div class="phase-desc">Domain mapping, dependency audit</div>
+            </div>
+          </div>
+          <span class="phase-status complete">Complete</span>
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-info">
+            <div class="phase-number">2</div>
+            <div class="phase-details">
+              <div class="phase-name">Service Decomposition</div>
+              <div class="phase-desc">Contracts, scaffolding, coordination</div>
+            </div>
+          </div>
+          <span class="phase-status in-progress">In Progress</span>
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-info">
+            <div class="phase-number">3</div>
+            <div class="phase-details">
+              <div class="phase-name">Migration & Validation</div>
+              <div class="phase-desc">Data migration, integration testing</div>
+            </div>
+          </div>
+          <span class="phase-status planned">Planned</span>
+        </div>
+      </div>
+
+      <!-- Recent Runs -->
+      <div class="dashboard-section" style="animation: fadeUpIn 500ms var(--ease-out) both; animation-delay: 400ms;">
+        <div class="dashboard-section-title">Recent Runs</div>
+        <div class="section-card" style="padding: 8px 0;">
+          <table class="runs-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Proto Generation</td>
+                <td>2.3s</td>
+                <td>
+                  <span class="run-status">
+                    <span class="run-dot pass"></span>
+                    Pass
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>Schema Validation</td>
+                <td>1.1s</td>
+                <td>
+                  <span class="run-status">
+                    <span class="run-dot pass"></span>
+                    Pass
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>Dependency Check</td>
+                <td>&mdash;</td>
+                <td>
+                  <span class="run-status">
+                    <span class="run-dot running"></span>
+                    Running
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>Lint Analysis</td>
+                <td>4.7s</td>
+                <td>
+                  <span class="run-status">
+                    <span class="run-dot fail"></span>
+                    2 Warnings
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>Unit Tests</td>
+                <td>12.4s</td>
+                <td>
+                  <span class="run-status">
+                    <span class="run-dot pass"></span>
+                    Pass
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

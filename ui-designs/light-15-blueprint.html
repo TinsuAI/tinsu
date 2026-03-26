@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Custom Properties ─────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --paper:          #F8FAFC;
+    --paper-warm:     #F3F6FA;
+    --blueprint:      #2B5EA7;
+    --blueprint-deep: #1E4A85;
+    --blueprint-light:#4A7DC4;
+    --grid-line:      #D4E4F7;
+    --grid-fine:      #E8EFF8;
+    --annotation-red: #CC3333;
+    --annotation-red-soft: #cc333322;
+    --dimension-gray: #6B7B8D;
+    --construction-yellow: #E8C840;
+    --construction-yellow-soft: #E8C84033;
+    --pencil:         #4A4A4A;
+    --pencil-light:   #8A8A8A;
+    --pencil-faint:   #B0B8C0;
+    --ink-blue:       #1A3F6F;
+    --text-primary:   #2C3E50;
+    --text-secondary: #5A6A7A;
+    --text-muted:     #8899AA;
+    --border-blue:    #B8D0EA;
+    --border-strong:  #8AB0D8;
+    --hover-fill:     #EBF2FA;
+    --active-fill:    #D6E6F5;
+    --shadow-blue:    rgba(43, 94, 167, 0.08);
+    --shadow-deep:    rgba(43, 94, 167, 0.15);
+
+    --radius-sm: 2px;
+    --radius-md: 3px;
+    --radius-lg: 4px;
+  }
+
+  /* ── Scrollbar ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-blue); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--blueprint-light); }
+
+  /* ── Blueprint Grid Background ─────────────────────────────── */
+  body {
+    font-family: 'Atkinson Hyperlegible Next', sans-serif;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 19px, var(--grid-fine) 19px, var(--grid-fine) 20px),
+      repeating-linear-gradient(90deg, transparent, transparent 19px, var(--grid-fine) 19px, var(--grid-fine) 20px),
+      repeating-linear-gradient(0deg, transparent, transparent 99px, var(--grid-line) 99px, var(--grid-line) 100px),
+      repeating-linear-gradient(90deg, transparent, transparent 99px, var(--grid-line) 99px, var(--grid-line) 100px);
+    background-color: var(--paper);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Drawing Reveal Animation ──────────────────────────────── */
+  @keyframes drawIn {
+    0% { clip-path: inset(0 100% 0 0); opacity: 0; }
+    40% { opacity: 1; }
+    100% { clip-path: inset(0 0 0 0); opacity: 1; }
+  }
+  @keyframes fadeDrawIn {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes strokeDraw {
+    0% { stroke-dashoffset: 200; }
+    100% { stroke-dashoffset: 0; }
+  }
+  @keyframes crosshairPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+  }
+  @keyframes compassSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes tickerScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ── Title Bar ─────────────────────────────────────────────── */
+  .title-bar {
+    height: 42px;
+    background: var(--paper);
+    border-bottom: 1.5px solid var(--blueprint);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    position: relative;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  .title-bar::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--grid-line);
+  }
+  .title-bar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .title-bar-logo svg {
+    width: 22px;
+    height: 22px;
+    animation: compassSpin 20s linear infinite;
+  }
+  .title-bar-title {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blueprint);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .title-bar-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border-blue);
+  }
+  .title-bar-nav {
+    display: flex;
+    gap: 2px;
+  }
+  .title-bar-nav-btn {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .title-bar-nav-btn:hover {
+    border-color: var(--border-blue);
+    color: var(--blueprint);
+    background: var(--hover-fill);
+  }
+  .title-bar-nav-btn.active {
+    border-color: var(--blueprint);
+    color: var(--blueprint);
+    background: var(--active-fill);
+  }
+  .title-bar-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .title-bar-coord {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+  .title-bar-scale {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--blueprint-light);
+    border: 1px solid var(--border-blue);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Main Layout ───────────────────────────────────────────── */
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── LEFT SIDEBAR ──────────────────────────────────────────── */
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1.5px solid var(--blueprint);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    animation: fadeDrawIn 0.5s ease-out;
+  }
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--grid-line);
+  }
+
+  /* Sidebar header */
+  .sidebar-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--grid-line);
+  }
+  .sidebar-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sidebar-label::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border: 1.5px solid var(--blueprint);
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .new-chat-btn {
+    width: 100%;
+    padding: 9px 14px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    background: var(--blueprint);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .new-chat-btn:hover {
+    background: var(--blueprint-deep);
+    box-shadow: 0 2px 8px var(--shadow-deep);
+  }
+  .new-chat-btn::after {
+    content: '+';
+    font-size: 16px;
+    font-weight: 400;
+    position: absolute;
+    right: 14px;
+  }
+
+  /* Session list */
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Session card */
+  .session-card {
+    padding: 10px 12px;
+    border: 1px solid var(--grid-line);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: var(--paper);
+    animation: fadeDrawIn 0.4s ease-out both;
+  }
+  .session-card:nth-child(1) { animation-delay: 0.1s; }
+  .session-card:nth-child(2) { animation-delay: 0.18s; }
+  .session-card:nth-child(3) { animation-delay: 0.26s; }
+  .session-card:nth-child(4) { animation-delay: 0.34s; }
+  .session-card:nth-child(5) { animation-delay: 0.42s; }
+
+  .session-card:hover {
+    border-color: var(--border-strong);
+    background: var(--hover-fill);
+    box-shadow: 0 1px 4px var(--shadow-blue);
+  }
+  .session-card.active {
+    border-color: var(--blueprint);
+    background: var(--active-fill);
+    box-shadow: inset 3px 0 0 var(--blueprint), 0 1px 4px var(--shadow-blue);
+  }
+
+  /* Dimension lines on active card */
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: var(--blueprint-light);
+  }
+  .session-card.active::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: var(--blueprint-light);
+  }
+
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .persona-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .persona-dot.pm { background: var(--blueprint); }
+  .persona-dot.dev { background: var(--construction-yellow); border-color: #c9a830; }
+  .persona-dot.qa { background: var(--annotation-red); }
+  .persona-dot.arch { background: #5B9A5B; }
+
+  .session-kebab {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 14px;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .session-kebab:hover {
+    color: var(--blueprint);
+    background: var(--hover-fill);
+    border-color: var(--border-blue);
+  }
+
+  .session-preview {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-bottom: 7px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .session-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .session-time {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .session-badge {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .badge-active {
+    color: #2D7D46;
+    background: #E6F4EA;
+    border: 1px solid #B7DFC6;
+  }
+  .badge-complete {
+    color: var(--blueprint);
+    background: #E8F0FA;
+    border: 1px solid var(--border-blue);
+  }
+  .badge-paused {
+    color: #8A6D20;
+    background: #FDF6E3;
+    border: 1px solid #E8D890;
+  }
+  .badge-error {
+    color: var(--annotation-red);
+    background: #FDF0F0;
+    border: 1px solid #F0C0C0;
+  }
+  .badge-perm {
+    color: var(--dimension-gray);
+    background: var(--paper-warm);
+    border: 1px solid var(--grid-line);
+  }
+  .badge-perm-auto {
+    color: var(--blueprint);
+    background: #E0ECFA;
+    border: 1px solid var(--border-blue);
+  }
+
+  /* Sidebar footer with annotation */
+  .sidebar-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--grid-line);
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-footer-count {
+    color: var(--blueprint);
+    font-weight: 700;
+  }
+
+  /* ── CENTER PANEL ──────────────────────────────────────────── */
+  .center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--paper);
+    position: relative;
+    animation: fadeDrawIn 0.5s ease-out 0.1s both;
+  }
+
+  /* Persona selector bar */
+  .persona-bar {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--grid-line);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .persona-bar-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .persona-btn {
+    padding: 5px 14px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid var(--grid-line);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+  }
+  .persona-btn:hover {
+    border-color: var(--border-strong);
+    background: var(--hover-fill);
+    color: var(--blueprint);
+  }
+  .persona-btn.selected {
+    border-color: var(--blueprint);
+    background: var(--active-fill);
+    color: var(--blueprint);
+    box-shadow: 0 1px 3px var(--shadow-blue);
+  }
+  .persona-btn .p-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Messages area */
+  .messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Message bubbles */
+  .message {
+    display: flex;
+    flex-direction: column;
+    max-width: 72%;
+    animation: fadeDrawIn 0.35s ease-out both;
+  }
+  .message.user {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+  .message.agent {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+
+  .message-sender {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .message-sender .sender-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+
+  .message-bubble {
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    font-size: 13px;
+    line-height: 1.55;
+    position: relative;
+  }
+  .message.user .message-bubble {
+    background: var(--blueprint);
+    color: white;
+    border: 1px solid var(--blueprint-deep);
+    border-bottom-right-radius: 1px;
+  }
+  .message.agent .message-bubble {
+    background: var(--paper-warm);
+    color: var(--text-primary);
+    border: 1px solid var(--border-blue);
+    border-bottom-left-radius: 1px;
+  }
+
+  /* Annotation leader line on agent messages */
+  .message.agent .message-bubble::before {
+    content: '';
+    position: absolute;
+    left: -16px;
+    top: 12px;
+    width: 12px;
+    height: 1px;
+    background: var(--border-blue);
+  }
+  .message.agent .message-bubble::after {
+    content: '';
+    position: absolute;
+    left: -16px;
+    top: 9px;
+    width: 1px;
+    height: 7px;
+    background: var(--border-blue);
+  }
+
+  .message-time {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ── Tool Activity Group ───────────────────────────────────── */
+  .tool-group {
+    align-self: flex-start;
+    max-width: 80%;
+    animation: fadeDrawIn 0.4s ease-out both;
+  }
+  .tool-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .tool-group-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--blueprint);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .tool-group-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-blue);
+    position: relative;
+  }
+  .tool-group-line::before, .tool-group-line::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    width: 1px;
+    height: 5px;
+    background: var(--blueprint-light);
+  }
+  .tool-group-line::before { left: 0; }
+  .tool-group-line::after { right: 0; }
+  .tool-group-count {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .tool-group-body {
+    border: 1px solid var(--border-blue);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    overflow: hidden;
+  }
+
+  /* Tool activity card / row */
+  .tool-card {
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--grid-fine);
+    transition: background 0.15s;
+    position: relative;
+  }
+  .tool-card:last-child { border-bottom: none; }
+  .tool-card:hover { background: var(--hover-fill); }
+
+  /* Timeline connector */
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--grid-line);
+  }
+  .tool-card:first-child::before { top: 50%; }
+  .tool-card:last-child::before { bottom: 50%; }
+
+  .tool-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--blueprint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--blueprint);
+    background: white;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+  .tool-icon.success {
+    border-color: #2D7D46;
+    color: #2D7D46;
+  }
+  .tool-icon.warn {
+    border-color: #C9A830;
+    color: #C9A830;
+  }
+  .tool-card-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .tool-card-name {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  .tool-card-detail {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tool-card-duration {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  /* Thinking indicator */
+  .thinking-indicator {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border: 1px dashed var(--border-blue);
+    border-radius: var(--radius-md);
+    background: var(--paper-warm);
+    animation: fadeDrawIn 0.3s ease-out both;
+  }
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .thinking-dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--blueprint-light);
+    animation: thinkPulse 1.2s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes thinkPulse {
+    0%, 60%, 100% { opacity: 0.25; transform: scale(0.85); }
+    30% { opacity: 1; transform: scale(1.1); }
+  }
+  .thinking-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Chat input */
+  .chat-input-area {
+    padding: 14px 20px 16px;
+    border-top: 1px solid var(--grid-line);
+    background: var(--paper);
+  }
+  .chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    background: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .chat-input-wrapper:focus-within {
+    border-color: var(--blueprint);
+    box-shadow: 0 0 0 3px rgba(43, 94, 167, 0.1);
+  }
+  .chat-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: 'Atkinson Hyperlegible Next', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    resize: none;
+    min-height: 20px;
+    max-height: 80px;
+    line-height: 1.5;
+    background: transparent;
+  }
+  .chat-input::placeholder {
+    color: var(--pencil-faint);
+  }
+  .chat-send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--blueprint);
+    background: var(--blueprint);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .chat-send-btn:hover {
+    background: var(--blueprint-deep);
+    box-shadow: 0 2px 6px var(--shadow-deep);
+  }
+  .chat-input-hint {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    padding-left: 2px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── RIGHT PANEL ───────────────────────────────────────────── */
+  .right-panel {
+    width: 380px;
+    flex-shrink: 0;
+    border-left: 1.5px solid var(--blueprint);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    animation: fadeDrawIn 0.5s ease-out 0.2s both;
+  }
+  .right-panel::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--grid-line);
+  }
+
+  /* Tabs */
+  .right-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--grid-line);
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  .right-tab {
+    flex: 1;
+    padding: 10px 8px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .right-tab:hover {
+    color: var(--blueprint-light);
+    background: var(--hover-fill);
+  }
+  .right-tab.active {
+    color: var(--blueprint);
+    border-bottom-color: var(--blueprint);
+  }
+
+  .right-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ── Dashboard Cards ───────────────────────────────────────── */
+  .dash-card {
+    border: 1px solid var(--border-blue);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    overflow: hidden;
+    position: relative;
+    animation: fadeDrawIn 0.4s ease-out both;
+  }
+  .dash-card:nth-child(1) { animation-delay: 0.25s; }
+  .dash-card:nth-child(2) { animation-delay: 0.35s; }
+  .dash-card:nth-child(3) { animation-delay: 0.45s; }
+  .dash-card:nth-child(4) { animation-delay: 0.55s; }
+
+  /* Dimension lines on cards */
+  .dash-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8px;
+    width: 1px;
+    height: 100%;
+    background: repeating-linear-gradient(
+      180deg,
+      var(--grid-fine) 0px,
+      var(--grid-fine) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+    opacity: 0.6;
+  }
+
+  .dash-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 8px var(--shadow-blue);
+  }
+
+  .dash-card-header {
+    padding: 10px 14px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--grid-fine);
+  }
+  .dash-card-title {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--blueprint);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dash-card-title .callout-marker {
+    width: 4px;
+    height: 4px;
+    background: var(--annotation-red);
+    border-radius: 50%;
+  }
+  .dash-card-badge {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    border: 1px solid var(--grid-line);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .dash-card-body {
+    padding: 12px 14px;
+  }
+
+  /* What Next card */
+  .what-next-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .what-next-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--grid-fine);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .what-next-item:hover {
+    border-color: var(--border-strong);
+    background: var(--hover-fill);
+  }
+  .what-next-item.priority-high {
+    border-left: 3px solid var(--annotation-red);
+  }
+  .what-next-item.priority-med {
+    border-left: 3px solid var(--construction-yellow);
+  }
+  .what-next-item.priority-low {
+    border-left: 3px solid var(--blueprint-light);
+  }
+  .what-next-num {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 16px;
+    flex-shrink: 0;
+  }
+  .what-next-text {
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .what-next-tag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--annotation-red);
+    margin-left: auto;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+  }
+
+  /* Project Health */
+  .health-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .health-ring {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .health-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .health-ring-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--blueprint);
+  }
+  .health-checklist {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .health-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .health-check-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1.5px solid var(--border-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .health-check-icon.done {
+    border-color: #2D7D46;
+    background: #E6F4EA;
+    color: #2D7D46;
+  }
+  .health-check-icon.warn {
+    border-color: #C9A830;
+    background: #FDF6E3;
+    color: #C9A830;
+  }
+  .health-check-icon.fail {
+    border-color: var(--annotation-red);
+    background: #FDF0F0;
+    color: var(--annotation-red);
+  }
+
+  /* Phase cards */
+  .phase-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .phase-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--grid-fine);
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .phase-card:hover {
+    border-color: var(--border-strong);
+    background: var(--hover-fill);
+  }
+  .phase-num {
+    font-family: 'Courier Prime', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--blueprint);
+    min-width: 28px;
+    text-align: center;
+    line-height: 1;
+  }
+  .phase-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .phase-name {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+  }
+  .phase-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+  }
+  .phase-status {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .phase-status.done {
+    color: #2D7D46;
+    background: #E6F4EA;
+    border: 1px solid #B7DFC6;
+  }
+  .phase-status.active {
+    color: var(--blueprint);
+    background: #E0ECFA;
+    border: 1px solid var(--border-blue);
+  }
+  .phase-status.pending {
+    color: var(--text-muted);
+    background: var(--paper-warm);
+    border: 1px solid var(--grid-line);
+  }
+
+  /* Progress bar (mini) */
+  .progress-bar-mini {
+    width: 100%;
+    height: 3px;
+    background: var(--grid-fine);
+    border-radius: 2px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+  .progress-bar-mini-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--blueprint);
+    transition: width 0.6s ease;
+  }
+
+  /* Recent Runs table */
+  .runs-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .runs-table th {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0 6px 6px;
+    border-bottom: 1px solid var(--grid-line);
+  }
+  .runs-table td {
+    padding: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--grid-fine);
+  }
+  .runs-table tr:last-child td { border-bottom: none; }
+  .runs-table tr:hover td {
+    background: var(--hover-fill);
+  }
+  .run-name {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  .run-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .run-status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+  .run-status.pass { color: #2D7D46; }
+  .run-status.pass .run-status-dot { background: #2D7D46; }
+  .run-status.fail { color: var(--annotation-red); }
+  .run-status.fail .run-status-dot { background: var(--annotation-red); }
+  .run-status.running { color: var(--blueprint); }
+  .run-status.running .run-status-dot { background: var(--blueprint); animation: thinkPulse 1s infinite; }
+
+  /* ── Compass Rose (decorative) ─────────────────────────────── */
+  .compass-rose {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    width: 48px;
+    height: 48px;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ── Annotation Callout Labels ─────────────────────────────── */
+  .callout {
+    position: absolute;
+    font-family: 'Courier Prime', monospace;
+    font-size: 8px;
+    color: var(--annotation-red);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  .callout::before {
+    content: '';
+    position: absolute;
+    background: var(--annotation-red);
+    opacity: 0.4;
+  }
+  /* Horizontal leader left */
+  .callout.leader-left::before {
+    right: 100%;
+    top: 50%;
+    width: 16px;
+    height: 1px;
+    margin-right: 4px;
+  }
+  .callout.leader-left::after {
+    content: '';
+    position: absolute;
+    right: calc(100% + 16px);
+    top: 50%;
+    width: 1px;
+    height: 5px;
+    background: var(--annotation-red);
+    opacity: 0.4;
+    transform: translateY(-50%);
+  }
+
+  /* ── Hover Dimension Annotations ───────────────────────────── */
+  .dimension-hover {
+    position: relative;
+  }
+  .dimension-hover::after {
+    content: attr(data-dim);
+    position: absolute;
+    top: -14px;
+    right: 4px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 8px;
+    color: var(--dimension-gray);
+    opacity: 0;
+    transition: opacity 0.2s;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+  }
+  .dimension-hover:hover::after {
+    opacity: 1;
+  }
+
+  /* ── Section Header with Dimension Line ────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-header-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--blueprint);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .section-header-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-blue);
+    position: relative;
+  }
+  .section-header-line::before, .section-header-line::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    width: 1px;
+    height: 5px;
+    background: var(--blueprint);
+  }
+  .section-header-line::before { left: 0; }
+  .section-header-line::after { right: 0; }
+
+  /* ── Crosshair cursor on panels ────────────────────────────── */
+  .crosshair-zone {
+    cursor: crosshair;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── TITLE BAR ─────────────────────────────────────────────── -->
+<div class="title-bar">
+  <div class="title-bar-logo">
+    <!-- Compass Rose SVG -->
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" stroke="#2B5EA7" stroke-width="1" fill="none"/>
+      <circle cx="20" cy="20" r="14" stroke="#D4E4F7" stroke-width="0.5" fill="none"/>
+      <polygon points="20,3 22,17 20,15 18,17" fill="#2B5EA7"/>
+      <polygon points="20,37 18,23 20,25 22,23" fill="#B8D0EA"/>
+      <polygon points="3,20 17,18 15,20 17,22" fill="#B8D0EA"/>
+      <polygon points="37,20 23,22 25,20 23,18" fill="#B8D0EA"/>
+      <circle cx="20" cy="20" r="2" fill="#2B5EA7"/>
+      <text x="20" y="8" text-anchor="middle" font-family="Courier Prime" font-size="4" fill="#CC3333" font-weight="700">N</text>
+    </svg>
+    <span class="title-bar-title">Tinsu Planning Workspace</span>
+  </div>
+  <div class="title-bar-sep"></div>
+  <div class="title-bar-nav">
+    <button class="title-bar-nav-btn active">Planning</button>
+    <button class="title-bar-nav-btn">Workflows</button>
+    <button class="title-bar-nav-btn">Artifacts</button>
+    <button class="title-bar-nav-btn">Settings</button>
+  </div>
+  <div class="title-bar-meta">
+    <span class="title-bar-coord">REV 2026.03.26</span>
+    <span class="title-bar-scale">SCALE 1:1</span>
+  </div>
+</div>
+
+<!-- ── WORKSPACE ─────────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- ── LEFT SIDEBAR ──────────────────────────────────────── -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-label">Chat Sessions</div>
+      <button class="new-chat-btn">New Chat</button>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Session 1 - Active -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <span class="session-persona">
+            <span class="persona-dot pm"></span>
+            PM Agent
+          </span>
+          <span class="session-kebab">&#8942;</span>
+        </div>
+        <div class="session-preview">Sprint 14 planning refinement: finalizing story points for auth module and dependency mapping for the billing epic.</div>
+        <div class="session-meta">
+          <span class="session-time">10:42 AM</span>
+          <span class="session-badge badge-active">Active</span>
+          <span class="session-badge badge-perm-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <span class="session-persona">
+            <span class="persona-dot dev"></span>
+            Dev Agent
+          </span>
+          <span class="session-kebab">&#8942;</span>
+        </div>
+        <div class="session-preview">Implementing the webhook retry logic with exponential backoff. Schema migration draft is ready for review.</div>
+        <div class="session-meta">
+          <span class="session-time">09:15 AM</span>
+          <span class="session-badge badge-complete">Done</span>
+          <span class="session-badge badge-perm">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <span class="session-persona">
+            <span class="persona-dot qa"></span>
+            QA Agent
+          </span>
+          <span class="session-kebab">&#8942;</span>
+        </div>
+        <div class="session-preview">Test coverage analysis for payment gateway integration. Found 3 edge cases in refund flow that need attention.</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <span class="session-badge badge-error">Blocked</span>
+          <span class="session-badge badge-perm">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <span class="session-persona">
+            <span class="persona-dot arch"></span>
+            Arch Agent
+          </span>
+          <span class="session-kebab">&#8942;</span>
+        </div>
+        <div class="session-preview">Evaluating microservice boundaries for the notification subsystem. Proposing event-driven pattern with Redis Streams.</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <span class="session-badge badge-paused">Paused</span>
+          <span class="session-badge badge-perm-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <span class="session-persona">
+            <span class="persona-dot pm"></span>
+            PM Agent
+          </span>
+          <span class="session-kebab">&#8942;</span>
+        </div>
+        <div class="session-preview">Roadmap Q2 review: capacity allocation across teams, risk register updates, and stakeholder sync prep.</div>
+        <div class="session-meta">
+          <span class="session-time">Mar 24</span>
+          <span class="session-badge badge-complete">Done</span>
+          <span class="session-badge badge-perm-auto">Auto</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sidebar-footer">
+      <span><span class="sidebar-footer-count">5</span> sessions</span>
+      <span>DWG-001</span>
+    </div>
+  </div>
+
+  <!-- ── CENTER PANEL ──────────────────────────────────────── -->
+  <div class="center-panel">
+
+    <!-- Persona selector -->
+    <div class="persona-bar">
+      <span class="persona-bar-label">Persona:</span>
+      <button class="persona-btn selected">
+        <span class="p-dot" style="background: var(--blueprint);"></span>
+        PM
+      </button>
+      <button class="persona-btn">
+        <span class="p-dot" style="background: var(--construction-yellow); border: 1px solid #c9a830;"></span>
+        Dev
+      </button>
+      <button class="persona-btn">
+        <span class="p-dot" style="background: var(--annotation-red);"></span>
+        QA
+      </button>
+      <button class="persona-btn">
+        <span class="p-dot" style="background: #5B9A5B;"></span>
+        Arch
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area crosshair-zone">
+
+      <!-- User message 1 -->
+      <div class="message user" style="animation-delay: 0.1s;">
+        <div class="message-sender">
+          <span class="sender-dot" style="background: var(--pencil);"></span>
+          You
+        </div>
+        <div class="message-bubble">
+          Let's review the sprint 14 backlog. I want to prioritize the auth module stories and make sure the billing epic dependencies are mapped correctly.
+        </div>
+        <div class="message-time">10:38 AM</div>
+      </div>
+
+      <!-- Agent message 1 -->
+      <div class="message agent" style="animation-delay: 0.2s;">
+        <div class="message-sender">
+          <span class="sender-dot" style="background: var(--blueprint);"></span>
+          PM Agent
+        </div>
+        <div class="message-bubble">
+          I've pulled the current backlog for Sprint 14. There are <strong>12 stories</strong> queued, with 3 directly tied to the auth module. Let me analyze the dependency graph for the billing epic against your team's velocity.<br><br>
+          Based on the last 3 sprints, your average velocity is <strong>34 points</strong>. The auth module stories total 13 points, which leaves capacity for the billing work if we defer the notification refactor.
+        </div>
+        <div class="message-time">10:39 AM</div>
+      </div>
+
+      <!-- User message 2 -->
+      <div class="message user" style="animation-delay: 0.3s;">
+        <div class="message-sender">
+          <span class="sender-dot" style="background: var(--pencil);"></span>
+          You
+        </div>
+        <div class="message-bubble">
+          Good analysis. Can you run the dependency check on the billing epic and show me what's blocking?
+        </div>
+        <div class="message-time">10:40 AM</div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group" style="animation-delay: 0.4s;">
+        <div class="tool-group-header">
+          <span class="tool-group-label">Tool Execution</span>
+          <span class="tool-group-line"></span>
+          <span class="tool-group-count">3 actions</span>
+        </div>
+        <div class="tool-group-body">
+          <div class="tool-card">
+            <div class="tool-icon success">&#10003;</div>
+            <div class="tool-card-info">
+              <div class="tool-card-name">read_file</div>
+              <div class="tool-card-detail">sprint-backlog.yaml &mdash; parsed 12 stories, 47 acceptance criteria</div>
+            </div>
+            <div class="tool-card-duration">0.8s</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon success">&#10003;</div>
+            <div class="tool-card-info">
+              <div class="tool-card-name">analyze_dependencies</div>
+              <div class="tool-card-detail">billing-epic &mdash; resolved 8 nodes, 5 edges, 2 blockers found</div>
+            </div>
+            <div class="tool-card-duration">2.3s</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon warn">!</div>
+            <div class="tool-card-info">
+              <div class="tool-card-name">check_team_capacity</div>
+              <div class="tool-card-detail">velocity forecast &mdash; 87% confidence, 2 developers on PTO next week</div>
+            </div>
+            <div class="tool-card-duration">1.1s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent message 2 -->
+      <div class="message agent" style="animation-delay: 0.5s;">
+        <div class="message-sender">
+          <span class="sender-dot" style="background: var(--blueprint);"></span>
+          PM Agent
+        </div>
+        <div class="message-bubble">
+          The dependency analysis found <strong>2 blockers</strong> for the billing epic:<br><br>
+          <strong style="color: var(--annotation-red);">1.</strong> <code style="background: #EBF2FA; padding: 1px 5px; border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 12px;">BILL-204</code> requires the auth token refresh endpoint (blocked by <code style="background: #EBF2FA; padding: 1px 5px; border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 12px;">AUTH-118</code>)<br>
+          <strong style="color: var(--annotation-red);">2.</strong> <code style="background: #EBF2FA; padding: 1px 5px; border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 12px;">BILL-207</code> payment webhook depends on the retry logic in <code style="background: #EBF2FA; padding: 1px 5px; border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 12px;">INFRA-42</code><br><br>
+          I recommend prioritizing AUTH-118 this sprint and moving INFRA-42 into the current sprint if capacity allows. Want me to draft the updated sprint plan?
+        </div>
+        <div class="message-time">10:41 AM</div>
+      </div>
+
+      <!-- User message 3 -->
+      <div class="message user" style="animation-delay: 0.6s;">
+        <div class="message-sender">
+          <span class="sender-dot" style="background: var(--pencil);"></span>
+          You
+        </div>
+        <div class="message-bubble">
+          Yes, draft the updated plan. Also flag the capacity risk with the 2 devs on PTO.
+        </div>
+        <div class="message-time">10:42 AM</div>
+      </div>
+
+      <!-- Thinking indicator -->
+      <div class="thinking-indicator" style="animation-delay: 0.7s;">
+        <div class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span class="thinking-label">PM Agent is drafting sprint plan...</span>
+      </div>
+
+    </div>
+
+    <!-- Input area -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-input" placeholder="Type a message..." rows="1"></textarea>
+        <button class="chat-send-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 8L14 2L8 14L7 9L2 8Z" fill="white" stroke="white" stroke-width="0.5" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chat-input-hint">ENTER to send &middot; SHIFT+ENTER for new line &middot; / for commands</div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ───────────────────────────────────────── -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="right-tabs">
+      <button class="right-tab active">Dashboard</button>
+      <button class="right-tab">Artifact</button>
+      <button class="right-tab">Readiness</button>
+    </div>
+
+    <div class="right-content">
+
+      <!-- What Next Card -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">
+            <span class="callout-marker"></span>
+            What Next
+          </span>
+          <span class="dash-card-badge">3 items</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="what-next-content">
+            <div class="what-next-item priority-high">
+              <span class="what-next-num">01</span>
+              <span class="what-next-text">Resolve AUTH-118 blocker &mdash; token refresh endpoint needed for billing integration</span>
+              <span class="what-next-tag">URGENT</span>
+            </div>
+            <div class="what-next-item priority-med">
+              <span class="what-next-num">02</span>
+              <span class="what-next-text">Review sprint capacity with 2 developers on PTO March 28-April 2</span>
+              <span class="what-next-tag">RISK</span>
+            </div>
+            <div class="what-next-item priority-low">
+              <span class="what-next-num">03</span>
+              <span class="what-next-text">Schedule stakeholder sync for Q2 roadmap alignment and billing epic timeline</span>
+              <span class="what-next-tag">PLAN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Health Card -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Project Health</span>
+          <span class="dash-card-badge">Sprint 14</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="health-row">
+            <div class="health-ring">
+              <svg viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="24" stroke="#E8EFF8" stroke-width="4" fill="none"/>
+                <circle cx="28" cy="28" r="24" stroke="#2B5EA7" stroke-width="4" fill="none"
+                  stroke-dasharray="150.8" stroke-dashoffset="52.8" stroke-linecap="round"/>
+              </svg>
+              <div class="health-ring-value">65%</div>
+            </div>
+            <div class="health-checklist">
+              <div class="health-check">
+                <span class="health-check-icon done">&#10003;</span>
+                Sprint backlog refined (12/12 stories)
+              </div>
+              <div class="health-check">
+                <span class="health-check-icon done">&#10003;</span>
+                Auth module stories estimated
+              </div>
+              <div class="health-check">
+                <span class="health-check-icon warn">!</span>
+                Dependency blockers unresolved (2)
+              </div>
+              <div class="health-check">
+                <span class="health-check-icon fail">&#10005;</span>
+                Capacity risk not mitigated
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Cards -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Project Phases</span>
+          <span class="dash-card-badge">3 phases</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="phase-cards">
+            <div class="phase-card">
+              <div class="phase-num">I</div>
+              <div class="phase-info">
+                <div class="phase-name">Foundation &amp; Auth</div>
+                <div class="phase-desc">Core authentication, user management, RBAC</div>
+                <div class="progress-bar-mini"><div class="progress-bar-mini-fill" style="width: 92%;"></div></div>
+              </div>
+              <span class="phase-status done">92%</span>
+            </div>
+            <div class="phase-card">
+              <div class="phase-num">II</div>
+              <div class="phase-info">
+                <div class="phase-name">Billing &amp; Payments</div>
+                <div class="phase-desc">Payment gateway, invoicing, subscription mgmt</div>
+                <div class="progress-bar-mini"><div class="progress-bar-mini-fill" style="width: 38%;"></div></div>
+              </div>
+              <span class="phase-status active">38%</span>
+            </div>
+            <div class="phase-card">
+              <div class="phase-num">III</div>
+              <div class="phase-info">
+                <div class="phase-name">Notifications &amp; Events</div>
+                <div class="phase-desc">Event bus, email/SMS, webhook delivery</div>
+                <div class="progress-bar-mini"><div class="progress-bar-mini-fill" style="width: 5%;"></div></div>
+              </div>
+              <span class="phase-status pending">5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Runs Table -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Recent Runs</span>
+          <span class="dash-card-badge">Last 24h</span>
+        </div>
+        <div class="dash-card-body" style="padding: 8px 10px;">
+          <table class="runs-table">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="run-name">auth-unit-tests</span></td>
+                <td><span class="run-status pass"><span class="run-status-dot"></span>Pass</span></td>
+                <td>2m 14s</td>
+                <td>10:35 AM</td>
+              </tr>
+              <tr>
+                <td><span class="run-name">billing-integration</span></td>
+                <td><span class="run-status fail"><span class="run-status-dot"></span>Fail</span></td>
+                <td>4m 51s</td>
+                <td>10:12 AM</td>
+              </tr>
+              <tr>
+                <td><span class="run-name">lint-typecheck</span></td>
+                <td><span class="run-status pass"><span class="run-status-dot"></span>Pass</span></td>
+                <td>1m 03s</td>
+                <td>09:48 AM</td>
+              </tr>
+              <tr>
+                <td><span class="run-name">e2e-payment-flow</span></td>
+                <td><span class="run-status running"><span class="run-status-dot"></span>Running</span></td>
+                <td>3m 22s</td>
+                <td>10:40 AM</td>
+              </tr>
+              <tr>
+                <td><span class="run-name">deploy-staging</span></td>
+                <td><span class="run-status pass"><span class="run-status-dot"></span>Pass</span></td>
+                <td>5m 47s</td>
+                <td>Yesterday</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Compass Rose (decorative, fixed) ──────────────────────── -->
+<svg class="compass-rose" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="30" cy="30" r="28" stroke="#2B5EA7" stroke-width="1"/>
+  <circle cx="30" cy="30" r="22" stroke="#2B5EA7" stroke-width="0.5" stroke-dasharray="2 2"/>
+  <polygon points="30,3 32.5,25 30,22 27.5,25" fill="#2B5EA7"/>
+  <polygon points="30,57 27.5,35 30,38 32.5,35" fill="#2B5EA7"/>
+  <polygon points="3,30 25,27.5 22,30 25,32.5" fill="#2B5EA7"/>
+  <polygon points="57,30 35,32.5 38,30 35,27.5" fill="#2B5EA7"/>
+  <!-- Diagonal points -->
+  <polygon points="10,10 26,26 24,25 25,24" fill="#2B5EA7" opacity="0.5"/>
+  <polygon points="50,10 34,26 36,25 35,24" fill="#2B5EA7" opacity="0.5"/>
+  <polygon points="10,50 26,34 24,35 25,36" fill="#2B5EA7" opacity="0.5"/>
+  <polygon points="50,50 34,34 36,35 35,36" fill="#2B5EA7" opacity="0.5"/>
+  <circle cx="30" cy="30" r="3" fill="#2B5EA7"/>
+  <circle cx="30" cy="30" r="1.5" fill="#F8FAFC"/>
+  <text x="30" y="9" text-anchor="middle" font-family="Courier Prime" font-size="5" fill="#CC3333" font-weight="700">N</text>
+  <text x="30" y="56" text-anchor="middle" font-family="Courier Prime" font-size="5" fill="#2B5EA7">S</text>
+  <text x="7" y="32" text-anchor="middle" font-family="Courier Prime" font-size="5" fill="#2B5EA7">W</text>
+  <text x="53" y="32" text-anchor="middle" font-family="Courier Prime" font-size="5" fill="#2B5EA7">E</text>
+</svg>
+
+</body>
+</html>

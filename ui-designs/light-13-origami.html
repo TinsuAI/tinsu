@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Origami</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Karla:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   ORIGAMI PAPER — Tinsu Planning Workspace
+   Japanese paper folding art — folded sheets,
+   crease shadows, triangular folds, stacked paper
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --rice: #FAF9F6;
+  --paper: #F5F3EE;
+  --paper-gray: #EBE8E2;
+  --fold-shadow: #D4CFC7;
+  --crease: #CCC5B9;
+  --origami-red: #C41E3A;
+  --origami-red-soft: rgba(196, 30, 58, 0.08);
+  --origami-red-mid: rgba(196, 30, 58, 0.15);
+  --origami-blue: #2E5090;
+  --origami-blue-soft: rgba(46, 80, 144, 0.08);
+  --origami-green: #3A7D44;
+  --origami-green-soft: rgba(58, 125, 68, 0.08);
+  --origami-gold: #C49B30;
+  --origami-gold-soft: rgba(196, 155, 48, 0.08);
+  --text-primary: #2C2824;
+  --text-secondary: #6B655D;
+  --text-tertiary: #9A938A;
+  --stack-shadow-1: 2px 2px 0 #EBE8E2;
+  --stack-shadow-2: 4px 4px 0 #E2DED6;
+  --stack-shadow-3: 6px 6px 0 #D9D4CB;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Karla', sans-serif;
+  background: var(--paper-gray);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── Paper Texture Background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* ── Decorative Origami Triangles ── */
+.origami-deco {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.origami-crane-1 {
+  top: 8%;
+  left: 3%;
+  width: 0;
+  height: 0;
+  border-left: 30px solid transparent;
+  border-right: 30px solid transparent;
+  border-bottom: 52px solid rgba(196, 30, 58, 0.06);
+  transform: rotate(-15deg);
+  animation: floatCrane 12s ease-in-out infinite;
+}
+
+.origami-crane-2 {
+  bottom: 12%;
+  right: 2%;
+  width: 0;
+  height: 0;
+  border-left: 22px solid transparent;
+  border-right: 22px solid transparent;
+  border-bottom: 38px solid rgba(46, 80, 144, 0.05);
+  transform: rotate(25deg);
+  animation: floatCrane 15s ease-in-out infinite reverse;
+}
+
+.origami-crane-3 {
+  top: 45%;
+  left: 48%;
+  width: 0;
+  height: 0;
+  border-left: 18px solid transparent;
+  border-right: 18px solid transparent;
+  border-bottom: 31px solid rgba(58, 125, 68, 0.04);
+  transform: rotate(10deg);
+  animation: floatCrane 18s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+.origami-crane-4 {
+  top: 6%;
+  right: 28%;
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 24px solid rgba(196, 155, 48, 0.06);
+  transform: rotate(-30deg);
+  animation: floatCrane 20s ease-in-out infinite;
+  animation-delay: -10s;
+}
+
+@keyframes floatCrane {
+  0%, 100% { transform: translateY(0) rotate(var(--r, -15deg)); }
+  50% { transform: translateY(-12px) rotate(var(--r, -15deg)); }
+}
+
+/* ── Title Bar ── */
+.title-bar {
+  height: 44px;
+  background: var(--rice);
+  border-bottom: 1px solid var(--fold-shadow);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 1px 0 rgba(204, 197, 185, 0.3);
+}
+
+.title-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--crease) 15%,
+    var(--fold-shadow) 50%,
+    var(--crease) 85%,
+    transparent 100%
+  );
+}
+
+.title-bar-text {
+  font-family: 'Noto Serif JP', serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.title-bar-text span {
+  color: var(--origami-red);
+  font-weight: 700;
+}
+
+.title-bar-controls {
+  display: flex;
+  gap: 8px;
+  margin-right: 14px;
+}
+
+.title-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.title-dot.close { background: #FF5F56; }
+.title-dot.minimize { background: #FFBD2E; }
+.title-dot.maximize { background: #27C93F; }
+
+.title-bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title-bar-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.title-bar-icon:hover { color: var(--text-primary); }
+
+/* ── Main Layout ── */
+.workspace {
+  display: flex;
+  height: calc(100vh - 44px);
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════
+   LEFT SIDEBAR — Chat Session List
+   ═══════════════════════════════════════════════════ */
+.sidebar-left {
+  width: 280px;
+  background: var(--rice);
+  border-right: 1px solid var(--fold-shadow);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Crease-line separator effect */
+.sidebar-left::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -1px;
+  width: 4px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(212, 207, 199, 0.4) 10%,
+    rgba(212, 207, 199, 0.2) 50%,
+    rgba(212, 207, 199, 0.4) 90%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 16px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-title {
+  font-family: 'Noto Serif JP', serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.new-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--origami-red);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  position: relative;
+  /* Folded corner on button */
+}
+
+.new-chat-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent var(--rice) transparent transparent;
+  opacity: 0.5;
+}
+
+.new-chat-btn:hover {
+  background: #A8192F;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.25);
+}
+
+.new-chat-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Session List */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 10px;
+}
+
+.session-list::-webkit-scrollbar { width: 4px; }
+.session-list::-webkit-scrollbar-track { background: transparent; }
+.session-list::-webkit-scrollbar-thumb { background: var(--crease); border-radius: 2px; }
+
+/* Session Card — Paper with folded corner */
+.session-card {
+  background: var(--paper);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 2px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s ease;
+  /* Stacked paper shadows */
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E5E2DB;
+  animation: paperUnfold 0.5s ease-out backwards;
+}
+
+.session-card:nth-child(1) { animation-delay: 0.05s; }
+.session-card:nth-child(2) { animation-delay: 0.1s; }
+.session-card:nth-child(3) { animation-delay: 0.15s; }
+.session-card:nth-child(4) { animation-delay: 0.2s; }
+.session-card:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes paperUnfold {
+  from {
+    opacity: 0;
+    transform: perspective(600px) rotateX(-15deg) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(600px) rotateX(0) translateY(0);
+  }
+}
+
+/* Folded corner triangle */
+.session-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 18px 18px 0;
+  border-color: transparent var(--paper-gray) transparent transparent;
+  transition: border-width 0.2s ease;
+  z-index: 2;
+}
+
+/* Shadow under the fold */
+.session-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(225deg, transparent 50%, rgba(0,0,0,0.04) 50%);
+  transform: rotate(0deg);
+  pointer-events: none;
+  z-index: 1;
+  transition: all 0.2s;
+}
+
+.session-card:hover {
+  transform: translateY(-2px) perspective(800px) rotateY(1deg);
+  box-shadow:
+    2px 2px 0 var(--paper-gray),
+    4px 4px 0 #E5E2DB,
+    6px 6px 12px rgba(0,0,0,0.06);
+  border-color: var(--crease);
+}
+
+.session-card:hover::before {
+  border-width: 0 22px 22px 0;
+}
+
+.session-card.active {
+  background: var(--rice);
+  border-color: var(--origami-red);
+  border-left: 3px solid var(--origami-red);
+  box-shadow:
+    2px 2px 0 rgba(196, 30, 58, 0.08),
+    4px 4px 0 rgba(196, 30, 58, 0.04),
+    0 4px 16px rgba(196, 30, 58, 0.08);
+}
+
+.session-card.active::before {
+  border-color: transparent var(--origami-red-soft) transparent transparent;
+  border-width: 0 20px 20px 0;
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-persona {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.session-kebab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+  position: relative;
+  z-index: 3;
+}
+
+.session-kebab:hover {
+  background: var(--paper-gray);
+  color: var(--text-primary);
+}
+
+.session-kebab svg { width: 14px; height: 14px; }
+
+.session-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.session-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.session-badge.active-badge {
+  background: var(--origami-green-soft);
+  color: var(--origami-green);
+  border: 1px solid rgba(58, 125, 68, 0.15);
+}
+
+.session-badge.completed {
+  background: var(--origami-blue-soft);
+  color: var(--origami-blue);
+  border: 1px solid rgba(46, 80, 144, 0.15);
+}
+
+.session-badge.paused {
+  background: var(--origami-gold-soft);
+  color: var(--origami-gold);
+  border: 1px solid rgba(196, 155, 48, 0.15);
+}
+
+.session-badge.permission {
+  background: var(--origami-red-soft);
+  color: var(--origami-red);
+  border: 1px solid rgba(196, 30, 58, 0.12);
+  margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════
+   CENTER PANEL — Chat Message Area
+   ═══════════════════════════════════════════════════ */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--rice);
+  min-width: 0;
+  position: relative;
+}
+
+/* Subtle vertical crease on left edge */
+.center-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(212, 207, 199, 0.25) 20%,
+    rgba(212, 207, 199, 0.1) 50%,
+    rgba(212, 207, 199, 0.25) 80%,
+    transparent
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Persona Selector */
+.persona-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--fold-shadow);
+  background: var(--paper);
+  position: relative;
+}
+
+/* Crease line divider */
+.persona-selector::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--crease) 20%,
+    var(--fold-shadow) 50%,
+    var(--crease) 80%,
+    transparent
+  );
+}
+
+.persona-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+.persona-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.persona-btn .pdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.persona-btn:hover {
+  background: var(--paper-gray);
+  border-color: var(--fold-shadow);
+  color: var(--text-primary);
+}
+
+.persona-btn.selected {
+  background: var(--rice);
+  border-color: var(--fold-shadow);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Paper fold on selected persona */
+.persona-btn.selected::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent var(--paper) transparent transparent;
+}
+
+/* Message Area */
+.message-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.message-area::-webkit-scrollbar { width: 5px; }
+.message-area::-webkit-scrollbar-track { background: transparent; }
+.message-area::-webkit-scrollbar-thumb { background: var(--crease); border-radius: 2px; }
+
+/* Messages */
+.message {
+  display: flex;
+  margin-bottom: 16px;
+  animation: paperUnfold 0.4s ease-out backwards;
+}
+
+.message.user { justify-content: flex-end; }
+.message.assistant { justify-content: flex-start; }
+
+.message-bubble {
+  max-width: 72%;
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.65;
+  position: relative;
+  border-radius: 3px;
+}
+
+/* User bubble — folded paper style */
+.message.user .message-bubble {
+  background: var(--origami-red);
+  color: white;
+  box-shadow:
+    1px 1px 0 rgba(196, 30, 58, 0.3),
+    2px 2px 0 rgba(196, 30, 58, 0.15),
+    0 3px 12px rgba(196, 30, 58, 0.12);
+}
+
+/* Folded corner on user messages */
+.message.user .message-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 14px 0 0 14px;
+  border-color: transparent transparent transparent var(--rice);
+}
+
+/* Assistant bubble — paper sheet */
+.message.assistant .message-bubble {
+  background: var(--paper);
+  color: var(--text-primary);
+  border: 1px solid var(--fold-shadow);
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E5E2DB,
+    0 3px 10px rgba(0,0,0,0.03);
+}
+
+/* Folded corner on assistant messages */
+.message.assistant .message-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 16px 16px 0;
+  border-color: transparent var(--rice) transparent transparent;
+}
+
+.assistant-persona-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.assistant-persona-tag .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.message-time {
+  font-size: 10px;
+  margin-top: 8px;
+  opacity: 0.5;
+  font-weight: 500;
+}
+
+.message.user .message-time { color: rgba(255,255,255,0.6); }
+.message.assistant .message-time { color: var(--text-tertiary); }
+
+/* Code inline */
+.message code {
+  background: rgba(0,0,0,0.06);
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+}
+
+.message.user code {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Tool Activity Group ── */
+.tool-group {
+  margin-bottom: 16px;
+  animation: paperUnfold 0.4s ease-out backwards;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.tool-group-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--origami-blue);
+}
+
+.tool-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--origami-blue);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.tool-group-count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.tool-group-duration {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Tool cards — paper strips */
+.tool-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 12px;
+  border-left: 2px solid var(--fold-shadow);
+  margin-left: 7px;
+}
+
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--paper);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 2px;
+  position: relative;
+  transition: all 0.2s;
+  box-shadow: 1px 1px 0 var(--paper-gray);
+}
+
+/* Tiny fold on tool card */
+.tool-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent var(--rice) transparent transparent;
+}
+
+.tool-card:hover {
+  transform: translateX(3px);
+  box-shadow: 1px 1px 0 var(--paper-gray), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* Timeline dot */
+.tool-card-dot {
+  position: absolute;
+  left: -19px;
+  width: 8px;
+  height: 8px;
+  background: var(--rice);
+  border: 2px solid var(--fold-shadow);
+  border-radius: 50%;
+}
+
+.tool-card-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--origami-blue);
+  flex-shrink: 0;
+}
+
+.tool-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.tool-card-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+}
+
+.tool-card-status {
+  width: 14px;
+  height: 14px;
+  color: var(--origami-green);
+  flex-shrink: 0;
+}
+
+/* ── Thinking Indicator ── */
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  animation: paperUnfold 0.3s ease-out;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--origami-red);
+  border-radius: 1px;
+  /* Square origami dots */
+  animation: foldPulse 1.4s ease-in-out infinite;
+  transform: rotate(45deg);
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes foldPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: rotate(45deg) scale(0.8); }
+  40% { opacity: 1; transform: rotate(45deg) scale(1.1); }
+}
+
+.thinking-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ── Chat Input ── */
+.chat-input-area {
+  padding: 14px 20px 18px;
+  background: var(--paper);
+  border-top: 1px solid var(--fold-shadow);
+  position: relative;
+}
+
+/* Crease line on top */
+.chat-input-area::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--crease) 20%,
+    var(--fold-shadow) 50%,
+    var(--crease) 80%,
+    transparent
+  );
+}
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--rice);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 3px;
+  padding: 4px 6px 4px 16px;
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E8E5DF;
+  transition: all 0.2s;
+  position: relative;
+}
+
+/* Folded corner on input */
+.chat-input-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent var(--paper) transparent transparent;
+  transition: border-width 0.2s;
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: var(--origami-red);
+  box-shadow:
+    1px 1px 0 rgba(196, 30, 58, 0.08),
+    2px 2px 0 rgba(196, 30, 58, 0.04),
+    0 3px 12px rgba(196, 30, 58, 0.06);
+}
+
+.chat-input-wrapper:focus-within::after {
+  border-color: transparent var(--origami-red-soft) transparent transparent;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: 'Karla', sans-serif;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  padding: 8px 0;
+}
+
+.chat-input::placeholder {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.input-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.input-action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.input-action-btn:hover {
+  background: var(--paper-gray);
+  color: var(--text-secondary);
+}
+
+.input-action-btn.send {
+  background: var(--origami-red);
+  color: white;
+}
+
+.input-action-btn.send:hover {
+  background: #A8192F;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(196, 30, 58, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════
+   RIGHT PANEL — Dashboard
+   ═══════════════════════════════════════════════════ */
+.sidebar-right {
+  width: 380px;
+  background: var(--paper);
+  border-left: 1px solid var(--fold-shadow);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Crease line on left edge */
+.sidebar-right::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 4px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(212, 207, 199, 0.4) 10%,
+    rgba(212, 207, 199, 0.15) 50%,
+    rgba(212, 207, 199, 0.4) 90%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Dashboard Tabs */
+.dashboard-tabs {
+  display: flex;
+  padding: 0;
+  border-bottom: 1px solid var(--fold-shadow);
+  background: var(--rice);
+  position: relative;
+}
+
+.dashboard-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    var(--crease),
+    var(--fold-shadow) 50%,
+    var(--crease)
+  );
+}
+
+.dashboard-tab {
+  flex: 1;
+  padding: 12px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.dashboard-tab:hover {
+  color: var(--text-secondary);
+  background: var(--paper);
+}
+
+.dashboard-tab.active {
+  color: var(--origami-red);
+  border-bottom-color: var(--origami-red);
+  font-weight: 600;
+  background: var(--paper);
+}
+
+/* Small fold triangle on active tab */
+.dashboard-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 6px 0 6px;
+  border-color: var(--rice) transparent transparent transparent;
+}
+
+/* Dashboard Content */
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.dashboard-content::-webkit-scrollbar { width: 4px; }
+.dashboard-content::-webkit-scrollbar-track { background: transparent; }
+.dashboard-content::-webkit-scrollbar-thumb { background: var(--crease); border-radius: 2px; }
+
+/* ── What Next Card — Special origami fold ── */
+.what-next-card {
+  background: var(--rice);
+  border: 1px solid var(--origami-gold);
+  border-radius: 3px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  position: relative;
+  box-shadow:
+    2px 2px 0 var(--origami-gold-soft),
+    4px 4px 0 rgba(196, 155, 48, 0.04),
+    0 4px 16px rgba(196, 155, 48, 0.08);
+  animation: paperUnfold 0.5s ease-out backwards;
+  animation-delay: 0.1s;
+}
+
+/* Large decorative fold */
+.what-next-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 28px 28px 0;
+  border-color: transparent var(--paper) transparent transparent;
+  z-index: 2;
+}
+
+/* Fold shadow underneath */
+.what-next-card::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 22px;
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(225deg, transparent 50%, rgba(196, 155, 48, 0.08) 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.what-next-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--origami-gold);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.what-next-label svg {
+  width: 14px;
+  height: 14px;
+}
+
+.what-next-title {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.what-next-reason {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+
+.what-next-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--origami-gold);
+  color: white;
+  border: none;
+  border-radius: 2px;
+  font-family: 'Karla', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.what-next-action::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent var(--paper) transparent transparent;
+  opacity: 0.4;
+}
+
+.what-next-action:hover {
+  background: #B08A28;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(196, 155, 48, 0.3);
+}
+
+.what-next-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Project Health Card ── */
+.health-card {
+  background: var(--rice);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 3px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  position: relative;
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E5E2DB;
+  animation: paperUnfold 0.5s ease-out backwards;
+  animation-delay: 0.15s;
+}
+
+.health-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 18px 18px 0;
+  border-color: transparent var(--paper) transparent transparent;
+}
+
+.health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.health-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.health-title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--origami-green);
+}
+
+.health-pct {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--origami-green);
+  font-family: 'Noto Serif JP', serif;
+}
+
+.health-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--paper-gray);
+  border-radius: 1px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  /* Inset crease shadow */
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--origami-green), #4A9B56);
+  border-radius: 1px;
+  transition: width 1s ease-out;
+  position: relative;
+}
+
+/* Paper fold pattern on progress bar */
+.health-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 20px,
+    rgba(255,255,255,0.15) 20px,
+    rgba(255,255,255,0.15) 21px
+  );
+}
+
+.health-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.health-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.health-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.health-check.done {
+  background: var(--origami-green);
+  color: white;
+}
+
+.health-check.missing {
+  background: var(--paper-gray);
+  border: 1px solid var(--crease);
+  color: var(--text-tertiary);
+}
+
+.health-item-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.health-item-label.done { color: var(--text-primary); }
+.health-item-label.missing { color: var(--text-tertiary); }
+
+.health-item-optional {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  padding: 1px 5px;
+  background: var(--paper-gray);
+  border-radius: 2px;
+  letter-spacing: 0.3px;
+}
+
+.health-item-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.health-item-badge.missing {
+  background: var(--origami-red-soft);
+  color: var(--origami-red);
+  border: 1px solid rgba(196, 30, 58, 0.12);
+}
+
+/* ── Planning Phases ── */
+.phases-section {
+  margin-bottom: 14px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--fold-shadow);
+  position: relative;
+}
+
+/* Crease effect on section divider */
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    var(--fold-shadow),
+    var(--crease) 30%,
+    transparent 50%,
+    var(--crease) 70%,
+    var(--fold-shadow)
+  );
+}
+
+.section-title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-secondary);
+}
+
+/* Phase Card */
+.phase-card {
+  background: var(--rice);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 3px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E5E2DB;
+  animation: paperUnfold 0.5s ease-out backwards;
+}
+
+.phase-card:nth-child(2) { animation-delay: 0.2s; }
+.phase-card:nth-child(3) { animation-delay: 0.3s; }
+.phase-card:nth-child(4) { animation-delay: 0.4s; }
+
+/* Folded corner */
+.phase-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 16px 16px 0;
+  border-color: transparent var(--paper) transparent transparent;
+  z-index: 2;
+}
+
+.phase-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--fold-shadow);
+  background: var(--rice);
+}
+
+.phase-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  /* Paper fold style — diamond rotation */
+  transform: rotate(0deg);
+}
+
+.phase-number.analysis { background: var(--origami-blue); }
+.phase-number.planning { background: var(--origami-green); }
+.phase-number.solutioning { background: var(--origami-red); }
+
+.phase-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.phase-card-name {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.phase-card-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.phase-card-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--paper-gray);
+  padding: 2px 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.phase-workflows {
+  padding: 6px 14px 8px;
+  background: var(--paper);
+}
+
+.workflow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(212, 207, 199, 0.4);
+}
+
+.workflow-row:last-child { border-bottom: none; }
+
+.workflow-info { min-width: 0; }
+
+.workflow-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.workflow-file {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: 'Courier New', monospace;
+  margin-top: 1px;
+}
+
+.workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 2px;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.workflow-badge svg { width: 10px; height: 10px; }
+
+.workflow-badge.approved {
+  background: var(--origami-green-soft);
+  color: var(--origami-green);
+  border: 1px solid rgba(58, 125, 68, 0.12);
+}
+
+.workflow-badge.draft {
+  background: var(--origami-blue-soft);
+  color: var(--origami-blue);
+  border: 1px solid rgba(46, 80, 144, 0.12);
+}
+
+.workflow-badge.in-review {
+  background: var(--origami-gold-soft);
+  color: var(--origami-gold);
+  border: 1px solid rgba(196, 155, 48, 0.12);
+}
+
+.workflow-badge.missing {
+  background: var(--origami-red-soft);
+  color: var(--origami-red);
+  border: 1px solid rgba(196, 30, 58, 0.12);
+}
+
+/* ── Recent Runs Table ── */
+.runs-section {
+  margin-bottom: 14px;
+}
+
+.runs-table {
+  background: var(--rice);
+  border: 1px solid var(--fold-shadow);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    1px 1px 0 var(--paper-gray),
+    2px 2px 0 #E5E2DB;
+}
+
+/* Fold on table */
+.runs-table::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 14px 14px 0;
+  border-color: transparent var(--paper) transparent transparent;
+  z-index: 2;
+}
+
+.runs-table-header {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 1fr 0.6fr;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--paper-gray);
+  border-bottom: 1px solid var(--fold-shadow);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.runs-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 1fr 0.6fr;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(212, 207, 199, 0.3);
+  font-size: 12px;
+  color: var(--text-primary);
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.runs-row:last-child { border-bottom: none; }
+
+.runs-row:hover { background: var(--paper); }
+
+.run-phase-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--paper-gray);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.run-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 2px;
+}
+
+.run-status-tag svg { width: 10px; height: 10px; }
+
+.run-status-tag.running {
+  background: var(--origami-blue-soft);
+  color: var(--origami-blue);
+  border: 1px solid rgba(46, 80, 144, 0.1);
+}
+
+.run-status-tag.succeeded {
+  background: var(--origami-green-soft);
+  color: var(--origami-green);
+  border: 1px solid rgba(58, 125, 68, 0.1);
+}
+
+.run-status-tag.failed {
+  background: var(--origami-red-soft);
+  color: var(--origami-red);
+  border: 1px solid rgba(196, 30, 58, 0.1);
+}
+
+.runs-row span:last-child {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE & POLISH
+   ═══════════════════════════════════════════════════ */
+
+/* Smooth scrolling */
+* { scroll-behavior: smooth; }
+
+/* Selection color */
+::selection {
+  background: rgba(196, 30, 58, 0.15);
+  color: var(--text-primary);
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 2px solid var(--origami-red);
+  outline-offset: 2px;
+}
+
+/* Stagger animations for messages */
+.message:nth-child(1) { animation-delay: 0.05s; }
+.message:nth-child(2) { animation-delay: 0.1s; }
+.message:nth-child(3) { animation-delay: 0.15s; }
+.message:nth-child(4) { animation-delay: 0.2s; }
+.message:nth-child(5) { animation-delay: 0.25s; }
+.message:nth-child(6) { animation-delay: 0.3s; }
+.message:nth-child(7) { animation-delay: 0.35s; }
+.tool-group { animation-delay: 0.28s; }
+
+</style>
+</head>
+<body>
+
+<!-- Decorative Origami Triangles -->
+<div class="origami-deco origami-crane-1"></div>
+<div class="origami-deco origami-crane-2"></div>
+<div class="origami-deco origami-crane-3"></div>
+<div class="origami-deco origami-crane-4"></div>
+
+<!-- Title Bar -->
+<div class="title-bar">
+  <div class="title-bar-controls">
+    <div class="title-dot close"></div>
+    <div class="title-dot minimize"></div>
+    <div class="title-dot maximize"></div>
+  </div>
+  <div class="title-bar-text"><span>Tinsu</span> Planning Workspace &mdash; Origami</div>
+  <div class="title-bar-right">
+    <svg class="title-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </svg>
+    <svg class="title-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══ WORKSPACE ═══ -->
+<div class="workspace">
+
+  <!-- ═══ LEFT SIDEBAR — Chat Sessions ═══ -->
+  <div class="sidebar-left">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Sessions</div>
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 5v14"/><path d="M5 12h14"/>
+        </svg>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Session 1 — Active -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot" style="background: var(--origami-green)"></span>
+            PM Agent
+          </div>
+          <button class="session-kebab">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Drafting the PRD with acceptance criteria for chat interface and planning dashboard epics...</div>
+        <div class="session-meta">
+          <span class="session-time">2 min ago</span>
+          <span class="session-badge active-badge">Active</span>
+          <span class="session-badge permission">Approval Needed</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot" style="background: var(--origami-blue)"></span>
+            Architect
+          </div>
+          <button class="session-kebab">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">System architecture review complete. Recommended tRPC + SQLite for the service layer with Electron IPC bridge.</div>
+        <div class="session-meta">
+          <span class="session-time">1 hr ago</span>
+          <span class="session-badge completed">Completed</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot" style="background: var(--origami-red)"></span>
+            Dev Agent
+          </div>
+          <button class="session-kebab">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Implemented hook-listener service with pre/post tool-use shell scripts. Tests passing at 94% coverage.</div>
+        <div class="session-meta">
+          <span class="session-time">3 hrs ago</span>
+          <span class="session-badge completed">Completed</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot" style="background: var(--origami-gold)"></span>
+            UX Designer
+          </div>
+          <button class="session-kebab">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">UX specification for chat panel with persona selector, tool activity groups, and session context menus.</div>
+        <div class="session-meta">
+          <span class="session-time">5 hrs ago</span>
+          <span class="session-badge paused">Paused</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot" style="background: var(--origami-green)"></span>
+            PM Agent
+          </div>
+          <button class="session-kebab">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Product brief finalized with market positioning, target personas, and competitive analysis summary.</div>
+        <div class="session-meta">
+          <span class="session-time">1 day ago</span>
+          <span class="session-badge completed">Completed</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ CENTER PANEL — Chat Messages ═══ -->
+  <div class="center-panel">
+
+    <!-- Persona Selector -->
+    <div class="persona-selector">
+      <span class="persona-label">Agent</span>
+      <button class="persona-btn selected">
+        <span class="pdot" style="background: var(--origami-green)"></span>
+        PM
+      </button>
+      <button class="persona-btn">
+        <span class="pdot" style="background: var(--origami-blue)"></span>
+        Architect
+      </button>
+      <button class="persona-btn">
+        <span class="pdot" style="background: var(--origami-red)"></span>
+        Dev
+      </button>
+      <button class="persona-btn">
+        <span class="pdot" style="background: var(--origami-gold)"></span>
+        UX
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-area">
+
+      <!-- User message 1 -->
+      <div class="message user">
+        <div class="message-bubble">
+          I need a comprehensive PRD for the planning workspace. Cover chat sessions, persona management, tool activity tracking, and the dashboard with phase progression.
+          <div class="message-time">10:14 AM</div>
+        </div>
+      </div>
+
+      <!-- Assistant message 1 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color: var(--origami-green)">
+            <span class="dot" style="background: var(--origami-green)"></span>
+            PM
+          </div>
+          Understood. I'll analyze the existing codebase and artifacts to draft a thorough PRD. Let me start by reviewing the product brief and any brainstorming artifacts for context.
+          <div class="message-time">10:15 AM</div>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <svg class="tool-group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          <span class="tool-group-label">Tool Activity</span>
+          <span class="tool-group-count">3 actions</span>
+          <span class="tool-group-duration">9s elapsed</span>
+        </div>
+        <div class="tool-cards">
+          <!-- Tool 1: Read -->
+          <div class="tool-card">
+            <div class="tool-card-dot"></div>
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            </svg>
+            <span class="tool-card-desc">Read product-brief-v2.md</span>
+            <span class="tool-card-time">10:15:22</span>
+            <svg class="tool-card-status" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <!-- Tool 2: Grep -->
+          <div class="tool-card">
+            <div class="tool-card-dot"></div>
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <span class="tool-card-desc">Searched for "user story acceptance criteria"</span>
+            <span class="tool-card-time">10:15:26</span>
+            <svg class="tool-card-status" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <!-- Tool 3: Read -->
+          <div class="tool-card">
+            <div class="tool-card-dot"></div>
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            </svg>
+            <span class="tool-card-desc">Read brainstorming-session-01.md</span>
+            <span class="tool-card-time">10:15:31</span>
+            <svg class="tool-card-status" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assistant message 2 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color: var(--origami-green)">
+            <span class="dot" style="background: var(--origami-green)"></span>
+            PM
+          </div>
+          I've reviewed the product brief and brainstorming artifacts. The PRD will cover the following epic areas: chat session management, agent persona system, tool activity tracking, and the planning dashboard. Let me draft the requirements with clear acceptance criteria for each feature.
+          <div class="message-time">10:16 AM</div>
+        </div>
+      </div>
+
+      <!-- User message 2 -->
+      <div class="message user">
+        <div class="message-bubble">
+          Great. Make sure each story has testable acceptance criteria and includes error handling scenarios. Also consider the workflow artifact scanning feature.
+          <div class="message-time">10:18 AM</div>
+        </div>
+      </div>
+
+      <!-- Assistant message 3 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color: var(--origami-green)">
+            <span class="dot" style="background: var(--origami-green)"></span>
+            PM
+          </div>
+          Absolutely. I'll structure the PRD with these sections:
+          <br><br>
+          <strong>Epic 10: Chat Interface</strong> &mdash; Session creation, message bubbles, persona selector, tool activity cards, session persistence, and permission controls.
+          <br><br>
+          <strong>Epic 9: Planning Dashboard</strong> &mdash; Phase progress tracking, artifact scanning with glob patterns, "What Next?" recommender, and recent workflow runs table.
+          <br><br>
+          Each story will include happy path, error, and edge-case acceptance criteria. Writing to <code>prd.md</code> now...
+          <div class="message-time">10:19 AM</div>
+        </div>
+      </div>
+
+      <!-- User message 3 -->
+      <div class="message user">
+        <div class="message-bubble">
+          Perfect. Include the attachment and file-sharing functionality too. I want the <code>tinsu-file://</code> protocol documented as well.
+          <div class="message-time">10:21 AM</div>
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span class="thinking-text">Writing prd.md...</span>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <input class="chat-input" type="text" placeholder="Ask PM agent about your project planning...">
+        <div class="input-actions">
+          <button class="input-action-btn" title="Attach file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <button class="input-action-btn send" title="Send message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+              <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+              <path d="m21.854 2.147-10.94 10.939"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL — Dashboard ═══ -->
+  <div class="sidebar-right">
+    <!-- Tabs -->
+    <div class="dashboard-tabs">
+      <button class="dashboard-tab active">Dashboard</button>
+      <button class="dashboard-tab">Artifact</button>
+      <button class="dashboard-tab">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+
+      <!-- What Next Card -->
+      <div class="what-next-card">
+        <div class="what-next-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+            <path d="M20 3v4"/><path d="M22 5h-4"/>
+          </svg>
+          What Next?
+        </div>
+        <div class="what-next-title">Design Architecture</div>
+        <div class="what-next-reason">PRD is complete. Architecture defines your technical approach with stack decisions and system boundaries.</div>
+        <button class="what-next-action">
+          Start Architecture
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Project Health -->
+      <div class="health-card">
+        <div class="health-header">
+          <div class="health-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+            </svg>
+            Project Health
+          </div>
+          <span class="health-pct">65%</span>
+        </div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width: 65%"></div>
+        </div>
+        <div class="health-checklist">
+          <div class="health-item">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <span class="health-item-label done">Product Brief</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <span class="health-item-label done">PRD</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <span class="health-item-label done">UX Spec</span>
+            <span class="health-item-optional">optional</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <span class="health-item-label done">Architecture</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check missing">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="9" height="9"><circle cx="12" cy="12" r="5"/></svg>
+            </div>
+            <span class="health-item-label missing">Epics & Stories</span>
+            <span class="health-item-badge missing">Missing</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check missing">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="9" height="9"><circle cx="12" cy="12" r="5"/></svg>
+            </div>
+            <span class="health-item-label missing">Readiness Gate</span>
+            <span class="health-item-badge missing">Missing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Planning Phases -->
+      <div class="phases-section">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+          </svg>
+          Planning Phases
+        </div>
+
+        <!-- Phase 1: Analysis -->
+        <div class="phase-card">
+          <div class="phase-card-header">
+            <div class="phase-number analysis">1</div>
+            <div class="phase-card-info">
+              <div class="phase-card-name">Analysis</div>
+              <div class="phase-card-desc">Research and define your product vision</div>
+            </div>
+            <div class="phase-card-count">4/4</div>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Brainstorming</div>
+                <div class="workflow-file">brainstorming-session-*.md</div>
+              </div>
+              <span class="workflow-badge approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Approved
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Market Research</div>
+                <div class="workflow-file">market-*-research-*.md</div>
+              </div>
+              <span class="workflow-badge approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Approved
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Domain Research</div>
+                <div class="workflow-file">domain-*-research-*.md</div>
+              </div>
+              <span class="workflow-badge draft">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                Draft
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Product Brief</div>
+                <div class="workflow-file">product-brief-*.md</div>
+              </div>
+              <span class="workflow-badge approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Approved
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 2: Planning -->
+        <div class="phase-card">
+          <div class="phase-card-header">
+            <div class="phase-number planning">2</div>
+            <div class="phase-card-info">
+              <div class="phase-card-name">Planning</div>
+              <div class="phase-card-desc">Document requirements and design UX</div>
+            </div>
+            <div class="phase-card-count">2/2</div>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Create PRD</div>
+                <div class="workflow-file">prd.md</div>
+              </div>
+              <span class="workflow-badge in-review">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/></svg>
+                In Review
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">UX Design</div>
+                <div class="workflow-file">ux-design-specification.md</div>
+              </div>
+              <span class="workflow-badge draft">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                Draft
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 3: Solutioning -->
+        <div class="phase-card">
+          <div class="phase-card-header">
+            <div class="phase-number solutioning">3</div>
+            <div class="phase-card-info">
+              <div class="phase-card-name">Solutioning</div>
+              <div class="phase-card-desc">Design architecture and break down work</div>
+            </div>
+            <div class="phase-card-count">0/3</div>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Architecture</div>
+                <div class="workflow-file">architecture.md</div>
+              </div>
+              <span class="workflow-badge missing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                Missing
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Epics & Stories</div>
+                <div class="workflow-file">epics.md</div>
+              </div>
+              <span class="workflow-badge missing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                Missing
+              </span>
+            </div>
+            <div class="workflow-row">
+              <div class="workflow-info">
+                <div class="workflow-name">Implementation Readiness</div>
+                <div class="workflow-file">implementation-readiness-*.md</div>
+              </div>
+              <span class="workflow-badge missing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                Missing
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Runs Table -->
+      <div class="runs-section">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+          </svg>
+          Recent Runs
+        </div>
+        <div class="runs-table">
+          <div class="runs-table-header">
+            <span>Workflow</span>
+            <span>Phase</span>
+            <span>Status</span>
+            <span>Time</span>
+          </div>
+          <div class="runs-row">
+            <span>Create PRD</span>
+            <span><span class="run-phase-tag">planning</span></span>
+            <span><span class="run-status-tag running">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+              Running
+            </span></span>
+            <span>2m ago</span>
+          </div>
+          <div class="runs-row">
+            <span>UX Design</span>
+            <span><span class="run-phase-tag">planning</span></span>
+            <span><span class="run-status-tag succeeded">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Succeeded
+            </span></span>
+            <span>1h ago</span>
+          </div>
+          <div class="runs-row">
+            <span>Product Brief</span>
+            <span><span class="run-phase-tag">analysis</span></span>
+            <span><span class="run-status-tag succeeded">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Succeeded
+            </span></span>
+            <span>3h ago</span>
+          </div>
+          <div class="runs-row">
+            <span>Brainstorming</span>
+            <span><span class="run-phase-tag">analysis</span></span>
+            <span><span class="run-status-tag failed">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              Failed
+            </span></span>
+            <span>1d ago</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

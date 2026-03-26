@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace - Bauhaus Geometric</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white:       #FFFFFF;
+    --black:       #000000;
+    --red:         #E63946;
+    --blue:        #1D3557;
+    --yellow:      #F4D35E;
+    --gray-light:  #F0F0F0;
+    --gray-mid:    #D5D5D5;
+    --gray-dark:   #8A8A8A;
+    --gray-text:   #555555;
+    --red-light:   #FDE8EA;
+    --blue-light:  #E4EAF2;
+    --yellow-light:#FDF6E0;
+    --green:       #2D936C;
+    --green-light: #E2F3EC;
+    --orange:      #E76F51;
+    --orange-light:#FDEDE8;
+    --font-head:   'DM Sans', sans-serif;
+    --font-body:   'Crimson Pro', Georgia, serif;
+    --border-thick: 3px;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--white);
+    color: var(--black);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Grid-line background pattern ─────────────────────────── */
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* ── Geometric Decorations ────────────────────────────────── */
+  .geo-circle {
+    display: inline-block;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .geo-square {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .geo-triangle {
+    display: inline-block;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 10px solid var(--red);
+    flex-shrink: 0;
+  }
+  .geo-triangle-lg {
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 17px solid var(--yellow);
+  }
+
+  /* ── Keyframe Animations ──────────────────────────────────── */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes rotateIn {
+    from { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+    to   { opacity: 1; transform: rotate(0deg) scale(1); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.3); }
+    50%      { box-shadow: 0 0 0 6px rgba(230,57,70,0); }
+  }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40%           { opacity: 1; transform: scale(1); }
+  }
+  @keyframes geoFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-4px) rotate(5deg); }
+  }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+
+  /* ── Title Bar ─────────────────────────────────────────────── */
+  .title-bar {
+    height: 52px;
+    min-height: 52px;
+    background: var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    animation: slideInDown 0.4s ease-out;
+  }
+  .title-bar::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 52px;
+    background: var(--red);
+  }
+  .title-bar::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 52px;
+    background: var(--blue);
+  }
+  .title-bar-text {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 1;
+  }
+  .title-bar .geo-deco {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1;
+  }
+  .title-bar .geo-deco .geo-circle {
+    width: 10px; height: 10px;
+    transition: transform 0.3s ease;
+  }
+  .title-bar .geo-deco .geo-circle:hover {
+    transform: scale(1.4);
+  }
+  .title-bar .geo-deco .geo-square {
+    width: 10px; height: 10px;
+    transition: transform 0.3s ease;
+  }
+  .title-bar .geo-deco .geo-square:hover {
+    transform: rotate(45deg) scale(1.3);
+  }
+  .title-bar .geo-deco .geo-triangle {
+    transition: transform 0.3s ease;
+  }
+  .title-bar .geo-deco .geo-triangle:hover {
+    transform: rotate(180deg);
+  }
+
+  /* ── Main Layout ───────────────────────────────────────────── */
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Left Sidebar ──────────────────────────────────────────── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--white);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: var(--border-thick) solid var(--black);
+    animation: slideInLeft 0.5s ease-out;
+  }
+  .sidebar-header {
+    padding: 20px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-bottom: 2px solid var(--black);
+    position: relative;
+  }
+  .sidebar-header::after {
+    content: '';
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    width: 20px;
+    height: 20px;
+    background: var(--yellow);
+    border-radius: 50%;
+    animation: geoFloat 3s ease-in-out infinite;
+  }
+  .sidebar-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--black);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .btn-new-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--red);
+    color: var(--white);
+    border: none;
+    padding: 11px 16px;
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: background 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-new-chat::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--yellow);
+  }
+  .btn-new-chat:hover {
+    background: var(--black);
+    transform: translateX(2px);
+  }
+  .btn-new-chat:active { transform: scale(0.97); }
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .session-list::-webkit-scrollbar { width: 3px; }
+  .session-list::-webkit-scrollbar-thumb { background: var(--black); }
+  .session-list::-webkit-scrollbar-track { background: var(--gray-light); }
+
+  .session-card {
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    border-bottom: 1px solid var(--gray-light);
+    animation: slideInLeft 0.4s ease-out both;
+  }
+  .session-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0;
+    transition: width 0.2s ease;
+  }
+  .session-card:hover {
+    background: var(--gray-light);
+  }
+  .session-card:hover::before {
+    width: 4px;
+    background: var(--gray-mid);
+  }
+  .session-card.active {
+    background: var(--blue-light);
+  }
+  .session-card.active::before {
+    width: 4px;
+    background: var(--blue);
+  }
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--black);
+  }
+  .persona-dot {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+  .persona-dot:hover {
+    transform: scale(1.5);
+  }
+  /* Persona dots as geometric shapes */
+  .dot-pm {
+    background: var(--red);
+    border-radius: 50%;
+  }
+  .dot-arch {
+    background: var(--blue);
+    /* square - no border-radius */
+  }
+  .dot-ux {
+    background: transparent;
+    width: 0 !important; height: 0 !important;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 9px solid var(--yellow);
+  }
+  .dot-analyst {
+    background: var(--green);
+    border-radius: 50%;
+  }
+
+  .session-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .session-time {
+    font-family: var(--font-head);
+    font-size: 11px;
+    color: var(--gray-dark);
+    font-weight: 400;
+  }
+  .kebab-menu {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    color: var(--gray-dark);
+    font-size: 16px;
+    transition: all 0.2s;
+    font-family: var(--font-head);
+  }
+  .kebab-menu:hover {
+    border-color: var(--black);
+    background: var(--white);
+    color: var(--black);
+  }
+
+  .session-preview {
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    color: var(--gray-text);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .session-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    border: 1.5px solid;
+  }
+  .badge-active {
+    background: var(--green-light);
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .badge-paused {
+    background: var(--orange-light);
+    color: var(--orange);
+    border-color: var(--orange);
+  }
+  .badge-completed {
+    background: var(--gray-light);
+    color: var(--gray-dark);
+    border-color: var(--gray-dark);
+  }
+  .badge-auto {
+    background: var(--blue-light);
+    color: var(--blue);
+    border-color: var(--blue);
+  }
+  .badge-manual {
+    background: var(--yellow-light);
+    color: #8B7A2B;
+    border-color: var(--yellow);
+  }
+
+  /* ── Center Panel ──────────────────────────────────────────── */
+  .chat-panel {
+    flex: 1;
+    min-width: 0;
+    background: var(--white);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: fadeIn 0.6s ease-out;
+  }
+  .chat-header {
+    padding: 14px 24px;
+    border-bottom: var(--border-thick) solid var(--black);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    background: var(--white);
+  }
+  /* Colored top accent stripe */
+  .chat-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(
+      to right,
+      var(--red) 0%, var(--red) 25%,
+      var(--yellow) 25%, var(--yellow) 50%,
+      var(--blue) 50%, var(--blue) 75%,
+      var(--black) 75%, var(--black) 100%
+    );
+  }
+  .persona-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border: 2px solid var(--gray-mid);
+    background: var(--white);
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--gray-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .persona-btn:hover {
+    border-color: var(--black);
+    color: var(--black);
+    transform: translateY(-1px);
+  }
+  .persona-btn.selected {
+    background: var(--black);
+    border-color: var(--black);
+    color: var(--white);
+  }
+  .persona-btn.selected .dot-pm { background: var(--red); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .chat-messages::-webkit-scrollbar { width: 3px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--black); }
+  .chat-messages::-webkit-scrollbar-track { background: var(--gray-light); }
+
+  /* User Message */
+  .msg { max-width: 720px; }
+  .msg-user {
+    align-self: flex-end;
+    background: var(--blue);
+    color: var(--white);
+    padding: 14px 20px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    position: relative;
+    animation: slideInRight 0.35s ease-out both;
+    border: none;
+  }
+  /* Geometric notch on user messages */
+  .msg-user::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 16px;
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--blue);
+  }
+
+  /* Agent Message */
+  .msg-agent {
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: slideInLeft 0.35s ease-out both;
+  }
+  .msg-agent-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--black);
+  }
+  .msg-agent-body {
+    background: var(--gray-light);
+    padding: 18px 22px;
+    border-left: 4px solid var(--red);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--black);
+    position: relative;
+  }
+  .msg-agent-body p + p { margin-top: 12px; }
+  .msg-agent-body strong { font-weight: 600; }
+  .msg-agent-body code {
+    background: var(--white);
+    border: 1px solid var(--gray-mid);
+    padding: 1px 6px;
+    font-family: 'DM Sans', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .msg-agent-body ul {
+    margin: 10px 0;
+    padding-left: 22px;
+  }
+  .msg-agent-body li {
+    margin-bottom: 5px;
+    position: relative;
+  }
+  .msg-agent-body li::marker {
+    color: var(--red);
+  }
+
+  /* Tool Activity */
+  .tool-group {
+    align-self: flex-start;
+    max-width: 720px;
+    width: 100%;
+    animation: slideInUp 0.35s ease-out both;
+  }
+  .tool-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--white);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-head);
+    font-size: 12px;
+    color: var(--gray-text);
+    font-weight: 600;
+    border: 2px solid var(--black);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+  }
+  .tool-group-header::before {
+    content: '';
+    position: absolute;
+    left: -2px; top: -2px;
+    width: 8px; height: 8px;
+    background: var(--yellow);
+  }
+  .tool-group-header:hover {
+    background: var(--gray-light);
+  }
+  .tool-group-chevron {
+    font-size: 9px;
+    transition: transform 0.3s ease;
+    color: var(--black);
+  }
+  .tool-group.expanded .tool-group-chevron { transform: rotate(90deg); }
+  .tool-group-body {
+    display: none;
+    margin-left: 0;
+    border-left: 3px solid var(--yellow);
+    border-right: 2px solid var(--gray-light);
+    border-bottom: 2px solid var(--gray-light);
+    padding: 6px 0;
+    background: var(--white);
+  }
+  .tool-group.expanded .tool-group-body { display: block; }
+
+  .tool-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+    border-bottom: 1px solid var(--gray-light);
+    position: relative;
+  }
+  .tool-card:last-child { border-bottom: none; }
+  .tool-card:hover {
+    background: var(--gray-light);
+    padding-left: 20px;
+  }
+  .tool-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    border: 2px solid var(--black);
+    background: var(--white);
+    font-family: var(--font-head);
+  }
+  .tool-card-content { flex: 1; min-width: 0; }
+  .tool-card-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--black);
+  }
+  .tool-card-desc {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--gray-text);
+    margin-top: 1px;
+  }
+  .tool-card-time {
+    font-family: var(--font-head);
+    font-size: 10px;
+    color: var(--gray-dark);
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  /* Timeline connector dots */
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 7px;
+    height: 7px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    border-radius: 50%;
+  }
+
+  /* Thinking Indicator */
+  .thinking {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border: 2px solid var(--black);
+    font-family: var(--font-head);
+    font-size: 12px;
+    color: var(--gray-text);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: slideInLeft 0.3s ease-out both;
+    position: relative;
+    background: var(--white);
+  }
+  .thinking::before {
+    content: '';
+    position: absolute;
+    left: -2px; bottom: -2px;
+    width: 14px; height: 14px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulseGlow 1.5s infinite;
+  }
+  .thinking-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--black);
+    margin: 0 2px;
+    animation: blink 1.4s infinite;
+  }
+  .thinking-dots span:nth-child(1) { border-radius: 50%; }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+    border-radius: 50%;
+    background: var(--red);
+  }
+
+  /* Chat Input */
+  .chat-input-area {
+    padding: 16px 32px 22px;
+    border-top: var(--border-thick) solid var(--black);
+    background: var(--white);
+    position: relative;
+  }
+  /* Mondrian-style color block in corner */
+  .chat-input-area::after {
+    content: '';
+    position: absolute;
+    right: 0; bottom: 0;
+    width: 32px; height: 22px;
+    background: var(--yellow);
+  }
+  .chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: var(--white);
+    border: 2px solid var(--black);
+    padding: 8px 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .chat-input-wrapper:focus-within {
+    box-shadow: 4px 4px 0 0 var(--red);
+  }
+  .chat-textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    resize: none;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--black);
+    outline: none;
+    min-height: 22px;
+    max-height: 120px;
+  }
+  .chat-textarea::placeholder { color: var(--gray-dark); font-style: italic; }
+  .input-btn {
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-size: 16px;
+    background: var(--white);
+    color: var(--black);
+  }
+  .input-btn:hover {
+    background: var(--gray-light);
+    transform: translateY(-1px);
+  }
+  .input-btn.send-btn {
+    background: var(--red);
+    color: var(--white);
+    border-color: var(--red);
+  }
+  .input-btn.send-btn:hover {
+    background: var(--black);
+    border-color: var(--black);
+  }
+  .input-btn.send-btn:active { transform: scale(0.95); }
+  .input-hint {
+    font-family: var(--font-head);
+    font-size: 10px;
+    color: var(--gray-dark);
+    text-align: right;
+    margin-top: 8px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  /* ── Right Panel ───────────────────────────────────────────── */
+  .right-panel {
+    width: 380px;
+    min-width: 380px;
+    background: var(--white);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-left: var(--border-thick) solid var(--black);
+    animation: slideInRight 0.5s ease-out;
+  }
+  .right-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--black);
+    background: var(--black);
+  }
+  .right-tab {
+    flex: 1;
+    padding: 13px 8px;
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gray-dark);
+    cursor: pointer;
+    border: none;
+    background: var(--gray-light);
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    text-align: center;
+    border-right: 2px solid var(--black);
+    position: relative;
+  }
+  .right-tab:last-child { border-right: none; }
+  .right-tab:hover {
+    background: var(--white);
+    color: var(--black);
+  }
+  .right-tab.active {
+    background: var(--white);
+    color: var(--black);
+  }
+  .right-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--red);
+  }
+
+  .right-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 18px;
+  }
+  .right-content::-webkit-scrollbar { width: 3px; }
+  .right-content::-webkit-scrollbar-thumb { background: var(--black); }
+  .right-content::-webkit-scrollbar-track { background: var(--gray-light); }
+
+  /* Tab Panes */
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Dashboard Tab ─────────────────────────────────────────── */
+  .card {
+    background: var(--white);
+    border: 2px solid var(--black);
+    padding: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    animation: slideInUp 0.4s ease-out both;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--black);
+  }
+
+  /* What Next Card */
+  .what-next {
+    border-color: var(--red);
+    border-width: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .what-next::before {
+    content: '';
+    position: absolute;
+    right: -20px;
+    top: -20px;
+    width: 60px;
+    height: 60px;
+    background: var(--yellow);
+    border-radius: 50%;
+    opacity: 0.6;
+  }
+  .what-next::after {
+    content: '';
+    position: absolute;
+    right: 20px;
+    bottom: -10px;
+    width: 30px;
+    height: 30px;
+    background: var(--blue);
+    opacity: 0.15;
+  }
+  .what-next .card-title {
+    color: var(--red);
+  }
+  .what-next-text {
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    color: var(--gray-text);
+    line-height: 1.55;
+    margin-bottom: 14px;
+    position: relative;
+    z-index: 1;
+  }
+  .action-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+  .action-btn {
+    padding: 8px 14px;
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid var(--black);
+    background: var(--white);
+    color: var(--black);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .action-btn:hover {
+    background: var(--gray-light);
+    transform: translateY(-1px);
+    box-shadow: 2px 2px 0 0 var(--black);
+  }
+  .action-btn.primary {
+    background: var(--red);
+    color: var(--white);
+    border-color: var(--red);
+  }
+  .action-btn.primary:hover {
+    background: var(--black);
+    border-color: var(--black);
+    box-shadow: 2px 2px 0 0 var(--red);
+  }
+
+  /* Progress */
+  .progress-bar-track {
+    height: 10px;
+    background: var(--gray-light);
+    border: 2px solid var(--black);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    transition: width 0.6s ease;
+  }
+  .progress-label {
+    font-family: var(--font-head);
+    font-size: 11px;
+    color: var(--gray-text);
+    margin-bottom: 14px;
+    letter-spacing: 0.3px;
+  }
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 5px 0;
+    color: var(--gray-text);
+  }
+  .check-icon {
+    font-family: var(--font-head);
+    font-size: 13px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .check-done {
+    background: var(--green);
+    color: var(--white);
+    font-size: 11px;
+  }
+  .check-pending {
+    border: 2px solid var(--gray-mid);
+    background: var(--white);
+    color: transparent;
+    font-size: 11px;
+  }
+
+  /* Phase Cards */
+  .phase-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-bottom: 0;
+  }
+  .phase-card {
+    border: 2px solid var(--black);
+    padding: 14px 10px;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+    margin-left: -2px;
+  }
+  .phase-card:first-child { margin-left: 0; }
+  .phase-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 3px 3px 0 0 var(--black);
+    z-index: 1;
+  }
+  .phase-card.phase-done { background: var(--blue-light); }
+  .phase-card.phase-active {
+    border-color: var(--red);
+    border-width: 3px;
+  }
+  .phase-label {
+    font-family: var(--font-head);
+    font-size: 9px;
+    color: var(--gray-dark);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+  .phase-name {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--black);
+  }
+  .phase-badge {
+    display: inline-block;
+    font-family: var(--font-head);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1.5px solid;
+  }
+
+  /* Phase geometric decorations */
+  .phase-card::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    top: 6px;
+    right: 6px;
+  }
+  .phase-card.phase-done::after {
+    background: var(--blue);
+  }
+  .phase-card.phase-active::after {
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulseGlow 2s infinite;
+  }
+  .phase-card.phase-pending::after {
+    border: 2px solid var(--gray-mid);
+  }
+
+  /* Runs Table */
+  .runs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .runs-table th {
+    text-align: left;
+    padding: 10px 8px;
+    font-family: var(--font-head);
+    font-weight: 700;
+    color: var(--white);
+    background: var(--black);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-size: 10px;
+  }
+  .runs-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--gray-light);
+    color: var(--gray-text);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+  }
+  .runs-table tr:last-child td { border-bottom: none; }
+  .runs-table tr:hover td { background: var(--gray-light); }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .status-dot.dot-pass {
+    background: var(--green);
+    border-radius: 50%;
+  }
+  .status-dot.dot-warn {
+    background: var(--yellow);
+    /* square for warning - Bauhaus geometric */
+  }
+
+  /* ── Artifact Tab ──────────────────────────────────────────── */
+  .artifact-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 3px solid var(--black);
+  }
+  .artifact-title-area { flex: 1; }
+  .artifact-title {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+    color: var(--black);
+  }
+  .artifact-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--gray-text);
+    margin-top: 8px;
+  }
+  .artifact-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .compare-btn {
+    padding: 9px 16px;
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--black);
+    background: var(--white);
+    color: var(--black);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .compare-btn:hover {
+    background: var(--black);
+    color: var(--white);
+  }
+
+  .artifact-layout {
+    display: flex;
+    gap: 16px;
+  }
+  .artifact-outline {
+    width: 130px;
+    flex-shrink: 0;
+  }
+  .outline-title {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--black);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--black);
+  }
+  .outline-link {
+    display: block;
+    font-family: var(--font-head);
+    font-size: 11px;
+    color: var(--gray-text);
+    padding: 5px 0 5px 12px;
+    border-left: 3px solid var(--gray-light);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .outline-link:hover {
+    color: var(--red);
+    border-left-color: var(--red);
+    padding-left: 16px;
+  }
+  .outline-link.active {
+    color: var(--red);
+    border-left-color: var(--red);
+    font-weight: 600;
+  }
+
+  .artifact-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .artifact-content h3 {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    margin: 20px 0 8px;
+    color: var(--black);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-left: 12px;
+    border-left: 4px solid var(--red);
+  }
+  .artifact-content h3:first-child { margin-top: 0; }
+  .artifact-content p {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--gray-text);
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+  .artifact-content ul {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--gray-text);
+    line-height: 1.7;
+    padding-left: 20px;
+    margin-bottom: 10px;
+  }
+  .artifact-content li::marker { color: var(--red); }
+
+  /* ── Readiness Tab ─────────────────────────────────────────── */
+  .gate-result {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    margin-bottom: 18px;
+    border: 3px solid;
+    position: relative;
+  }
+  .gate-pass {
+    border-color: var(--green);
+    background: var(--green-light);
+  }
+  .gate-concerns {
+    border-color: var(--orange);
+    background: var(--orange-light);
+  }
+  .gate-concerns::before {
+    content: '';
+    position: absolute;
+    left: -3px; top: -3px;
+    width: 16px; height: 16px;
+    background: var(--yellow);
+  }
+  .gate-fail {
+    border-color: var(--red);
+    background: var(--red-light);
+  }
+  .gate-icon { font-size: 30px; }
+  .gate-info { flex: 1; }
+  .gate-status {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .gate-desc {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--gray-text);
+  }
+
+  .issue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border: 2px solid var(--black);
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .issue-item:hover {
+    box-shadow: 3px 3px 0 0 var(--black);
+    transform: translate(-1px, -1px);
+  }
+  .severity-badge {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 2px solid;
+  }
+  .severity-high {
+    background: var(--red-light);
+    color: var(--red);
+    border-color: var(--red);
+  }
+  .severity-medium {
+    background: var(--orange-light);
+    color: var(--orange);
+    border-color: var(--orange);
+  }
+  .severity-low {
+    background: var(--blue-light);
+    color: var(--blue);
+    border-color: var(--blue);
+  }
+  .issue-text {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--gray-text);
+    line-height: 1.55;
+  }
+  .issue-text strong { color: var(--black); font-weight: 600; }
+
+  .readiness-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  /* ── Mondrian corner decorations for cards ─────────────────── */
+  .card.stagger-1::after {
+    content: '';
+    position: absolute;
+    top: -2px; right: -2px;
+    width: 12px; height: 12px;
+    background: var(--yellow);
+  }
+  .card.stagger-2::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: -2px;
+    width: 10px; height: 10px;
+    background: var(--blue);
+    border-radius: 50%;
+  }
+  .card.stagger-3::after {
+    content: '';
+    position: absolute;
+    top: -2px; left: -2px;
+    width: 14px; height: 8px;
+    background: var(--red);
+  }
+
+  /* ── Responsive hint for very narrow screens ──────────────── */
+  @media (max-width: 1200px) {
+    .right-panel { width: 340px; min-width: 340px; }
+    .sidebar { width: 260px; min-width: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Title Bar -->
+<div class="title-bar">
+  <div class="geo-deco">
+    <span class="geo-circle" style="background:var(--red); width:10px; height:10px;"></span>
+    <span class="geo-square" style="background:var(--yellow); width:10px; height:10px;"></span>
+    <span class="geo-triangle"></span>
+  </div>
+  <span class="title-bar-text">Tinsu Planning Workspace &mdash; Bauhaus</span>
+  <div class="geo-deco">
+    <span class="geo-triangle" style="border-bottom-color:var(--blue);"></span>
+    <span class="geo-square" style="background:var(--red); width:10px; height:10px;"></span>
+    <span class="geo-circle" style="background:var(--yellow); width:10px; height:10px;"></span>
+  </div>
+</div>
+
+<!-- Workspace -->
+<div class="workspace">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Chat Sessions</div>
+      <button class="btn-new-chat">+ New Chat</button>
+    </div>
+    <div class="session-list">
+
+      <!-- Session 1 - Active -->
+      <div class="session-card active stagger-1" style="animation: slideInLeft 0.4s ease-out 0.1s both;">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-pm"></span>
+            PM Agent
+          </div>
+          <div class="session-meta">
+            <span class="session-time">2m ago</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Refining the user authentication epic. We should break the OAuth integration into smaller stories for the next sprint...</div>
+        <div class="session-badges">
+          <span class="badge badge-active">Active</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card stagger-2" style="animation: slideInLeft 0.4s ease-out 0.15s both;">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-arch"></span>
+            Architect
+          </div>
+          <div class="session-meta">
+            <span class="session-time">18m ago</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Database schema review complete. Recommended adding composite indexes on the user_sessions table for query performance...</div>
+        <div class="session-badges">
+          <span class="badge badge-active">Active</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card stagger-3" style="animation: slideInLeft 0.4s ease-out 0.2s both;">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-ux"></span>
+            UX Designer
+          </div>
+          <div class="session-meta">
+            <span class="session-time">1h ago</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Created wireframes for the onboarding flow. The 3-step wizard pattern tested better than the single-page form in our analysis...</div>
+        <div class="session-badges">
+          <span class="badge badge-paused">Paused</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card stagger-4" style="animation: slideInLeft 0.4s ease-out 0.25s both;">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-analyst"></span>
+            Analyst
+          </div>
+          <div class="session-meta">
+            <span class="session-time">3h ago</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Stakeholder requirements gathered. 12 user stories identified with acceptance criteria. Priority matrix attached to artifact...</div>
+        <div class="session-badges">
+          <span class="badge badge-completed">Completed</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card stagger-5" style="animation: slideInLeft 0.4s ease-out 0.3s both;">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-pm"></span>
+            PM Agent
+          </div>
+          <div class="session-meta">
+            <span class="session-time">1d ago</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Sprint retrospective analysis complete. Velocity improved 15% after breaking down the payment integration stories...</div>
+        <div class="session-badges">
+          <span class="badge badge-completed">Completed</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="chat-panel">
+
+    <!-- Persona Selector -->
+    <div class="chat-header">
+      <button class="persona-btn selected">
+        <span class="persona-dot dot-pm"></span> PM
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-arch"></span> Architect
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-ux"></span> UX Designer
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-analyst"></span> Analyst
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages grid-bg">
+
+      <!-- User Message 1 -->
+      <div class="msg msg-user" style="animation-delay: 0.1s;">
+        Let's refine the authentication epic. We need to support OAuth2 with Google and GitHub providers, plus a fallback email/password flow. Can you break this into stories?
+      </div>
+
+      <!-- Agent Response 1 -->
+      <div class="msg msg-agent" style="animation-delay: 0.2s;">
+        <div class="msg-agent-header">
+          <span class="persona-dot dot-pm"></span>
+          PM Agent
+        </div>
+        <div class="msg-agent-body">
+          <p>I've analyzed the authentication requirements and broken the epic into <strong>6 user stories</strong> across two sprints. Here's the proposed breakdown:</p>
+          <ul>
+            <li><strong>Story 1:</strong> Base authentication service scaffold with session management</li>
+            <li><strong>Story 2:</strong> Google OAuth2 provider integration</li>
+            <li><strong>Story 3:</strong> GitHub OAuth2 provider integration</li>
+            <li><strong>Story 4:</strong> Email/password registration with verification flow</li>
+            <li><strong>Story 5:</strong> Password reset and account recovery</li>
+            <li><strong>Story 6:</strong> Auth middleware and route guards</li>
+          </ul>
+          <p>Stories 1&ndash;3 are Sprint 1 candidates (estimated 21 points). Stories 4&ndash;6 can follow in Sprint 2. Shall I generate the detailed acceptance criteria for each?</p>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group (expanded) -->
+      <div class="msg tool-group expanded" style="animation-delay: 0.3s;">
+        <div class="tool-group-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="tool-group-chevron">&#9654;</span>
+          Agent performed 3 actions
+        </div>
+        <div class="tool-group-body">
+          <div class="tool-card">
+            <div class="tool-icon">&#128196;</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Read artifact</div>
+              <div class="tool-card-desc">artifacts/epics/auth-epic-v2.md</div>
+            </div>
+            <div class="tool-card-time">12:04:31</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">&#9997;</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Write artifact</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md</div>
+            </div>
+            <div class="tool-card-time">12:04:33</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">&#128269;</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Search codebase</div>
+              <div class="tool-card-desc">Searched for existing auth patterns in <code>src/auth/</code></div>
+            </div>
+            <div class="tool-card-time">12:04:35</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="msg msg-user" style="animation-delay: 0.35s;">
+        Yes, generate the acceptance criteria. Also flag any dependencies between stories.
+      </div>
+
+      <!-- Tool Activity Group (collapsed) -->
+      <div class="msg tool-group" style="animation-delay: 0.4s;">
+        <div class="tool-group-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="tool-group-chevron">&#9654;</span>
+          Agent performed 2 actions
+        </div>
+        <div class="tool-group-body">
+          <div class="tool-card">
+            <div class="tool-icon">&#128196;</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Read artifact</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md</div>
+            </div>
+            <div class="tool-card-time">12:05:01</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">&#9997;</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Write artifact</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md (updated)</div>
+            </div>
+            <div class="tool-card-time">12:05:04</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Response 2 -->
+      <div class="msg msg-agent" style="animation-delay: 0.45s;">
+        <div class="msg-agent-header">
+          <span class="persona-dot dot-pm"></span>
+          PM Agent
+        </div>
+        <div class="msg-agent-body">
+          <p>Done. I've updated the stories artifact with full acceptance criteria and a dependency map. Key dependencies to note:</p>
+          <ul>
+            <li>Stories 2 and 3 (OAuth providers) both depend on Story 1 (base auth service)</li>
+            <li>Story 6 (middleware) depends on at least one auth provider being complete</li>
+            <li>Story 5 (password reset) depends on Story 4 (email/password flow)</li>
+          </ul>
+          <p>The artifact is ready for architect review. I'd recommend having the <code>Architect</code> agent validate the session management approach before Sprint 1 begins.</p>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="msg msg-user" style="animation-delay: 0.5s;">
+        Good analysis. Let's proceed with the architect review next.
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="msg thinking" style="animation-delay: 0.55s;">
+        <span class="persona-dot dot-pm"></span>
+        PM Agent is thinking
+        <div class="thinking-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <button class="input-btn" title="Attach file">&#128206;</button>
+        <textarea class="chat-textarea" rows="1" placeholder="Message PM Agent..."></textarea>
+        <button class="input-btn send-btn" title="Send message">&#8593;</button>
+      </div>
+      <div class="input-hint">Press Enter to send &middot; Shift+Enter for new line</div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="right-tabs">
+      <button class="right-tab active" onclick="switchTab('dashboard')">Dashboard</button>
+      <button class="right-tab" onclick="switchTab('artifact')">Artifact</button>
+      <button class="right-tab" onclick="switchTab('readiness')">Readiness</button>
+    </div>
+
+    <div class="right-content grid-bg">
+
+      <!-- Dashboard Tab -->
+      <div class="tab-pane active" id="tab-dashboard">
+
+        <!-- What Next -->
+        <div class="card what-next stagger-1" style="animation-delay: 0.15s;">
+          <div class="card-title">
+            <span class="geo-triangle" style="border-bottom-color:var(--red);"></span>
+            What Next
+          </div>
+          <div class="what-next-text">
+            The authentication stories are drafted. Next step is an architect review of the session management design before committing to Sprint 1 scope.
+          </div>
+          <div class="action-btns">
+            <button class="action-btn primary">Start Architect Review</button>
+            <button class="action-btn">View Stories</button>
+            <button class="action-btn">Edit Sprint Plan</button>
+          </div>
+        </div>
+
+        <!-- Project Health -->
+        <div class="card stagger-2" style="animation-delay: 0.2s;">
+          <div class="card-title">
+            <span class="geo-circle" style="background:var(--green); width:8px; height:8px;"></span>
+            Project Health
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width: 65%; background: linear-gradient(to right, var(--green), var(--blue));"></div>
+          </div>
+          <div class="progress-label">65% complete &middot; 7 of 11 items done</div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Project brief defined
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Stakeholder requirements gathered
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Epics identified and scoped
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> User stories drafted
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Wireframes created
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Database schema proposed
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> API contracts defined
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-pending">&#9675;</span> Architecture review
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-pending">&#9675;</span> Security review
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-pending">&#9675;</span> Sprint plan finalized
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-pending">&#9675;</span> Readiness gate passed
+          </div>
+        </div>
+
+        <!-- Phase Cards -->
+        <div class="card stagger-3" style="animation-delay: 0.25s;">
+          <div class="card-title">
+            <span class="geo-square" style="background:var(--blue); width:8px; height:8px;"></span>
+            Workflow Phases
+          </div>
+          <div class="phase-grid">
+            <div class="phase-card phase-done">
+              <div class="phase-label">Phase 1</div>
+              <div class="phase-name">Discovery</div>
+              <span class="phase-badge badge-completed">Done</span>
+            </div>
+            <div class="phase-card phase-active">
+              <div class="phase-label">Phase 2</div>
+              <div class="phase-name">Planning</div>
+              <span class="phase-badge badge-active">In Progress</span>
+            </div>
+            <div class="phase-card phase-pending">
+              <div class="phase-label">Phase 3</div>
+              <div class="phase-name">Readiness</div>
+              <span class="phase-badge" style="background: var(--gray-light); color: var(--gray-dark); border-color: var(--gray-dark);">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Runs -->
+        <div class="card" style="animation-delay: 0.3s;">
+          <div class="card-title">
+            <span class="geo-circle" style="background:var(--red); width:8px; height:8px;"></span>
+            Recent Runs
+          </div>
+          <table class="runs-table">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Phase</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Dur.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:500; color:var(--black);">Story Generation</td>
+                <td>Planning</td>
+                <td><span class="status-dot dot-pass"></span>Pass</td>
+                <td>12:04</td>
+                <td>42s</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500; color:var(--black);">Schema Review</td>
+                <td>Planning</td>
+                <td><span class="status-dot dot-pass"></span>Pass</td>
+                <td>11:32</td>
+                <td>1m 18s</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500; color:var(--black);">Wireframe Gen</td>
+                <td>Discovery</td>
+                <td><span class="status-dot dot-warn"></span>Warning</td>
+                <td>10:15</td>
+                <td>2m 04s</td>
+              </tr>
+              <tr>
+                <td style="font-weight:500; color:var(--black);">Requirements</td>
+                <td>Discovery</td>
+                <td><span class="status-dot dot-pass"></span>Pass</td>
+                <td>09:41</td>
+                <td>3m 22s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Artifact Tab -->
+      <div class="tab-pane" id="tab-artifact">
+        <div class="artifact-header">
+          <div class="artifact-title-area">
+            <div class="artifact-title">Authentication User Stories</div>
+            <span class="badge badge-paused" style="font-size: 11px; padding: 3px 10px; display: inline-block; margin-top: 4px;">Draft</span>
+            <div class="artifact-meta">
+              <span class="artifact-meta-item">&#128193; artifacts/stories/auth-stories-sprint1.md</span>
+              <span class="artifact-meta-item">&#128197; Mar 26, 2026</span>
+              <span class="artifact-meta-item">&#128221; 847 words</span>
+              <span class="artifact-meta-item"><span class="persona-dot dot-pm" style="width:7px;height:7px;"></span> PM Agent</span>
+            </div>
+          </div>
+          <button class="compare-btn">&#8644; Compare</button>
+        </div>
+
+        <div class="artifact-layout">
+          <div class="artifact-outline">
+            <div class="outline-title">On This Page</div>
+            <a class="outline-link active">Overview</a>
+            <a class="outline-link">Story 1: Auth Service</a>
+            <a class="outline-link">Story 2: Google OAuth</a>
+            <a class="outline-link">Story 3: GitHub OAuth</a>
+            <a class="outline-link">Dependencies</a>
+            <a class="outline-link">Sprint Allocation</a>
+          </div>
+          <div class="artifact-content">
+            <h3>Overview</h3>
+            <p>This artifact contains the user stories for the Authentication epic, covering OAuth2 integration with Google and GitHub providers, plus email/password fallback. Stories are ordered by dependency and estimated in story points.</p>
+
+            <h3>Story 1: Base Authentication Service</h3>
+            <p><strong>As a</strong> developer, <strong>I want</strong> a base authentication service with session management, <strong>so that</strong> all auth providers can plug into a unified interface.</p>
+            <p><strong>Acceptance Criteria:</strong></p>
+            <ul>
+              <li>Service exposes <code>login()</code>, <code>logout()</code>, and <code>getSession()</code> methods</li>
+              <li>Sessions are stored in the database with configurable TTL</li>
+              <li>CSRF protection is enabled by default</li>
+              <li>Rate limiting is applied to all auth endpoints</li>
+            </ul>
+            <p><strong>Estimate:</strong> 5 points &middot; <strong>Priority:</strong> P0</p>
+
+            <h3>Story 2: Google OAuth2 Integration</h3>
+            <p><strong>As a</strong> user, <strong>I want</strong> to sign in with my Google account, <strong>so that</strong> I can access the platform without creating new credentials.</p>
+            <ul>
+              <li>OAuth2 consent screen configured with appropriate scopes</li>
+              <li>User profile data (name, email, avatar) synced on first login</li>
+              <li>Account linking supported for existing email/password users</li>
+            </ul>
+            <p><strong>Estimate:</strong> 8 points &middot; <strong>Priority:</strong> P0</p>
+
+            <h3>Story 3: GitHub OAuth2 Integration</h3>
+            <p><strong>As a</strong> developer user, <strong>I want</strong> to sign in with my GitHub account, <strong>so that</strong> I can quickly access developer-focused features.</p>
+            <ul>
+              <li>Scopes include <code>read:user</code> and <code>user:email</code></li>
+              <li>Organization membership optionally checked for access control</li>
+              <li>Token refresh handled transparently</li>
+            </ul>
+            <p><strong>Estimate:</strong> 8 points &middot; <strong>Priority:</strong> P1</p>
+
+            <h3>Dependencies</h3>
+            <p>Stories 2 and 3 require Story 1 to be complete. Story 6 (auth middleware) can begin once any single provider is functional.</p>
+
+            <h3>Sprint Allocation</h3>
+            <p>Sprint 1: Stories 1, 2, 3 (21 points). Sprint 2: Stories 4, 5, 6 (18 points). Total velocity required: ~20 points/sprint.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Readiness Tab -->
+      <div class="tab-pane" id="tab-readiness">
+
+        <div class="gate-result gate-concerns">
+          <div class="gate-icon">&#9888;</div>
+          <div class="gate-info">
+            <div class="gate-status" style="color: var(--orange);">Pass with Concerns</div>
+            <div class="gate-desc">3 of 4 gates passed. 1 issue requires attention before proceeding to development.</div>
+          </div>
+        </div>
+
+        <div class="card" style="border-color: var(--black);">
+          <div class="card-title">
+            <span class="geo-triangle" style="border-bottom-color: var(--orange);"></span>
+            Issues
+          </div>
+
+          <div class="issue-item">
+            <span class="severity-badge severity-high">High</span>
+            <div class="issue-text">
+              <strong>Missing security review for OAuth token storage.</strong>
+              The stories do not specify how OAuth refresh tokens will be encrypted at rest. This must be defined before development begins.
+            </div>
+          </div>
+
+          <div class="issue-item">
+            <span class="severity-badge severity-medium">Medium</span>
+            <div class="issue-text">
+              <strong>No error handling stories.</strong>
+              Edge cases like expired tokens, revoked access, and provider outages are not covered in the current story set.
+            </div>
+          </div>
+
+          <div class="issue-item">
+            <span class="severity-badge severity-low">Low</span>
+            <div class="issue-text">
+              <strong>Wireframes reference old design system tokens.</strong>
+              The onboarding wireframes use deprecated color variables. Should be updated to the current design system before handoff.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="geo-square" style="background: var(--green); width:8px; height:8px;"></span>
+            Gate Results
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Stories have acceptance criteria
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Dependencies mapped
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-done">&#10003;</span> Estimates provided
+          </div>
+          <div class="checklist-item">
+            <span class="check-icon check-pending" style="border-color: var(--orange); background: var(--orange-light); color: var(--orange);">!</span> Security review completed
+          </div>
+        </div>
+
+        <div class="readiness-actions">
+          <button class="action-btn primary">Request Security Review</button>
+          <button class="action-btn">Override &amp; Proceed</button>
+          <button class="action-btn">Export Report</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(tabName) {
+    document.querySelectorAll('.right-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+  }
+</script>
+
+</body>
+</html>

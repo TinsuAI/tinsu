@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Editorial Broadsheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & VARIABLES ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+:root {
+  --newsprint: #F8F7F4;
+  --ink: #111111;
+  --accent-red: #E03131;
+  --muted-blue: #4A6FA5;
+  --warm-gray: #8C8C8C;
+  --rule-gray: #CCCCCC;
+  --cream: #F2F0EB;
+  --light-cream: #FAF9F6;
+  --sidebar-width: 280px;
+  --right-panel-width: 380px;
+  --title-height: 52px;
+  --rule-weight: 2px;
+  --rule-heavy: 4px;
+}
+
+body {
+  font-family: 'IBM Plex Sans', Georgia, serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--newsprint);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== TITLE BAR — Masthead ===== */
+.title-bar {
+  height: var(--title-height);
+  background: var(--ink);
+  color: var(--newsprint);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.title-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--rule-heavy);
+  background: var(--accent-red);
+}
+.masthead-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.masthead-title span {
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.7;
+  margin-left: 8px;
+  font-size: 15px;
+}
+.masthead-date {
+  margin-left: auto;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.masthead-edition {
+  margin-left: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.4;
+  border-left: 1px solid rgba(255,255,255,0.2);
+  padding-left: 20px;
+}
+
+/* ===== MAIN LAYOUT ===== */
+.app-layout {
+  display: flex;
+  height: calc(100vh - var(--title-height));
+  overflow: hidden;
+}
+
+/* ===== LEFT SIDEBAR — Chat Sessions ===== */
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--light-cream);
+  border-right: var(--rule-weight) solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-header {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--rule-gray);
+}
+.sidebar-section-label {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.sidebar-section-label .section-number {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent-red);
+  opacity: 0.18;
+  margin-right: 2px;
+}
+.new-chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: var(--rule-weight) solid var(--ink);
+  background: var(--ink);
+  color: var(--newsprint);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.new-chat-btn:hover {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  transform: translateY(-1px);
+}
+.new-chat-btn svg { width: 14px; height: 14px; }
+
+/* Session List */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.session-list::-webkit-scrollbar { width: 3px; }
+.session-list::-webkit-scrollbar-track { background: transparent; }
+.session-list::-webkit-scrollbar-thumb { background: var(--rule-gray); }
+
+.session-card {
+  padding: 14px 18px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--rule-gray);
+  position: relative;
+}
+.session-card:hover { background: rgba(17, 17, 17, 0.03); }
+.session-card:last-child { border-bottom: none; }
+.session-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.persona-dot.analyst { background: var(--muted-blue); }
+.persona-dot.pm { background: #2D8A4E; }
+.persona-dot.architect { background: #C76B15; }
+.persona-dot.ux { background: #7E4CC3; }
+.session-persona-name {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.2px;
+}
+.session-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid;
+  line-height: 1.3;
+}
+.session-badge.active {
+  color: #2D8A4E;
+  border-color: #2D8A4E;
+  background: rgba(45,138,78,0.06);
+}
+.session-badge.paused {
+  color: #B8860B;
+  border-color: #B8860B;
+  background: rgba(184,134,11,0.06);
+}
+.session-badge.completed {
+  color: var(--warm-gray);
+  border-color: var(--rule-gray);
+  background: rgba(140,140,140,0.06);
+}
+.permission-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border: 1px solid;
+  line-height: 1.3;
+}
+.permission-badge.auto {
+  color: #B8860B;
+  border-color: rgba(184,134,11,0.3);
+}
+.permission-badge.manual {
+  color: #2D8A4E;
+  border-color: rgba(45,138,78,0.3);
+}
+.session-preview {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px;
+  color: var(--warm-gray);
+  line-height: 1.45;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.session-time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--rule-gray);
+  letter-spacing: 0.5px;
+}
+.session-kebab {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--warm-gray);
+  background: none;
+  border: none;
+  font-size: 14px;
+}
+.session-card:hover .session-kebab { opacity: 1; }
+.session-kebab:hover { color: var(--ink); }
+
+/* Active session highlight */
+.session-card.is-active {
+  background: rgba(17,17,17,0.04);
+  border-left: 3px solid var(--accent-red);
+  padding-left: 15px;
+}
+
+/* ===== CENTER PANEL — Chat Messages ===== */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--newsprint);
+}
+
+/* Chat Header */
+.chat-header {
+  padding: 16px 24px;
+  border-bottom: var(--rule-weight) solid var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.chat-header-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.persona-selector {
+  display: flex;
+  gap: 2px;
+}
+.persona-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--warm-gray);
+  transition: all 0.15s ease;
+  position: relative;
+}
+.persona-btn:hover { color: var(--ink); }
+.persona-btn.selected {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom: var(--rule-weight) solid var(--ink);
+}
+.persona-btn .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.persona-btn.selected .dot { box-shadow: 0 0 0 2px rgba(17,17,17,0.15); }
+
+/* Message area */
+.message-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+.message-area::-webkit-scrollbar { width: 4px; }
+.message-area::-webkit-scrollbar-track { background: transparent; }
+.message-area::-webkit-scrollbar-thumb { background: var(--rule-gray); border-radius: 2px; }
+
+/* Messages */
+.message {
+  margin-bottom: 20px;
+  animation: messageReveal 0.35s ease-out;
+}
+@keyframes messageReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.message-sender {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.message-timestamp {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--rule-gray);
+}
+
+/* User messages */
+.message.user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.message.user .message-meta { justify-content: flex-end; }
+.message.user .message-sender { color: var(--muted-blue); }
+.message.user .message-content {
+  background: var(--ink);
+  color: var(--newsprint);
+  padding: 14px 18px;
+  max-width: 72%;
+  font-size: 13px;
+  line-height: 1.6;
+  position: relative;
+}
+.message.user .message-content::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--muted-blue);
+}
+
+/* Agent messages */
+.message.agent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.message.agent .message-meta { justify-content: flex-start; }
+.message.agent .message-sender { color: var(--ink); }
+.message.agent .message-content {
+  background: var(--light-cream);
+  color: var(--ink);
+  padding: 18px 22px;
+  max-width: 78%;
+  font-size: 13px;
+  line-height: 1.7;
+  border-left: var(--rule-heavy) solid var(--ink);
+  position: relative;
+}
+.message.agent .message-content p { margin-bottom: 10px; }
+.message.agent .message-content p:last-child { margin-bottom: 0; }
+
+/* Drop cap for first agent message */
+.message.agent .drop-cap::first-letter {
+  font-family: 'Playfair Display', Georgia, serif;
+  float: left;
+  font-size: 52px;
+  line-height: 0.82;
+  padding-right: 8px;
+  padding-top: 4px;
+  font-weight: 700;
+  color: var(--accent-red);
+}
+
+/* Persona indicator on agent messages */
+.agent-persona-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--rule-gray);
+  margin-bottom: 8px;
+  color: var(--warm-gray);
+}
+
+/* ===== TOOL ACTIVITY GROUP ===== */
+.tool-activity-group {
+  margin: 16px 0;
+  padding: 0;
+}
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--warm-gray);
+  transition: color 0.15s;
+}
+.tool-group-header:hover { color: var(--ink); }
+.tool-group-header svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.tool-group-header.expanded svg.chevron { transform: rotate(90deg); }
+.tool-group-header .action-count {
+  font-weight: 600;
+  color: var(--ink);
+}
+.tool-group-header .rule-line {
+  flex: 1;
+  height: 1px;
+  background: var(--rule-gray);
+  margin-left: 8px;
+}
+.tool-group-items {
+  margin-left: 16px;
+  border-left: 2px solid var(--rule-gray);
+  padding-left: 14px;
+  padding-top: 4px;
+}
+.tool-activity-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--warm-gray);
+  transition: background 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.tool-activity-card:hover { background: rgba(17,17,17,0.02); }
+.tool-activity-card::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--rule-gray);
+}
+.tool-activity-card svg { width: 13px; height: 13px; color: var(--warm-gray); flex-shrink: 0; }
+.tool-activity-card .tool-desc {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-activity-card .tool-time {
+  font-size: 10px;
+  color: var(--rule-gray);
+  flex-shrink: 0;
+}
+
+/* ===== THINKING INDICATOR ===== */
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin: 8px 0;
+}
+.thinking-indicator .agent-persona-tag { margin-bottom: 0; }
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.thinking-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: var(--warm-gray);
+  border-radius: 50%;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
+}
+.thinking-label {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--warm-gray);
+}
+
+/* ===== CHAT INPUT ===== */
+.chat-input-area {
+  padding: 16px 24px 20px;
+  border-top: var(--rule-weight) solid var(--ink);
+  background: var(--light-cream);
+  flex-shrink: 0;
+}
+.chat-input-wrapper {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.chat-textarea {
+  flex: 1;
+  border: 1px solid var(--rule-gray);
+  background: var(--newsprint);
+  padding: 12px 14px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.chat-textarea::placeholder {
+  color: var(--rule-gray);
+  font-style: italic;
+}
+.chat-textarea:focus { border-color: var(--ink); }
+.chat-input-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.input-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule-gray);
+  background: var(--newsprint);
+  cursor: pointer;
+  color: var(--warm-gray);
+  transition: all 0.15s;
+}
+.input-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.input-btn.send {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--newsprint);
+}
+.input-btn.send:hover { background: var(--accent-red); border-color: var(--accent-red); }
+.input-btn svg { width: 16px; height: 16px; }
+.chat-hint {
+  margin-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--rule-gray);
+  letter-spacing: 0.3px;
+}
+
+/* ===== RIGHT PANEL — Dashboard ===== */
+.right-panel {
+  width: var(--right-panel-width);
+  flex-shrink: 0;
+  background: var(--light-cream);
+  border-left: var(--rule-weight) solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Tabs */
+.panel-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: var(--rule-weight) solid var(--ink);
+}
+.panel-tab {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+.panel-tab:not(:last-child) { border-right: 1px solid var(--rule-gray); }
+.panel-tab:hover { color: var(--ink); }
+.panel-tab.active {
+  color: var(--ink);
+  background: var(--newsprint);
+}
+.panel-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: var(--rule-weight);
+  background: var(--accent-red);
+}
+
+/* Panel content */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 18px;
+}
+.panel-content::-webkit-scrollbar { width: 3px; }
+.panel-content::-webkit-scrollbar-track { background: transparent; }
+.panel-content::-webkit-scrollbar-thumb { background: var(--rule-gray); }
+
+/* ===== DASHBOARD SECTIONS ===== */
+
+/* What Next Card */
+.what-next-card {
+  padding: 18px;
+  border: var(--rule-weight) solid var(--ink);
+  margin-bottom: 24px;
+  position: relative;
+  background: var(--newsprint);
+}
+.what-next-card::before {
+  content: 'NEXT';
+  position: absolute;
+  top: -9px;
+  left: 16px;
+  background: var(--accent-red);
+  color: var(--newsprint);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 2px 10px;
+}
+.what-next-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+.what-next-reason {
+  font-size: 12px;
+  color: var(--warm-gray);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.what-next-produces {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--muted-blue);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.what-next-produces svg { width: 12px; height: 12px; }
+.what-next-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn-start {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: var(--ink);
+  color: var(--newsprint);
+  border: none;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-start:hover { background: var(--accent-red); }
+.btn-start svg { width: 12px; height: 12px; }
+.btn-skip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: none;
+  border: 1px solid var(--rule-gray);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  color: var(--warm-gray);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-skip:hover { border-color: var(--ink); color: var(--ink); }
+
+/* Section divider */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 16px;
+}
+.section-divider .number {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--ink);
+  opacity: 0.08;
+  line-height: 1;
+}
+.section-divider .label {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.section-divider .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--rule-gray);
+}
+
+/* Project Health */
+.health-section {
+  margin-bottom: 8px;
+}
+.health-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.health-score {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+.health-score .pct {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--warm-gray);
+}
+.health-label {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  color: var(--warm-gray);
+}
+.health-bar-track {
+  height: 6px;
+  background: var(--cream);
+  border: 1px solid var(--rule-gray);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.health-bar-fill {
+  height: 100%;
+  background: var(--ink);
+  transition: width 0.6s ease;
+  position: relative;
+}
+.health-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent-red);
+}
+.health-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+.health-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  padding: 3px 0;
+}
+.health-check {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--rule-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--newsprint);
+}
+.health-check.done {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.health-check.done svg { width: 10px; height: 10px; }
+.health-item-label {
+  color: var(--warm-gray);
+}
+.health-item.done .health-item-label {
+  color: var(--ink);
+  font-weight: 500;
+}
+.health-item .optional-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: var(--rule-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Phase Cards */
+.phase-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.phase-card {
+  border: 1px solid var(--rule-gray);
+  background: var(--newsprint);
+  overflow: hidden;
+}
+.phase-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule-gray);
+  background: var(--cream);
+}
+.phase-number {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  opacity: 0.12;
+  width: 24px;
+  text-align: center;
+}
+.phase-info { flex: 1; min-width: 0; }
+.phase-name {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.phase-desc {
+  font-size: 10px;
+  color: var(--warm-gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.phase-progress {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--warm-gray);
+  flex-shrink: 0;
+}
+.phase-workflows {
+  padding: 4px 0;
+}
+.workflow-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  transition: background 0.15s;
+}
+.workflow-row:hover { background: rgba(17,17,17,0.02); }
+.workflow-name {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workflow-file {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--rule-gray);
+  flex-shrink: 0;
+}
+.status-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid;
+  flex-shrink: 0;
+  cursor: default;
+  white-space: nowrap;
+}
+.status-badge.draft {
+  color: #B8860B;
+  border-color: rgba(184,134,11,0.3);
+  background: rgba(184,134,11,0.04);
+}
+.status-badge.in-review {
+  color: var(--muted-blue);
+  border-color: rgba(74,111,165,0.3);
+  background: rgba(74,111,165,0.04);
+}
+.status-badge.approved {
+  color: #2D8A4E;
+  border-color: rgba(45,138,78,0.3);
+  background: rgba(45,138,78,0.04);
+}
+.status-badge.missing {
+  color: var(--rule-gray);
+  border-color: var(--rule-gray);
+  background: transparent;
+}
+
+/* Recent Runs Table */
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.runs-table th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+  text-align: left;
+  padding: 8px 8px;
+  border-bottom: var(--rule-weight) solid var(--ink);
+}
+.runs-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--rule-gray);
+  vertical-align: middle;
+}
+.runs-table tr:last-child td { border-bottom: none; }
+.runs-table .run-name {
+  font-weight: 500;
+  color: var(--ink);
+}
+.runs-table .run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.runs-table .run-status .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.runs-table .run-status .status-dot.succeeded { background: #2D8A4E; }
+.runs-table .run-status .status-dot.running { background: var(--muted-blue); }
+.runs-table .run-status .status-dot.failed { background: var(--accent-red); }
+.runs-table .run-time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--warm-gray);
+}
+.runs-table .run-duration {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--warm-gray);
+}
+
+/* ===== PULL QUOTE STYLE — for highlighted agent text ===== */
+.pull-quote {
+  border-top: var(--rule-heavy) solid var(--ink);
+  border-bottom: var(--rule-heavy) solid var(--ink);
+  padding: 14px 0;
+  margin: 12px 0;
+}
+.pull-quote p {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* ===== INK SPLASH DECORATION ===== */
+.ink-splash {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fadeSlideIn 0.4s ease-out forwards;
+}
+.animate-in:nth-child(2) { animation-delay: 0.05s; }
+.animate-in:nth-child(3) { animation-delay: 0.1s; }
+.animate-in:nth-child(4) { animation-delay: 0.15s; }
+.animate-in:nth-child(5) { animation-delay: 0.2s; }
+
+/* ===== RESPONSIVE TWEAK (niche) ===== */
+@media (max-width: 1100px) {
+  :root {
+    --sidebar-width: 240px;
+    --right-panel-width: 320px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== TITLE BAR — Masthead ===== -->
+<div class="title-bar">
+  <div class="masthead-title">
+    Tinsu<span>Planning Workspace</span>
+  </div>
+  <div class="masthead-date">Thursday, March 26, 2026</div>
+  <div class="masthead-edition">Editorial Edition</div>
+</div>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="app-layout">
+
+  <!-- ===== LEFT SIDEBAR — Chat Sessions ===== -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-section-label">
+        <span class="section-number">I</span>
+        Sessions
+      </div>
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+    </div>
+    <div class="session-list">
+
+      <!-- Session 1 — Active, PM -->
+      <div class="session-card is-active animate-in">
+        <div class="session-card-top">
+          <span class="persona-dot pm"></span>
+          <span class="session-persona-name">PM</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="session-badge active" style="margin-left:auto;">Active</span>
+        </div>
+        <div class="session-preview">Reviewing the PRD acceptance criteria for the notification subsystem. Need to clarify the retry logic...</div>
+        <div class="session-time">3 min ago</div>
+        <button class="session-kebab" title="Session actions">&#8942;</button>
+      </div>
+
+      <!-- Session 2 — Active, Architect -->
+      <div class="session-card animate-in">
+        <div class="session-card-top">
+          <span class="persona-dot architect"></span>
+          <span class="session-persona-name">Architect</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="session-badge active" style="margin-left:auto;">Active</span>
+        </div>
+        <div class="session-preview">Database schema review for the event sourcing migration. Evaluating trade-offs between...</div>
+        <div class="session-time">12 min ago</div>
+        <button class="session-kebab" title="Session actions">&#8942;</button>
+      </div>
+
+      <!-- Session 3 — Paused, Analyst -->
+      <div class="session-card animate-in">
+        <div class="session-card-top">
+          <span class="persona-dot analyst"></span>
+          <span class="session-persona-name">Analyst</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="session-badge paused" style="margin-left:auto;">Paused</span>
+        </div>
+        <div class="session-preview">Competitive analysis of Notion, Linear, and Height for project management features...</div>
+        <div class="session-time">2 hours ago</div>
+        <button class="session-kebab" title="Session actions">&#8942;</button>
+      </div>
+
+      <!-- Session 4 — Active, UX Designer -->
+      <div class="session-card animate-in">
+        <div class="session-card-top">
+          <span class="persona-dot ux"></span>
+          <span class="session-persona-name">UX Designer</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="session-badge active" style="margin-left:auto;">Active</span>
+        </div>
+        <div class="session-preview">Wireframing the onboarding flow for new workspace creation. Three-step wizard approach...</div>
+        <div class="session-time">4 hours ago</div>
+        <button class="session-kebab" title="Session actions">&#8942;</button>
+      </div>
+
+      <!-- Session 5 — Completed, PM -->
+      <div class="session-card animate-in" style="opacity: 0.55;">
+        <div class="session-card-top">
+          <span class="persona-dot pm"></span>
+          <span class="session-persona-name">PM</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="session-badge completed" style="margin-left:auto;">Completed</span>
+        </div>
+        <div class="session-preview">Product brief finalized with stakeholder feedback incorporated. Ready for PRD phase.</div>
+        <div class="session-time">Yesterday</div>
+        <button class="session-kebab" title="Session actions">&#8942;</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== CENTER PANEL — Chat ===== -->
+  <div class="center-panel">
+
+    <!-- Chat Header -->
+    <div class="chat-header">
+      <div class="chat-header-title">Conversation</div>
+      <div class="persona-selector">
+        <button class="persona-btn">
+          <span class="dot" style="background: var(--muted-blue);"></span> Analyst
+        </button>
+        <button class="persona-btn selected">
+          <span class="dot" style="background: #2D8A4E;"></span> PM
+        </button>
+        <button class="persona-btn">
+          <span class="dot" style="background: #C76B15;"></span> Architect
+        </button>
+        <button class="persona-btn">
+          <span class="dot" style="background: #7E4CC3;"></span> UX Designer
+        </button>
+      </div>
+    </div>
+
+    <!-- Message Area -->
+    <div class="message-area">
+
+      <!-- User Message 1 -->
+      <div class="message user animate-in">
+        <div class="message-meta">
+          <span class="message-timestamp">10:14 AM</span>
+          <span class="message-sender">You</span>
+        </div>
+        <div class="message-content">
+          Can you review the PRD and identify any acceptance criteria that might be ambiguous for the development team? Focus on the notification subsystem section.
+        </div>
+      </div>
+
+      <!-- Agent Message 1 (with drop cap) -->
+      <div class="message agent animate-in">
+        <div class="message-meta">
+          <span class="message-sender">PM Agent</span>
+          <span class="message-timestamp">10:14 AM</span>
+        </div>
+        <div class="agent-persona-tag">
+          <span class="persona-dot pm" style="width:6px;height:6px;"></span>
+          PM
+        </div>
+        <div class="message-content">
+          <p class="drop-cap">Reviewing the notification subsystem section of the PRD, I've identified three acceptance criteria that could benefit from additional specificity to prevent implementation ambiguity.</p>
+          <p><strong>AC-3.2:</strong> "System should retry failed notifications" lacks a defined retry policy. I recommend specifying: maximum 3 retries with exponential backoff (1s, 4s, 16s), after which the notification is marked as permanently failed and logged.</p>
+          <p><strong>AC-3.5:</strong> "Users can manage notification preferences" doesn't specify granularity. Should users control per-channel (email, in-app, push) or per-event-type, or both?</p>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message user animate-in">
+        <div class="message-meta">
+          <span class="message-timestamp">10:16 AM</span>
+          <span class="message-sender">You</span>
+        </div>
+        <div class="message-content">
+          Good catches. Let's go with per-channel AND per-event-type granularity. Can you update the PRD with the retry policy and preference details?
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-activity-group animate-in">
+        <button class="tool-group-header expanded">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--warm-gray);"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Agent performed <span class="action-count">3</span> actions
+          <span class="rule-line"></span>
+        </button>
+        <div class="tool-group-items">
+          <div class="tool-activity-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span class="tool-desc">Read prd.md</span>
+            <span class="tool-time">10:16:22</span>
+          </div>
+          <div class="tool-activity-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            <span class="tool-desc">Edit prd.md (AC-3.2 retry policy)</span>
+            <span class="tool-time">10:16:25</span>
+          </div>
+          <div class="tool-activity-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            <span class="tool-desc">Edit prd.md (AC-3.5 preference granularity)</span>
+            <span class="tool-time">10:16:28</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message agent animate-in">
+        <div class="message-meta">
+          <span class="message-sender">PM Agent</span>
+          <span class="message-timestamp">10:16 AM</span>
+        </div>
+        <div class="agent-persona-tag">
+          <span class="persona-dot pm" style="width:6px;height:6px;"></span>
+          PM
+        </div>
+        <div class="message-content">
+          <p>I've updated the PRD with both changes:</p>
+          <div class="pull-quote">
+            <p>"Notification preferences shall support dual-axis granularity: per-channel delivery control and per-event-type subscription management."</p>
+          </div>
+          <p>The retry policy now specifies exponential backoff with a 3-attempt ceiling. I also added a new acceptance criterion (AC-3.8) requiring a dead-letter queue for permanently failed notifications, which the architecture team should account for in their event infrastructure design.</p>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message user animate-in">
+        <div class="message-meta">
+          <span class="message-timestamp">10:18 AM</span>
+          <span class="message-sender">You</span>
+        </div>
+        <div class="message-content">
+          Perfect. Flag this for the architect to review when we get to the solutioning phase.
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator animate-in">
+        <div class="agent-persona-tag">
+          <span class="persona-dot pm" style="width:6px;height:6px;"></span>
+          PM
+        </div>
+        <div class="thinking-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="thinking-label">composing response...</span>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-textarea" placeholder="Type your message..." rows="1"></textarea>
+        <div class="chat-input-actions">
+          <!-- Attachment button -->
+          <button class="input-btn" title="Attach file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <!-- Send button -->
+          <button class="input-btn send" title="Send message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-hint">Press <strong>Enter</strong> to send &middot; <strong>Shift+Enter</strong> for new line &middot; <strong>/</strong> for commands</div>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT PANEL — Dashboard ===== -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <button class="panel-tab active">Dashboard</button>
+      <button class="panel-tab">Artifact</button>
+      <button class="panel-tab">Readiness</button>
+    </div>
+
+    <!-- Panel Content -->
+    <div class="panel-content">
+
+      <!-- What Next Card -->
+      <div class="what-next-card animate-in">
+        <div class="what-next-title">Design Architecture</div>
+        <div class="what-next-reason">PRD is complete. Architecture defines your technical approach and stack decisions.</div>
+        <div class="what-next-produces">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Produces: architecture.md
+        </div>
+        <div class="what-next-actions">
+          <button class="btn-start">
+            Start
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Project Health Section -->
+      <div class="section-divider">
+        <span class="number">II</span>
+        <span class="label">Project Health</span>
+        <span class="rule"></span>
+      </div>
+
+      <div class="health-section animate-in">
+        <div class="health-header">
+          <div class="health-score">65<span class="pct">%</span></div>
+          <div class="health-label">4 of 6 artifacts present</div>
+        </div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width: 65%;"></div>
+        </div>
+        <div class="health-checklist">
+          <div class="health-item done">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="health-item-label">Product Brief</span>
+          </div>
+          <div class="health-item done">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="health-item-label">PRD</span>
+          </div>
+          <div class="health-item done">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="health-item-label">UX Spec</span>
+            <span class="optional-tag">opt</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check"></div>
+            <span class="health-item-label">Architecture</span>
+          </div>
+          <div class="health-item done">
+            <div class="health-check done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span class="health-item-label">Epics & Stories</span>
+          </div>
+          <div class="health-item">
+            <div class="health-check"></div>
+            <span class="health-item-label">Readiness Gate</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Cards Section -->
+      <div class="section-divider">
+        <span class="number">III</span>
+        <span class="label">Planning Phases</span>
+        <span class="rule"></span>
+      </div>
+
+      <div class="phase-cards">
+
+        <!-- Phase 1: Analysis -->
+        <div class="phase-card animate-in">
+          <div class="phase-card-header">
+            <span class="phase-number">1</span>
+            <div class="phase-info">
+              <div class="phase-name">Analysis</div>
+              <div class="phase-desc">Research and define your product vision</div>
+            </div>
+            <span class="phase-progress">4/4</span>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <span class="workflow-name">Brainstorming</span>
+              <span class="status-badge approved">Approved</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">Market Research</span>
+              <span class="status-badge approved">Approved</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">Domain Research</span>
+              <span class="status-badge approved">Approved</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">Product Brief</span>
+              <span class="status-badge approved">Approved</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 2: Planning -->
+        <div class="phase-card animate-in">
+          <div class="phase-card-header">
+            <span class="phase-number">2</span>
+            <div class="phase-info">
+              <div class="phase-name">Planning</div>
+              <div class="phase-desc">Document requirements and design UX</div>
+            </div>
+            <span class="phase-progress">2/2</span>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <span class="workflow-name">Create PRD</span>
+              <span class="status-badge in-review">In Review</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">UX Design</span>
+              <span class="status-badge draft">Draft</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 3: Solutioning -->
+        <div class="phase-card animate-in">
+          <div class="phase-card-header">
+            <span class="phase-number">3</span>
+            <div class="phase-info">
+              <div class="phase-name">Solutioning</div>
+              <div class="phase-desc">Design architecture and break down work</div>
+            </div>
+            <span class="phase-progress">0/3</span>
+          </div>
+          <div class="phase-workflows">
+            <div class="workflow-row">
+              <span class="workflow-name">Architecture</span>
+              <span class="status-badge missing">Missing</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">Epics & Stories</span>
+              <span class="status-badge missing">Missing</span>
+            </div>
+            <div class="workflow-row">
+              <span class="workflow-name">Implementation Readiness</span>
+              <span class="status-badge missing">Missing</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recent Runs Section -->
+      <div class="section-divider">
+        <span class="number">IV</span>
+        <span class="label">Recent Runs</span>
+        <span class="rule"></span>
+      </div>
+
+      <table class="runs-table animate-in">
+        <thead>
+          <tr>
+            <th>Workflow</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="run-name">Create PRD</td>
+            <td>
+              <span class="run-status">
+                <span class="status-dot succeeded"></span>
+                Succeeded
+              </span>
+            </td>
+            <td class="run-time">2m ago</td>
+            <td class="run-duration">4m 32s</td>
+          </tr>
+          <tr>
+            <td class="run-name">UX Design</td>
+            <td>
+              <span class="run-status">
+                <span class="status-dot running"></span>
+                Running
+              </span>
+            </td>
+            <td class="run-time">18m ago</td>
+            <td class="run-duration">--</td>
+          </tr>
+          <tr>
+            <td class="run-name">Product Brief</td>
+            <td>
+              <span class="run-status">
+                <span class="status-dot succeeded"></span>
+                Succeeded
+              </span>
+            </td>
+            <td class="run-time">1h ago</td>
+            <td class="run-duration">2m 11s</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== INK SPLASH SVG DECORATIONS ===== -->
+<svg style="position:absolute;width:0;height:0;">
+  <defs>
+    <filter id="ink-texture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<script>
+// Interactive tab switching
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// Tool group collapse/expand
+document.querySelectorAll('.tool-group-header').forEach(header => {
+  header.addEventListener('click', () => {
+    header.classList.toggle('expanded');
+    const items = header.nextElementSibling;
+    if (items) {
+      items.style.display = items.style.display === 'none' ? 'block' : 'none';
+    }
+  });
+});
+
+// Kebab menu click (placeholder)
+document.querySelectorAll('.session-kebab').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Context menu would appear here
+  });
+});
+
+// Session card selection
+document.querySelectorAll('.session-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.session-card').forEach(c => c.classList.remove('is-active'));
+    card.classList.add('is-active');
+  });
+});
+
+// Persona selector
+document.querySelectorAll('.persona-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+
+// Auto-resize textarea
+const textarea = document.querySelector('.chat-textarea');
+if (textarea) {
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  });
+}
+</script>
+
+</body>
+</html>

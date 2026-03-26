@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Watercolor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   WATERCOLOR DREAMSCAPE — Tinsu Planning Workspace
+   A painter's canvas — soft washes, wet paper, ink
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --paper: #FAFAF8;
+  --paper-warm: #F7F5F0;
+  --paper-cool: #F0F3F5;
+  --wash-blue: #A8D8EA;
+  --wash-blue-light: #D0EBF5;
+  --wash-blue-deep: #7BC4DF;
+  --wash-rose: #FBBFCA;
+  --wash-rose-light: #FDDDE3;
+  --wash-rose-deep: #F199AA;
+  --wash-sage: #B5C99A;
+  --wash-sage-light: #D4E2C0;
+  --wash-sage-deep: #93B06E;
+  --wash-amber: #F9D79B;
+  --wash-amber-light: #FBEAC5;
+  --wash-amber-deep: #F0C060;
+  --wash-violet: #C3AED6;
+  --wash-violet-light: #DDD2E8;
+  --wash-violet-deep: #A98BBE;
+  --ink: #2C3E50;
+  --ink-light: #4A6274;
+  --ink-faint: #8BA0B4;
+  --ink-ghost: #B8C8D6;
+  --ink-whisper: #D5DFE8;
+  --shadow-wash: rgba(168, 216, 234, 0.18);
+  --shadow-ink: rgba(44, 62, 80, 0.06);
+  --shadow-rose: rgba(251, 191, 202, 0.25);
+  --shadow-sage: rgba(181, 201, 154, 0.25);
+  --shadow-violet: rgba(195, 174, 214, 0.20);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Lora', serif;
+  background: var(--paper);
+  color: var(--ink);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── SVG Paper Texture Filter ── */
+svg.paper-texture-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ── Watercolor Wash Backgrounds ── */
+.wash-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.wash-blob {
+  position: absolute;
+  filter: blur(90px);
+  opacity: 0.4;
+  animation: washDrift 30s ease-in-out infinite alternate;
+}
+
+.wash-1 {
+  width: 700px; height: 500px;
+  background: radial-gradient(ellipse at 40% 50%, var(--wash-blue) 0%, var(--wash-blue-light) 35%, transparent 70%);
+  top: -8%; left: -5%;
+  border-radius: 43% 57% 62% 38% / 45% 55% 45% 55%;
+  animation-delay: 0s;
+}
+
+.wash-2 {
+  width: 550px; height: 450px;
+  background: radial-gradient(ellipse at 60% 40%, var(--wash-rose) 0%, var(--wash-rose-light) 40%, transparent 70%);
+  top: 55%; right: -3%;
+  border-radius: 58% 42% 35% 65% / 52% 38% 62% 48%;
+  animation-delay: -8s;
+  animation-duration: 35s;
+}
+
+.wash-3 {
+  width: 480px; height: 400px;
+  background: radial-gradient(ellipse at 50% 60%, var(--wash-sage) 0%, var(--wash-sage-light) 35%, transparent 70%);
+  bottom: -5%; left: 20%;
+  border-radius: 65% 35% 48% 52% / 40% 60% 40% 60%;
+  animation-delay: -15s;
+  animation-duration: 28s;
+}
+
+.wash-4 {
+  width: 400px; height: 350px;
+  background: radial-gradient(ellipse at 45% 55%, var(--wash-violet) 0%, var(--wash-violet-light) 30%, transparent 65%);
+  top: 15%; right: 25%;
+  border-radius: 50% 50% 40% 60% / 55% 45% 55% 45%;
+  animation-delay: -20s;
+  animation-duration: 40s;
+  opacity: 0.28;
+}
+
+.wash-5 {
+  width: 350px; height: 300px;
+  background: radial-gradient(ellipse at 55% 45%, var(--wash-amber) 0%, var(--wash-amber-light) 35%, transparent 65%);
+  top: 40%; left: 35%;
+  border-radius: 45% 55% 55% 45% / 50% 50% 50% 50%;
+  animation-delay: -12s;
+  animation-duration: 33s;
+  opacity: 0.22;
+}
+
+@keyframes washDrift {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  25% { transform: translate(15px, -10px) scale(1.04) rotate(1deg); }
+  50% { transform: translate(-10px, 15px) scale(0.97) rotate(-1deg); }
+  75% { transform: translate(8px, 8px) scale(1.02) rotate(0.5deg); }
+  100% { transform: translate(-5px, -12px) scale(1.01) rotate(-0.5deg); }
+}
+
+/* ── Paint Splatter Decorations ── */
+.splatter-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.paint-drop {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.12;
+  animation: dropFade 20s ease-in-out infinite alternate;
+}
+
+.drop-1 {
+  width: 12px; height: 14px;
+  background: var(--wash-blue-deep);
+  top: 12%; left: 8%;
+  border-radius: 55% 45% 60% 40% / 50% 60% 40% 50%;
+  animation-delay: -3s;
+}
+.drop-2 {
+  width: 8px; height: 9px;
+  background: var(--wash-rose-deep);
+  top: 78%; left: 45%;
+  border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
+  animation-delay: -7s;
+}
+.drop-3 {
+  width: 6px; height: 7px;
+  background: var(--wash-sage-deep);
+  top: 25%; right: 12%;
+  border-radius: 50% 50% 45% 55% / 55% 45% 55% 45%;
+  animation-delay: -11s;
+}
+.drop-4 {
+  width: 10px; height: 11px;
+  background: var(--wash-violet-deep);
+  top: 65%; left: 22%;
+  animation-delay: -5s;
+}
+.drop-5 {
+  width: 5px; height: 6px;
+  background: var(--wash-amber-deep);
+  top: 38%; right: 30%;
+  border-radius: 60% 40% 55% 45% / 45% 55% 45% 55%;
+  animation-delay: -14s;
+}
+.drop-6 {
+  width: 7px; height: 8px;
+  background: var(--wash-blue);
+  top: 88%; right: 18%;
+  animation-delay: -9s;
+}
+
+@keyframes dropFade {
+  0%, 100% { opacity: 0.10; transform: scale(1); }
+  50% { opacity: 0.18; transform: scale(1.2); }
+}
+
+/* ── Paper Texture Overlay ── */
+.paper-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23t)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* ── Title Bar ── */
+.title-bar {
+  position: relative;
+  z-index: 10;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(250, 250, 248, 0.92), rgba(240, 243, 245, 0.92));
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(168, 216, 234, 0.3);
+  -webkit-app-region: drag;
+}
+
+.title-bar::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--wash-blue), var(--wash-rose), var(--wash-violet), transparent);
+  opacity: 0.5;
+}
+
+.title-bar-text {
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-light);
+  letter-spacing: 0.5px;
+}
+
+.title-bar-text span {
+  color: var(--wash-blue-deep);
+}
+
+.window-controls {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.window-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+.window-dot.close { background: var(--wash-rose-deep); }
+.window-dot.min { background: var(--wash-amber-deep); }
+.window-dot.max { background: var(--wash-sage-deep); }
+
+/* ── Main Layout ── */
+.workspace {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  height: calc(100vh - 42px);
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-whisper);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-ghost);
+}
+
+/* ═══════════════════════════════════════
+   LEFT SIDEBAR — Chat Session List
+   ═══════════════════════════════════════ */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: linear-gradient(
+    175deg,
+    rgba(250, 250, 248, 0.88) 0%,
+    rgba(208, 235, 245, 0.12) 40%,
+    rgba(253, 221, 227, 0.10) 70%,
+    rgba(250, 250, 248, 0.88) 100%
+  );
+  backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(168, 216, 234, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, var(--wash-blue), var(--wash-rose), transparent);
+  opacity: 0.3;
+}
+
+.sidebar-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid rgba(168, 216, 234, 0.15);
+}
+
+.sidebar-title {
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-title .paint-stroke {
+  display: inline-block;
+  width: 28px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--wash-blue), var(--wash-rose));
+  border-radius: 2px;
+  opacity: 0.6;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1.5px dashed var(--wash-blue);
+  background: linear-gradient(135deg, rgba(168, 216, 234, 0.08), rgba(195, 174, 214, 0.06));
+  border-radius: 10px;
+  font-family: 'Caveat', cursive;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink-light);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.new-chat-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 50%, var(--wash-blue-light), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.new-chat-btn:hover {
+  border-color: var(--wash-blue-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(168, 216, 234, 0.3);
+}
+
+.new-chat-btn:hover::before {
+  opacity: 1;
+}
+
+.new-chat-btn .plus-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--wash-blue), var(--wash-violet));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.new-chat-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Session Cards ── */
+.session-card {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(250, 250, 248, 0.7);
+  border: 1px solid rgba(168, 216, 234, 0.15);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  animation: cardReveal 0.5s ease backwards;
+}
+
+.session-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  border-radius: 0 2px 2px 0;
+  opacity: 0.7;
+  transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.session-card:nth-child(1) { animation-delay: 0.05s; }
+.session-card:nth-child(2) { animation-delay: 0.10s; }
+.session-card:nth-child(3) { animation-delay: 0.15s; }
+.session-card:nth-child(4) { animation-delay: 0.20s; }
+.session-card:nth-child(5) { animation-delay: 0.25s; }
+
+.session-card:hover {
+  background: rgba(250, 250, 248, 0.95);
+  border-color: rgba(168, 216, 234, 0.4);
+  box-shadow: 0 4px 20px var(--shadow-wash), 0 1px 4px var(--shadow-ink);
+  transform: translateX(2px);
+}
+
+.session-card:hover::before {
+  width: 4px;
+  opacity: 1;
+}
+
+.session-card.active {
+  background: rgba(250, 250, 248, 0.98);
+  border-color: var(--wash-blue);
+  box-shadow: 0 4px 24px var(--shadow-wash), 0 2px 8px var(--shadow-ink);
+}
+
+.session-card.active::before {
+  width: 4px;
+  opacity: 1;
+}
+
+.session-card.persona-pm::before { background: linear-gradient(180deg, var(--wash-blue), var(--wash-blue-deep)); }
+.session-card.persona-dev::before { background: linear-gradient(180deg, var(--wash-sage), var(--wash-sage-deep)); }
+.session-card.persona-qa::before { background: linear-gradient(180deg, var(--wash-amber), var(--wash-amber-deep)); }
+.session-card.persona-devops::before { background: linear-gradient(180deg, var(--wash-violet), var(--wash-violet-deep)); }
+.session-card.persona-design::before { background: linear-gradient(180deg, var(--wash-rose), var(--wash-rose-deep)); }
+
+.session-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-persona-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.persona-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.persona-dot.pm { background: var(--wash-blue-deep); color: var(--wash-blue); }
+.persona-dot.dev { background: var(--wash-sage-deep); color: var(--wash-sage); }
+.persona-dot.qa { background: var(--wash-amber-deep); color: var(--wash-amber); }
+.persona-dot.devops { background: var(--wash-violet-deep); color: var(--wash-violet); }
+.persona-dot.design { background: var(--wash-rose-deep); color: var(--wash-rose); }
+
+.session-persona-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-light);
+}
+
+.session-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-time {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  letter-spacing: 0.2px;
+}
+
+.kebab-menu {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.session-card:hover .kebab-menu { opacity: 1; }
+
+.kebab-menu:hover {
+  background: rgba(168, 216, 234, 0.2);
+}
+
+.kebab-dot {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.session-preview {
+  font-size: 12px;
+  color: var(--ink-faint);
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 7px;
+  font-style: italic;
+}
+
+.session-badges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-family: 'Caveat', cursive;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.3px;
+}
+
+.badge-status {
+  background: linear-gradient(135deg, rgba(168, 216, 234, 0.2), rgba(168, 216, 234, 0.08));
+  color: var(--wash-blue-deep);
+  border: 1px solid rgba(168, 216, 234, 0.3);
+}
+
+.badge-status.completed {
+  background: linear-gradient(135deg, rgba(181, 201, 154, 0.2), rgba(181, 201, 154, 0.08));
+  color: var(--wash-sage-deep);
+  border-color: rgba(181, 201, 154, 0.3);
+}
+
+.badge-status.error {
+  background: linear-gradient(135deg, rgba(251, 191, 202, 0.2), rgba(251, 191, 202, 0.08));
+  color: var(--wash-rose-deep);
+  border-color: rgba(251, 191, 202, 0.3);
+}
+
+.badge-permission {
+  background: linear-gradient(135deg, rgba(249, 215, 155, 0.2), rgba(249, 215, 155, 0.08));
+  color: var(--wash-amber-deep);
+  border: 1px solid rgba(249, 215, 155, 0.3);
+}
+
+.badge-permission.auto {
+  background: linear-gradient(135deg, rgba(195, 174, 214, 0.2), rgba(195, 174, 214, 0.08));
+  color: var(--wash-violet-deep);
+  border-color: rgba(195, 174, 214, 0.3);
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ═══════════════════════════════════════
+   CENTER PANEL — Chat Message Area
+   ═══════════════════════════════════════ */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    160deg,
+    rgba(250, 250, 248, 0.5) 0%,
+    rgba(240, 243, 245, 0.3) 50%,
+    rgba(250, 250, 248, 0.5) 100%
+  );
+}
+
+/* ── Persona Selector ── */
+.persona-selector {
+  padding: 14px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(168, 216, 234, 0.15);
+  background: rgba(250, 250, 248, 0.6);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+.persona-selector::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--wash-blue-light), var(--wash-amber-light), transparent);
+  opacity: 0.5;
+}
+
+.persona-selector-label {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  margin-right: 4px;
+}
+
+.persona-btn {
+  padding: 6px 14px;
+  border-radius: 18px;
+  border: 1.5px solid transparent;
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  background: rgba(250, 250, 248, 0.5);
+}
+
+.persona-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.persona-btn:hover::before {
+  opacity: 1;
+}
+
+.persona-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px var(--shadow-ink);
+}
+
+.persona-btn.pm {
+  color: var(--wash-blue-deep);
+  border-color: rgba(168, 216, 234, 0.3);
+}
+.persona-btn.pm::before { background: radial-gradient(circle, var(--wash-blue-light), transparent 70%); }
+.persona-btn.pm.active {
+  background: linear-gradient(135deg, var(--wash-blue-light), var(--wash-blue));
+  color: var(--ink);
+  border-color: var(--wash-blue);
+  box-shadow: 0 3px 14px var(--shadow-wash);
+}
+
+.persona-btn.dev {
+  color: var(--wash-sage-deep);
+  border-color: rgba(181, 201, 154, 0.3);
+}
+.persona-btn.dev::before { background: radial-gradient(circle, var(--wash-sage-light), transparent 70%); }
+.persona-btn.dev.active {
+  background: linear-gradient(135deg, var(--wash-sage-light), var(--wash-sage));
+  color: var(--ink);
+  border-color: var(--wash-sage);
+  box-shadow: 0 3px 14px var(--shadow-sage);
+}
+
+.persona-btn.qa {
+  color: var(--wash-amber-deep);
+  border-color: rgba(249, 215, 155, 0.3);
+}
+.persona-btn.qa::before { background: radial-gradient(circle, var(--wash-amber-light), transparent 70%); }
+.persona-btn.qa.active {
+  background: linear-gradient(135deg, var(--wash-amber-light), var(--wash-amber));
+  color: var(--ink);
+  border-color: var(--wash-amber);
+}
+
+.persona-btn.devops {
+  color: var(--wash-violet-deep);
+  border-color: rgba(195, 174, 214, 0.3);
+}
+.persona-btn.devops::before { background: radial-gradient(circle, var(--wash-violet-light), transparent 70%); }
+.persona-btn.devops.active {
+  background: linear-gradient(135deg, var(--wash-violet-light), var(--wash-violet));
+  color: var(--ink);
+  border-color: var(--wash-violet);
+}
+
+/* ── Chat Messages ── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  max-width: 72%;
+  animation: messageFloat 0.5s ease backwards;
+  position: relative;
+}
+
+.message:nth-child(1) { animation-delay: 0.05s; }
+.message:nth-child(2) { animation-delay: 0.10s; }
+.message:nth-child(3) { animation-delay: 0.15s; }
+.message:nth-child(4) { animation-delay: 0.20s; }
+.message:nth-child(5) { animation-delay: 0.25s; }
+.message:nth-child(6) { animation-delay: 0.30s; }
+.message:nth-child(7) { animation-delay: 0.35s; }
+.message:nth-child(8) { animation-delay: 0.40s; }
+
+@keyframes messageFloat {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* User messages — right-aligned */
+.message.user {
+  align-self: flex-end;
+}
+
+.message.user .message-bubble {
+  background: linear-gradient(135deg, rgba(168, 216, 234, 0.22), rgba(195, 174, 214, 0.14));
+  border: 1px solid rgba(168, 216, 234, 0.3);
+  border-radius: 16px 16px 4px 16px;
+  padding: 12px 16px;
+  position: relative;
+  box-shadow: 0 2px 12px var(--shadow-wash), 0 1px 3px var(--shadow-ink);
+}
+
+.message.user .message-bubble::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 80% 20%, rgba(168, 216, 234, 0.1), transparent 60%);
+  pointer-events: none;
+}
+
+.message.user .message-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.message.user .message-time {
+  text-align: right;
+  font-size: 10px;
+  color: var(--ink-ghost);
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* Agent messages — left-aligned */
+.message.agent {
+  align-self: flex-start;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.agent-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.agent-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  opacity: 0.3;
+}
+
+.agent-avatar.pm {
+  background: linear-gradient(135deg, var(--wash-blue), var(--wash-blue-deep));
+  color: var(--wash-blue-light);
+}
+.agent-avatar.dev {
+  background: linear-gradient(135deg, var(--wash-sage), var(--wash-sage-deep));
+  color: var(--wash-sage-light);
+}
+
+.agent-name {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-light);
+}
+
+.message.agent .message-bubble {
+  background: rgba(250, 250, 248, 0.85);
+  border: 1px solid rgba(44, 62, 80, 0.06);
+  border-radius: 4px 16px 16px 16px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 16px var(--shadow-ink), 0 1px 4px rgba(44, 62, 80, 0.04);
+  position: relative;
+}
+
+.message.agent .message-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 10% 90%, rgba(181, 201, 154, 0.08), transparent 50%);
+  pointer-events: none;
+}
+
+.message.agent .message-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.message.agent .message-text code {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  background: rgba(168, 216, 234, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12.5px;
+  color: var(--ink-light);
+}
+
+.message.agent .message-time {
+  font-size: 10px;
+  color: var(--ink-ghost);
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* ── Tool Activity Group ── */
+.tool-group {
+  align-self: flex-start;
+  max-width: 72%;
+  animation: messageFloat 0.5s ease backwards;
+  animation-delay: 0.30s;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tool-group-icon {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--wash-amber-light), var(--wash-amber));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.tool-group-title {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-light);
+}
+
+.tool-group-count {
+  font-size: 10px;
+  color: var(--ink-faint);
+  background: rgba(249, 215, 155, 0.2);
+  padding: 1px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(249, 215, 155, 0.3);
+  font-family: 'Caveat', cursive;
+  font-weight: 600;
+}
+
+.tool-timeline {
+  position: relative;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tool-timeline::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 7px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--wash-amber), var(--wash-sage), var(--wash-blue));
+  border-radius: 1px;
+  opacity: 0.4;
+}
+
+.tool-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  position: relative;
+}
+
+.tool-action::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 13px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: var(--paper);
+}
+
+.tool-action:nth-child(1)::before { border-color: var(--wash-amber-deep); }
+.tool-action:nth-child(2)::before { border-color: var(--wash-sage-deep); }
+.tool-action:nth-child(3)::before { border-color: var(--wash-blue-deep); }
+
+.tool-action-card {
+  flex: 1;
+  background: rgba(250, 250, 248, 0.75);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 6px var(--shadow-ink);
+  transition: all 0.2s ease;
+}
+
+.tool-action-card:hover {
+  background: rgba(250, 250, 248, 0.95);
+  box-shadow: 0 3px 14px var(--shadow-wash);
+  transform: translateX(2px);
+}
+
+.tool-action-name {
+  font-family: 'Caveat', cursive;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-bottom: 2px;
+}
+
+.tool-action-detail {
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.tool-action-status {
+  font-size: 10px;
+  font-family: 'Caveat', cursive;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.tool-action-status.success { color: var(--wash-sage-deep); }
+.tool-action-status.running { color: var(--wash-amber-deep); }
+.tool-action-status.pending { color: var(--ink-ghost); }
+
+/* ── Thinking Indicator ── */
+.thinking-indicator {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(250, 250, 248, 0.7);
+  border: 1px solid rgba(195, 174, 214, 0.2);
+  border-radius: 14px;
+  animation: messageFloat 0.5s ease backwards;
+  animation-delay: 0.40s;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.thinking-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--wash-violet);
+  animation: thinkPulse 1.4s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(1) { animation-delay: 0s; }
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinkPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); background: var(--wash-violet-deep); }
+}
+
+.thinking-label {
+  font-family: 'Caveat', cursive;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--wash-violet-deep);
+  opacity: 0.7;
+}
+
+/* ── Chat Input ── */
+.chat-input-area {
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(168, 216, 234, 0.15);
+  background: rgba(250, 250, 248, 0.7);
+  backdrop-filter: blur(10px);
+  position: relative;
+}
+
+.chat-input-area::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--wash-rose-light), var(--wash-blue-light), transparent);
+  opacity: 0.4;
+}
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: rgba(250, 250, 248, 0.85);
+  border: 1.5px solid rgba(168, 216, 234, 0.25);
+  border-radius: 14px;
+  padding: 10px 14px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: var(--wash-blue);
+  box-shadow: 0 4px 20px var(--shadow-wash), 0 0 0 3px rgba(168, 216, 234, 0.08);
+}
+
+.chat-input-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 100%, rgba(168, 216, 234, 0.06), transparent 60%);
+  pointer-events: none;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: 'Lora', serif;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: transparent;
+  resize: none;
+  line-height: 1.5;
+  min-height: 20px;
+  max-height: 80px;
+}
+
+.chat-input::placeholder {
+  color: var(--ink-ghost);
+  font-style: italic;
+}
+
+.chat-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.input-action-btn {
+  width: 30px; height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-ghost);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.input-action-btn:hover {
+  background: rgba(168, 216, 234, 0.15);
+  color: var(--ink-light);
+}
+
+.send-btn {
+  width: 34px; height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--wash-blue), var(--wash-blue-deep));
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  font-size: 15px;
+  box-shadow: 0 2px 8px rgba(168, 216, 234, 0.4);
+}
+
+.send-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(168, 216, 234, 0.5);
+  background: linear-gradient(135deg, var(--wash-blue-deep), var(--wash-violet-deep));
+}
+
+/* ═══════════════════════════════════════
+   RIGHT PANEL — Dashboard
+   ═══════════════════════════════════════ */
+.right-panel {
+  width: 380px;
+  min-width: 380px;
+  background: linear-gradient(
+    185deg,
+    rgba(250, 250, 248, 0.88) 0%,
+    rgba(253, 221, 227, 0.08) 35%,
+    rgba(212, 226, 192, 0.08) 65%,
+    rgba(250, 250, 248, 0.88) 100%
+  );
+  backdrop-filter: blur(16px);
+  border-left: 1px solid rgba(168, 216, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.right-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, var(--wash-rose), var(--wash-sage), transparent);
+  opacity: 0.3;
+}
+
+/* ── Tabs ── */
+.dashboard-tabs {
+  display: flex;
+  padding: 12px 16px 0;
+  gap: 2px;
+  border-bottom: 1px solid rgba(168, 216, 234, 0.12);
+  position: relative;
+}
+
+.dashboard-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--wash-sage-light), var(--wash-amber-light), transparent);
+  opacity: 0.4;
+}
+
+.tab-btn {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  border-radius: 10px 10px 0 0;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-btn:hover {
+  color: var(--ink-light);
+  background: rgba(168, 216, 234, 0.06);
+}
+
+.tab-btn.active {
+  color: var(--ink);
+  background: rgba(250, 250, 248, 0.6);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--wash-blue), var(--wash-rose));
+  border-radius: 1px;
+}
+
+/* ── Dashboard Content ── */
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Dashboard Card Base ── */
+.dash-card {
+  background: rgba(250, 250, 248, 0.8);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+  border-radius: 12px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px var(--shadow-ink);
+  animation: cardFadeUp 0.4s ease backwards;
+}
+
+.dash-card:nth-child(1) { animation-delay: 0.05s; }
+.dash-card:nth-child(2) { animation-delay: 0.1s; }
+.dash-card:nth-child(3) { animation-delay: 0.15s; }
+.dash-card:nth-child(4) { animation-delay: 0.2s; }
+.dash-card:nth-child(5) { animation-delay: 0.25s; }
+
+.dash-card:hover {
+  box-shadow: 0 4px 20px var(--shadow-wash), 0 2px 6px var(--shadow-ink);
+  transform: translateY(-1px);
+}
+
+@keyframes cardFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dash-card-title {
+  font-family: 'Caveat', cursive;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-icon {
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ── What Next Card ── */
+.what-next-card {
+  position: relative;
+}
+
+.what-next-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 120px; height: 120px;
+  background: radial-gradient(circle at 100% 0%, var(--wash-blue-light), transparent 70%);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.what-next-card .card-icon {
+  background: linear-gradient(135deg, var(--wash-blue-light), var(--wash-blue));
+  color: white;
+}
+
+.what-next-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.what-next-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(168, 216, 234, 0.06);
+  border: 1px solid rgba(168, 216, 234, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.what-next-item:hover {
+  background: rgba(168, 216, 234, 0.12);
+  border-color: rgba(168, 216, 234, 0.25);
+  transform: translateX(3px);
+}
+
+.wn-priority {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.wn-priority.high { background: var(--wash-rose-deep); box-shadow: 0 0 6px var(--wash-rose); }
+.wn-priority.medium { background: var(--wash-amber-deep); box-shadow: 0 0 6px var(--wash-amber); }
+.wn-priority.low { background: var(--wash-sage-deep); box-shadow: 0 0 6px var(--wash-sage); }
+
+.wn-content {
+  flex: 1;
+}
+
+.wn-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.wn-desc {
+  font-size: 11px;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+/* ── Project Health Card ── */
+.health-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 140px; height: 100px;
+  background: radial-gradient(circle at 0% 100%, var(--wash-sage-light), transparent 70%);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.health-card .card-icon {
+  background: linear-gradient(135deg, var(--wash-sage-light), var(--wash-sage));
+  color: white;
+}
+
+.health-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.health-ring-container {
+  position: relative;
+  width: 60px; height: 60px;
+  flex-shrink: 0;
+}
+
+.health-ring {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--wash-sage-deep) 0deg,
+    var(--wash-sage) 120deg,
+    var(--wash-amber) 200deg,
+    var(--wash-amber-deep) 234deg,
+    var(--ink-whisper) 234deg,
+    var(--ink-whisper) 360deg
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.health-ring::after {
+  content: '';
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--paper);
+  position: absolute;
+}
+
+.health-pct {
+  position: relative;
+  z-index: 1;
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.health-summary {
+  flex: 1;
+}
+
+.health-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-bottom: 3px;
+}
+
+.health-desc {
+  font-size: 11px;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+.health-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.health-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--ink-light);
+}
+
+.check-icon {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.check-icon.done {
+  background: linear-gradient(135deg, var(--wash-sage-light), var(--wash-sage));
+  color: white;
+}
+
+.check-icon.pending {
+  background: rgba(249, 215, 155, 0.25);
+  border: 1.5px solid var(--wash-amber);
+  color: var(--wash-amber-deep);
+}
+
+.check-icon.blocked {
+  background: rgba(251, 191, 202, 0.2);
+  border: 1.5px solid var(--wash-rose);
+  color: var(--wash-rose-deep);
+}
+
+/* ── Phase Cards ── */
+.phases-row {
+  display: flex;
+  gap: 8px;
+}
+
+.phase-card {
+  flex: 1;
+  background: rgba(250, 250, 248, 0.8);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 6px var(--shadow-ink);
+}
+
+.phase-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+
+.phase-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--shadow-wash);
+}
+
+.phase-card.phase-design::before {
+  background: linear-gradient(90deg, var(--wash-rose), var(--wash-rose-deep));
+}
+.phase-card.phase-build::before {
+  background: linear-gradient(90deg, var(--wash-blue), var(--wash-blue-deep));
+}
+.phase-card.phase-test::before {
+  background: linear-gradient(90deg, var(--wash-amber), var(--wash-amber-deep));
+}
+
+.phase-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.phase-count {
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.phase-card.phase-design .phase-count { color: var(--wash-rose-deep); }
+.phase-card.phase-build .phase-count { color: var(--wash-blue-deep); }
+.phase-card.phase-test .phase-count { color: var(--wash-amber-deep); }
+
+.phase-sub {
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+
+.phase-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink-whisper);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.phase-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s ease;
+}
+
+.phase-card.phase-design .phase-bar-fill {
+  background: linear-gradient(90deg, var(--wash-rose), var(--wash-rose-deep));
+  width: 85%;
+}
+.phase-card.phase-build .phase-bar-fill {
+  background: linear-gradient(90deg, var(--wash-blue), var(--wash-blue-deep));
+  width: 60%;
+}
+.phase-card.phase-test .phase-bar-fill {
+  background: linear-gradient(90deg, var(--wash-amber), var(--wash-amber-deep));
+  width: 35%;
+}
+
+/* ── Recent Runs Table ── */
+.runs-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 100px; height: 80px;
+  background: radial-gradient(circle at 100% 0%, var(--wash-violet-light), transparent 70%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.runs-card .card-icon {
+  background: linear-gradient(135deg, var(--wash-violet-light), var(--wash-violet));
+  color: white;
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+.runs-table th {
+  font-family: 'Caveat', cursive;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(168, 216, 234, 0.1);
+}
+
+.runs-table td {
+  font-size: 11.5px;
+  color: var(--ink-light);
+  padding: 7px 8px;
+  background: rgba(250, 250, 248, 0.5);
+  transition: background 0.2s ease;
+}
+
+.runs-table tr:hover td {
+  background: rgba(168, 216, 234, 0.08);
+}
+
+.runs-table td:first-child { border-radius: 6px 0 0 6px; }
+.runs-table td:last-child { border-radius: 0 6px 6px 0; }
+
+.run-name {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.run-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.run-dot.success { background: var(--wash-sage-deep); box-shadow: 0 0 4px var(--wash-sage); }
+.run-dot.fail { background: var(--wash-rose-deep); box-shadow: 0 0 4px var(--wash-rose); }
+.run-dot.running { background: var(--wash-amber-deep); box-shadow: 0 0 4px var(--wash-amber); animation: runPulse 1.5s infinite; }
+
+@keyframes runPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.run-time {
+  font-size: 10px;
+  color: var(--ink-ghost);
+}
+
+.run-status-badge {
+  font-family: 'Caveat', cursive;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.run-status-badge.success {
+  background: rgba(181, 201, 154, 0.2);
+  color: var(--wash-sage-deep);
+  border: 1px solid rgba(181, 201, 154, 0.3);
+}
+
+.run-status-badge.fail {
+  background: rgba(251, 191, 202, 0.2);
+  color: var(--wash-rose-deep);
+  border: 1px solid rgba(251, 191, 202, 0.3);
+}
+
+.run-status-badge.running {
+  background: rgba(249, 215, 155, 0.2);
+  color: var(--wash-amber-deep);
+  border: 1px solid rgba(249, 215, 155, 0.3);
+}
+
+/* ═══════════════════════════════════════
+   ADDITIONAL FLOURISHES
+   ═══════════════════════════════════════ */
+
+/* Watercolor border-like card shadows */
+.dash-card::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 10%;
+  right: 10%;
+  height: 4px;
+  border-radius: 50%;
+  filter: blur(3px);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.what-next-card::after { background: var(--wash-blue); }
+.health-card::after { background: var(--wash-sage); }
+.runs-card::after { background: var(--wash-violet); }
+
+/* Float animation for cards on wet paper */
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Watercolor bloom on hover for session cards */
+.session-card::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--wash-blue-light), transparent 70%);
+  opacity: 0;
+  transition: all 0.5s ease;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.session-card:hover::after {
+  width: 200px;
+  height: 200px;
+  opacity: 0.15;
+}
+
+.session-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Message bubble watercolor shimmer */
+.message.user .message-bubble {
+  transition: all 0.3s ease;
+}
+
+.message.user .message-bubble:hover {
+  box-shadow: 0 4px 20px var(--shadow-wash), 0 2px 8px var(--shadow-ink);
+}
+
+.message.agent .message-bubble:hover {
+  box-shadow: 0 4px 20px var(--shadow-ink), 0 2px 8px rgba(44, 62, 80, 0.06);
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE PAINT BORDER ACCENTS
+   ═══════════════════════════════════════ */
+.sidebar-header::after {
+  content: '';
+  display: block;
+  margin-top: 12px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--wash-blue), var(--wash-rose), var(--wash-sage), transparent);
+  border-radius: 1px;
+  opacity: 0.35;
+}
+
+</style>
+</head>
+<body>
+
+<!-- SVG Filter Definitions -->
+<svg class="paper-texture-defs">
+  <defs>
+    <filter id="paper-texture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise"/>
+      <feDiffuseLighting in="noise" lighting-color="#FAFAF8" surfaceScale="2">
+        <feDistantLight azimuth="45" elevation="60"/>
+      </feDiffuseLighting>
+    </filter>
+  </defs>
+</svg>
+
+<!-- Watercolor Wash Backgrounds -->
+<div class="wash-layer">
+  <div class="wash-blob wash-1"></div>
+  <div class="wash-blob wash-2"></div>
+  <div class="wash-blob wash-3"></div>
+  <div class="wash-blob wash-4"></div>
+  <div class="wash-blob wash-5"></div>
+</div>
+
+<!-- Paint Splatter Decorations -->
+<div class="splatter-container">
+  <div class="paint-drop drop-1"></div>
+  <div class="paint-drop drop-2"></div>
+  <div class="paint-drop drop-3"></div>
+  <div class="paint-drop drop-4"></div>
+  <div class="paint-drop drop-5"></div>
+  <div class="paint-drop drop-6"></div>
+</div>
+
+<!-- Paper Texture Overlay -->
+<div class="paper-overlay"></div>
+
+<!-- Title Bar -->
+<div class="title-bar">
+  <div class="window-controls">
+    <div class="window-dot close"></div>
+    <div class="window-dot min"></div>
+    <div class="window-dot max"></div>
+  </div>
+  <div class="title-bar-text">Tinsu Planning Workspace <span>&mdash; Watercolor</span></div>
+</div>
+
+<!-- Main Workspace -->
+<div class="workspace">
+
+  <!-- ═══ LEFT SIDEBAR ═══ -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        Sessions <span class="paint-stroke"></span>
+      </div>
+      <button class="new-chat-btn">
+        <span class="plus-icon">+</span>
+        <span>New Chat Session</span>
+      </button>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Session 1 — Active -->
+      <div class="session-card persona-pm active">
+        <div class="session-card-header">
+          <div class="session-persona-row">
+            <div class="persona-dot pm"></div>
+            <span class="session-persona-label">PM Agent</span>
+          </div>
+          <div class="session-meta-right">
+            <span class="session-time">2 min ago</span>
+            <div class="kebab-menu">
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="session-preview">"Let's refine the sprint backlog and reprioritize the auth epic..."</div>
+        <div class="session-badges">
+          <span class="badge badge-status">In Progress</span>
+          <span class="badge badge-permission auto">Auto-approve</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card persona-dev">
+        <div class="session-card-header">
+          <div class="session-persona-row">
+            <div class="persona-dot dev"></div>
+            <span class="session-persona-label">Dev Agent</span>
+          </div>
+          <div class="session-meta-right">
+            <span class="session-time">18 min ago</span>
+            <div class="kebab-menu">
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="session-preview">"Implementing the file upload service with streaming support..."</div>
+        <div class="session-badges">
+          <span class="badge badge-status">In Progress</span>
+          <span class="badge badge-permission">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card persona-qa">
+        <div class="session-card-header">
+          <div class="session-persona-row">
+            <div class="persona-dot qa"></div>
+            <span class="session-persona-label">QA Agent</span>
+          </div>
+          <div class="session-meta-right">
+            <span class="session-time">1 hr ago</span>
+            <div class="kebab-menu">
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="session-preview">"Test coverage for auth module is at 78%, need edge cases..."</div>
+        <div class="session-badges">
+          <span class="badge badge-status completed">Completed</span>
+          <span class="badge badge-permission auto">Auto-approve</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card persona-devops">
+        <div class="session-card-header">
+          <div class="session-persona-row">
+            <div class="persona-dot devops"></div>
+            <span class="session-persona-label">DevOps Agent</span>
+          </div>
+          <div class="session-meta-right">
+            <span class="session-time">3 hrs ago</span>
+            <div class="kebab-menu">
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="session-preview">"Pipeline config updated. Staging deploy failed on health check..."</div>
+        <div class="session-badges">
+          <span class="badge badge-status error">Error</span>
+          <span class="badge badge-permission">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card persona-design">
+        <div class="session-card-header">
+          <div class="session-persona-row">
+            <div class="persona-dot design"></div>
+            <span class="session-persona-label">Design Agent</span>
+          </div>
+          <div class="session-meta-right">
+            <span class="session-time">Yesterday</span>
+            <div class="kebab-menu">
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+              <div class="kebab-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="session-preview">"Color palette finalized. Dashboard wireframes ready for review..."</div>
+        <div class="session-badges">
+          <span class="badge badge-status completed">Completed</span>
+          <span class="badge badge-permission auto">Auto-approve</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ CENTER PANEL ═══ -->
+  <div class="center-panel">
+
+    <!-- Persona Selector -->
+    <div class="persona-selector">
+      <span class="persona-selector-label">Persona:</span>
+      <button class="persona-btn pm active">PM</button>
+      <button class="persona-btn dev">Dev</button>
+      <button class="persona-btn qa">QA</button>
+      <button class="persona-btn devops">DevOps</button>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="chat-messages">
+
+      <!-- User Message 1 -->
+      <div class="message user">
+        <div class="message-bubble">
+          <div class="message-text">Can you review the current sprint backlog and tell me which stories are at risk? I'm worried about the authentication epic slipping.</div>
+          <div class="message-time">10:32 AM</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message agent">
+        <div class="agent-header">
+          <div class="agent-avatar pm">PM</div>
+          <span class="agent-name">PM Agent</span>
+        </div>
+        <div class="message-bubble">
+          <div class="message-text">I've analyzed the sprint backlog against our velocity data. Three stories are flagged as at-risk: <code>AUTH-142</code> (OAuth provider integration), <code>AUTH-155</code> (session token rotation), and <code>DASH-089</code> (real-time metrics widget). The auth epic has consumed 34 of its 55 allocated points with two stories still in progress.</div>
+          <div class="message-time">10:32 AM</div>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message user">
+        <div class="message-bubble">
+          <div class="message-text">What's blocking AUTH-142 specifically? Can we parallelize any of the remaining work?</div>
+          <div class="message-time">10:34 AM</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message agent">
+        <div class="agent-header">
+          <div class="agent-avatar pm">PM</div>
+          <span class="agent-name">PM Agent</span>
+        </div>
+        <div class="message-bubble">
+          <div class="message-text">AUTH-142 is blocked on the third-party API credential provisioning -- the security review hasn't cleared yet. I can restructure the dependency chain so the Dev agent works on <code>AUTH-155</code> independently while we wait. Let me check the artifact files for the latest workflow configuration.</div>
+          <div class="message-time">10:34 AM</div>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <div class="tool-group-icon">&#9881;</div>
+          <span class="tool-group-title">Tool Activity</span>
+          <span class="tool-group-count">3 actions</span>
+        </div>
+        <div class="tool-timeline">
+          <div class="tool-action">
+            <div class="tool-action-card">
+              <div class="tool-action-name">Read File</div>
+              <div class="tool-action-detail">sprint-backlog.yaml &mdash; parsed 24 stories, 3 flagged</div>
+              <div class="tool-action-status success">Completed in 1.2s</div>
+            </div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-action-card">
+              <div class="tool-action-name">Write File</div>
+              <div class="tool-action-detail">workflow-config.json &mdash; updated dependency graph</div>
+              <div class="tool-action-status success">Completed in 0.8s</div>
+            </div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-action-card">
+              <div class="tool-action-name">Bash Command</div>
+              <div class="tool-action-detail">npm run validate:workflow -- --check-cycles</div>
+              <div class="tool-action-status running">Running...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message user">
+        <div class="message-bubble">
+          <div class="message-text">Great, go ahead and update the sprint plan. Also flag the security review as a blocker in our status report.</div>
+          <div class="message-time">10:36 AM</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 3 -->
+      <div class="message agent">
+        <div class="agent-header">
+          <div class="agent-avatar pm">PM</div>
+          <span class="agent-name">PM Agent</span>
+        </div>
+        <div class="message-bubble">
+          <div class="message-text">Done. I've restructured the sprint to parallelize AUTH-155 and moved the security review blocker to the status report under critical path items. The revised timeline shows we can still hit the sprint goal if the review clears by Thursday. I'll set up a notification trigger for that.</div>
+          <div class="message-time">10:37 AM</div>
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="thinking-dots">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+        </div>
+        <span class="thinking-label">PM Agent is thinking...</span>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-input" placeholder="Type a message to PM Agent..." rows="1"></textarea>
+        <div class="chat-input-actions">
+          <button class="input-action-btn" title="Attach file">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <button class="send-btn" title="Send message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="dashboard-tabs">
+      <button class="tab-btn active">Dashboard</button>
+      <button class="tab-btn">Artifact</button>
+      <button class="tab-btn">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+
+      <!-- What Next Card -->
+      <div class="dash-card what-next-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#10148;</span>
+          What Next
+        </div>
+        <div class="what-next-items">
+          <div class="what-next-item">
+            <div class="wn-priority high"></div>
+            <div class="wn-content">
+              <div class="wn-title">Unblock AUTH-142 Security Review</div>
+              <div class="wn-desc">Follow up with security team on OAuth credential provisioning approval</div>
+            </div>
+          </div>
+          <div class="what-next-item">
+            <div class="wn-priority medium"></div>
+            <div class="wn-content">
+              <div class="wn-title">Review Dev Agent PR for File Upload</div>
+              <div class="wn-desc">Streaming upload service ready for code review -- 4 files changed</div>
+            </div>
+          </div>
+          <div class="what-next-item">
+            <div class="wn-priority low"></div>
+            <div class="wn-content">
+              <div class="wn-title">Update Sprint Retrospective Notes</div>
+              <div class="wn-desc">Capture velocity trends and blockers from last three sprints</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Health Card -->
+      <div class="dash-card health-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9733;</span>
+          Project Health
+        </div>
+        <div class="health-top">
+          <div class="health-ring-container">
+            <div class="health-ring">
+              <span class="health-pct">65%</span>
+            </div>
+          </div>
+          <div class="health-summary">
+            <div class="health-label">Sprint 14 Progress</div>
+            <div class="health-desc">34 of 55 story points completed. 2 stories at risk, 1 blocked. Velocity trending 8% below average.</div>
+          </div>
+        </div>
+        <div class="health-checklist">
+          <div class="health-check-item">
+            <span class="check-icon done">&#10003;</span>
+            <span>Database schema migration validated</span>
+          </div>
+          <div class="health-check-item">
+            <span class="check-icon done">&#10003;</span>
+            <span>API contract tests passing (24/24)</span>
+          </div>
+          <div class="health-check-item">
+            <span class="check-icon pending">&#9711;</span>
+            <span>Frontend integration tests pending</span>
+          </div>
+          <div class="health-check-item">
+            <span class="check-icon blocked">&#10005;</span>
+            <span>OAuth provider credentials blocked</span>
+          </div>
+          <div class="health-check-item">
+            <span class="check-icon done">&#10003;</span>
+            <span>CI/CD pipeline configuration merged</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Cards -->
+      <div class="phases-row">
+        <div class="phase-card phase-design">
+          <div class="phase-label">Design</div>
+          <div class="phase-count">7/8</div>
+          <div class="phase-sub">stories done</div>
+          <div class="phase-bar"><div class="phase-bar-fill"></div></div>
+        </div>
+        <div class="phase-card phase-build">
+          <div class="phase-label">Build</div>
+          <div class="phase-count">9/15</div>
+          <div class="phase-sub">stories done</div>
+          <div class="phase-bar"><div class="phase-bar-fill"></div></div>
+        </div>
+        <div class="phase-card phase-test">
+          <div class="phase-label">Test</div>
+          <div class="phase-count">4/11</div>
+          <div class="phase-sub">stories done</div>
+          <div class="phase-bar"><div class="phase-bar-fill"></div></div>
+        </div>
+      </div>
+
+      <!-- Recent Runs Table -->
+      <div class="dash-card runs-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9654;</span>
+          Recent Runs
+        </div>
+        <table class="runs-table">
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="run-name">
+                  <span class="run-dot running"></span>
+                  validate:workflow
+                </div>
+              </td>
+              <td><span class="run-time">Running... 12s</span></td>
+              <td><span class="run-status-badge running">Running</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="run-name">
+                  <span class="run-dot success"></span>
+                  test:auth-module
+                </div>
+              </td>
+              <td><span class="run-time">2m 34s</span></td>
+              <td><span class="run-status-badge success">Passed</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="run-name">
+                  <span class="run-dot fail"></span>
+                  deploy:staging
+                </div>
+              </td>
+              <td><span class="run-time">4m 12s</span></td>
+              <td><span class="run-status-badge fail">Failed</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="run-name">
+                  <span class="run-dot success"></span>
+                  lint:check
+                </div>
+              </td>
+              <td><span class="run-time">28s</span></td>
+              <td><span class="run-status-badge success">Passed</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="run-name">
+                  <span class="run-dot success"></span>
+                  build:production
+                </div>
+              </td>
+              <td><span class="run-time">1m 47s</span></td>
+              <td><span class="run-status-badge success">Passed</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

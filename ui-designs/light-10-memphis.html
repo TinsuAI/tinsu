@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Memphis Milano</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Work+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Variables ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --pink:       #FFE4E1;
+    --pink-deep:  #FFB8B0;
+    --teal:       #00CED1;
+    --teal-dark:  #00A5A7;
+    --coral:      #FF6F61;
+    --coral-dark: #E05A4E;
+    --yellow:     #FFD700;
+    --yellow-pale:#FFF3B0;
+    --lavender:   #B19CD9;
+    --lavender-light: #D8CFF0;
+    --mint:       #98FF98;
+    --mint-dark:  #5ECB5E;
+    --black:      #000000;
+    --white:      #FFFFFF;
+    --gray-100:   #F8F4F3;
+    --gray-200:   #EDE5E3;
+    --gray-300:   #D5CCCB;
+    --gray-400:   #A09594;
+    --gray-500:   #6E6362;
+    --gray-600:   #4A4040;
+
+    --font-head: 'Bungee', cursive;
+    --font-body: 'Work Sans', sans-serif;
+
+    --sidebar-w:  280px;
+    --right-w:    380px;
+    --title-h:    48px;
+    --radius:     6px;
+    --shadow-sm:  2px 2px 0 rgba(0,0,0,0.12);
+    --shadow-md:  3px 3px 0 rgba(0,0,0,0.15);
+    --shadow-lg:  4px 4px 0 rgba(0,0,0,0.18);
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--pink);
+    color: var(--black);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Terrazzo Texture Overlay ───────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(circle 2px at 15% 20%, var(--teal) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1.5px at 35% 10%, var(--coral) 1px, transparent 1px),
+      radial-gradient(circle 2px at 55% 35%, var(--lavender) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1px at 75% 15%, var(--yellow) 0.8px, transparent 0.8px),
+      radial-gradient(circle 2px at 10% 60%, var(--mint-dark) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1.5px at 85% 45%, var(--coral) 1px, transparent 1px),
+      radial-gradient(circle 1px at 25% 80%, var(--teal) 0.8px, transparent 0.8px),
+      radial-gradient(circle 2px at 60% 75%, var(--yellow) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1.5px at 90% 85%, var(--lavender) 1px, transparent 1px),
+      radial-gradient(circle 1px at 45% 55%, var(--mint-dark) 0.8px, transparent 0.8px),
+      radial-gradient(circle 2px at 70% 90%, var(--coral) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1.5px at 5% 40%, var(--yellow) 1px, transparent 1px),
+      radial-gradient(circle 1px at 50% 5%, var(--lavender) 0.8px, transparent 0.8px),
+      radial-gradient(circle 2px at 30% 50%, var(--teal) 1.5px, transparent 1.5px),
+      radial-gradient(circle 1.5px at 80% 65%, var(--mint-dark) 1px, transparent 1px);
+    opacity: 0.25;
+  }
+
+  /* ── Squiggly Line Pattern (reusable) ──────────────────────── */
+  .squiggly-bg {
+    background-image:
+      repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 8px,
+        rgba(0,206,209,0.08) 8px,
+        rgba(0,206,209,0.08) 10px,
+        transparent 10px,
+        transparent 18px
+      ),
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 12px,
+        rgba(255,111,97,0.06) 12px,
+        rgba(255,111,97,0.06) 14px,
+        transparent 14px,
+        transparent 24px
+      );
+  }
+
+  /* ── Zigzag Divider ────────────────────────────────────────── */
+  .zigzag {
+    position: relative;
+    height: 8px;
+    margin: 6px 0;
+  }
+  .zigzag::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 8px;
+    background:
+      linear-gradient(135deg, var(--teal) 25%, transparent 25%) -5px 0,
+      linear-gradient(225deg, var(--teal) 25%, transparent 25%) -5px 0,
+      linear-gradient(315deg, var(--teal) 25%, transparent 25%),
+      linear-gradient(45deg, var(--teal) 25%, transparent 25%);
+    background-size: 10px 8px;
+    opacity: 0.3;
+  }
+
+  /* ── Title Bar ─────────────────────────────────────────────── */
+  .title-bar {
+    height: var(--title-h);
+    background: var(--black);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    border-bottom: 4px solid var(--yellow);
+  }
+  .title-bar h1 {
+    font-family: var(--font-head);
+    font-size: 14px;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .title-bar h1 .geo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  .title-bar .title-shapes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .title-bar .title-shapes span {
+    display: inline-block;
+  }
+  .title-bar .shape-circle {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--coral);
+  }
+  .title-bar .shape-square {
+    width: 10px; height: 10px;
+    border: 2px solid var(--teal);
+    transform: rotate(15deg);
+  }
+  .title-bar .shape-triangle {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 10px solid var(--yellow);
+  }
+  .title-bar .title-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gray-300);
+  }
+  .title-bar .title-right .status-pill {
+    background: var(--teal);
+    color: var(--black);
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Main Layout ───────────────────────────────────────────── */
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Left Sidebar ──────────────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--white);
+    border-right: 3px solid var(--black);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    animation: slideInLeft 0.5s ease-out;
+  }
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 120px;
+    background:
+      repeating-linear-gradient(
+        60deg,
+        transparent,
+        transparent 6px,
+        rgba(177,156,217,0.1) 6px,
+        rgba(177,156,217,0.1) 8px
+      );
+    pointer-events: none;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 3px solid var(--black);
+    background: var(--yellow);
+    position: relative;
+  }
+  .sidebar-header h2 {
+    font-family: var(--font-head);
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-header h2 .squiggle {
+    display: inline-block;
+    width: 20px;
+    height: 8px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--coral) 0px,
+      var(--coral) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+    border-radius: 2px;
+  }
+
+  .new-chat-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    font-family: var(--font-head);
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .new-chat-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--teal);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .new-chat-btn:hover::before {
+    transform: translateX(0);
+  }
+  .new-chat-btn:hover {
+    transform: scale(1.02) rotate(-0.5deg);
+    box-shadow: var(--shadow-md);
+  }
+  .new-chat-btn span {
+    position: relative;
+    z-index: 1;
+  }
+  .new-chat-btn .plus-icon {
+    position: relative;
+    z-index: 1;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .session-list::-webkit-scrollbar { width: 6px; }
+  .session-list::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+  .session-list::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── Session Card ──────────────────────────────────────────── */
+  .session-card {
+    padding: 12px;
+    margin-bottom: 6px;
+    background: var(--white);
+    border-top: 3px solid var(--teal);
+    border-right: 3px solid var(--coral);
+    border-bottom: 3px solid var(--lavender);
+    border-left: 3px solid var(--yellow);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+  .session-card:nth-child(1) { animation-delay: 0.1s; }
+  .session-card:nth-child(2) { animation-delay: 0.2s; }
+  .session-card:nth-child(3) { animation-delay: 0.3s; }
+  .session-card:nth-child(4) { animation-delay: 0.4s; }
+  .session-card:nth-child(5) { animation-delay: 0.5s; }
+
+  .session-card:hover {
+    transform: scale(1.03) rotate(-1deg);
+    box-shadow: var(--shadow-lg);
+    z-index: 2;
+  }
+  .session-card.active {
+    background: var(--yellow-pale);
+    box-shadow: var(--shadow-md);
+    transform: translateX(4px);
+  }
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: -3px;
+    bottom: -3px;
+    width: 6px;
+    background: var(--black);
+  }
+
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 12.5px;
+  }
+  .persona-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--black);
+    flex-shrink: 0;
+  }
+  .persona-dot.pm { background: var(--teal); }
+  .persona-dot.dev { background: var(--coral); }
+  .persona-dot.qa { background: var(--lavender); }
+  .persona-dot.devops { background: var(--yellow); }
+  .persona-dot.arch { background: var(--mint); }
+
+  .session-kebab {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+    font-size: 14px;
+    letter-spacing: 1px;
+    font-weight: 800;
+    color: var(--gray-400);
+  }
+  .session-kebab:hover {
+    background: var(--gray-200);
+    color: var(--black);
+  }
+
+  .session-preview {
+    font-size: 11.5px;
+    color: var(--gray-500);
+    line-height: 1.4;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .session-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .session-time {
+    font-size: 10px;
+    color: var(--gray-400);
+    font-weight: 500;
+  }
+  .session-badges {
+    display: flex;
+    gap: 4px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .badge-active {
+    background: var(--teal);
+    color: var(--black);
+  }
+  .badge-idle {
+    background: var(--gray-200);
+    color: var(--gray-500);
+  }
+  .badge-complete {
+    background: var(--mint);
+    color: #1a5c1a;
+  }
+  .badge-error {
+    background: var(--coral);
+    color: var(--white);
+  }
+  .badge-auto {
+    background: var(--lavender);
+    color: var(--black);
+  }
+  .badge-manual {
+    background: var(--yellow);
+    color: var(--black);
+  }
+  .badge-review {
+    background: var(--pink-deep);
+    color: var(--black);
+  }
+
+  /* ── Center Panel ──────────────────────────────────────────── */
+  .center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+    background: var(--gray-100);
+    animation: fadeIn 0.6s ease-out;
+  }
+  .center-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 20px,
+        rgba(0,206,209,0.03) 20px,
+        rgba(0,206,209,0.03) 22px
+      ),
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 30px,
+        rgba(255,111,97,0.02) 30px,
+        rgba(255,111,97,0.02) 32px
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Persona Selector ──────────────────────────────────────── */
+  .persona-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-bottom: 3px solid var(--black);
+    background: var(--white);
+    position: relative;
+    z-index: 2;
+  }
+  .persona-selector-label {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 1px;
+    margin-right: 6px;
+    color: var(--gray-500);
+  }
+  .persona-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+  .persona-btn:hover {
+    transform: translateY(-2px) rotate(-1deg);
+    box-shadow: var(--shadow-sm);
+  }
+  .persona-btn.active {
+    background: var(--black);
+    color: var(--white);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  .persona-btn .p-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .persona-btn.active .p-dot {
+    border: 1.5px solid var(--white);
+  }
+
+  /* ── Messages Area ─────────────────────────────────────────── */
+  .messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+  }
+  .messages-area::-webkit-scrollbar { width: 6px; }
+  .messages-area::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+
+  /* ── Message Bubble ────────────────────────────────────────── */
+  .message {
+    max-width: 72%;
+    animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+  .message:nth-child(1) { animation-delay: 0.05s; }
+  .message:nth-child(2) { animation-delay: 0.15s; }
+  .message:nth-child(3) { animation-delay: 0.25s; }
+  .message:nth-child(4) { animation-delay: 0.35s; }
+  .message:nth-child(5) { animation-delay: 0.45s; }
+  .message:nth-child(6) { animation-delay: 0.55s; }
+  .message:nth-child(7) { animation-delay: 0.65s; }
+
+  .message.user {
+    align-self: flex-end;
+  }
+  .message.agent {
+    align-self: flex-start;
+  }
+
+  .message-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--gray-500);
+  }
+  .message-header .msg-persona-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .message-header .msg-time {
+    font-weight: 400;
+    color: var(--gray-400);
+    font-size: 10px;
+  }
+
+  .message-bubble {
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    position: relative;
+  }
+  .message.user .message-bubble {
+    background: var(--black);
+    color: var(--white);
+    border-top: 3px solid var(--coral);
+    border-right: 3px solid var(--yellow);
+    border-bottom: 3px solid var(--teal);
+    border-left: 3px solid var(--lavender);
+  }
+  .message.agent .message-bubble {
+    background: var(--white);
+    color: var(--black);
+    border-top: 3px solid var(--teal);
+    border-right: 3px solid var(--lavender);
+    border-bottom: 3px solid var(--coral);
+    border-left: 3px solid var(--yellow);
+    box-shadow: var(--shadow-sm);
+  }
+  .message.agent .message-bubble code {
+    background: var(--gray-200);
+    padding: 1px 5px;
+    font-size: 11.5px;
+    font-family: 'Courier New', monospace;
+    border: 1px solid var(--gray-300);
+  }
+
+  /* ── Tool Activity Group ───────────────────────────────────── */
+  .tool-group {
+    align-self: flex-start;
+    max-width: 72%;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    animation-delay: 0.55s;
+  }
+  .tool-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--gray-500);
+  }
+  .tool-group-header .tg-icon {
+    width: 16px;
+    height: 16px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+  }
+  .tool-group-body {
+    background: var(--white);
+    border: 2px solid var(--black);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  .tool-card {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--gray-200);
+    transition: background 0.15s;
+    position: relative;
+  }
+  .tool-card:last-child { border-bottom: none; }
+  .tool-card:hover { background: var(--yellow-pale); }
+
+  .tool-timeline {
+    width: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 14px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tool-timeline::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: var(--gray-300);
+  }
+  .tool-card:last-child .tool-timeline::after { display: none; }
+
+  .tool-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--black);
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+  .tool-dot.success { background: var(--mint); }
+  .tool-dot.pending { background: var(--yellow); }
+  .tool-dot.running { background: var(--teal); animation: pulse-dot 1.2s ease-in-out infinite; }
+
+  .tool-info {
+    flex: 1;
+    padding: 10px 12px;
+    min-width: 0;
+  }
+  .tool-name {
+    font-weight: 700;
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tool-name .tool-type {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    background: var(--gray-200);
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .tool-detail {
+    font-size: 11px;
+    color: var(--gray-500);
+    margin-top: 2px;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tool-duration {
+    font-size: 10px;
+    color: var(--gray-400);
+    margin-top: 2px;
+  }
+
+  /* ── Thinking Indicator ────────────────────────────────────── */
+  .thinking-indicator {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--white);
+    border: 2px dashed var(--lavender);
+    animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    animation-delay: 0.75s;
+  }
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .thinking-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: bounce-dot 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(1) { background: var(--teal); animation-delay: 0s; }
+  .thinking-dots span:nth-child(2) { background: var(--coral); animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { background: var(--yellow); animation-delay: 0.4s; }
+  .thinking-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-400);
+    font-style: italic;
+  }
+
+  /* ── Chat Input ────────────────────────────────────────────── */
+  .chat-input-wrap {
+    padding: 12px 20px;
+    border-top: 3px solid var(--black);
+    background: var(--white);
+    position: relative;
+    z-index: 2;
+  }
+  .chat-input-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    border: 3px solid var(--black);
+    padding: 4px;
+    background: var(--white);
+    transition: all 0.2s;
+  }
+  .chat-input-inner:focus-within {
+    border-color: var(--teal);
+    box-shadow: 3px 3px 0 var(--teal);
+    transform: translateY(-1px);
+  }
+  .chat-input-inner textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: var(--font-body);
+    font-size: 13px;
+    resize: none;
+    padding: 8px 12px;
+    min-height: 38px;
+    max-height: 100px;
+    line-height: 1.5;
+    background: transparent;
+  }
+  .chat-input-inner textarea::placeholder {
+    color: var(--gray-400);
+  }
+  .chat-input-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+  }
+  .input-action-btn {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--gray-300);
+    background: var(--white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .input-action-btn:hover {
+    border-color: var(--black);
+    transform: scale(1.1) rotate(-3deg);
+  }
+  .send-btn {
+    background: var(--coral);
+    border-color: var(--black);
+    color: var(--white);
+  }
+  .send-btn:hover {
+    background: var(--coral-dark);
+    transform: scale(1.15) rotate(3deg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ── Right Panel ───────────────────────────────────────────── */
+  .right-panel {
+    width: var(--right-w);
+    background: var(--white);
+    border-left: 3px solid var(--black);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+    animation: slideInRight 0.5s ease-out;
+  }
+
+  .right-tabs {
+    display: flex;
+    border-bottom: 3px solid var(--black);
+    flex-shrink: 0;
+  }
+  .right-tab {
+    flex: 1;
+    padding: 10px 8px;
+    text-align: center;
+    font-family: var(--font-head);
+    font-size: 9.5px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 2px solid var(--black);
+    position: relative;
+  }
+  .right-tab:last-child { border-right: none; }
+  .right-tab:hover { background: var(--gray-100); }
+  .right-tab.active {
+    background: var(--yellow);
+    color: var(--black);
+  }
+  .right-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--yellow);
+  }
+
+  .right-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    position: relative;
+  }
+  .right-content::-webkit-scrollbar { width: 6px; }
+  .right-content::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+
+  /* ── Dashboard Cards ───────────────────────────────────────── */
+  .dash-card {
+    margin-bottom: 14px;
+    background: var(--white);
+    border: 2px solid var(--black);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .dash-card:hover {
+    transform: translateY(-2px) rotate(-0.3deg);
+    box-shadow: var(--shadow-lg);
+  }
+  .dash-card:nth-child(1) { animation-delay: 0.1s; }
+  .dash-card:nth-child(2) { animation-delay: 0.2s; }
+  .dash-card:nth-child(3) { animation-delay: 0.3s; }
+  .dash-card:nth-child(4) { animation-delay: 0.35s; }
+  .dash-card:nth-child(5) { animation-delay: 0.4s; }
+  .dash-card:nth-child(6) { animation-delay: 0.45s; }
+
+  .dash-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-family: var(--font-head);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--black);
+  }
+  .dash-card-header .card-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    border: 2px solid var(--black);
+    flex-shrink: 0;
+  }
+  .dash-card-body {
+    padding: 12px;
+  }
+
+  /* ── What Next Card ────────────────────────────────────────── */
+  .what-next-card .dash-card-header {
+    background: var(--coral);
+    color: var(--white);
+  }
+  .what-next-card .card-icon {
+    background: var(--yellow);
+    color: var(--black);
+  }
+  .what-next-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--gray-200);
+  }
+  .what-next-item:last-child { border-bottom: none; }
+  .what-next-num {
+    width: 20px;
+    height: 20px;
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--font-head);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .what-next-text {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .what-next-text .wn-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 0px 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Health Card ───────────────────────────────────────────── */
+  .health-card .dash-card-header {
+    background: var(--teal);
+    color: var(--black);
+  }
+  .health-card .card-icon {
+    background: var(--black);
+    color: var(--teal);
+    border-color: var(--black);
+  }
+  .health-score-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .health-ring {
+    width: 60px;
+    height: 60px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .health-ring svg {
+    width: 60px;
+    height: 60px;
+    transform: rotate(-90deg);
+  }
+  .health-ring .ring-bg {
+    fill: none;
+    stroke: var(--gray-200);
+    stroke-width: 5;
+  }
+  .health-ring .ring-fg {
+    fill: none;
+    stroke: var(--teal);
+    stroke-width: 5;
+    stroke-linecap: butt;
+    stroke-dasharray: 157;
+    stroke-dashoffset: 55;
+    animation: ring-fill 1.5s ease-out forwards;
+  }
+  .health-ring .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-head);
+    font-size: 14px;
+  }
+  .health-checklist {
+    flex: 1;
+  }
+  .health-check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .check-icon {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .check-icon.done {
+    background: var(--mint);
+  }
+  .check-icon.pending {
+    background: var(--yellow);
+  }
+  .check-icon.fail {
+    background: var(--coral);
+    color: var(--white);
+  }
+
+  /* ── Phase Cards ───────────────────────────────────────────── */
+  .phase-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .phase-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+  .phase-card:nth-child(1) { animation-delay: 0.35s; border-left: 5px solid var(--teal); }
+  .phase-card:nth-child(2) { animation-delay: 0.4s; border-left: 5px solid var(--coral); }
+  .phase-card:nth-child(3) { animation-delay: 0.45s; border-left: 5px solid var(--lavender); }
+
+  .phase-card:hover {
+    transform: translateX(4px) rotate(-0.5deg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .phase-num {
+    font-family: var(--font-head);
+    font-size: 18px;
+    line-height: 1;
+    width: 30px;
+    text-align: center;
+  }
+  .phase-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .phase-name {
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .phase-status-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+  }
+  .phase-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--gray-200);
+    border: 1px solid var(--gray-300);
+    overflow: hidden;
+  }
+  .phase-bar-fill {
+    height: 100%;
+    transition: width 1s ease-out;
+  }
+  .phase-pct {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-head);
+    min-width: 28px;
+    text-align: right;
+  }
+
+  /* ── Recent Runs Table ─────────────────────────────────────── */
+  .runs-card .dash-card-header {
+    background: var(--lavender);
+    color: var(--black);
+  }
+  .runs-card .card-icon {
+    background: var(--white);
+    color: var(--lavender);
+  }
+  .runs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .runs-table th {
+    text-align: left;
+    padding: 6px 4px;
+    font-weight: 700;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-500);
+    border-bottom: 2px solid var(--black);
+  }
+  .runs-table td {
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--gray-200);
+    vertical-align: middle;
+  }
+  .runs-table tr:last-child td { border-bottom: none; }
+  .runs-table tr {
+    transition: background 0.15s;
+  }
+  .runs-table tr:hover td {
+    background: var(--yellow-pale);
+  }
+  .run-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
+    border: 1.5px solid var(--black);
+  }
+  .run-status-dot.pass { background: var(--mint); }
+  .run-status-dot.fail { background: var(--coral); }
+  .run-status-dot.running { background: var(--teal); animation: pulse-dot 1.5s ease-in-out infinite; }
+  .run-id {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 10px;
+  }
+
+  /* ── Confetti Decorations ──────────────────────────────────── */
+  .confetti {
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .confetti-circle {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid var(--teal);
+    opacity: 0.15;
+  }
+  .confetti-square {
+    width: 12px;
+    height: 12px;
+    border: 3px solid var(--coral);
+    transform: rotate(45deg);
+    opacity: 0.12;
+  }
+  .confetti-triangle {
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 12px solid var(--yellow);
+    opacity: 0.15;
+  }
+  .confetti-line {
+    width: 20px;
+    height: 3px;
+    background: var(--lavender);
+    transform: rotate(-30deg);
+    opacity: 0.15;
+  }
+  .confetti-zigzag {
+    width: 24px;
+    height: 8px;
+    background:
+      linear-gradient(135deg, var(--mint-dark) 25%, transparent 25%) -3px 0,
+      linear-gradient(225deg, var(--mint-dark) 25%, transparent 25%) -3px 0,
+      linear-gradient(315deg, var(--mint-dark) 25%, transparent 25%),
+      linear-gradient(45deg, var(--mint-dark) 25%, transparent 25%);
+    background-size: 6px 8px;
+    opacity: 0.15;
+  }
+
+  /* ── Section Labels ────────────────────────────────────────── */
+  .section-label {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: var(--gray-200);
+  }
+
+  /* ── Keyframe Animations ───────────────────────────────────── */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-40px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.85) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes bounce-dot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1.2); opacity: 1; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+  }
+  @keyframes ring-fill {
+    from { stroke-dashoffset: 157; }
+    to   { stroke-dashoffset: 55; }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(2deg); }
+    75% { transform: rotate(-2deg); }
+  }
+  @keyframes float-confetti {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(5deg); }
+  }
+
+  /* ── Utility ───────────────────────────────────────────────── */
+  .truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══════════════ TITLE BAR ═══════════════ -->
+  <div class="title-bar">
+    <h1>
+      <span class="title-shapes">
+        <span class="shape-triangle"></span>
+        <span class="shape-circle"></span>
+        <span class="shape-square"></span>
+      </span>
+      TINSU PLANNING WORKSPACE
+      <span class="geo-dot" style="background:var(--teal)"></span>
+      <span style="color:var(--coral)">MEMPHIS</span>
+    </h1>
+    <div class="title-right">
+      <span>Sprint 14 &middot; Day 3</span>
+      <span class="status-pill">LIVE</span>
+      <span class="title-shapes">
+        <span class="shape-square" style="border-color:var(--yellow)"></span>
+        <span class="shape-circle" style="border-color:var(--lavender)"></span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MAIN LAYOUT ═══════════════ -->
+  <div class="main-layout">
+
+    <!-- ─────────── LEFT SIDEBAR ─────────── -->
+    <div class="sidebar squiggly-bg">
+      <div class="sidebar-header">
+        <h2>CHAT SESSIONS <span class="squiggle"></span></h2>
+        <button class="new-chat-btn">
+          <span class="plus-icon">+</span>
+          <span>NEW CHAT</span>
+        </button>
+      </div>
+
+      <div class="session-list">
+        <!-- Session 1 — Active -->
+        <div class="session-card active">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot pm"></span>
+              PM Agent
+            </div>
+            <div class="session-kebab">&#8942;</div>
+          </div>
+          <div class="session-preview">Reviewing epic breakdown for user authentication module. Need to validate acceptance criteria against...</div>
+          <div class="session-meta">
+            <span class="session-time">2 min ago</span>
+            <div class="session-badges">
+              <span class="badge badge-active">Active</span>
+              <span class="badge badge-auto">Auto</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session 2 -->
+        <div class="session-card">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dev"></span>
+              Dev Agent
+            </div>
+            <div class="session-kebab">&#8942;</div>
+          </div>
+          <div class="session-preview">Implementing API rate limiter middleware with sliding window algorithm. Tests passing at 94% coverage.</div>
+          <div class="session-meta">
+            <span class="session-time">18 min ago</span>
+            <div class="session-badges">
+              <span class="badge badge-idle">Idle</span>
+              <span class="badge badge-manual">Manual</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session 3 -->
+        <div class="session-card">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot qa"></span>
+              QA Agent
+            </div>
+            <div class="session-kebab">&#8942;</div>
+          </div>
+          <div class="session-preview">Running regression suite on payment flow. Found 2 edge cases in currency conversion that need attention.</div>
+          <div class="session-meta">
+            <span class="session-time">1 hr ago</span>
+            <div class="session-badges">
+              <span class="badge badge-review">Review</span>
+              <span class="badge badge-auto">Auto</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session 4 -->
+        <div class="session-card">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot devops"></span>
+              DevOps Agent
+            </div>
+            <div class="session-kebab">&#8942;</div>
+          </div>
+          <div class="session-preview">CI pipeline optimization complete. Build times reduced from 12m to 7m with parallelized test stages.</div>
+          <div class="session-meta">
+            <span class="session-time">3 hrs ago</span>
+            <div class="session-badges">
+              <span class="badge badge-complete">Done</span>
+              <span class="badge badge-auto">Auto</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session 5 -->
+        <div class="session-card">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot arch"></span>
+              Arch Agent
+            </div>
+            <div class="session-kebab">&#8942;</div>
+          </div>
+          <div class="session-preview">Database schema review flagged N+1 query risk in the notification service. Recommending eager loading strategy.</div>
+          <div class="session-meta">
+            <span class="session-time">Yesterday</span>
+            <div class="session-badges">
+              <span class="badge badge-error">Error</span>
+              <span class="badge badge-manual">Manual</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar confetti -->
+      <div class="confetti confetti-circle" style="top:45%;right:12px;animation:float-confetti 3s ease-in-out infinite"></div>
+      <div class="confetti confetti-triangle" style="top:65%;left:18px;animation:float-confetti 4s ease-in-out infinite 1s"></div>
+    </div>
+
+    <!-- ─────────── CENTER PANEL ─────────── -->
+    <div class="center-panel">
+      <!-- Confetti decorations -->
+      <div class="confetti confetti-square" style="top:40px;right:60px;animation:float-confetti 3.5s ease-in-out infinite"></div>
+      <div class="confetti confetti-circle" style="top:180px;right:30px;border-color:var(--lavender);animation:float-confetti 4.2s ease-in-out infinite 0.5s"></div>
+      <div class="confetti confetti-line" style="top:120px;left:40px;animation:float-confetti 3s ease-in-out infinite 1.2s"></div>
+      <div class="confetti confetti-zigzag" style="bottom:100px;right:50px;animation:float-confetti 3.8s ease-in-out infinite 0.8s"></div>
+      <div class="confetti confetti-triangle" style="bottom:160px;left:30px;animation:float-confetti 4s ease-in-out infinite 1.5s"></div>
+
+      <!-- Persona Selector -->
+      <div class="persona-selector">
+        <span class="persona-selector-label">PERSONA</span>
+        <button class="persona-btn active">
+          <span class="p-dot" style="background:var(--teal)"></span>
+          PM
+        </button>
+        <button class="persona-btn">
+          <span class="p-dot" style="background:var(--coral)"></span>
+          Dev
+        </button>
+        <button class="persona-btn">
+          <span class="p-dot" style="background:var(--lavender)"></span>
+          QA
+        </button>
+        <button class="persona-btn">
+          <span class="p-dot" style="background:var(--yellow)"></span>
+          DevOps
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages-area">
+
+        <!-- User Message 1 -->
+        <div class="message user">
+          <div class="message-header" style="justify-content:flex-end;">
+            <span class="msg-time">10:32 AM</span>
+            <span>You</span>
+          </div>
+          <div class="message-bubble">
+            Break down the authentication epic into stories. We need OAuth2 with Google and GitHub providers, plus email/password fallback. Focus on security-first approach.
+          </div>
+        </div>
+
+        <!-- Agent Message 1 -->
+        <div class="message agent">
+          <div class="message-header">
+            <span class="msg-persona-dot" style="background:var(--teal)"></span>
+            <span>PM Agent</span>
+            <span class="msg-time">10:32 AM</span>
+          </div>
+          <div class="message-bubble">
+            I've analyzed the authentication requirements and broken them into 6 stories across 2 sprints. The core OAuth2 flow covers <code>passport.js</code> integration with Google and GitHub strategies. I'm prioritizing the token refresh mechanism and session management before the email fallback, since those are shared dependencies.
+          </div>
+        </div>
+
+        <!-- User Message 2 -->
+        <div class="message user">
+          <div class="message-header" style="justify-content:flex-end;">
+            <span class="msg-time">10:34 AM</span>
+            <span>You</span>
+          </div>
+          <div class="message-bubble">
+            Good. Can you check if the existing user schema supports the multi-provider model? Also verify the migration files are consistent.
+          </div>
+        </div>
+
+        <!-- Agent Message 2 -->
+        <div class="message agent">
+          <div class="message-header">
+            <span class="msg-persona-dot" style="background:var(--teal)"></span>
+            <span>PM Agent</span>
+            <span class="msg-time">10:34 AM</span>
+          </div>
+          <div class="message-bubble">
+            Let me inspect the schema and migration files. I'll cross-reference with the provider model to identify any gaps in the <code>auth_providers</code> junction table.
+          </div>
+        </div>
+
+        <!-- Tool Activity Group -->
+        <div class="tool-group">
+          <div class="tool-group-header">
+            <span class="tg-icon">&#9881;</span>
+            Tool Activity &mdash; 3 actions
+          </div>
+          <div class="tool-group-body">
+            <!-- Tool 1 -->
+            <div class="tool-card">
+              <div class="tool-timeline">
+                <span class="tool-dot success"></span>
+              </div>
+              <div class="tool-info">
+                <div class="tool-name">
+                  Read File
+                  <span class="tool-type" style="background:var(--mint);color:#1a5c1a;">Read</span>
+                </div>
+                <div class="tool-detail">src/main/db/schema.ts</div>
+                <div class="tool-duration">Completed in 120ms</div>
+              </div>
+            </div>
+            <!-- Tool 2 -->
+            <div class="tool-card">
+              <div class="tool-timeline">
+                <span class="tool-dot success"></span>
+              </div>
+              <div class="tool-info">
+                <div class="tool-name">
+                  Glob Search
+                  <span class="tool-type" style="background:var(--lavender-light);">Search</span>
+                </div>
+                <div class="tool-detail">**/migrations/*.ts &rarr; 4 files matched</div>
+                <div class="tool-duration">Completed in 85ms</div>
+              </div>
+            </div>
+            <!-- Tool 3 -->
+            <div class="tool-card">
+              <div class="tool-timeline">
+                <span class="tool-dot success"></span>
+              </div>
+              <div class="tool-info">
+                <div class="tool-name">
+                  Bash
+                  <span class="tool-type" style="background:var(--yellow-pale);">Exec</span>
+                </div>
+                <div class="tool-detail">npx drizzle-kit check:pg --config drizzle.config.ts</div>
+                <div class="tool-duration">Completed in 2.3s</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Message 3 (post-tool) -->
+        <div class="message agent">
+          <div class="message-header">
+            <span class="msg-persona-dot" style="background:var(--teal)"></span>
+            <span>PM Agent</span>
+            <span class="msg-time">10:35 AM</span>
+          </div>
+          <div class="message-bubble">
+            The schema check reveals a gap: the <code>users</code> table currently stores a single <code>provider</code> column as an enum. For multi-provider support, we need an <code>auth_providers</code> junction table with <code>user_id</code>, <code>provider_type</code>, and <code>provider_id</code>. All 4 migration files are consistent. I'll draft Story AUTH-003 for the schema migration.
+          </div>
+        </div>
+
+        <!-- User Message 3 -->
+        <div class="message user">
+          <div class="message-header" style="justify-content:flex-end;">
+            <span class="msg-time">10:36 AM</span>
+            <span>You</span>
+          </div>
+          <div class="message-bubble">
+            Perfect. Go ahead and draft that story with acceptance criteria. Make sure to include rollback steps for the migration.
+          </div>
+        </div>
+
+        <!-- Thinking Indicator -->
+        <div class="thinking-indicator">
+          <div class="thinking-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span class="thinking-label">PM Agent is thinking...</span>
+        </div>
+
+      </div>
+
+      <!-- Chat Input -->
+      <div class="chat-input-wrap">
+        <div class="chat-input-inner">
+          <textarea placeholder="Message PM Agent... (Shift+Enter for new line)" rows="1"></textarea>
+          <div class="chat-input-actions">
+            <button class="input-action-btn" title="Attach file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+            <button class="input-action-btn send-btn" title="Send message">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── RIGHT PANEL ─────────── -->
+    <div class="right-panel">
+      <!-- Tabs -->
+      <div class="right-tabs">
+        <div class="right-tab active">Dashboard</div>
+        <div class="right-tab">Artifact</div>
+        <div class="right-tab">Readiness</div>
+      </div>
+
+      <div class="right-content squiggly-bg">
+        <!-- Confetti -->
+        <div class="confetti confetti-line" style="top:20px;right:20px;background:var(--coral);animation:float-confetti 3s ease-in-out infinite 0.3s"></div>
+        <div class="confetti confetti-circle" style="top:250px;left:15px;border-color:var(--yellow);animation:float-confetti 4s ease-in-out infinite 1s"></div>
+
+        <!-- WHAT NEXT -->
+        <div class="dash-card what-next-card">
+          <div class="dash-card-header">
+            WHAT NEXT
+            <span class="card-icon">&#9733;</span>
+          </div>
+          <div class="dash-card-body">
+            <div class="what-next-item">
+              <span class="what-next-num">1</span>
+              <span class="what-next-text">
+                Review AUTH epic story breakdown
+                <span class="wn-tag" style="background:var(--coral);color:var(--white);">Urgent</span>
+              </span>
+            </div>
+            <div class="what-next-item">
+              <span class="what-next-num">2</span>
+              <span class="what-next-text">
+                Approve CI pipeline config changes
+                <span class="wn-tag" style="background:var(--yellow);color:var(--black);">Pending</span>
+              </span>
+            </div>
+            <div class="what-next-item">
+              <span class="what-next-num">3</span>
+              <span class="what-next-text">
+                Fix QA regression in payment flow
+                <span class="wn-tag" style="background:var(--teal);color:var(--black);">Sprint</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROJECT HEALTH -->
+        <div class="dash-card health-card">
+          <div class="dash-card-header">
+            PROJECT HEALTH
+            <span class="card-icon">&#9829;</span>
+          </div>
+          <div class="dash-card-body">
+            <div class="health-score-wrap">
+              <div class="health-ring">
+                <svg viewBox="0 0 60 60">
+                  <circle class="ring-bg" cx="30" cy="30" r="25"/>
+                  <circle class="ring-fg" cx="30" cy="30" r="25"/>
+                </svg>
+                <span class="ring-label">65%</span>
+              </div>
+              <div class="health-checklist">
+                <div class="health-check-item">
+                  <span class="check-icon done">&#10003;</span>
+                  Schema validated
+                </div>
+                <div class="health-check-item">
+                  <span class="check-icon done">&#10003;</span>
+                  Tests passing (94%)
+                </div>
+                <div class="health-check-item">
+                  <span class="check-icon pending">&#8226;</span>
+                  Auth stories drafted
+                </div>
+                <div class="health-check-item">
+                  <span class="check-icon fail">&#10007;</span>
+                  Payment edge cases
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PHASE CARDS -->
+        <div class="section-label">Sprint Phases</div>
+        <div class="phase-cards">
+          <div class="phase-card">
+            <span class="phase-num" style="color:var(--teal)">01</span>
+            <div class="phase-info">
+              <div class="phase-name">Planning & Design</div>
+              <div class="phase-status-line">
+                <div class="phase-bar">
+                  <div class="phase-bar-fill" style="width:85%;background:var(--teal)"></div>
+                </div>
+                <span class="phase-pct" style="color:var(--teal)">85%</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-card">
+            <span class="phase-num" style="color:var(--coral)">02</span>
+            <div class="phase-info">
+              <div class="phase-name">Implementation</div>
+              <div class="phase-status-line">
+                <div class="phase-bar">
+                  <div class="phase-bar-fill" style="width:52%;background:var(--coral)"></div>
+                </div>
+                <span class="phase-pct" style="color:var(--coral)">52%</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-card">
+            <span class="phase-num" style="color:var(--lavender)">03</span>
+            <div class="phase-info">
+              <div class="phase-name">Testing & QA</div>
+              <div class="phase-status-line">
+                <div class="phase-bar">
+                  <div class="phase-bar-fill" style="width:28%;background:var(--lavender)"></div>
+                </div>
+                <span class="phase-pct" style="color:var(--lavender)">28%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECENT RUNS -->
+        <div class="dash-card runs-card">
+          <div class="dash-card-header">
+            RECENT RUNS
+            <span class="card-icon">&#9654;</span>
+          </div>
+          <div class="dash-card-body" style="padding:0 12px 8px;">
+            <table class="runs-table">
+              <thead>
+                <tr>
+                  <th>Run</th>
+                  <th>Agent</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="run-id">#2847</span></td>
+                  <td>PM Agent</td>
+                  <td>4m 12s</td>
+                  <td><span class="run-status-dot running"></span>Running</td>
+                </tr>
+                <tr>
+                  <td><span class="run-id">#2846</span></td>
+                  <td>Dev Agent</td>
+                  <td>7m 03s</td>
+                  <td><span class="run-status-dot pass"></span>Passed</td>
+                </tr>
+                <tr>
+                  <td><span class="run-id">#2845</span></td>
+                  <td>QA Agent</td>
+                  <td>11m 28s</td>
+                  <td><span class="run-status-dot fail"></span>Failed</td>
+                </tr>
+                <tr>
+                  <td><span class="run-id">#2844</span></td>
+                  <td>DevOps</td>
+                  <td>2m 47s</td>
+                  <td><span class="run-status-dot pass"></span>Passed</td>
+                </tr>
+                <tr>
+                  <td><span class="run-id">#2843</span></td>
+                  <td>PM Agent</td>
+                  <td>5m 31s</td>
+                  <td><span class="run-status-dot pass"></span>Passed</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main-layout -->
+
+</body>
+</html>

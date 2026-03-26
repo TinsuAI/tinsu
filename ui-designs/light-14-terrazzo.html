@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Terrazzo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Marcellus&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   TERRAZZO & MARBLE — Tinsu Planning Workspace
+   Italian material design — stone, speckle, vein
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --marble-white: #F5F2EF;
+  --marble-warm: #EDE8E2;
+  --travertine: #E8DFD0;
+  --travertine-light: #F0EBE2;
+  --terrazzo-pink: #D4838F;
+  --terrazzo-pink-soft: #E0A5AE;
+  --terrazzo-teal: #5B8A8A;
+  --terrazzo-teal-light: #7AABAB;
+  --terrazzo-ochre: #C49A3C;
+  --terrazzo-ochre-light: #D4B05E;
+  --terrazzo-forest: #4A6741;
+  --terrazzo-forest-light: #6B8A62;
+  --dark-stone: #3D3D3D;
+  --medium-stone: #5A5A5A;
+  --veined-gray: #9E9E9E;
+  --veined-gray-light: #B8B8B8;
+  --cream: #FAF8F5;
+  --cream-pure: #FFFFFF;
+  --shadow-stone: rgba(61, 61, 61, 0.08);
+  --shadow-deep: rgba(61, 61, 61, 0.14);
+  --shadow-rough: rgba(61, 61, 61, 0.22);
+  --vein-opacity: 0.06;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Libre Baskerville', serif;
+  background: var(--marble-white);
+  color: var(--dark-stone);
+  overflow: hidden;
+  height: 100vh;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Terrazzo Speckle Background ── */
+.terrazzo-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    /* Pink chips — large */
+    radial-gradient(ellipse 6px 4px at 8% 12%, var(--terrazzo-pink) 60%, transparent 100%),
+    radial-gradient(ellipse 4px 6px at 22% 78%, var(--terrazzo-pink-soft) 60%, transparent 100%),
+    radial-gradient(circle 3px at 45% 5%, var(--terrazzo-pink) 60%, transparent 100%),
+    radial-gradient(ellipse 5px 3px at 67% 45%, var(--terrazzo-pink-soft) 60%, transparent 100%),
+    radial-gradient(circle 4px at 88% 22%, var(--terrazzo-pink) 60%, transparent 100%),
+    radial-gradient(ellipse 3px 5px at 35% 92%, var(--terrazzo-pink-soft) 60%, transparent 100%),
+    radial-gradient(circle 3px at 78% 88%, var(--terrazzo-pink) 60%, transparent 100%),
+    /* Teal chips */
+    radial-gradient(ellipse 5px 3px at 15% 35%, var(--terrazzo-teal) 60%, transparent 100%),
+    radial-gradient(circle 4px at 55% 68%, var(--terrazzo-teal-light) 60%, transparent 100%),
+    radial-gradient(ellipse 3px 5px at 82% 52%, var(--terrazzo-teal) 60%, transparent 100%),
+    radial-gradient(circle 3px at 38% 18%, var(--terrazzo-teal-light) 60%, transparent 100%),
+    radial-gradient(ellipse 4px 3px at 92% 75%, var(--terrazzo-teal) 60%, transparent 100%),
+    radial-gradient(circle 2px at 5% 60%, var(--terrazzo-teal-light) 60%, transparent 100%),
+    /* Ochre chips */
+    radial-gradient(ellipse 4px 5px at 28% 55%, var(--terrazzo-ochre) 60%, transparent 100%),
+    radial-gradient(circle 3px at 72% 15%, var(--terrazzo-ochre-light) 60%, transparent 100%),
+    radial-gradient(ellipse 5px 3px at 48% 82%, var(--terrazzo-ochre) 60%, transparent 100%),
+    radial-gradient(circle 4px at 95% 38%, var(--terrazzo-ochre-light) 60%, transparent 100%),
+    radial-gradient(ellipse 3px 4px at 12% 90%, var(--terrazzo-ochre) 60%, transparent 100%),
+    /* Forest chips */
+    radial-gradient(circle 3px at 62% 28%, var(--terrazzo-forest) 60%, transparent 100%),
+    radial-gradient(ellipse 4px 3px at 18% 48%, var(--terrazzo-forest-light) 60%, transparent 100%),
+    radial-gradient(circle 4px at 85% 65%, var(--terrazzo-forest) 60%, transparent 100%),
+    radial-gradient(ellipse 3px 5px at 42% 38%, var(--terrazzo-forest-light) 60%, transparent 100%),
+    radial-gradient(circle 2px at 58% 95%, var(--terrazzo-forest) 60%, transparent 100%),
+    /* Gray/stone chips — smaller, filling in */
+    radial-gradient(circle 2px at 10% 25%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 2px at 30% 70%, var(--veined-gray-light) 60%, transparent 100%),
+    radial-gradient(circle 2px at 50% 50%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 70% 30%, var(--veined-gray-light) 60%, transparent 100%),
+    radial-gradient(circle 2px at 90% 85%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 25% 15%, var(--veined-gray-light) 60%, transparent 100%),
+    radial-gradient(circle 2px at 75% 55%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 40% 42%, var(--veined-gray-light) 60%, transparent 100%),
+    radial-gradient(circle 2px at 60% 80%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 3% 72%, var(--veined-gray-light) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 52% 22%, var(--veined-gray) 60%, transparent 100%),
+    radial-gradient(circle 2px at 33% 33%, #C4B8A8 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 68% 73%, #C4B8A8 60%, transparent 100%),
+    radial-gradient(circle 2px at 15% 58%, #C4B8A8 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 83% 42%, #C4B8A8 60%, transparent 100%);
+  opacity: 0.45;
+}
+
+/* ── Marble Vein Overlay ── */
+.marble-vein-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--vein-opacity);
+  background:
+    linear-gradient(157deg, transparent 20%, var(--veined-gray) 20.3%, transparent 20.6%),
+    linear-gradient(157deg, transparent 45%, var(--veined-gray-light) 45.2%, transparent 45.5%),
+    linear-gradient(157deg, transparent 72%, var(--veined-gray) 72.15%, transparent 72.4%),
+    linear-gradient(34deg, transparent 35%, var(--veined-gray-light) 35.15%, transparent 35.35%),
+    linear-gradient(34deg, transparent 58%, var(--veined-gray) 58.1%, transparent 58.3%),
+    linear-gradient(34deg, transparent 85%, var(--veined-gray-light) 85.1%, transparent 85.25%);
+}
+
+/* ── Stone Texture Noise ── */
+.stone-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ── Title Bar ── */
+.title-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 24px;
+  background: linear-gradient(135deg, var(--dark-stone) 0%, var(--medium-stone) 50%, #6B6460 100%);
+  border-bottom: 2px solid var(--terrazzo-ochre);
+  box-shadow: 0 2px 20px var(--shadow-deep);
+}
+
+.title-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title-bar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-bar-logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+.title-bar-text {
+  font-family: 'Marcellus', serif;
+  font-size: 15px;
+  color: var(--marble-white);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.title-bar-accent {
+  color: var(--terrazzo-ochre-light);
+  font-weight: 400;
+}
+
+.title-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.title-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--veined-gray-light);
+  font-family: 'Libre Baskerville', serif;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--terrazzo-forest-light);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 103, 65, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(74, 103, 65, 0); }
+}
+
+.title-bar-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: var(--veined-gray-light);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.title-bar-btn:hover {
+  background: rgba(255,255,255,0.16);
+  color: var(--marble-white);
+}
+
+/* ── Main Layout ── */
+.workspace {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  height: calc(100vh - 48px);
+}
+
+/* ── Shared Card Styles ── */
+.marble-card {
+  background:
+    linear-gradient(155deg, transparent 30%, rgba(255,255,255,0.5) 30.1%, transparent 30.3%),
+    linear-gradient(155deg, transparent 60%, rgba(158,158,158,0.06) 60.05%, transparent 60.2%),
+    linear-gradient(to bottom right, var(--cream) 0%, var(--marble-warm) 100%);
+  border: 1px solid rgba(158, 158, 158, 0.18);
+  border-radius: 10px;
+  box-shadow:
+    0 2px 8px var(--shadow-stone),
+    0 1px 3px rgba(61,61,61,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.7);
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.marble-card:hover {
+  box-shadow:
+    0 6px 24px var(--shadow-deep),
+    0 2px 8px rgba(61,61,61,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.9);
+  transform: translateY(-1px);
+}
+
+/* ── Quarry Reveal Animations ── */
+@keyframes quarryReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+    filter: blur(2px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.quarry-reveal {
+  animation: quarryReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.quarry-delay-1 { animation-delay: 0.08s; }
+.quarry-delay-2 { animation-delay: 0.16s; }
+.quarry-delay-3 { animation-delay: 0.24s; }
+.quarry-delay-4 { animation-delay: 0.32s; }
+.quarry-delay-5 { animation-delay: 0.40s; }
+.quarry-delay-6 { animation-delay: 0.48s; }
+.quarry-delay-7 { animation-delay: 0.56s; }
+.quarry-delay-8 { animation-delay: 0.64s; }
+.quarry-delay-9 { animation-delay: 0.72s; }
+.quarry-delay-10 { animation-delay: 0.80s; }
+
+/* ═══════════════════════════════════════════
+   LEFT SIDEBAR — Chat Session List
+   ═══════════════════════════════════════════ */
+
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background:
+    linear-gradient(165deg, transparent 42%, rgba(255,255,255,0.3) 42.05%, transparent 42.15%),
+    linear-gradient(to bottom, var(--cream) 0%, var(--travertine-light) 100%);
+  border-right: 1px solid rgba(158, 158, 158, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(158, 158, 158, 0.12);
+}
+
+.sidebar-title {
+  font-family: 'Marcellus', serif;
+  font-size: 13px;
+  color: var(--veined-gray);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 10px 16px;
+  font-family: 'Marcellus', serif;
+  font-size: 13.5px;
+  letter-spacing: 0.8px;
+  color: var(--cream);
+  background: linear-gradient(135deg, var(--dark-stone) 0%, var(--medium-stone) 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px var(--shadow-stone);
+}
+
+.new-chat-btn:hover {
+  background: linear-gradient(135deg, var(--medium-stone) 0%, var(--dark-stone) 100%);
+  box-shadow: 0 4px 16px var(--shadow-deep);
+  transform: translateY(-1px);
+}
+
+.new-chat-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-list::-webkit-scrollbar {
+  width: 5px;
+}
+.session-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.session-list::-webkit-scrollbar-thumb {
+  background: var(--veined-gray-light);
+  border-radius: 10px;
+}
+
+.session-card {
+  padding: 12px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  background:
+    linear-gradient(160deg, transparent 55%, rgba(255,255,255,0.35) 55.05%, transparent 55.15%),
+    var(--cream);
+  border: 1px solid rgba(158, 158, 158, 0.1);
+  transition: all 0.3s ease;
+}
+
+.session-card:hover {
+  background:
+    linear-gradient(160deg, transparent 55%, rgba(255,255,255,0.5) 55.05%, transparent 55.15%),
+    var(--marble-warm);
+  border-color: rgba(158, 158, 158, 0.22);
+  box-shadow: 0 3px 12px var(--shadow-stone);
+}
+
+.session-card.active {
+  background:
+    linear-gradient(160deg, transparent 55%, rgba(255,255,255,0.5) 55.05%, transparent 55.15%),
+    var(--marble-white);
+  border-color: var(--terrazzo-teal);
+  box-shadow: 0 3px 14px rgba(91, 138, 138, 0.12), inset 0 0 0 1px rgba(91, 138, 138, 0.08);
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-persona {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.persona-dot.pm { background: var(--terrazzo-teal); }
+.persona-dot.dev { background: var(--terrazzo-ochre); }
+.persona-dot.qa { background: var(--terrazzo-pink); }
+.persona-dot.devops { background: var(--terrazzo-forest); }
+
+.persona-name {
+  font-family: 'Marcellus', serif;
+  font-size: 13px;
+  color: var(--dark-stone);
+  letter-spacing: 0.3px;
+}
+
+.session-kebab {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--veined-gray);
+  border-radius: 4px;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.session-card:hover .session-kebab {
+  opacity: 1;
+}
+
+.session-kebab:hover {
+  background: rgba(158, 158, 158, 0.12);
+  color: var(--dark-stone);
+}
+
+.session-preview {
+  font-size: 11.5px;
+  color: var(--medium-stone);
+  line-height: 1.45;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session-time {
+  font-size: 10px;
+  color: var(--veined-gray);
+  font-style: italic;
+}
+
+.session-badges {
+  display: flex;
+  gap: 5px;
+}
+
+.badge {
+  font-family: 'Marcellus', serif;
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.badge-active {
+  background: rgba(91, 138, 138, 0.12);
+  color: var(--terrazzo-teal);
+  border: 1px solid rgba(91, 138, 138, 0.2);
+}
+
+.badge-done {
+  background: rgba(74, 103, 65, 0.1);
+  color: var(--terrazzo-forest);
+  border: 1px solid rgba(74, 103, 65, 0.18);
+}
+
+.badge-paused {
+  background: rgba(196, 154, 60, 0.1);
+  color: var(--terrazzo-ochre);
+  border: 1px solid rgba(196, 154, 60, 0.18);
+}
+
+.badge-error {
+  background: rgba(212, 131, 143, 0.1);
+  color: var(--terrazzo-pink);
+  border: 1px solid rgba(212, 131, 143, 0.18);
+}
+
+.badge-perm {
+  background: rgba(61, 61, 61, 0.06);
+  color: var(--medium-stone);
+  border: 1px solid rgba(61, 61, 61, 0.1);
+}
+
+/* ═══════════════════════════════════════════
+   CENTER PANEL — Chat Message Area
+   ═══════════════════════════════════════════ */
+
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background:
+    linear-gradient(170deg, transparent 25%, rgba(255,255,255,0.2) 25.02%, transparent 25.12%),
+    linear-gradient(170deg, transparent 68%, rgba(158,158,158,0.03) 68.02%, transparent 68.1%),
+    linear-gradient(to bottom, var(--marble-white) 0%, var(--marble-warm) 100%);
+  position: relative;
+}
+
+/* ── Persona Selector ── */
+.persona-selector {
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(158, 158, 158, 0.12);
+  background: rgba(250, 248, 245, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.persona-selector-label {
+  font-family: 'Marcellus', serif;
+  font-size: 11px;
+  color: var(--veined-gray);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+.persona-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(158, 158, 158, 0.15);
+  border-radius: 20px;
+  background: var(--cream);
+  color: var(--medium-stone);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.persona-btn:hover {
+  border-color: rgba(158, 158, 158, 0.3);
+  box-shadow: 0 2px 8px var(--shadow-stone);
+  transform: translateY(-1px);
+}
+
+.persona-btn.selected {
+  color: var(--cream);
+  border-color: transparent;
+  box-shadow: 0 2px 10px var(--shadow-deep);
+}
+
+.persona-btn.selected.pm-selected {
+  background: linear-gradient(135deg, var(--terrazzo-teal) 0%, var(--terrazzo-teal-light) 100%);
+}
+
+.persona-btn.selected.dev-selected {
+  background: linear-gradient(135deg, var(--terrazzo-ochre) 0%, var(--terrazzo-ochre-light) 100%);
+}
+
+.persona-btn.selected.qa-selected {
+  background: linear-gradient(135deg, var(--terrazzo-pink) 0%, var(--terrazzo-pink-soft) 100%);
+}
+
+.persona-btn.selected.devops-selected {
+  background: linear-gradient(135deg, var(--terrazzo-forest) 0%, var(--terrazzo-forest-light) 100%);
+}
+
+.persona-btn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.persona-btn.selected .persona-btn-dot {
+  background: rgba(255,255,255,0.6) !important;
+}
+
+/* ── Messages Area ── */
+.messages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.messages-area::-webkit-scrollbar {
+  width: 6px;
+}
+.messages-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.messages-area::-webkit-scrollbar-thumb {
+  background: var(--veined-gray-light);
+  border-radius: 10px;
+}
+
+/* ── Message Bubbles ── */
+.message {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.message-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message-agent {
+  align-self: flex-start;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  color: var(--cream);
+  box-shadow: 0 2px 6px var(--shadow-stone);
+}
+
+.avatar-user {
+  background: linear-gradient(135deg, var(--dark-stone) 0%, var(--medium-stone) 100%);
+}
+
+.avatar-pm {
+  background: linear-gradient(135deg, var(--terrazzo-teal) 0%, var(--terrazzo-teal-light) 100%);
+}
+
+.avatar-dev {
+  background: linear-gradient(135deg, var(--terrazzo-ochre) 0%, var(--terrazzo-ochre-light) 100%);
+}
+
+.message-content {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.message-user .message-content {
+  background:
+    linear-gradient(160deg, transparent 60%, rgba(255,255,255,0.3) 60.03%, transparent 60.12%),
+    linear-gradient(135deg, var(--dark-stone) 0%, #4A4A4A 100%);
+  color: var(--marble-white);
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 10px var(--shadow-deep);
+}
+
+.message-agent .message-content {
+  background:
+    linear-gradient(155deg, transparent 45%, rgba(255,255,255,0.4) 45.03%, transparent 45.1%),
+    linear-gradient(to bottom right, var(--cream-pure) 0%, var(--cream) 100%);
+  color: var(--dark-stone);
+  border: 1px solid rgba(158, 158, 158, 0.15);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px var(--shadow-stone);
+}
+
+.message-agent-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.message-agent-name {
+  font-family: 'Marcellus', serif;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--terrazzo-teal);
+}
+
+.message-agent-tag {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(91, 138, 138, 0.08);
+  color: var(--terrazzo-teal);
+  font-family: 'Marcellus', serif;
+  letter-spacing: 0.5px;
+}
+
+.message-time {
+  font-size: 10px;
+  color: var(--veined-gray);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.message-user .message-time {
+  text-align: right;
+  color: rgba(255,255,255,0.5);
+}
+
+/* ── Tool Activity Group ── */
+.tool-activity-group {
+  align-self: flex-start;
+  max-width: 85%;
+  margin: 4px 0;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-left: 42px;
+}
+
+.tool-group-label {
+  font-family: 'Marcellus', serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--veined-gray);
+}
+
+.tool-group-count {
+  font-size: 10px;
+  padding: 1px 7px;
+  background: rgba(158, 158, 158, 0.08);
+  border: 1px solid rgba(158, 158, 158, 0.12);
+  border-radius: 10px;
+  color: var(--veined-gray);
+  font-family: 'Marcellus', serif;
+}
+
+.tool-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-left: 42px;
+  position: relative;
+}
+
+.tool-timeline::before {
+  content: '';
+  position: absolute;
+  left: 56px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--veined-gray-light), rgba(158,158,158,0.1));
+  border-radius: 1px;
+}
+
+.tool-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 14px 8px 20px;
+  position: relative;
+}
+
+.tool-action-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+  border: 2px solid var(--cream);
+  box-shadow: 0 0 0 1px var(--veined-gray-light);
+  z-index: 1;
+}
+
+.tool-action-dot.success { background: var(--terrazzo-forest-light); box-shadow: 0 0 0 1px var(--terrazzo-forest-light); }
+.tool-action-dot.pending { background: var(--terrazzo-ochre-light); box-shadow: 0 0 0 1px var(--terrazzo-ochre-light); }
+.tool-action-dot.info { background: var(--terrazzo-teal-light); box-shadow: 0 0 0 1px var(--terrazzo-teal-light); }
+
+.tool-action-body {
+  flex: 1;
+}
+
+.tool-action-name {
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  color: var(--dark-stone);
+  letter-spacing: 0.3px;
+}
+
+.tool-action-detail {
+  font-size: 11px;
+  color: var(--veined-gray);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.tool-action-time {
+  font-size: 10px;
+  color: var(--veined-gray-light);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Thinking Indicator ── */
+.thinking-indicator {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 42px;
+  margin: 4px 0;
+}
+
+.thinking-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  color: var(--cream);
+  background: linear-gradient(135deg, var(--terrazzo-teal) 0%, var(--terrazzo-teal-light) 100%);
+  box-shadow: 0 2px 6px var(--shadow-stone);
+}
+
+.thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 18px;
+  background:
+    linear-gradient(155deg, transparent 50%, rgba(255,255,255,0.3) 50.02%, transparent 50.1%),
+    var(--cream-pure);
+  border: 1px solid rgba(158, 158, 158, 0.12);
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px var(--shadow-stone);
+}
+
+.thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--veined-gray);
+  animation: thinkBounce 1.4s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinkBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
+  40% { transform: translateY(-6px); opacity: 1; }
+}
+
+.thinking-label {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--veined-gray);
+  margin-left: 4px;
+}
+
+/* ── Chat Input ── */
+.chat-input-area {
+  padding: 16px 24px 20px;
+  border-top: 1px solid rgba(158, 158, 158, 0.1);
+  background: rgba(250, 248, 245, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background:
+    linear-gradient(160deg, transparent 70%, rgba(255,255,255,0.3) 70.02%, transparent 70.1%),
+    var(--cream-pure);
+  border: 1px solid rgba(158, 158, 158, 0.2);
+  border-radius: 12px;
+  padding: 6px 8px 6px 16px;
+  box-shadow: 0 2px 12px var(--shadow-stone), inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: all 0.3s ease;
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: var(--terrazzo-teal);
+  box-shadow: 0 4px 20px rgba(91, 138, 138, 0.12), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.chat-input {
+  flex: 1;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 13px;
+  color: var(--dark-stone);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  min-height: 22px;
+  max-height: 100px;
+  line-height: 1.5;
+  padding: 6px 0;
+}
+
+.chat-input::placeholder {
+  color: var(--veined-gray-light);
+  font-style: italic;
+}
+
+.chat-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--veined-gray);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.input-action-btn:hover {
+  background: rgba(158, 158, 158, 0.1);
+  color: var(--dark-stone);
+}
+
+.send-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--terrazzo-teal) 0%, var(--terrazzo-teal-light) 100%);
+  border: none;
+  border-radius: 8px;
+  color: var(--cream);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(91, 138, 138, 0.25);
+}
+
+.send-btn:hover {
+  box-shadow: 0 4px 14px rgba(91, 138, 138, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL — Dashboard
+   ═══════════════════════════════════════════ */
+
+.right-panel {
+  width: 380px;
+  min-width: 380px;
+  background:
+    linear-gradient(172deg, transparent 35%, rgba(255,255,255,0.25) 35.02%, transparent 35.1%),
+    linear-gradient(to bottom, var(--cream) 0%, var(--travertine-light) 100%);
+  border-left: 1px solid rgba(158, 158, 158, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Tabs ── */
+.panel-tabs {
+  display: flex;
+  padding: 0;
+  border-bottom: 1px solid rgba(158, 158, 158, 0.15);
+  background: rgba(250, 248, 245, 0.6);
+}
+
+.panel-tab {
+  flex: 1;
+  padding: 14px 8px;
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--veined-gray);
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.panel-tab:hover {
+  color: var(--dark-stone);
+  background: rgba(158, 158, 158, 0.04);
+}
+
+.panel-tab.active-tab {
+  color: var(--dark-stone);
+}
+
+.panel-tab.active-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--terrazzo-ochre), var(--terrazzo-ochre-light));
+  border-radius: 1px;
+}
+
+/* ── Panel Content ── */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-content::-webkit-scrollbar {
+  width: 5px;
+}
+.panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-content::-webkit-scrollbar-thumb {
+  background: var(--veined-gray-light);
+  border-radius: 10px;
+}
+
+/* ── What Next Card ── */
+.what-next-card {
+  padding: 16px;
+  background:
+    linear-gradient(155deg, transparent 40%, rgba(91, 138, 138, 0.04) 40.02%, transparent 40.1%),
+    linear-gradient(to bottom right, rgba(91, 138, 138, 0.06) 0%, rgba(91, 138, 138, 0.02) 100%),
+    var(--cream-pure);
+  border: 1px solid rgba(91, 138, 138, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(91, 138, 138, 0.08);
+}
+
+.what-next-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.what-next-title {
+  font-family: 'Marcellus', serif;
+  font-size: 14px;
+  color: var(--terrazzo-teal);
+  letter-spacing: 0.5px;
+}
+
+.what-next-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(91, 138, 138, 0.08);
+  border-radius: 6px;
+  color: var(--terrazzo-teal);
+}
+
+.what-next-text {
+  font-size: 12px;
+  color: var(--medium-stone);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.what-next-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Marcellus', serif;
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  color: var(--terrazzo-teal);
+  cursor: pointer;
+  padding: 6px 14px;
+  background: rgba(91, 138, 138, 0.08);
+  border: 1px solid rgba(91, 138, 138, 0.15);
+  border-radius: 6px;
+  transition: all 0.25s ease;
+}
+
+.what-next-action:hover {
+  background: rgba(91, 138, 138, 0.14);
+  border-color: rgba(91, 138, 138, 0.25);
+  transform: translateX(2px);
+}
+
+/* ── Project Health ── */
+.health-card {
+  padding: 16px;
+}
+
+.health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.health-title {
+  font-family: 'Marcellus', serif;
+  font-size: 13px;
+  color: var(--dark-stone);
+  letter-spacing: 0.5px;
+}
+
+.health-percent {
+  font-family: 'Marcellus', serif;
+  font-size: 22px;
+  color: var(--terrazzo-forest);
+  letter-spacing: -0.5px;
+}
+
+.health-percent span {
+  font-size: 12px;
+  color: var(--veined-gray);
+  margin-left: 2px;
+}
+
+.health-bar-track {
+  height: 6px;
+  background: rgba(158, 158, 158, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.health-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--terrazzo-forest) 0%, var(--terrazzo-forest-light) 100%);
+  transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+}
+
+.health-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+  animation: healthShimmer 2s ease-in-out infinite;
+}
+
+@keyframes healthShimmer {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.health-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--medium-stone);
+}
+
+.check-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--veined-gray-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.check-box.checked {
+  background: var(--terrazzo-forest);
+  border-color: var(--terrazzo-forest);
+}
+
+.check-box.checked svg {
+  color: var(--cream);
+}
+
+.check-item.done {
+  color: var(--veined-gray);
+  text-decoration: line-through;
+  text-decoration-color: var(--veined-gray-light);
+}
+
+/* ── Phase Cards ── */
+.phase-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phase-card {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.phase-card:hover {
+  transform: translateY(-1px);
+}
+
+.phase-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--shadow-stone);
+}
+
+.phase-icon.plan {
+  background: linear-gradient(135deg, var(--terrazzo-teal) 0%, var(--terrazzo-teal-light) 100%);
+  color: var(--cream);
+}
+
+.phase-icon.build {
+  background: linear-gradient(135deg, var(--terrazzo-ochre) 0%, var(--terrazzo-ochre-light) 100%);
+  color: var(--cream);
+}
+
+.phase-icon.test {
+  background: linear-gradient(135deg, var(--terrazzo-pink) 0%, var(--terrazzo-pink-soft) 100%);
+  color: var(--cream);
+}
+
+.phase-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.phase-name {
+  font-family: 'Marcellus', serif;
+  font-size: 12.5px;
+  color: var(--dark-stone);
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.phase-desc {
+  font-size: 11px;
+  color: var(--veined-gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phase-status {
+  flex-shrink: 0;
+}
+
+.phase-mini-bar {
+  width: 48px;
+  height: 4px;
+  background: rgba(158, 158, 158, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.phase-mini-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.phase-mini-fill.plan-fill { background: var(--terrazzo-teal); }
+.phase-mini-fill.build-fill { background: var(--terrazzo-ochre); }
+.phase-mini-fill.test-fill { background: var(--terrazzo-pink); }
+
+.phase-pct {
+  font-size: 10px;
+  color: var(--veined-gray);
+  text-align: right;
+  font-family: 'Marcellus', serif;
+}
+
+/* ── Recent Runs Table ── */
+.runs-section {
+  margin-top: 2px;
+}
+
+.runs-title {
+  font-family: 'Marcellus', serif;
+  font-size: 12px;
+  color: var(--veined-gray);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.runs-table th {
+  font-family: 'Marcellus', serif;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--veined-gray);
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(158, 158, 158, 0.12);
+  font-weight: 400;
+}
+
+.runs-table td {
+  font-size: 11px;
+  color: var(--medium-stone);
+  padding: 8px 8px;
+  border-bottom: 1px solid rgba(158, 158, 158, 0.06);
+}
+
+.runs-table tr {
+  transition: background 0.2s ease;
+}
+
+.runs-table tbody tr:hover {
+  background: rgba(158, 158, 158, 0.04);
+}
+
+.run-name {
+  font-family: 'Marcellus', serif;
+  font-size: 11.5px;
+  color: var(--dark-stone);
+  letter-spacing: 0.2px;
+}
+
+.run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: 'Marcellus', serif;
+  letter-spacing: 0.5px;
+}
+
+.run-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.run-status-dot.passed { background: var(--terrazzo-forest); }
+.run-status-dot.failed { background: var(--terrazzo-pink); }
+.run-status-dot.running { background: var(--terrazzo-ochre); animation: pulse 1.5s infinite; }
+
+.run-duration {
+  font-size: 10.5px;
+  color: var(--veined-gray);
+  font-style: italic;
+}
+
+/* ── Section Divider ── */
+.stone-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(158, 158, 158, 0.2), transparent);
+  margin: 4px 0;
+}
+
+/* ── Scrollbar global ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--veined-gray-light);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--veined-gray);
+}
+
+/* ── Code snippets ── */
+code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  background: rgba(61, 61, 61, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--terrazzo-teal);
+}
+
+.message-user code {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Responsive polish ── */
+@media (max-width: 1200px) {
+  .right-panel { width: 340px; min-width: 340px; }
+  .sidebar { width: 260px; min-width: 260px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- Background Layers -->
+<div class="terrazzo-bg"></div>
+<div class="marble-vein-overlay"></div>
+<div class="stone-noise"></div>
+
+<!-- ══════ Title Bar ══════ -->
+<div class="title-bar">
+  <div class="title-bar-left">
+    <div class="title-bar-logo">
+      <!-- Stone/diamond SVG icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--terrazzo-ochre-light)">
+        <polygon points="12 2 22 8.5 12 22 2 8.5"/>
+        <line x1="2" y1="8.5" x2="22" y2="8.5"/>
+        <line x1="12" y1="2" x2="7" y2="8.5"/>
+        <line x1="12" y1="2" x2="17" y2="8.5"/>
+        <line x1="7" y1="8.5" x2="12" y2="22"/>
+        <line x1="17" y1="8.5" x2="12" y2="22"/>
+      </svg>
+      <span class="title-bar-text">Tinsu Planning Workspace <span class="title-bar-accent">&#x2014; Terrazzo</span></span>
+    </div>
+  </div>
+  <div class="title-bar-right">
+    <div class="title-bar-status">
+      <span class="status-dot"></span>
+      Sprint 14 Active
+    </div>
+    <button class="title-bar-btn" title="Notifications">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </button>
+    <button class="title-bar-btn" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════ Workspace ══════ -->
+<div class="workspace">
+
+  <!-- ═══ LEFT SIDEBAR ═══ -->
+  <div class="sidebar">
+    <div class="sidebar-header quarry-reveal quarry-delay-1">
+      <div class="sidebar-title">Conversations</div>
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat Session
+      </button>
+    </div>
+    <div class="session-list">
+
+      <!-- Session 1 — Active -->
+      <div class="session-card active quarry-reveal quarry-delay-2">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot pm"></div>
+            <span class="persona-name">PM Agent</span>
+          </div>
+          <button class="session-kebab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Reviewing the epic breakdown for the authentication refactor. Need to validate scope against sprint capacity.</div>
+        <div class="session-meta">
+          <span class="session-time">2 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-active">Active</span>
+            <span class="badge badge-perm">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card quarry-reveal quarry-delay-3">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot dev"></div>
+            <span class="persona-name">Dev Agent</span>
+          </div>
+          <button class="session-kebab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Implementing the database migration for user preferences table. Schema changes ready for review.</div>
+        <div class="session-meta">
+          <span class="session-time">18 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-done">Done</span>
+            <span class="badge badge-perm">Manual</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card quarry-reveal quarry-delay-4">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot qa"></div>
+            <span class="persona-name">QA Agent</span>
+          </div>
+          <button class="session-kebab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Test coverage report for API endpoints shows 3 untested edge cases in the payment flow.</div>
+        <div class="session-meta">
+          <span class="session-time">1 hr ago</span>
+          <div class="session-badges">
+            <span class="badge badge-error">Failed</span>
+            <span class="badge badge-perm">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card quarry-reveal quarry-delay-5">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot devops"></div>
+            <span class="persona-name">DevOps Agent</span>
+          </div>
+          <button class="session-kebab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">CI pipeline optimization reduced build time from 8m to 4.2m. Caching strategy deployed to staging.</div>
+        <div class="session-meta">
+          <span class="session-time">3 hrs ago</span>
+          <div class="session-badges">
+            <span class="badge badge-done">Done</span>
+            <span class="badge badge-perm">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card quarry-reveal quarry-delay-6">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot pm"></div>
+            <span class="persona-name">PM Agent</span>
+          </div>
+          <button class="session-kebab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+        </div>
+        <div class="session-preview">Sprint retrospective analysis complete. Velocity trending upward, blockers identified in cross-team dependencies.</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <div class="session-badges">
+            <span class="badge badge-paused">Paused</span>
+            <span class="badge badge-perm">Manual</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ CENTER PANEL ═══ -->
+  <div class="center-panel">
+
+    <!-- Persona Selector -->
+    <div class="persona-selector quarry-reveal quarry-delay-1">
+      <span class="persona-selector-label">Agent</span>
+      <button class="persona-btn selected pm-selected">
+        <span class="persona-btn-dot" style="background: var(--terrazzo-teal)"></span>
+        PM
+      </button>
+      <button class="persona-btn">
+        <span class="persona-btn-dot" style="background: var(--terrazzo-ochre)"></span>
+        Dev
+      </button>
+      <button class="persona-btn">
+        <span class="persona-btn-dot" style="background: var(--terrazzo-pink)"></span>
+        QA
+      </button>
+      <button class="persona-btn">
+        <span class="persona-btn-dot" style="background: var(--terrazzo-forest)"></span>
+        DevOps
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area">
+
+      <!-- User Message 1 -->
+      <div class="message message-user quarry-reveal quarry-delay-2">
+        <div class="message-avatar avatar-user">U</div>
+        <div class="message-content">
+          <div>Can you break down the authentication refactor epic into stories? We need to cover OAuth2 migration, session management, and the new MFA flow.</div>
+          <div class="message-time">10:24 AM</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message message-agent quarry-reveal quarry-delay-3">
+        <div class="message-avatar avatar-pm">PM</div>
+        <div class="message-content">
+          <div class="message-agent-header">
+            <span class="message-agent-name">PM Agent</span>
+            <span class="message-agent-tag">Planning</span>
+          </div>
+          <div>I have analyzed the authentication refactor scope. Here is the proposed breakdown into five stories, ordered by dependency chain:
+            <br><br>
+            <strong>1. OAuth2 Provider Integration</strong> &mdash; Configure OAuth2 providers (Google, GitHub) with token refresh handling. <em>Estimate: 5 pts</em>
+            <br><br>
+            <strong>2. Session Store Migration</strong> &mdash; Replace cookie-based sessions with Redis-backed JWT tokens. <em>Estimate: 3 pts</em>
+            <br><br>
+            <strong>3. MFA Enrollment Flow</strong> &mdash; TOTP-based multi-factor setup with QR code generation and backup codes. <em>Estimate: 8 pts</em>
+          </div>
+          <div class="message-time">10:24 AM</div>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message message-user quarry-reveal quarry-delay-4">
+        <div class="message-avatar avatar-user">U</div>
+        <div class="message-content">
+          <div>Good structure. Can you check what files will be affected and validate the estimates against the current codebase?</div>
+          <div class="message-time">10:26 AM</div>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-activity-group quarry-reveal quarry-delay-5">
+        <div class="tool-group-header">
+          <span class="tool-group-label">Tool Activity</span>
+          <span class="tool-group-count">3 actions</span>
+        </div>
+        <div class="tool-timeline">
+          <div class="tool-action">
+            <div class="tool-action-dot success"></div>
+            <div class="tool-action-body">
+              <div class="tool-action-name">File Search</div>
+              <div class="tool-action-detail">Scanned <code>src/auth/**</code> &mdash; found 14 files, 2,340 lines</div>
+            </div>
+            <span class="tool-action-time">2.1s</span>
+          </div>
+          <div class="tool-action">
+            <div class="tool-action-dot success"></div>
+            <div class="tool-action-body">
+              <div class="tool-action-name">Dependency Analysis</div>
+              <div class="tool-action-detail">Mapped import graph for <code>AuthProvider</code>, <code>SessionManager</code></div>
+            </div>
+            <span class="tool-action-time">3.8s</span>
+          </div>
+          <div class="tool-action">
+            <div class="tool-action-dot info"></div>
+            <div class="tool-action-body">
+              <div class="tool-action-name">Complexity Estimation</div>
+              <div class="tool-action-detail">Calculated cyclomatic complexity for affected modules</div>
+            </div>
+            <span class="tool-action-time">1.4s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message message-agent quarry-reveal quarry-delay-6">
+        <div class="message-avatar avatar-pm">PM</div>
+        <div class="message-content">
+          <div class="message-agent-header">
+            <span class="message-agent-name">PM Agent</span>
+            <span class="message-agent-tag">Analysis</span>
+          </div>
+          <div>After scanning the codebase, I recommend adjusting the estimates. The <code>SessionManager</code> class has deeply coupled dependencies in 6 modules, raising Story 2 from 3 to 5 points. The MFA flow can leverage the existing <code>crypto.subtle</code> utilities, keeping Story 3 at 8 points. Total sprint impact: <strong>18 story points</strong>, within our velocity of 21.</div>
+          <div class="message-time">10:27 AM</div>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message message-user quarry-reveal quarry-delay-7">
+        <div class="message-avatar avatar-user">U</div>
+        <div class="message-content">
+          <div>That works. Go ahead and generate the story definitions with acceptance criteria and update the sprint backlog.</div>
+          <div class="message-time">10:28 AM</div>
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator quarry-reveal quarry-delay-8">
+        <div class="thinking-avatar">PM</div>
+        <div class="thinking-bubble">
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+          <span class="thinking-label">Generating stories...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area quarry-reveal quarry-delay-9">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-input" rows="1" placeholder="Ask the PM agent to plan, estimate, or refine..."></textarea>
+        <div class="chat-input-actions">
+          <button class="input-action-btn" title="Attach file">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="input-action-btn" title="Voice input">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="send-btn" title="Send message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="panel-tabs quarry-reveal quarry-delay-1">
+      <button class="panel-tab active-tab">Dashboard</button>
+      <button class="panel-tab">Artifact</button>
+      <button class="panel-tab">Readiness</button>
+    </div>
+
+    <!-- Panel Content -->
+    <div class="panel-content">
+
+      <!-- What Next Card -->
+      <div class="what-next-card quarry-reveal quarry-delay-2">
+        <div class="what-next-header">
+          <span class="what-next-title">What Next</span>
+          <div class="what-next-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+        </div>
+        <div class="what-next-text">
+          The PM agent is generating story definitions for the Auth Refactor epic. Once complete, review acceptance criteria and assign to Sprint 14 backlog.
+        </div>
+        <div class="what-next-action">
+          Review Stories When Ready
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <!-- Project Health -->
+      <div class="marble-card health-card quarry-reveal quarry-delay-3">
+        <div class="health-header">
+          <span class="health-title">Project Health</span>
+          <span class="health-percent">65<span>%</span></span>
+        </div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width: 65%"></div>
+        </div>
+        <div class="health-checklist">
+          <div class="check-item done">
+            <div class="check-box checked">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span>Epic breakdown approved</span>
+          </div>
+          <div class="check-item done">
+            <div class="check-box checked">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span>CI pipeline optimized</span>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <span>Story acceptance criteria defined</span>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <span>QA test coverage &ge; 80%</span>
+          </div>
+          <div class="check-item">
+            <div class="check-box"></div>
+            <span>Staging deployment verified</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stone-divider"></div>
+
+      <!-- Phase Cards -->
+      <div class="phase-cards">
+        <div class="marble-card phase-card quarry-reveal quarry-delay-4">
+          <div class="phase-icon plan">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <div class="phase-body">
+            <div class="phase-name">Planning</div>
+            <div class="phase-desc">Epic decomposition, story mapping</div>
+          </div>
+          <div class="phase-status">
+            <div class="phase-mini-bar">
+              <div class="phase-mini-fill plan-fill" style="width: 85%"></div>
+            </div>
+            <div class="phase-pct">85%</div>
+          </div>
+        </div>
+
+        <div class="marble-card phase-card quarry-reveal quarry-delay-5">
+          <div class="phase-icon build">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </div>
+          <div class="phase-body">
+            <div class="phase-name">Build</div>
+            <div class="phase-desc">Implementation, code review</div>
+          </div>
+          <div class="phase-status">
+            <div class="phase-mini-bar">
+              <div class="phase-mini-fill build-fill" style="width: 52%"></div>
+            </div>
+            <div class="phase-pct">52%</div>
+          </div>
+        </div>
+
+        <div class="marble-card phase-card quarry-reveal quarry-delay-6">
+          <div class="phase-icon test">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <div class="phase-body">
+            <div class="phase-name">Testing</div>
+            <div class="phase-desc">Unit, integration, E2E coverage</div>
+          </div>
+          <div class="phase-status">
+            <div class="phase-mini-bar">
+              <div class="phase-mini-fill test-fill" style="width: 30%"></div>
+            </div>
+            <div class="phase-pct">30%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stone-divider"></div>
+
+      <!-- Recent Runs -->
+      <div class="runs-section quarry-reveal quarry-delay-7">
+        <div class="runs-title">Recent Runs</div>
+        <table class="runs-table">
+          <thead>
+            <tr>
+              <th>Pipeline</th>
+              <th>Status</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="run-name">Auth API Tests</span></td>
+              <td>
+                <span class="run-status">
+                  <span class="run-status-dot passed"></span>
+                  Passed
+                </span>
+              </td>
+              <td><span class="run-duration">4m 12s</span></td>
+            </tr>
+            <tr>
+              <td><span class="run-name">Build &amp; Deploy</span></td>
+              <td>
+                <span class="run-status">
+                  <span class="run-status-dot running"></span>
+                  Running
+                </span>
+              </td>
+              <td><span class="run-duration">2m 38s</span></td>
+            </tr>
+            <tr>
+              <td><span class="run-name">E2E Payment Flow</span></td>
+              <td>
+                <span class="run-status">
+                  <span class="run-status-dot failed"></span>
+                  Failed
+                </span>
+              </td>
+              <td><span class="run-duration">6m 45s</span></td>
+            </tr>
+            <tr>
+              <td><span class="run-name">Lint &amp; Format</span></td>
+              <td>
+                <span class="run-status">
+                  <span class="run-status-dot passed"></span>
+                  Passed
+                </span>
+              </td>
+              <td><span class="run-duration">0m 52s</span></td>
+            </tr>
+            <tr>
+              <td><span class="run-name">Security Scan</span></td>
+              <td>
+                <span class="run-status">
+                  <span class="run-status-dot passed"></span>
+                  Passed
+                </span>
+              </td>
+              <td><span class="run-duration">1m 18s</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

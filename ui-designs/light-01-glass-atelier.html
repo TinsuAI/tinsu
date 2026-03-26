@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Glass Atelier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   GLASS ATELIER — Light Theme
+   A luminous, frosted-glass workshop with natural light
+   pouring through translucent panels.
+   ================================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --white:          #FEFEFE;
+  --bg:             #F0EFF5;
+  --panel-bg:       rgba(255, 255, 255, 0.7);
+  --panel-bg-solid: rgba(255, 255, 255, 0.85);
+  --panel-border:   rgba(255, 255, 255, 0.6);
+  --panel-shadow:   0 8px 32px rgba(100, 100, 140, 0.08);
+  --panel-shadow-hover: 0 12px 40px rgba(100, 100, 140, 0.14);
+
+  --text:           #1a1a2e;
+  --text-secondary: #64648c;
+  --text-tertiary:  #9e9eba;
+  --text-faint:     #c4c4d8;
+
+  --cobalt:         #2563EB;
+  --cobalt-light:   rgba(37, 99, 235, 0.08);
+  --cobalt-mid:     rgba(37, 99, 235, 0.15);
+  --mint:           #10B981;
+  --mint-light:     rgba(16, 185, 129, 0.08);
+  --mint-mid:       rgba(16, 185, 129, 0.15);
+  --coral:          #F97066;
+  --coral-light:    rgba(249, 112, 102, 0.08);
+  --lavender:       #EDE9FE;
+  --lavender-deep:  #8B5CF6;
+  --amber:          #F59E0B;
+  --amber-light:    rgba(245, 158, 11, 0.08);
+  --pink:           #EC4899;
+  --pink-light:     rgba(236, 72, 153, 0.08);
+
+  --border:         rgba(200, 200, 220, 0.35);
+  --border-subtle:  rgba(200, 200, 220, 0.2);
+  --divider:        rgba(200, 200, 220, 0.25);
+
+  --radius-sm:      8px;
+  --radius-md:      14px;
+  --radius-lg:      20px;
+  --radius-xl:      24px;
+
+  --blur:           16px;
+  --blur-heavy:     24px;
+
+  --font-display:   'Outfit', sans-serif;
+  --font-body:      'Source Serif 4', Georgia, serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Gradient Mesh Background ────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 20%, rgba(237, 233, 254, 0.7) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 85% 15%, rgba(191, 219, 254, 0.5) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 60% at 50% 80%, rgba(167, 243, 208, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 30% at 30% 60%, rgba(253, 230, 138, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 50% at 75% 70%, rgba(251, 207, 232, 0.25) 0%, transparent 50%),
+    linear-gradient(135deg, #f0eff5 0%, #e8e6f0 50%, #eef0f5 100%);
+  pointer-events: none;
+}
+
+/* ── Title Bar ───────────────────────────────────────────── */
+.title-bar {
+  position: relative;
+  z-index: 10;
+  height: 52px;
+  min-height: 52px;
+  background: var(--panel-bg-solid);
+  backdrop-filter: blur(var(--blur-heavy));
+  -webkit-backdrop-filter: blur(var(--blur-heavy));
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  user-select: none;
+  animation: fadeSlideDown 0.5s ease-out both;
+}
+
+.title-bar-text {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.title-bar-diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--cobalt);
+  transform: rotate(45deg);
+  border-radius: 1px;
+  opacity: 0.5;
+}
+
+.title-bar-line {
+  width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cobalt), transparent);
+  opacity: 0.25;
+}
+
+/* ── Main Layout ─────────────────────────────────────────── */
+.workspace {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 12px;
+  gap: 12px;
+}
+
+/* ── Glass Panel Base ────────────────────────────────────── */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Chromatic aberration edge effect */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.08) 0%,
+    transparent 25%,
+    transparent 75%,
+    rgba(139, 92, 246, 0.06) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Left Sidebar ────────────────────────────────────────── */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  animation: fadeSlideRight 0.6s ease-out 0.1s both;
+}
+
+.sidebar-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.sidebar-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+.new-chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.new-chat-btn:hover {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+  background: var(--cobalt-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+.new-chat-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+}
+
+/* Session Cards */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.session-list::-webkit-scrollbar { width: 4px; }
+.session-list::-webkit-scrollbar-track { background: transparent; }
+.session-list::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border-radius: 4px;
+}
+
+.session-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+}
+
+.session-card:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(100, 100, 140, 0.06);
+  transform: translateY(-1px);
+}
+
+.session-card.active {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.15);
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.persona-dot.pm        { background: var(--cobalt); }
+.persona-dot.architect { background: var(--lavender-deep); }
+.persona-dot.ux        { background: var(--pink); }
+.persona-dot.analyst   { background: var(--amber); }
+
+.persona-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.permission-badge {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.permission-badge.auto {
+  color: var(--amber);
+  background: var(--amber-light);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.permission-badge.manual {
+  color: var(--mint);
+  background: var(--mint-light);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.status-badge.active {
+  color: var(--mint);
+  background: var(--mint-light);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-badge.paused {
+  color: var(--amber);
+  background: var(--amber-light);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.status-badge.completed {
+  color: var(--text-tertiary);
+  background: rgba(158, 158, 186, 0.08);
+  border-color: rgba(158, 158, 186, 0.15);
+}
+
+.session-preview {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session-time {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.kebab-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.session-card:hover .kebab-btn { opacity: 1; }
+
+.kebab-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary);
+}
+
+.kebab-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Center Chat Panel ───────────────────────────────────── */
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: fadeSlideUp 0.6s ease-out 0.2s both;
+}
+
+.chat-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--divider);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.persona-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.persona-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: var(--border);
+}
+
+.persona-btn.selected {
+  background: var(--white);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(100, 100, 140, 0.08);
+}
+
+.persona-btn .persona-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Chat Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-messages::-webkit-scrollbar { width: 5px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border-radius: 4px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 72%;
+  animation: messageFadeIn 0.35s ease-out both;
+}
+
+.message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message.agent {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-sender {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message-sender .persona-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.message.user .message-bubble {
+  background: var(--cobalt);
+  color: white;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.2);
+}
+
+.message.agent .message-bubble {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 6px rgba(100, 100, 140, 0.06);
+}
+
+.message-time {
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+/* Tool Activity Group */
+.tool-group {
+  align-self: flex-start;
+  width: 85%;
+  animation: messageFadeIn 0.35s ease-out both;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-display);
+}
+
+.tool-group-header:hover {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.tool-group-header svg {
+  color: var(--cobalt);
+  opacity: 0.5;
+}
+
+.tool-group-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.tool-group-label strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tool-group-items {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--lavender);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s;
+}
+
+.tool-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: var(--border);
+}
+
+.tool-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tool-icon.read {
+  background: var(--cobalt-light);
+  color: var(--cobalt);
+}
+
+.tool-icon.edit {
+  background: var(--lavender);
+  color: var(--lavender-deep);
+}
+
+.tool-icon.run {
+  background: var(--mint-light);
+  color: var(--mint);
+}
+
+.tool-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tool-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.tool-file {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Thinking Indicator */
+.thinking-indicator {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border-subtle);
+  animation: messageFadeIn 0.35s ease-out both;
+}
+
+.thinking-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.thinking-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cobalt);
+  opacity: 0.3;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Chat Input */
+.chat-input-area {
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px solid var(--border);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: var(--cobalt);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08), 0 4px 16px rgba(37, 99, 235, 0.06);
+}
+
+.chat-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  min-height: 22px;
+  max-height: 120px;
+}
+
+.chat-textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.input-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.input-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.attach-btn {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.attach-btn:hover {
+  color: var(--cobalt);
+  background: var(--cobalt-light);
+}
+
+.send-btn {
+  background: var(--cobalt);
+  color: white;
+  border-radius: 10px;
+}
+
+.send-btn:hover {
+  background: #1d4ed8;
+  transform: scale(1.05);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+}
+
+.input-hint {
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 6px;
+  padding-left: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Right Dashboard Panel ───────────────────────────────── */
+.dashboard {
+  width: 380px;
+  min-width: 380px;
+  display: flex;
+  flex-direction: column;
+  animation: fadeSlideLeft 0.6s ease-out 0.3s both;
+}
+
+.dash-tabs {
+  display: flex;
+  padding: 10px 14px 0;
+  gap: 2px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.dash-tab {
+  padding: 8px 16px 10px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.dash-tab:hover {
+  color: var(--text-secondary);
+}
+
+.dash-tab.active {
+  color: var(--cobalt);
+  border-bottom-color: var(--cobalt);
+}
+
+.dash-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dash-content::-webkit-scrollbar { width: 4px; }
+.dash-content::-webkit-scrollbar-track { background: transparent; }
+.dash-content::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border-radius: 4px;
+}
+
+/* Dashboard Cards */
+.dash-card {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dash-card:hover {
+  border-color: var(--border);
+  box-shadow: 0 4px 16px rgba(100, 100, 140, 0.06);
+  transform: translateY(-1px);
+}
+
+.dash-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 10px;
+}
+
+.dash-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-card-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dash-card-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.dash-card-body {
+  padding: 0 14px 14px;
+}
+
+/* What Next Card */
+.what-next {
+  border-color: rgba(37, 99, 235, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.what-next::after {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.what-next .dash-card-icon {
+  background: var(--cobalt-light);
+  color: var(--cobalt);
+}
+
+.what-next-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.what-next-workflow {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.what-next-reason {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.what-next-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: var(--cobalt);
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: var(--text-tertiary);
+}
+
+.btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Project Health */
+.health-icon {
+  background: var(--mint-light);
+  color: var(--mint);
+}
+
+.health-bar-container {
+  margin-bottom: 12px;
+}
+
+.health-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.health-percentage {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.health-fraction {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.health-bar-track {
+  height: 6px;
+  background: rgba(200, 200, 220, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cobalt), var(--mint));
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.health-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.health-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.health-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.health-check.done {
+  background: var(--mint-mid);
+  color: var(--mint);
+}
+
+.health-check.missing {
+  background: rgba(200, 200, 220, 0.15);
+  color: var(--text-faint);
+}
+
+.health-check svg {
+  width: 10px;
+  height: 10px;
+}
+
+.health-item-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.health-item-label.missing-label {
+  color: var(--text-tertiary);
+}
+
+/* Phase Cards */
+.phase-card {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.phase-card:hover {
+  border-color: var(--border);
+  box-shadow: 0 2px 12px rgba(100, 100, 140, 0.05);
+}
+
+.phase-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.phase-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.phase-number.p1 {
+  background: var(--cobalt-light);
+  color: var(--cobalt);
+}
+
+.phase-number.p2 {
+  background: var(--lavender);
+  color: var(--lavender-deep);
+}
+
+.phase-number.p3 {
+  background: var(--pink-light);
+  color: var(--pink);
+}
+
+.phase-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.phase-count {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.phase-workflows {
+  padding: 4px 6px;
+}
+
+.workflow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.workflow-row:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.workflow-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+}
+
+.artifact-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid;
+  letter-spacing: 0.3px;
+}
+
+.artifact-badge.draft {
+  color: var(--amber);
+  background: var(--amber-light);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.artifact-badge.in-review {
+  color: var(--cobalt);
+  background: var(--cobalt-light);
+  border-color: rgba(37, 99, 235, 0.15);
+}
+
+.artifact-badge.approved {
+  color: var(--mint);
+  background: var(--mint-light);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.artifact-badge.missing {
+  color: var(--text-faint);
+  background: rgba(200, 200, 220, 0.08);
+  border-color: rgba(200, 200, 220, 0.2);
+}
+
+/* Recent Runs */
+.runs-icon {
+  background: var(--lavender);
+  color: var(--lavender-deep);
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.runs-table th {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.runs-table td {
+  font-family: var(--font-display);
+  font-size: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text);
+}
+
+.runs-table tr:last-child td {
+  border-bottom: none;
+}
+
+.run-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.run-status-dot.success { background: var(--mint); }
+.run-status-dot.running { background: var(--cobalt); animation: dotPulse 1.4s ease-in-out infinite; }
+.run-status-dot.failed  { background: var(--coral); }
+
+.run-duration {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideRight {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeSlideLeft {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes messageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40%           { opacity: 1;    transform: scale(1.1); }
+}
+
+/* ── Staggered load animations for cards ─────────────────── */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+.dash-card {
+  animation: fadeSlideUp 0.45s ease-out both;
+}
+
+.phase-card {
+  animation: fadeSlideUp 0.45s ease-out both;
+}
+
+.session-card {
+  animation: messageFadeIn 0.3s ease-out both;
+}
+
+/* ── Completed session dim ───────────────────────────────── */
+.session-card.completed-session {
+  opacity: 0.55;
+}
+
+.session-card.completed-session:hover {
+  opacity: 0.8;
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     TITLE BAR
+     ════════════════════════════════════════════════════════ -->
+<div class="title-bar">
+  <span class="title-bar-line"></span>
+  <span class="title-bar-diamond"></span>
+  <span class="title-bar-text">Tinsu Planning Workspace</span>
+  <span class="title-bar-diamond"></span>
+  <span class="title-bar-line"></span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     WORKSPACE
+     ════════════════════════════════════════════════════════ -->
+<div class="workspace">
+
+  <!-- ──────────────────────────────────────────────────────
+       LEFT SIDEBAR — Chat Session List
+       ────────────────────────────────────────────────────── -->
+  <div class="sidebar glass-panel">
+    <div class="sidebar-header">
+      <div class="sidebar-label">Sessions</div>
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+      <!-- Session 1: Active PM -->
+      <div class="session-card active stagger-1" style="animation: messageFadeIn 0.3s ease-out 0.15s both;">
+        <div class="session-card-top">
+          <span class="persona-dot pm"></span>
+          <span class="persona-name">Product Manager</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge active">Active</span>
+        </div>
+        <div class="session-preview">Reviewing the product brief and aligning scope with Q3 goals...</div>
+        <div class="session-meta">
+          <span class="session-time">2 min ago</span>
+          <button class="kebab-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session 2: Active Architect -->
+      <div class="session-card stagger-2" style="animation: messageFadeIn 0.3s ease-out 0.25s both;">
+        <div class="session-card-top">
+          <span class="persona-dot architect"></span>
+          <span class="persona-name">Architect</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="status-badge active">Active</span>
+        </div>
+        <div class="session-preview">Defined the service boundary diagram for the auth module...</div>
+        <div class="session-meta">
+          <span class="session-time">18 min ago</span>
+          <button class="kebab-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session 3: Paused UX -->
+      <div class="session-card stagger-3" style="animation: messageFadeIn 0.3s ease-out 0.35s both;">
+        <div class="session-card-top">
+          <span class="persona-dot ux"></span>
+          <span class="persona-name">UX Designer</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge paused">Paused</span>
+        </div>
+        <div class="session-preview">Wireframe iterations for the dashboard layout are ready for...</div>
+        <div class="session-meta">
+          <span class="session-time">1 hour ago</span>
+          <button class="kebab-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session 4: Completed Analyst -->
+      <div class="session-card completed-session stagger-4" style="animation: messageFadeIn 0.3s ease-out 0.45s both;">
+        <div class="session-card-top">
+          <span class="persona-dot analyst"></span>
+          <span class="persona-name">Analyst</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="status-badge completed">Completed</span>
+        </div>
+        <div class="session-preview">Competitive analysis report finalized with market sizing data...</div>
+        <div class="session-meta">
+          <span class="session-time">3 hours ago</span>
+          <button class="kebab-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session 5: Completed PM -->
+      <div class="session-card completed-session stagger-5" style="animation: messageFadeIn 0.3s ease-out 0.55s both;">
+        <div class="session-card-top">
+          <span class="persona-dot pm"></span>
+          <span class="persona-name">Product Manager</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge completed">Completed</span>
+        </div>
+        <div class="session-preview">Initial brainstorming session for the project kickoff completed...</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <button class="kebab-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────
+       CENTER PANEL — Chat Message Area
+       ────────────────────────────────────────────────────── -->
+  <div class="chat-panel glass-panel">
+    <!-- Persona Selector Header -->
+    <div class="chat-header">
+      <button class="persona-btn selected">
+        <span class="persona-dot pm"></span>
+        PM
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot architect"></span>
+        Architect
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot ux"></span>
+        UX Designer
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot analyst"></span>
+        Analyst
+      </button>
+    </div>
+
+    <!-- Scrollable Messages -->
+    <div class="chat-messages">
+      <!-- User Message 1 -->
+      <div class="message user" style="animation-delay: 0.1s;">
+        <div class="message-bubble">
+          Can you review the product brief and check if we have all the key sections covered? I want to make sure we address the competitive landscape and target user segments.
+        </div>
+        <span class="message-time">10:24 AM</span>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message agent" style="animation-delay: 0.15s;">
+        <div class="message-sender">
+          <span class="persona-dot pm"></span>
+          Product Manager
+        </div>
+        <div class="message-bubble">
+          I've reviewed the product brief and identified a few gaps. The competitive landscape section needs more depth — we're missing direct comparisons with Jira and Linear for the project management angle. The target user segments are well-defined for solo developers, but we should add a segment for small agency teams (5-15 people) since that's a high-value opportunity.
+        </div>
+        <span class="message-time">10:25 AM</span>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message user" style="animation-delay: 0.2s;">
+        <div class="message-bubble">
+          Good catch. Can you update the brief with those additions? Also pull in the latest market data from the analyst's research.
+        </div>
+        <span class="message-time">10:26 AM</span>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group" style="animation-delay: 0.25s;">
+        <button class="tool-group-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span class="tool-group-label">Agent performed <strong>3</strong> actions</span>
+        </button>
+        <div class="tool-group-items">
+          <div class="tool-card">
+            <div class="tool-icon read">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div>
+              <div class="tool-name">Read</div>
+              <div class="tool-file">product-brief.md</div>
+            </div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon edit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <div>
+              <div class="tool-name">Edit</div>
+              <div class="tool-file">product-brief.md</div>
+            </div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon run">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <div>
+              <div class="tool-name">Run</div>
+              <div class="tool-file">npm run validate:brief</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message agent" style="animation-delay: 0.3s;">
+        <div class="message-sender">
+          <span class="persona-dot pm"></span>
+          Product Manager
+        </div>
+        <div class="message-bubble">
+          Done. I've updated the product brief with three changes: added a detailed competitive comparison table (Tinsu vs. Jira vs. Linear vs. Notion), expanded the target segments to include "Small Agency Teams (5-15)", and incorporated the market sizing data from the analyst's research. The validation checks all pass. Would you like me to move this to "In Review" status?
+        </div>
+        <span class="message-time">10:27 AM</span>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message user" style="animation-delay: 0.35s;">
+        <div class="message-bubble">
+          Yes, please mark it as In Review. Let's also start drafting the PRD next.
+        </div>
+        <span class="message-time">10:28 AM</span>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator" style="animation-delay: 0.4s;">
+        <div class="thinking-label">
+          <span class="persona-dot pm" style="width:6px;height:6px;"></span>
+          Product Manager is thinking
+        </div>
+        <div class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <button class="input-btn attach-btn" title="Attach file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <textarea class="chat-textarea" placeholder="Message the agent..." rows="1"></textarea>
+        <button class="input-btn send-btn" title="Send message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Press Enter to send</div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────
+       RIGHT PANEL — Dashboard / Artifact / Readiness
+       ────────────────────────────────────────────────────── -->
+  <div class="dashboard glass-panel">
+    <!-- Tab Bar -->
+    <div class="dash-tabs">
+      <button class="dash-tab active">Dashboard</button>
+      <button class="dash-tab">Artifact</button>
+      <button class="dash-tab">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dash-content">
+
+      <!-- What Next Card -->
+      <div class="dash-card what-next stagger-1" style="animation-delay: 0.35s;">
+        <div class="dash-card-header">
+          <div class="dash-card-icon">
+            <!-- Compass icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          </div>
+          <span class="dash-card-title">What Next</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="what-next-content">
+            <div class="what-next-workflow">Product Requirements Document</div>
+            <div class="what-next-reason">The product brief is in review. Start drafting the PRD to detail features, user stories, and acceptance criteria while the brief is being finalized.</div>
+            <div class="what-next-actions">
+              <button class="btn btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Start
+              </button>
+              <button class="btn btn-ghost">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Health Card -->
+      <div class="dash-card stagger-2" style="animation-delay: 0.45s;">
+        <div class="dash-card-header">
+          <div class="dash-card-icon health-icon">
+            <!-- Shield/heart icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <span class="dash-card-title">Project Health</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="health-bar-container">
+            <div class="health-bar-label">
+              <span class="health-percentage">65%</span>
+              <span class="health-fraction">4 of 6 artifacts</span>
+            </div>
+            <div class="health-bar-track">
+              <div class="health-bar-fill" style="width: 65%;"></div>
+            </div>
+          </div>
+          <div class="health-checklist">
+            <div class="health-item">
+              <span class="health-check done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="health-item-label">Product Brief</span>
+            </div>
+            <div class="health-item">
+              <span class="health-check done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="health-item-label">PRD</span>
+            </div>
+            <div class="health-item">
+              <span class="health-check done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="health-item-label">UX Spec</span>
+            </div>
+            <div class="health-item">
+              <span class="health-check done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="health-item-label">Architecture</span>
+            </div>
+            <div class="health-item">
+              <span class="health-check missing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </span>
+              <span class="health-item-label missing-label">Epics & Stories</span>
+            </div>
+            <div class="health-item">
+              <span class="health-check missing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </span>
+              <span class="health-item-label missing-label">Readiness Gate</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Cards -->
+      <!-- Phase 1: Discovery -->
+      <div class="phase-card stagger-3" style="animation-delay: 0.55s;">
+        <div class="phase-header">
+          <span class="phase-number p1">1</span>
+          <span class="phase-name">Discovery</span>
+          <span class="phase-count">2/3</span>
+        </div>
+        <div class="phase-workflows">
+          <div class="workflow-row">
+            <span class="workflow-name">Product Brief</span>
+            <span class="artifact-badge in-review">In Review</span>
+          </div>
+          <div class="workflow-row">
+            <span class="workflow-name">Market Analysis</span>
+            <span class="artifact-badge approved">Approved</span>
+          </div>
+          <div class="workflow-row">
+            <span class="workflow-name">User Research</span>
+            <span class="artifact-badge missing">Missing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2: Architecture -->
+      <div class="phase-card stagger-4" style="animation-delay: 0.65s;">
+        <div class="phase-header">
+          <span class="phase-number p2">2</span>
+          <span class="phase-name">Architecture</span>
+          <span class="phase-count">1/2</span>
+        </div>
+        <div class="phase-workflows">
+          <div class="workflow-row">
+            <span class="workflow-name">System Architecture</span>
+            <span class="artifact-badge draft">Draft</span>
+          </div>
+          <div class="workflow-row">
+            <span class="workflow-name">Data Model</span>
+            <span class="artifact-badge missing">Missing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3: Design -->
+      <div class="phase-card stagger-5" style="animation-delay: 0.75s;">
+        <div class="phase-header">
+          <span class="phase-number p3">3</span>
+          <span class="phase-name">Design</span>
+          <span class="phase-count">1/3</span>
+        </div>
+        <div class="phase-workflows">
+          <div class="workflow-row">
+            <span class="workflow-name">UX Wireframes</span>
+            <span class="artifact-badge approved">Approved</span>
+          </div>
+          <div class="workflow-row">
+            <span class="workflow-name">Epics & Stories</span>
+            <span class="artifact-badge missing">Missing</span>
+          </div>
+          <div class="workflow-row">
+            <span class="workflow-name">Readiness Check</span>
+            <span class="artifact-badge missing">Missing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Runs Mini-Table -->
+      <div class="dash-card stagger-5" style="animation-delay: 0.85s;">
+        <div class="dash-card-header">
+          <div class="dash-card-icon runs-icon">
+            <!-- Activity/clock icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span class="dash-card-title">Recent Runs</span>
+        </div>
+        <div class="dash-card-body">
+          <table class="runs-table">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Status</th>
+                <th style="text-align:right;">Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Product Brief</td>
+                <td><span class="run-status-dot success"></span>Success</td>
+                <td style="text-align:right;" class="run-duration">2m 14s</td>
+              </tr>
+              <tr>
+                <td>System Architecture</td>
+                <td><span class="run-status-dot running"></span>Running</td>
+                <td style="text-align:right;" class="run-duration">1m 38s</td>
+              </tr>
+              <tr>
+                <td>Market Analysis</td>
+                <td><span class="run-status-dot success"></span>Success</td>
+                <td style="text-align:right;" class="run-duration">4m 02s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dash-content -->
+  </div><!-- /dashboard -->
+
+</div><!-- /workspace -->
+
+</body>
+</html>

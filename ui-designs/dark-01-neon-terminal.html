@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Neon Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Custom Properties ─────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --void:         #050510;
+    --panel:        #0C0C1D;
+    --panel-raised: #111128;
+    --panel-hover:  #16163A;
+    --grid:         #1A1A3A;
+    --grid-faint:   #12122A;
+    --green:        #39FF14;
+    --cyan:         #00F0FF;
+    --magenta:      #FF00AA;
+    --amber:        #FFB800;
+    --red:          #FF2D2D;
+    --text:         #D0D0E0;
+    --text-dim:     #7A7A9A;
+    --text-ghost:   #4A4A6A;
+    --border:       #1F1F40;
+    --border-glow:  #2A2A55;
+
+    --glow-green:   0 0 6px #39FF1466, 0 0 20px #39FF1422;
+    --glow-cyan:    0 0 6px #00F0FF66, 0 0 20px #00F0FF22;
+    --glow-magenta: 0 0 6px #FF00AA66, 0 0 20px #FF00AA22;
+    --glow-amber:   0 0 6px #FFB80066, 0 0 20px #FFB80022;
+    --glow-red:     0 0 6px #FF2D2D66, 0 0 20px #FF2D2D22;
+
+    --radius-sm:    4px;
+    --radius-md:    6px;
+    --radius-lg:    10px;
+  }
+
+  /* ── Scrollbar ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--void); }
+  ::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-glow); }
+
+  /* ── Body & CRT Container ──────────────────────────────────── */
+  body {
+    font-family: 'Fira Code', monospace;
+    background: #020208;
+    color: var(--text);
+    font-size: 12.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .crt-container {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--void);
+    border: 1px solid var(--grid);
+    box-shadow:
+      inset 0 0 80px rgba(0, 240, 255, 0.03),
+      0 0 40px rgba(0, 0, 0, 0.8),
+      0 0 2px var(--grid);
+  }
+
+  /* ── CRT Scanline Overlay ──────────────────────────────────── */
+  .crt-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.12) 2px,
+      rgba(0, 0, 0, 0.12) 4px
+    );
+    mix-blend-mode: multiply;
+  }
+
+  /* ── Matrix Rain Background ────────────────────────────────── */
+  .matrix-rain {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.035;
+  }
+
+  .matrix-column {
+    position: absolute;
+    top: -100%;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--green);
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    animation: matrix-fall linear infinite;
+    letter-spacing: 4px;
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  @keyframes matrix-fall {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(calc(100vh + 100%)); }
+  }
+
+  /* ── Boot-up Stagger Animation ─────────────────────────────── */
+  @keyframes boot-in {
+    0%   { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+
+  .boot-stagger { animation: boot-in 0.5s ease-out both; }
+  .boot-d1 { animation-delay: 0.1s; }
+  .boot-d2 { animation-delay: 0.2s; }
+  .boot-d3 { animation-delay: 0.3s; }
+  .boot-d4 { animation-delay: 0.4s; }
+  .boot-d5 { animation-delay: 0.5s; }
+  .boot-d6 { animation-delay: 0.6s; }
+  .boot-d7 { animation-delay: 0.7s; }
+  .boot-d8 { animation-delay: 0.8s; }
+  .boot-d9 { animation-delay: 0.9s; }
+
+  /* ── Glitch Hover Effect ───────────────────────────────────── */
+  @keyframes glitch-1 {
+    0%   { clip-path: inset(20% 0 60% 0); transform: translateX(-3px); }
+    20%  { clip-path: inset(60% 0 10% 0); transform: translateX(3px); }
+    40%  { clip-path: inset(40% 0 30% 0); transform: translateX(-2px); }
+    60%  { clip-path: inset(80% 0 5% 0); transform: translateX(2px); }
+    80%  { clip-path: inset(10% 0 70% 0); transform: translateX(-1px); }
+    100% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+  }
+
+  .glitch-hover:hover {
+    animation: glitch-1 0.3s linear;
+  }
+
+  /* ── Neon Text Glow Utilities ──────────────────────────────── */
+  .neon-green  { color: var(--green);   text-shadow: 0 0 7px #39FF1488, 0 0 20px #39FF1433, 0 0 40px #39FF1418; }
+  .neon-cyan   { color: var(--cyan);    text-shadow: 0 0 7px #00F0FF88, 0 0 20px #00F0FF33, 0 0 40px #00F0FF18; }
+  .neon-magenta{ color: var(--magenta); text-shadow: 0 0 7px #FF00AA88, 0 0 20px #FF00AA33, 0 0 40px #FF00AA18; }
+  .neon-amber  { color: var(--amber);   text-shadow: 0 0 7px #FFB80088, 0 0 20px #FFB80033, 0 0 40px #FFB80018; }
+  .neon-red    { color: var(--red);     text-shadow: 0 0 7px #FF2D2D88, 0 0 20px #FF2D2D33, 0 0 40px #FF2D2D18; }
+
+  /* ── Title Bar ─────────────────────────────────────────────── */
+  .title-bar {
+    height: 40px;
+    min-height: 40px;
+    background: linear-gradient(180deg, #0E0E24, var(--panel));
+    border-bottom: 1px solid var(--grid);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    user-select: none;
+    position: relative;
+    z-index: 2;
+  }
+  .title-bar-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    text-shadow: 0 0 10px #00F0FF66, 0 0 30px #00F0FF22, 0 0 60px #00F0FF11;
+  }
+  .title-bar-dots {
+    position: absolute;
+    left: 14px;
+    display: flex;
+    gap: 7px;
+  }
+  .title-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+  .title-dot.r { background: var(--red); box-shadow: 0 0 6px #FF2D2D88; }
+  .title-dot.y { background: var(--amber); box-shadow: 0 0 6px #FFB80088; }
+  .title-dot.g { background: var(--green); box-shadow: 0 0 6px #39FF1488; }
+  .title-bar-status {
+    position: absolute;
+    right: 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-blink {
+    width: 6px;
+    height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--green);
+    animation: blink-pulse 2s ease-in-out infinite;
+  }
+  @keyframes blink-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+  }
+
+  /* ── Main Layout ───────────────────────────────────────────── */
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Left Sidebar ──────────────────────────────────────────── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--grid);
+  }
+
+  .sidebar-header {
+    padding: 16px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--grid);
+  }
+
+  .sidebar-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .btn-new-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+    border-radius: var(--radius-md);
+    padding: 9px 14px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.25s ease;
+    box-shadow: 0 0 8px #00F0FF22, inset 0 0 8px #00F0FF08;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-new-chat::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #00F0FF08, transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .btn-new-chat:hover {
+    background: #00F0FF12;
+    box-shadow: 0 0 16px #00F0FF33, inset 0 0 16px #00F0FF11, 0 0 40px #00F0FF11;
+    text-shadow: 0 0 8px #00F0FF88;
+  }
+  .btn-new-chat:hover::before { opacity: 1; }
+  .btn-new-chat:active { transform: scale(0.97); }
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  .session-card {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .session-card:hover {
+    background: var(--panel-hover);
+    border-color: var(--grid);
+  }
+  .session-card.active {
+    background: linear-gradient(135deg, #0C0C1D, #111138);
+    border-color: var(--cyan);
+    box-shadow: 0 0 12px #00F0FF11, inset 0 0 20px #00F0FF05;
+  }
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--cyan);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .session-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .persona-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .dot-pm      { background: var(--cyan);    box-shadow: 0 0 8px var(--cyan); }
+  .dot-arch    { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); }
+  .dot-ux      { background: var(--amber);   box-shadow: 0 0 8px var(--amber); }
+  .dot-analyst { background: var(--green);   box-shadow: 0 0 8px var(--green); }
+  .dot-dev     { background: var(--red);     box-shadow: 0 0 8px var(--red); }
+
+  .session-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .session-time {
+    font-size: 10px;
+    color: var(--text-ghost);
+  }
+  .kebab-menu {
+    background: none;
+    border: none;
+    color: var(--text-ghost);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+  }
+  .kebab-menu:hover {
+    color: var(--text);
+    background: var(--grid);
+  }
+
+  .session-preview {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .session-badges {
+    display: flex;
+    gap: 5px;
+  }
+
+  .badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .badge-active {
+    color: var(--green);
+    background: #39FF1412;
+    border: 1px solid #39FF1433;
+    box-shadow: 0 0 8px #39FF1411;
+  }
+  .badge-paused {
+    color: var(--amber);
+    background: #FFB80012;
+    border: 1px solid #FFB80033;
+    box-shadow: 0 0 8px #FFB80011;
+  }
+  .badge-completed {
+    color: var(--cyan);
+    background: #00F0FF12;
+    border: 1px solid #00F0FF33;
+    box-shadow: 0 0 8px #00F0FF11;
+  }
+  .badge-error {
+    color: var(--red);
+    background: #FF2D2D12;
+    border: 1px solid #FF2D2D33;
+    box-shadow: 0 0 8px #FF2D2D11;
+  }
+  .badge-auto {
+    color: var(--text-ghost);
+    background: #1A1A3A;
+    border: 1px solid var(--grid);
+  }
+  .badge-manual {
+    color: var(--magenta);
+    background: #FF00AA10;
+    border: 1px solid #FF00AA28;
+  }
+
+  /* ── Center Chat Panel ─────────────────────────────────────── */
+  .chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--void);
+    position: relative;
+  }
+
+  /* Background grid pattern */
+  .chat-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-faint) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-faint) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    opacity: 0.5;
+    z-index: 0;
+  }
+
+  .chat-header {
+    padding: 10px 16px;
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--grid);
+    background: linear-gradient(180deg, var(--panel), var(--void));
+    position: relative;
+    z-index: 1;
+  }
+
+  .persona-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-md);
+    padding: 7px 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .persona-btn:hover {
+    background: var(--panel-hover);
+    border-color: var(--border-glow);
+    color: var(--text);
+  }
+  .persona-btn.selected {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: #00F0FF08;
+    box-shadow: 0 0 12px #00F0FF15;
+    text-shadow: 0 0 6px #00F0FF66;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Messages ──────────────────────────────────────────────── */
+  .msg { max-width: 85%; }
+  .msg-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #1A1A3A, #202050);
+    border: 1px solid var(--border-glow);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 12.5px;
+    position: relative;
+  }
+  .msg-user::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 30%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan));
+    opacity: 0.3;
+  }
+
+  .msg-agent {
+    align-self: flex-start;
+    background: linear-gradient(135deg, var(--panel), #0F0F28);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
+    padding: 14px 16px;
+    position: relative;
+  }
+  .msg-agent::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: -1px;
+    height: 40%;
+    width: 1px;
+    background: linear-gradient(180deg, var(--magenta), transparent);
+    opacity: 0.4;
+  }
+
+  .msg-agent-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .msg-agent-body {
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  .msg-agent-body p { margin-bottom: 8px; }
+  .msg-agent-body p:last-child { margin-bottom: 0; }
+  .msg-agent-body strong { color: var(--cyan); font-weight: 600; }
+  .msg-agent-body ul {
+    margin: 8px 0;
+    padding-left: 18px;
+  }
+  .msg-agent-body li {
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .msg-agent-body li strong { color: var(--green); }
+  .msg-agent-body code {
+    background: #1A1A3A;
+    color: var(--amber);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    border: 1px solid var(--grid);
+  }
+
+  /* ── Tool Activity Group ───────────────────────────────────── */
+  .tool-group {
+    align-self: flex-start;
+    max-width: 75%;
+    width: 100%;
+  }
+  .tool-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+  .tool-group-header:hover {
+    border-color: var(--border-glow);
+    background: var(--panel-hover);
+  }
+  .tool-group-chevron {
+    font-size: 8px;
+    color: var(--green);
+    transition: transform 0.25s ease;
+    display: inline-block;
+  }
+  .tool-group.expanded .tool-group-chevron {
+    transform: rotate(90deg);
+  }
+  .tool-group-body {
+    display: none;
+    padding: 6px 0 0 0;
+  }
+  .tool-group.expanded .tool-group-body {
+    display: block;
+  }
+  .tool-group.expanded .tool-group-header {
+    border-color: var(--green);
+    box-shadow: 0 0 8px #39FF1411;
+  }
+
+  .tool-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 2px;
+    background: var(--panel);
+    border: 1px solid var(--grid-faint);
+    border-radius: var(--radius-sm);
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 25%;
+    bottom: 25%;
+    width: 2px;
+    background: var(--green);
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+  .tool-card:hover { border-color: var(--grid); }
+
+  .tool-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #39FF1408;
+    border: 1px solid #39FF1422;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .tool-card-content { flex: 1; min-width: 0; }
+  .tool-card-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--green);
+    text-shadow: 0 0 6px #39FF1433;
+  }
+  .tool-card-desc {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tool-card-time {
+    font-size: 9px;
+    color: var(--text-ghost);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Timeline connector between tool cards */
+  .tool-timeline {
+    position: relative;
+    padding-left: 20px;
+  }
+  .tool-timeline::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, var(--green), #39FF1422, transparent);
+  }
+  .tool-timeline .tool-card {
+    position: relative;
+  }
+  .tool-timeline .tool-card::after {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1.5px solid var(--green);
+    box-shadow: 0 0 4px #39FF1444;
+    z-index: 1;
+  }
+  .tool-timeline .tool-card::before { display: none; }
+
+  /* ── Thinking Indicator ────────────────────────────────────── */
+  .thinking {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-md);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .thinking-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    animation: thinking-pulse 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes thinking-pulse {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50%      { opacity: 1;   transform: scale(1.2); }
+  }
+
+  /* ── Chat Input Area ───────────────────────────────────────── */
+  .chat-input-area {
+    padding: 12px 24px 16px;
+    background: linear-gradient(180deg, transparent, var(--panel) 30%);
+    position: relative;
+    z-index: 1;
+  }
+
+  .chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: var(--panel-raised);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .chat-input-wrapper:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 0 0 16px #00F0FF15, inset 0 0 12px #00F0FF05;
+  }
+
+  .chat-textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Fira Code', monospace;
+    font-size: 12.5px;
+    padding: 8px 10px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    caret-color: var(--green);
+  }
+  .chat-textarea::placeholder {
+    color: var(--text-ghost);
+  }
+
+  /* Terminal cursor blink on input */
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--green);
+    animation: cursor-blink 1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    box-shadow: 0 0 6px var(--green);
+  }
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+
+  .input-btn {
+    background: transparent;
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .input-btn:hover {
+    border-color: var(--border-glow);
+    color: var(--text);
+    background: var(--panel-hover);
+  }
+  .send-btn {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--void);
+    font-weight: 700;
+    box-shadow: 0 0 10px #00F0FF33;
+  }
+  .send-btn:hover {
+    background: #33FFFF;
+    box-shadow: 0 0 20px #00F0FF55;
+    color: var(--void);
+  }
+
+  .input-hint {
+    font-size: 10px;
+    color: var(--text-ghost);
+    margin-top: 6px;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Right Panel ───────────────────────────────────────────── */
+  .right-panel {
+    width: 380px;
+    min-width: 380px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .right-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--grid);
+    padding: 0;
+  }
+  .right-tab {
+    flex: 1;
+    padding: 10px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-ghost);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .right-tab:hover { color: var(--text-dim); background: var(--panel-hover); }
+  .right-tab.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+    text-shadow: 0 0 8px #39FF1444;
+    background: #39FF1406;
+  }
+
+  .right-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+  }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Cards ──────────────────────────────────────────────────── */
+  .card {
+    background: var(--panel-raised);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border-glow); }
+
+  .card-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── What Next Card ────────────────────────────────────────── */
+  .what-next {
+    border-color: var(--cyan);
+    box-shadow: 0 0 16px #00F0FF08, inset 0 0 30px #00F0FF04;
+    position: relative;
+    overflow: hidden;
+  }
+  .what-next::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, #00F0FF08, transparent 70%);
+    pointer-events: none;
+  }
+  .what-next .card-title { color: var(--cyan); text-shadow: 0 0 8px #00F0FF44; }
+  .what-next-icon {
+    font-size: 14px;
+    filter: saturate(2);
+  }
+  .what-next-text {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .action-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--grid);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .action-btn:hover {
+    border-color: var(--border-glow);
+    color: var(--text);
+    background: var(--panel-hover);
+  }
+  .action-btn.primary {
+    background: #00F0FF12;
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 8px #00F0FF11;
+  }
+  .action-btn.primary:hover {
+    background: #00F0FF22;
+    box-shadow: 0 0 16px #00F0FF22;
+    text-shadow: 0 0 6px #00F0FF66;
+  }
+
+  /* ── Progress Bar ──────────────────────────────────────────── */
+  .progress-bar-track {
+    height: 6px;
+    background: var(--grid);
+    border-radius: 3px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    position: relative;
+    transition: width 1s ease;
+  }
+  .progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    animation: bar-shimmer 2s ease-in-out infinite;
+  }
+  @keyframes bar-shimmer {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 0.8; }
+  }
+
+  .progress-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  /* ── Checklist ──────────────────────────────────────────────── */
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 11px;
+  }
+  .check-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-size: 10px;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+  .check-done {
+    background: #39FF1418;
+    color: var(--green);
+    border: 1px solid #39FF1444;
+    text-shadow: 0 0 4px var(--green);
+  }
+  .check-pending {
+    background: var(--grid);
+    color: var(--text-ghost);
+    border: 1px solid var(--border);
+  }
+  .check-warn {
+    background: #FFB80018;
+    color: var(--amber);
+    border: 1px solid #FFB80044;
+  }
+
+  /* ── Phase Cards ───────────────────────────────────────────── */
+  .phase-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .phase-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--grid);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+  }
+  .phase-card:hover { border-color: var(--border-glow); }
+  .phase-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-ghost);
+    text-transform: uppercase;
+    min-width: 50px;
+  }
+  .phase-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .phase-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+  .phase-done {
+    color: var(--cyan);
+    background: #00F0FF12;
+    border: 1px solid #00F0FF33;
+    box-shadow: 0 0 6px #00F0FF11;
+  }
+  .phase-active {
+    color: var(--green);
+    background: #39FF1412;
+    border: 1px solid #39FF1433;
+    box-shadow: 0 0 8px #39FF1418;
+    animation: phase-glow 2s ease-in-out infinite;
+  }
+  @keyframes phase-glow {
+    0%, 100% { box-shadow: 0 0 6px #39FF1418; }
+    50%      { box-shadow: 0 0 14px #39FF1433; }
+  }
+  .phase-pending {
+    color: var(--text-ghost);
+    background: var(--grid);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Recent Runs Table ─────────────────────────────────────── */
+  .runs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .runs-table th {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-ghost);
+    text-align: left;
+    padding: 6px 6px 8px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .runs-table td {
+    padding: 7px 6px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--grid-faint);
+    white-space: nowrap;
+  }
+  .runs-table tr:last-child td { border-bottom: none; }
+  .runs-table tr:hover td { color: var(--text); }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .status-dot.pass { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .status-dot.fail { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  /* ── Artifact Tab ──────────────────────────────────────────── */
+  .artifact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .artifact-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .artifact-draft-badge {
+    display: inline-block;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    color: var(--amber);
+    background: #FFB80012;
+    border: 1px solid #FFB80033;
+    margin-left: 8px;
+  }
+  .compare-btn {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid var(--grid);
+    color: var(--text-dim);
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .compare-btn:hover {
+    border-color: var(--border-glow);
+    color: var(--cyan);
+  }
+  .artifact-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-ghost);
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .artifact-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .artifact-layout {
+    display: flex;
+    gap: 14px;
+  }
+  .artifact-outline {
+    width: 130px;
+    flex-shrink: 0;
+  }
+  .outline-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-ghost);
+    margin-bottom: 8px;
+  }
+  .outline-link {
+    display: block;
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 4px 8px;
+    border-left: 2px solid var(--grid);
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .outline-link:hover { color: var(--text); border-color: var(--border-glow); }
+  .outline-link.active {
+    color: var(--green);
+    border-color: var(--green);
+    text-shadow: 0 0 6px #39FF1433;
+  }
+
+  .artifact-content {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  .artifact-content h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    text-shadow: 0 0 6px #00F0FF33;
+    margin: 14px 0 6px;
+    text-transform: uppercase;
+  }
+  .artifact-content h3:first-child { margin-top: 0; }
+  .artifact-content p { margin-bottom: 6px; color: var(--text-dim); }
+  .artifact-content strong { color: var(--text); font-weight: 600; }
+  .artifact-content ul {
+    padding-left: 16px;
+    margin: 4px 0 8px;
+  }
+  .artifact-content li {
+    margin-bottom: 3px;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .artifact-content code {
+    background: #1A1A3A;
+    color: var(--amber);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 10.5px;
+  }
+
+  /* ── Readiness Tab ─────────────────────────────────────────── */
+  .gate-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+  }
+  .gate-concerns {
+    background: #FFB80008;
+    border: 1px solid #FFB80033;
+    box-shadow: 0 0 12px #FFB80011;
+  }
+  .gate-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    filter: saturate(1.5);
+  }
+  .gate-status {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .gate-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .issue-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--grid-faint);
+    align-items: flex-start;
+  }
+  .issue-item:last-child { border-bottom: none; }
+
+  .severity-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .severity-high {
+    color: var(--red);
+    background: #FF2D2D12;
+    border: 1px solid #FF2D2D33;
+  }
+  .severity-medium {
+    color: var(--amber);
+    background: #FFB80012;
+    border: 1px solid #FFB80033;
+  }
+  .severity-low {
+    color: var(--text-dim);
+    background: var(--grid);
+    border: 1px solid var(--border);
+  }
+
+  .issue-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .issue-text strong { color: var(--text); font-weight: 600; }
+
+  .readiness-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  /* ── Ambient Vignette ──────────────────────────────────────── */
+  .crt-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9998;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(5,5,16,0.5) 100%);
+  }
+
+  /* ── Neon border accent on outer container ─────────────────── */
+  @keyframes border-hue-shift {
+    0%   { border-color: #00F0FF20; }
+    33%  { border-color: #FF00AA20; }
+    66%  { border-color: #39FF1420; }
+    100% { border-color: #00F0FF20; }
+  }
+  .crt-container {
+    animation: border-hue-shift 12s ease-in-out infinite;
+  }
+
+  /* ── Screen flicker on load ────────────────────────────────── */
+  @keyframes screen-on {
+    0%   { opacity: 0; filter: brightness(3); }
+    10%  { opacity: 1; filter: brightness(1.5); }
+    12%  { opacity: 0.8; filter: brightness(0.8); }
+    15%  { opacity: 1; filter: brightness(1.2); }
+    20%  { opacity: 1; filter: brightness(1); }
+    100% { opacity: 1; filter: brightness(1); }
+  }
+  .crt-container {
+    animation: screen-on 1.2s ease-out, border-hue-shift 12s ease-in-out 1.2s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="crt-container">
+
+  <!-- Matrix Rain Background -->
+  <div class="matrix-rain" id="matrix-rain"></div>
+
+  <!-- Title Bar -->
+  <div class="title-bar boot-stagger boot-d1">
+    <div class="title-bar-dots">
+      <div class="title-dot r"></div>
+      <div class="title-dot y"></div>
+      <div class="title-dot g"></div>
+    </div>
+    <span class="title-bar-text">TINSU PLANNING WORKSPACE &mdash; NEON TERMINAL</span>
+    <div class="title-bar-status">
+      <span class="status-blink"></span>
+      SYS.OK &middot; v2.4.1 &middot; 12:07:44
+    </div>
+  </div>
+
+  <!-- Workspace -->
+  <div class="workspace">
+
+    <!-- ═══════════ LEFT SIDEBAR ═══════════ -->
+    <div class="sidebar boot-stagger boot-d2">
+      <div class="sidebar-header">
+        <div class="sidebar-title">// SESSIONS</div>
+        <button class="btn-new-chat glitch-hover">+ NEW CHAT</button>
+      </div>
+      <div class="session-list">
+
+        <!-- Session 1 - Active -->
+        <div class="session-card active boot-stagger boot-d3">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dot-pm"></span>
+              PM AGENT
+            </div>
+            <div class="session-meta">
+              <span class="session-time">2m ago</span>
+              <button class="kebab-menu">&#8942;</button>
+            </div>
+          </div>
+          <div class="session-preview">Refining the user authentication epic. We should break the OAuth integration into smaller stories for the next sprint...</div>
+          <div class="session-badges">
+            <span class="badge badge-active">ACTIVE</span>
+            <span class="badge badge-auto">AUTO</span>
+          </div>
+        </div>
+
+        <!-- Session 2 -->
+        <div class="session-card boot-stagger boot-d4">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dot-arch"></span>
+              ARCHITECT
+            </div>
+            <div class="session-meta">
+              <span class="session-time">18m ago</span>
+              <button class="kebab-menu">&#8942;</button>
+            </div>
+          </div>
+          <div class="session-preview">Database schema review complete. Recommended adding composite indexes on the user_sessions table for query performance...</div>
+          <div class="session-badges">
+            <span class="badge badge-active">ACTIVE</span>
+            <span class="badge badge-manual">MANUAL</span>
+          </div>
+        </div>
+
+        <!-- Session 3 -->
+        <div class="session-card boot-stagger boot-d5">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dot-ux"></span>
+              UX DESIGNER
+            </div>
+            <div class="session-meta">
+              <span class="session-time">1h ago</span>
+              <button class="kebab-menu">&#8942;</button>
+            </div>
+          </div>
+          <div class="session-preview">Created wireframes for the onboarding flow. The 3-step wizard pattern tested better than the single-page form in our analysis...</div>
+          <div class="session-badges">
+            <span class="badge badge-paused">PAUSED</span>
+            <span class="badge badge-auto">AUTO</span>
+          </div>
+        </div>
+
+        <!-- Session 4 -->
+        <div class="session-card boot-stagger boot-d6">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dot-analyst"></span>
+              ANALYST
+            </div>
+            <div class="session-meta">
+              <span class="session-time">3h ago</span>
+              <button class="kebab-menu">&#8942;</button>
+            </div>
+          </div>
+          <div class="session-preview">Stakeholder requirements gathered. 12 user stories identified with acceptance criteria. Priority matrix attached to artifact...</div>
+          <div class="session-badges">
+            <span class="badge badge-completed">COMPLETED</span>
+            <span class="badge badge-auto">AUTO</span>
+          </div>
+        </div>
+
+        <!-- Session 5 -->
+        <div class="session-card boot-stagger boot-d7">
+          <div class="session-card-top">
+            <div class="session-persona">
+              <span class="persona-dot dot-pm"></span>
+              PM AGENT
+            </div>
+            <div class="session-meta">
+              <span class="session-time">1d ago</span>
+              <button class="kebab-menu">&#8942;</button>
+            </div>
+          </div>
+          <div class="session-preview">Sprint retrospective analysis complete. Velocity improved 15% after breaking down the payment integration stories...</div>
+          <div class="session-badges">
+            <span class="badge badge-completed">COMPLETED</span>
+            <span class="badge badge-manual">MANUAL</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════ CENTER PANEL ═══════════ -->
+    <div class="chat-panel boot-stagger boot-d3">
+
+      <!-- Persona Selector -->
+      <div class="chat-header">
+        <button class="persona-btn selected">
+          <span class="persona-dot dot-pm"></span> PM
+        </button>
+        <button class="persona-btn">
+          <span class="persona-dot dot-arch"></span> ARCHITECT
+        </button>
+        <button class="persona-btn">
+          <span class="persona-dot dot-ux"></span> UX
+        </button>
+        <button class="persona-btn">
+          <span class="persona-dot dot-analyst"></span> ANALYST
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages">
+
+        <!-- User Message 1 -->
+        <div class="msg msg-user boot-stagger boot-d4">
+          Let's refine the authentication epic. We need to support OAuth2 with Google and GitHub providers, plus a fallback email/password flow. Can you break this into stories?
+        </div>
+
+        <!-- Agent Response 1 -->
+        <div class="msg msg-agent boot-stagger boot-d5">
+          <div class="msg-agent-header">
+            <span class="persona-dot dot-pm"></span>
+            PM AGENT
+          </div>
+          <div class="msg-agent-body">
+            <p>I've analyzed the authentication requirements and broken the epic into <strong>6 user stories</strong> across two sprints. Here's the proposed breakdown:</p>
+            <ul>
+              <li><strong>Story 1:</strong> Base authentication service scaffold with session management</li>
+              <li><strong>Story 2:</strong> Google OAuth2 provider integration</li>
+              <li><strong>Story 3:</strong> GitHub OAuth2 provider integration</li>
+              <li><strong>Story 4:</strong> Email/password registration with verification flow</li>
+              <li><strong>Story 5:</strong> Password reset and account recovery</li>
+              <li><strong>Story 6:</strong> Auth middleware and route guards</li>
+            </ul>
+            <p>Stories 1-3 are Sprint 1 candidates (estimated 21 points). Stories 4-6 can follow in Sprint 2. Shall I generate the detailed acceptance criteria for each?</p>
+          </div>
+        </div>
+
+        <!-- User Message 2 -->
+        <div class="msg msg-user boot-stagger boot-d6">
+          Yes, generate the acceptance criteria. Also flag any dependencies between stories.
+        </div>
+
+        <!-- Tool Activity Group (expanded with timeline) -->
+        <div class="msg tool-group expanded boot-stagger boot-d7">
+          <div class="tool-group-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <span class="tool-group-chevron">&#9654;</span>
+            Agent performed 3 actions
+          </div>
+          <div class="tool-group-body">
+            <div class="tool-timeline">
+              <div class="tool-card">
+                <div class="tool-icon">&#128196;</div>
+                <div class="tool-card-content">
+                  <div class="tool-card-title">READ ARTIFACT</div>
+                  <div class="tool-card-desc">artifacts/epics/auth-epic-v2.md</div>
+                </div>
+                <div class="tool-card-time">12:04:31</div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon">&#9997;</div>
+                <div class="tool-card-content">
+                  <div class="tool-card-title">WRITE ARTIFACT</div>
+                  <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md</div>
+                </div>
+                <div class="tool-card-time">12:04:33</div>
+              </div>
+              <div class="tool-card">
+                <div class="tool-icon">&#128269;</div>
+                <div class="tool-card-content">
+                  <div class="tool-card-title">SEARCH CODEBASE</div>
+                  <div class="tool-card-desc">Searched for existing auth patterns in <code>src/auth/</code></div>
+                </div>
+                <div class="tool-card-time">12:04:35</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Response 2 -->
+        <div class="msg msg-agent boot-stagger boot-d8">
+          <div class="msg-agent-header">
+            <span class="persona-dot dot-pm"></span>
+            PM AGENT
+          </div>
+          <div class="msg-agent-body">
+            <p>Done. I've updated the stories artifact with full acceptance criteria and a dependency map. Key dependencies to note:</p>
+            <ul>
+              <li>Stories 2 and 3 (OAuth providers) both depend on <strong>Story 1</strong> (base auth service)</li>
+              <li>Story 6 (middleware) depends on at least one auth provider being complete</li>
+              <li>Story 5 (password reset) depends on <strong>Story 4</strong> (email/password flow)</li>
+            </ul>
+            <p>The artifact is ready for architect review. I'd recommend having the <code>Architect</code> agent validate the session management approach before Sprint 1 begins.</p>
+          </div>
+        </div>
+
+        <!-- User Message 3 -->
+        <div class="msg msg-user boot-stagger boot-d8">
+          Can you also estimate the testing effort? I want to make sure QA is aligned.
+        </div>
+
+        <!-- Thinking Indicator -->
+        <div class="msg thinking boot-stagger boot-d9">
+          <span class="persona-dot dot-pm"></span>
+          PM Agent is thinking
+          <div class="thinking-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-area boot-stagger boot-d8">
+        <div class="chat-input-wrapper">
+          <button class="input-btn" title="Attach file">&#128206;</button>
+          <textarea class="chat-textarea" rows="1" placeholder="Message PM Agent..."></textarea>
+          <span class="terminal-cursor"></span>
+          <button class="input-btn send-btn" title="Send message">&#8593;</button>
+        </div>
+        <div class="input-hint">Press Enter to send &middot; Shift+Enter for new line &middot; <span class="neon-green" style="font-size:9px;">SECURE CHANNEL</span></div>
+      </div>
+
+    </div>
+
+    <!-- ═══════════ RIGHT PANEL ═══════════ -->
+    <div class="right-panel boot-stagger boot-d4">
+
+      <!-- Tabs -->
+      <div class="right-tabs">
+        <button class="right-tab active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="right-tab" onclick="switchTab('artifact')">Artifact</button>
+        <button class="right-tab" onclick="switchTab('readiness')">Readiness</button>
+      </div>
+
+      <div class="right-content">
+
+        <!-- ── Dashboard Tab ── -->
+        <div class="tab-pane active" id="tab-dashboard">
+
+          <!-- What Next -->
+          <div class="card what-next boot-stagger boot-d5">
+            <div class="card-title">
+              <span class="what-next-icon">&#9889;</span>
+              <span class="neon-cyan">WHAT NEXT</span>
+            </div>
+            <div class="what-next-text">
+              The authentication stories are drafted with acceptance criteria. Next step is an <strong style="color:var(--cyan);">architect review</strong> of the session management design before committing to Sprint 1 scope.
+            </div>
+            <div class="action-btns">
+              <button class="action-btn primary glitch-hover">START ARCHITECT REVIEW</button>
+              <button class="action-btn">VIEW STORIES</button>
+              <button class="action-btn">EDIT SPRINT</button>
+            </div>
+          </div>
+
+          <!-- Project Health -->
+          <div class="card boot-stagger boot-d6">
+            <div class="card-title">
+              <span style="font-size:12px;">&#9608;</span>
+              PROJECT HEALTH
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" style="width: 65%; background: linear-gradient(90deg, #39FF14, #00F0FF); box-shadow: 0 0 12px #39FF1444;"></div>
+            </div>
+            <div class="progress-label">65% complete &middot; 7 of 11 items done</div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Project brief defined
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Stakeholder requirements gathered
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Epics identified and scoped
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> User stories drafted
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Wireframes created
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Database schema proposed
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> API contracts defined
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-pending">&#9675;</span> Architecture review
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-pending">&#9675;</span> Security review
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-pending">&#9675;</span> Sprint plan finalized
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-pending">&#9675;</span> Readiness gate passed
+            </div>
+          </div>
+
+          <!-- Workflow Phases -->
+          <div class="card boot-stagger boot-d7">
+            <div class="card-title">
+              <span style="font-size:12px;">&#9654;</span>
+              WORKFLOW PHASES
+            </div>
+            <div class="phase-grid">
+              <div class="phase-card">
+                <div class="phase-label">PH-01</div>
+                <div class="phase-name">Discovery</div>
+                <span class="phase-badge phase-done">DONE</span>
+              </div>
+              <div class="phase-card">
+                <div class="phase-label">PH-02</div>
+                <div class="phase-name">Planning</div>
+                <span class="phase-badge phase-active">IN PROGRESS</span>
+              </div>
+              <div class="phase-card">
+                <div class="phase-label">PH-03</div>
+                <div class="phase-name">Readiness</div>
+                <span class="phase-badge phase-pending">PENDING</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Runs -->
+          <div class="card boot-stagger boot-d8">
+            <div class="card-title">
+              <span style="font-size:12px;">&#9776;</span>
+              RECENT RUNS
+            </div>
+            <table class="runs-table">
+              <thead>
+                <tr>
+                  <th>Workflow</th>
+                  <th>Phase</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                  <th>Dur.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="color:var(--text);">Story Generation</td>
+                  <td>Planning</td>
+                  <td><span class="status-dot pass"></span><span class="neon-green" style="font-size:10px;">Pass</span></td>
+                  <td>12:04</td>
+                  <td>42s</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--text);">Schema Review</td>
+                  <td>Planning</td>
+                  <td><span class="status-dot pass"></span><span class="neon-green" style="font-size:10px;">Pass</span></td>
+                  <td>11:32</td>
+                  <td>1m 18s</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--text);">Wireframe Gen</td>
+                  <td>Discovery</td>
+                  <td><span class="status-dot warn"></span><span class="neon-amber" style="font-size:10px;">Warn</span></td>
+                  <td>10:15</td>
+                  <td>2m 04s</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--text);">Requirements</td>
+                  <td>Discovery</td>
+                  <td><span class="status-dot pass"></span><span class="neon-green" style="font-size:10px;">Pass</span></td>
+                  <td>09:41</td>
+                  <td>3m 22s</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ── Artifact Tab ── -->
+        <div class="tab-pane" id="tab-artifact">
+          <div class="artifact-header">
+            <div>
+              <div class="artifact-title">Authentication User Stories <span class="artifact-draft-badge">DRAFT</span></div>
+            </div>
+            <button class="compare-btn">&#8644; Compare</button>
+          </div>
+
+          <div class="artifact-meta">
+            <span class="artifact-meta-item">&#128193; artifacts/stories/auth-stories-sprint1.md</span>
+            <span class="artifact-meta-item">&#128197; Mar 26, 2026</span>
+            <span class="artifact-meta-item">&#128221; 847 words</span>
+            <span class="artifact-meta-item"><span class="persona-dot dot-pm" style="width:6px;height:6px;"></span> PM Agent</span>
+          </div>
+
+          <div class="artifact-layout">
+            <div class="artifact-outline">
+              <div class="outline-title">ON THIS PAGE</div>
+              <a class="outline-link active">Overview</a>
+              <a class="outline-link">Story 1: Auth Service</a>
+              <a class="outline-link">Story 2: Google OAuth</a>
+              <a class="outline-link">Story 3: GitHub OAuth</a>
+              <a class="outline-link">Dependencies</a>
+              <a class="outline-link">Sprint Allocation</a>
+            </div>
+            <div class="artifact-content">
+              <h3>Overview</h3>
+              <p>This artifact contains the user stories for the Authentication epic, covering OAuth2 integration with Google and GitHub providers, plus email/password fallback. Stories are ordered by dependency and estimated in story points.</p>
+
+              <h3>Story 1: Base Authentication Service</h3>
+              <p><strong>As a</strong> developer, <strong>I want</strong> a base authentication service with session management, <strong>so that</strong> all auth providers can plug into a unified interface.</p>
+              <p><strong>Acceptance Criteria:</strong></p>
+              <ul>
+                <li>Service exposes <code>login()</code>, <code>logout()</code>, and <code>getSession()</code> methods</li>
+                <li>Sessions are stored in the database with configurable TTL</li>
+                <li>CSRF protection is enabled by default</li>
+                <li>Rate limiting is applied to all auth endpoints</li>
+              </ul>
+              <p><strong>Estimate:</strong> 5 points &middot; <strong>Priority:</strong> P0</p>
+
+              <h3>Story 2: Google OAuth2 Integration</h3>
+              <p><strong>As a</strong> user, <strong>I want</strong> to sign in with my Google account, <strong>so that</strong> I can access the platform without creating new credentials.</p>
+              <ul>
+                <li>OAuth2 consent screen configured with appropriate scopes</li>
+                <li>User profile data (name, email, avatar) synced on first login</li>
+                <li>Account linking supported for existing email/password users</li>
+              </ul>
+              <p><strong>Estimate:</strong> 8 points &middot; <strong>Priority:</strong> P0</p>
+
+              <h3>Story 3: GitHub OAuth2 Integration</h3>
+              <p><strong>As a</strong> developer user, <strong>I want</strong> to sign in with my GitHub account, <strong>so that</strong> I can quickly access developer-focused features.</p>
+              <ul>
+                <li>Scopes include <code>read:user</code> and <code>user:email</code></li>
+                <li>Organization membership optionally checked for access control</li>
+                <li>Token refresh handled transparently</li>
+              </ul>
+              <p><strong>Estimate:</strong> 8 points &middot; <strong>Priority:</strong> P1</p>
+
+              <h3>Dependencies</h3>
+              <p>Stories 2 and 3 require Story 1 to be complete. Story 6 (auth middleware) can begin once any single provider is functional.</p>
+
+              <h3>Sprint Allocation</h3>
+              <p>Sprint 1: Stories 1, 2, 3 (21 points). Sprint 2: Stories 4, 5, 6 (18 points). Total velocity required: ~20 points/sprint.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Readiness Tab ── -->
+        <div class="tab-pane" id="tab-readiness">
+
+          <div class="gate-result gate-concerns">
+            <div class="gate-icon">&#9888;</div>
+            <div class="gate-info">
+              <div class="gate-status neon-amber">PASS WITH CONCERNS</div>
+              <div class="gate-desc">3 of 4 gates passed. 1 issue requires attention before proceeding to development.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span style="font-size:12px;">&#9888;</span>
+              ISSUES
+            </div>
+
+            <div class="issue-item">
+              <span class="severity-badge severity-high">HIGH</span>
+              <div class="issue-text">
+                <strong>Missing security review for OAuth token storage.</strong>
+                The stories do not specify how OAuth refresh tokens will be encrypted at rest. This must be defined before development begins.
+              </div>
+            </div>
+
+            <div class="issue-item">
+              <span class="severity-badge severity-medium">MED</span>
+              <div class="issue-text">
+                <strong>No error handling stories.</strong>
+                Edge cases like expired tokens, revoked access, and provider outages are not covered in the current story set.
+              </div>
+            </div>
+
+            <div class="issue-item">
+              <span class="severity-badge severity-low">LOW</span>
+              <div class="issue-text">
+                <strong>Wireframes reference old design system tokens.</strong>
+                The onboarding wireframes use deprecated color variables. Should be updated to current design system before handoff.
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span style="font-size:12px;">&#9632;</span>
+              GATE RESULTS
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Stories have acceptance criteria
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Dependencies mapped
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-done">&#10003;</span> Estimates provided
+            </div>
+            <div class="checklist-item">
+              <span class="check-icon check-warn">&#9888;</span> Security review completed
+            </div>
+          </div>
+
+          <div class="readiness-actions">
+            <button class="action-btn primary glitch-hover">REQUEST SECURITY REVIEW</button>
+            <button class="action-btn">OVERRIDE &amp; PROCEED</button>
+            <button class="action-btn">EXPORT REPORT</button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  // Tab switching
+  function switchTab(tabName) {
+    document.querySelectorAll('.right-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+  }
+
+  // Persona button switching
+  document.querySelectorAll('.persona-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  // Matrix Rain Generator
+  (function generateMatrixRain() {
+    const container = document.getElementById('matrix-rain');
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*(){}[]|;:,.<>?/~`';
+    const columnCount = Math.floor(window.innerWidth / 22);
+
+    for (let i = 0; i < columnCount; i++) {
+      const col = document.createElement('div');
+      col.className = 'matrix-column';
+      col.style.left = (i * 22 + Math.random() * 10) + 'px';
+      col.style.animationDuration = (8 + Math.random() * 16) + 's';
+      col.style.animationDelay = (Math.random() * -20) + 's';
+      col.style.fontSize = (9 + Math.random() * 4) + 'px';
+
+      // Generate random characters
+      let text = '';
+      const length = 15 + Math.floor(Math.random() * 30);
+      for (let j = 0; j < length; j++) {
+        text += chars[Math.floor(Math.random() * chars.length)];
+      }
+      col.textContent = text;
+      container.appendChild(col);
+    }
+  })();
+
+  // Auto-resize textarea
+  const textarea = document.querySelector('.chat-textarea');
+  if (textarea) {
+    textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+  }
+
+  // Title bar clock
+  (function updateClock() {
+    const statusEl = document.querySelector('.title-bar-status');
+    if (statusEl) {
+      setInterval(() => {
+        const now = new Date();
+        const time = now.toTimeString().slice(0, 8);
+        statusEl.innerHTML = '<span class="status-blink"></span> SYS.OK &middot; v2.4.1 &middot; ' + time;
+      }, 1000);
+    }
+  })();
+</script>
+
+</body>
+</html>

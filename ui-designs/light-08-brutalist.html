@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TINSU PLANNING WORKSPACE — BRUTALIST</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════
+   BRUTALIST RAW — Tinsu Planning Workspace
+   Anti-design. Exposed structure. Ugly-beautiful.
+   ══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --white:    #FFFFFF;
+  --black:    #000000;
+  --yellow:   #FFE500;
+  --orange:   #FF6B00;
+  --blue:     #0000FF;
+  --red:      #FF0000;
+  --gray-bg:  #F5F5F5;
+  --gray-mid: #CCCCCC;
+  --gray-dk:  #666666;
+
+  --border:   4px solid var(--black);
+  --border-thin: 2px solid var(--black);
+  --shadow:   4px 4px 0 var(--black);
+  --shadow-sm: 2px 2px 0 var(--black);
+
+  --font-head: 'Space Mono', monospace;
+  --font-body: 'Archivo', sans-serif;
+}
+
+/* ── Raw Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 12px; }
+::-webkit-scrollbar-track { background: var(--white); border-left: var(--border-thin); }
+::-webkit-scrollbar-thumb {
+  background: var(--black);
+  border: 2px solid var(--white);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--blue); }
+
+/* ── Body ──────────────────────────────────────────────── */
+body {
+  font-family: var(--font-body);
+  background: var(--white);
+  color: var(--black);
+  font-size: 14px;
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: auto; /* raw rendering */
+}
+
+/* ── Keyframes ─────────────────────────────────────────── */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-40px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes stampIn {
+  0%   { transform: scale(2) rotate(-8deg); opacity: 0; }
+  60%  { transform: scale(0.95) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes glitch {
+  0%   { transform: translate(0); }
+  20%  { transform: translate(-2px, 2px); }
+  40%  { transform: translate(-2px, -2px); }
+  60%  { transform: translate(2px, 2px); }
+  80%  { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+@keyframes typeCursor {
+  0%, 100% { border-right-color: var(--black); }
+  50%      { border-right-color: transparent; }
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: var(--black); }
+  50%      { border-color: var(--red); }
+}
+
+@keyframes fillProgress {
+  from { width: 0; }
+  to   { width: 65%; }
+}
+
+/* ── Title Bar ─────────────────────────────────────────── */
+.title-bar {
+  height: 48px;
+  min-height: 48px;
+  background: var(--black);
+  border-bottom: 4px solid var(--yellow);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+}
+
+.title-bar-inner {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: marquee 20s linear infinite;
+}
+
+.title-bar-text {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--yellow);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  padding: 0 60px;
+}
+
+.title-bar-text::after {
+  content: ' ///';
+  color: var(--orange);
+}
+
+.title-bar-divider {
+  color: var(--red);
+  font-family: var(--font-head);
+  font-size: 13px;
+  padding: 0 20px;
+}
+
+.title-bar-status {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--red);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 2px;
+  border-left: 4px solid var(--black);
+  z-index: 2;
+}
+
+.title-bar-status .blink-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--white);
+  margin-right: 8px;
+  animation: blink 1s step-end infinite;
+}
+
+/* ── Workspace Layout ──────────────────────────────────── */
+.workspace {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LEFT SIDEBAR — 280px — Chat Session List
+   ══════════════════════════════════════════════════════════ */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  border-right: var(--border);
+  animation: slideInLeft 0.4s ease-out;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: var(--border);
+  background: var(--yellow);
+}
+
+.sidebar-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--black);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-label::before {
+  content: '>';
+  font-size: 14px;
+  animation: blink 1s step-end infinite;
+}
+
+.btn-new-chat {
+  width: 100%;
+  background: var(--black);
+  color: var(--white);
+  border: none;
+  padding: 12px 16px;
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: all 0.1s;
+  position: relative;
+}
+
+.btn-new-chat::before {
+  content: '[+] ';
+}
+
+.btn-new-chat:hover {
+  background: var(--blue);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--black);
+}
+
+.btn-new-chat:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+/* ── Session List ──────────────────────────────────────── */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.session-card {
+  padding: 12px 16px;
+  border-bottom: var(--border-thin);
+  cursor: pointer;
+  transition: all 0.1s;
+  position: relative;
+  animation: slideInLeft 0.3s ease-out both;
+}
+
+.session-card:nth-child(1) { animation-delay: 0.1s; }
+.session-card:nth-child(2) { animation-delay: 0.15s; }
+.session-card:nth-child(3) { animation-delay: 0.2s; }
+.session-card:nth-child(4) { animation-delay: 0.25s; }
+.session-card:nth-child(5) { animation-delay: 0.3s; }
+
+.session-card:hover {
+  background: var(--gray-bg);
+  transform: translate(2px, -1px);
+}
+
+.session-card.active {
+  background: var(--yellow);
+  border-left: 6px solid var(--black);
+}
+
+.session-card.active:hover {
+  background: var(--yellow);
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-persona {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.persona-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--black);
+  flex-shrink: 0;
+}
+
+.dot-pm { background: var(--red); }
+.dot-arch { background: var(--blue); }
+.dot-ux { background: var(--yellow); }
+.dot-analyst { background: var(--orange); }
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-time {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: var(--gray-dk);
+}
+
+.kebab-menu {
+  background: none;
+  border: 2px solid var(--black);
+  padding: 0 4px;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  font-weight: 700;
+  transition: all 0.1s;
+}
+
+.kebab-menu:hover {
+  background: var(--black);
+  color: var(--white);
+  transform: rotate(90deg);
+}
+
+.session-preview {
+  font-size: 12px;
+  color: var(--gray-dk);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+  font-family: var(--font-body);
+}
+
+.session-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.badge {
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  display: inline-block;
+}
+
+.badge-active { background: var(--yellow); }
+.badge-paused { background: var(--gray-mid); }
+.badge-completed { background: var(--black); color: var(--white); }
+.badge-auto { background: var(--white); }
+.badge-manual { background: var(--orange); color: var(--white); }
+
+/* ══════════════════════════════════════════════════════════
+   CENTER PANEL — Chat Message Area
+   ══════════════════════════════════════════════════════════ */
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  border-right: var(--border);
+}
+
+/* ── Persona Selector ──────────────────────────────────── */
+.chat-header {
+  display: flex;
+  border-bottom: var(--border);
+  background: var(--white);
+}
+
+.persona-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px;
+  background: var(--white);
+  border: none;
+  border-right: var(--border-thin);
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.1s;
+  position: relative;
+}
+
+.persona-btn:last-child { border-right: none; }
+
+.persona-btn:hover {
+  background: var(--gray-bg);
+  transform: translateY(-2px);
+}
+
+.persona-btn.selected {
+  background: var(--black);
+  color: var(--white);
+}
+
+.persona-btn.selected .persona-dot {
+  border-color: var(--white);
+}
+
+.persona-btn.selected::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--red);
+}
+
+/* ── Chat Messages ─────────────────────────────────────── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  background: var(--white);
+  /* raw graph paper background */
+  background-image:
+    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── User Messages ─────────────────────────────────────── */
+.msg {
+  margin-bottom: 20px;
+  animation: slideInUp 0.3s ease-out both;
+}
+
+.msg-user {
+  background: var(--black);
+  color: var(--white);
+  padding: 14px 18px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  border: var(--border);
+  box-shadow: var(--shadow);
+  margin-left: 80px;
+  position: relative;
+}
+
+.msg-user::before {
+  content: 'YOU';
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: var(--yellow);
+  color: var(--black);
+  padding: 1px 8px;
+  border: 2px solid var(--black);
+}
+
+.msg-user:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--black);
+}
+
+/* ── Agent Messages ────────────────────────────────────── */
+.msg-agent {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  margin-right: 80px;
+  position: relative;
+}
+
+.msg-agent:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--black);
+}
+
+.msg-agent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: var(--border-thin);
+  background: var(--gray-bg);
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.msg-agent-header .persona-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.msg-agent-body {
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.msg-agent-body p { margin-bottom: 10px; }
+.msg-agent-body p:last-child { margin-bottom: 0; }
+
+.msg-agent-body ul {
+  margin: 8px 0 10px 20px;
+  list-style: none;
+}
+
+.msg-agent-body ul li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 4px;
+}
+
+.msg-agent-body ul li::before {
+  content: '//';
+  position: absolute;
+  left: 0;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.msg-agent-body strong {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.msg-agent-body code {
+  font-family: var(--font-head);
+  font-size: 12px;
+  background: var(--yellow);
+  padding: 1px 6px;
+  border: 1px solid var(--black);
+}
+
+/* ── Tool Activity Group ───────────────────────────────── */
+.tool-group {
+  border: var(--border);
+  background: var(--white);
+  margin-right: 80px;
+  box-shadow: var(--shadow);
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--yellow),
+    var(--yellow) 8px,
+    var(--white) 8px,
+    var(--white) 16px
+  );
+  border-bottom: var(--border-thin);
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s;
+}
+
+.tool-group-header:hover {
+  background: var(--yellow);
+}
+
+.tool-group-chevron {
+  font-size: 10px;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.tool-group.expanded .tool-group-chevron {
+  transform: rotate(90deg);
+}
+
+.tool-group-body {
+  display: none;
+}
+
+.tool-group.expanded .tool-group-body {
+  display: block;
+}
+
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px dashed var(--black);
+  font-size: 13px;
+  transition: all 0.1s;
+}
+
+.tool-card:last-child {
+  border-bottom: none;
+}
+
+.tool-card:hover {
+  background: var(--gray-bg);
+  padding-left: 22px;
+}
+
+.tool-icon {
+  width: 28px;
+  height: 28px;
+  border: var(--border-thin);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-card-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tool-card-desc {
+  font-size: 12px;
+  color: var(--gray-dk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card-desc code {
+  font-family: var(--font-head);
+  font-size: 11px;
+  background: var(--gray-bg);
+  padding: 0 4px;
+  border: 1px solid var(--gray-mid);
+}
+
+.tool-card-time {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: var(--gray-dk);
+  flex-shrink: 0;
+}
+
+/* ── Tool Timeline ─────────────────────────────────────── */
+.tool-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.tool-timeline::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--black);
+}
+
+.tool-timeline .tool-card {
+  position: relative;
+}
+
+.tool-timeline .tool-card::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--black);
+  border: 2px solid var(--white);
+}
+
+/* ── Thinking Indicator ────────────────────────────────── */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border: var(--border);
+  border-style: dashed;
+  background: var(--white);
+  margin-right: 80px;
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: pulseBorder 2s ease-in-out infinite, slideInUp 0.3s ease-out both;
+}
+
+.thinking .persona-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.thinking-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--black);
+  animation: blink 0.8s step-end infinite;
+  margin-left: 4px;
+}
+
+/* ── Chat Input ────────────────────────────────────────── */
+.chat-input-area {
+  border-top: var(--border);
+  padding: 14px 16px;
+  background: var(--white);
+}
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.chat-textarea {
+  flex: 1;
+  padding: 12px 14px;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  resize: none;
+  background: var(--white);
+  min-height: 44px;
+}
+
+.chat-textarea::placeholder {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray-mid);
+}
+
+.input-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--white);
+  border: none;
+  border-left: var(--border-thin);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.input-btn:hover {
+  background: var(--gray-bg);
+  transform: scale(1.1);
+}
+
+.send-btn {
+  background: var(--black);
+  color: var(--white);
+  font-weight: 700;
+  font-family: var(--font-head);
+}
+
+.send-btn:hover {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.input-hint {
+  font-family: var(--font-head);
+  font-size: 9px;
+  color: var(--gray-dk);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding-top: 6px;
+  text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RIGHT PANEL — 380px — Dashboard / Artifact / Readiness
+   ══════════════════════════════════════════════════════════ */
+.right-panel {
+  width: 380px;
+  min-width: 380px;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* ── Tabs ──────────────────────────────────────────────── */
+.right-tabs {
+  display: flex;
+  border-bottom: var(--border);
+  background: var(--black);
+}
+
+.right-tab {
+  flex: 1;
+  padding: 12px 8px;
+  background: var(--black);
+  color: var(--gray-dk);
+  border: none;
+  border-right: var(--border-thin);
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.1s;
+  position: relative;
+}
+
+.right-tab:last-child { border-right: none; }
+
+.right-tab:hover {
+  color: var(--white);
+  background: #222;
+}
+
+.right-tab.active {
+  background: var(--white);
+  color: var(--black);
+}
+
+.right-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--yellow);
+  z-index: 1;
+}
+
+/* ── Right Content ─────────────────────────────────────── */
+.right-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.tab-pane {
+  display: none;
+  padding: 16px;
+}
+
+.tab-pane.active {
+  display: block;
+  animation: slideInUp 0.25s ease-out;
+}
+
+/* ── Cards ─────────────────────────────────────────────── */
+.card {
+  border: var(--border);
+  background: var(--white);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  transition: all 0.1s;
+}
+
+.card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--black);
+}
+
+.card-title {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: var(--border-thin);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gray-bg);
+}
+
+.card-body {
+  padding: 14px;
+}
+
+/* ── What Next ─────────────────────────────────────────── */
+.what-next {
+  border-color: var(--red);
+  position: relative;
+}
+
+.what-next .card-title {
+  background: var(--red);
+  color: var(--white);
+  border-bottom-color: var(--red);
+}
+
+.what-next-stamp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--red);
+  border: 2px solid var(--red);
+  padding: 2px 6px;
+  transform: rotate(12deg);
+  letter-spacing: 1px;
+  animation: stampIn 0.5s ease-out 0.3s both;
+}
+
+.what-next-text {
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 14px;
+  border-bottom: 1px dashed var(--black);
+}
+
+.action-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.action-btn {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border: var(--border-thin);
+  background: var(--white);
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: var(--shadow-sm);
+}
+
+.action-btn:hover {
+  background: var(--gray-bg);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--black);
+}
+
+.action-btn.primary {
+  background: var(--black);
+  color: var(--white);
+  border-color: var(--black);
+}
+
+.action-btn.primary:hover {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+/* ── Project Health ────────────────────────────────────── */
+.progress-bar-track {
+  height: 24px;
+  background: var(--gray-bg);
+  border: var(--border-thin);
+  margin: 12px 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--black);
+  position: relative;
+  animation: fillProgress 1.2s ease-out 0.5s both;
+}
+
+.progress-bar-fill::after {
+  content: '65%';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.progress-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: var(--gray-dk);
+  padding: 0 14px 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-top: 1px dashed var(--gray-mid);
+  font-family: var(--font-body);
+}
+
+.check-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid var(--black);
+}
+
+.check-done {
+  background: var(--black);
+  color: var(--white);
+}
+
+.check-pending {
+  background: var(--white);
+  color: var(--gray-mid);
+}
+
+.check-pending::before { content: none; }
+
+/* ── Phase Cards ───────────────────────────────────────── */
+.phase-grid {
+  display: flex;
+  gap: 0;
+  padding: 0;
+}
+
+.phase-card {
+  flex: 1;
+  padding: 12px;
+  border-right: var(--border-thin);
+  text-align: center;
+  transition: all 0.1s;
+}
+
+.phase-card:last-child { border-right: none; }
+
+.phase-card:hover { transform: translateY(-2px); }
+
+.phase-label {
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gray-dk);
+  margin-bottom: 4px;
+}
+
+.phase-name {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.phase-badge {
+  font-family: var(--font-head);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  display: inline-block;
+}
+
+.phase-done {
+  background: var(--gray-bg);
+}
+
+.phase-done .phase-badge {
+  background: var(--black);
+  color: var(--white);
+}
+
+.phase-active {
+  background: var(--yellow);
+}
+
+.phase-active .phase-badge {
+  background: var(--yellow);
+  animation: pulseBorder 2s ease-in-out infinite;
+}
+
+.phase-pending .phase-badge {
+  background: var(--white);
+  color: var(--gray-dk);
+  border-color: var(--gray-mid);
+}
+
+/* ── Runs Table ────────────────────────────────────────── */
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.runs-table thead {
+  background: var(--black);
+  color: var(--white);
+}
+
+.runs-table th {
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  text-align: left;
+  border-right: 1px solid var(--gray-dk);
+}
+
+.runs-table th:last-child { border-right: none; }
+
+.runs-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-mid);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.runs-table tr:hover td {
+  background: var(--gray-bg);
+}
+
+.runs-table td:first-child {
+  font-weight: 600;
+  font-family: var(--font-head);
+  font-size: 11px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--black);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.dot-pass { background: var(--black); }
+.dot-warn { background: var(--orange); }
+.dot-fail { background: var(--red); }
+
+/* ── Artifact Tab ──────────────────────────────────────── */
+.artifact-header {
+  border: var(--border);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.artifact-header-top {
+  padding: 14px;
+  border-bottom: var(--border-thin);
+  background: var(--gray-bg);
+}
+
+.artifact-title {
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.artifact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 14px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: var(--gray-dk);
+  letter-spacing: 1px;
+}
+
+.artifact-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compare-btn {
+  margin: 8px 14px 12px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: var(--border-thin);
+  background: var(--white);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s;
+}
+
+.compare-btn:hover {
+  background: var(--black);
+  color: var(--white);
+  transform: translate(-1px, -1px);
+}
+
+.artifact-layout {
+  display: flex;
+  gap: 0;
+  border: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.artifact-outline {
+  width: 140px;
+  min-width: 140px;
+  border-right: var(--border-thin);
+  padding: 12px 0;
+  background: var(--gray-bg);
+}
+
+.outline-title {
+  font-family: var(--font-head);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0 12px 10px;
+  border-bottom: 1px dashed var(--gray-mid);
+  margin-bottom: 6px;
+}
+
+.outline-link {
+  display: block;
+  font-family: var(--font-head);
+  font-size: 10px;
+  padding: 6px 12px;
+  color: var(--gray-dk);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.1s;
+  border-left: 3px solid transparent;
+}
+
+.outline-link:hover {
+  background: var(--white);
+  color: var(--black);
+  border-left-color: var(--black);
+  padding-left: 16px;
+}
+
+.outline-link.active {
+  color: var(--black);
+  font-weight: 700;
+  border-left-color: var(--red);
+  background: var(--white);
+}
+
+.artifact-content {
+  flex: 1;
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.artifact-content h3 {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: var(--border-thin);
+}
+
+.artifact-content h3:first-child { margin-top: 0; }
+
+.artifact-content p {
+  margin-bottom: 8px;
+}
+
+.artifact-content ul {
+  margin: 6px 0 10px 0;
+  list-style: none;
+}
+
+.artifact-content ul li {
+  padding-left: 16px;
+  position: relative;
+  margin-bottom: 3px;
+}
+
+.artifact-content ul li::before {
+  content: '--';
+  position: absolute;
+  left: 0;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--blue);
+}
+
+/* ── Readiness Tab ─────────────────────────────────────── */
+.gate-result {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: var(--border);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.gate-result.gate-concerns {
+  border-color: var(--orange);
+  border-left-width: 8px;
+}
+
+.gate-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.gate-status {
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.gate-desc {
+  font-size: 12px;
+  color: var(--gray-dk);
+  line-height: 1.4;
+}
+
+.issue-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px dashed var(--black);
+}
+
+.issue-item:first-of-type { border-top: none; }
+
+.severity-badge {
+  font-family: var(--font-head);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 2px solid var(--black);
+  flex-shrink: 0;
+  height: fit-content;
+  margin-top: 2px;
+}
+
+.severity-high { background: var(--red); color: var(--white); border-color: var(--red); }
+.severity-medium { background: var(--orange); color: var(--white); border-color: var(--orange); }
+.severity-low { background: var(--yellow); }
+
+.issue-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.issue-text strong {
+  font-family: var(--font-head);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.readiness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ── Decorative Raw Elements ───────────────────────────── */
+.raw-counter {
+  font-family: var(--font-head);
+  font-size: 9px;
+  color: var(--gray-dk);
+  letter-spacing: 1px;
+  position: absolute;
+  bottom: 4px;
+  left: 16px;
+}
+
+/* ── Deliberately Misaligned Decoration ────────────────── */
+.skew-tag {
+  display: inline-block;
+  font-family: var(--font-head);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 2px solid var(--black);
+  transform: rotate(-2deg);
+  position: relative;
+}
+
+/* ── Hover shift for interactive elements ──────────────── */
+.hover-shift:hover {
+  transform: translate(2px, -2px) rotate(-0.5deg);
+}
+
+/* ── Section divider ───────────────────────────────────── */
+.raw-divider {
+  border: none;
+  border-top: var(--border);
+  margin: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     TITLE BAR — Marquee Text
+     ═══════════════════════════════════════════════════════ -->
+<div class="title-bar">
+  <div class="title-bar-inner">
+    <span class="title-bar-text">TINSU PLANNING WORKSPACE &mdash; BRUTALIST</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">SPRINT 4 ACTIVE</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">7/11 TASKS COMPLETE</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">PLANNING PHASE IN PROGRESS</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">TINSU PLANNING WORKSPACE &mdash; BRUTALIST</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">SPRINT 4 ACTIVE</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">7/11 TASKS COMPLETE</span>
+    <span class="title-bar-divider">***</span>
+    <span class="title-bar-text">PLANNING PHASE IN PROGRESS</span>
+  </div>
+  <div class="title-bar-status">
+    <span class="blink-dot"></span>
+    LIVE
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     WORKSPACE — Three Column Layout
+     ═══════════════════════════════════════════════════════ -->
+<div class="workspace">
+
+  <!-- ═══════════════════════════════════════════════════════
+       LEFT SIDEBAR — Chat Sessions
+       ═══════════════════════════════════════════════════════ -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-label">CHAT_SESSIONS</div>
+      <button class="btn-new-chat">NEW CHAT</button>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Session 1 — Active -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-pm"></span>
+            PM Agent
+          </div>
+          <div class="session-meta">
+            <span class="session-time">2m</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Refining the user authentication epic. Breaking OAuth integration into smaller stories for sprint planning...</div>
+        <div class="session-badges">
+          <span class="badge badge-active">Active</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-arch"></span>
+            Architect
+          </div>
+          <div class="session-meta">
+            <span class="session-time">18m</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Database schema review complete. Recommended composite indexes on user_sessions for query optimization...</div>
+        <div class="session-badges">
+          <span class="badge badge-active">Active</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-ux"></span>
+            UX Designer
+          </div>
+          <div class="session-meta">
+            <span class="session-time">1h</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Created wireframes for the onboarding flow. 3-step wizard outperformed single-page form in usability analysis...</div>
+        <div class="session-badges">
+          <span class="badge badge-paused">Paused</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-analyst"></span>
+            Analyst
+          </div>
+          <div class="session-meta">
+            <span class="session-time">3h</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Stakeholder requirements gathered. 12 user stories identified with acceptance criteria. Priority matrix ready...</div>
+        <div class="session-badges">
+          <span class="badge badge-completed">Done</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dot-pm"></span>
+            PM Agent
+          </div>
+          <div class="session-meta">
+            <span class="session-time">1d</span>
+            <button class="kebab-menu">&#8942;</button>
+          </div>
+        </div>
+        <div class="session-preview">Sprint retrospective analysis. Velocity improved 15% after breaking down the payment integration stories...</div>
+        <div class="session-badges">
+          <span class="badge badge-completed">Done</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       CENTER — Chat Message Area
+       ═══════════════════════════════════════════════════════ -->
+  <div class="chat-panel">
+
+    <!-- Persona Selector -->
+    <div class="chat-header">
+      <button class="persona-btn selected">
+        <span class="persona-dot dot-pm"></span> PM
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-arch"></span> ARCH
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-ux"></span> UX
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot dot-analyst"></span> ANALYST
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages">
+
+      <!-- User Message 1 -->
+      <div class="msg msg-user" style="animation-delay: 0.1s;">
+        Let's refine the authentication epic. We need OAuth2 with Google and GitHub providers, plus email/password fallback. Break this into stories.
+      </div>
+
+      <!-- Agent Response 1 -->
+      <div class="msg msg-agent" style="animation-delay: 0.2s;">
+        <div class="msg-agent-header">
+          <span class="persona-dot dot-pm"></span>
+          PM Agent
+          <span class="skew-tag" style="margin-left: auto;">REQ_ANALYSIS</span>
+        </div>
+        <div class="msg-agent-body">
+          <p>Analyzed the authentication requirements and decomposed the epic into <strong>6 user stories</strong> across two sprints:</p>
+          <ul>
+            <li><strong>Story 1:</strong> Base authentication service scaffold with session management</li>
+            <li><strong>Story 2:</strong> Google OAuth2 provider integration</li>
+            <li><strong>Story 3:</strong> GitHub OAuth2 provider integration</li>
+            <li><strong>Story 4:</strong> Email/password registration with verification flow</li>
+            <li><strong>Story 5:</strong> Password reset and account recovery</li>
+            <li><strong>Story 6:</strong> Auth middleware and route guards</li>
+          </ul>
+          <p>Stories 1&ndash;3 are Sprint 1 candidates (estimated 21 points). Stories 4&ndash;6 follow in Sprint 2. Generate detailed acceptance criteria?</p>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group — Expanded with Timeline -->
+      <div class="msg tool-group expanded" style="animation-delay: 0.3s;">
+        <div class="tool-group-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="tool-group-chevron">&#9654;</span>
+          /// AGENT PERFORMED 3 ACTIONS
+        </div>
+        <div class="tool-group-body">
+          <div class="tool-card">
+            <div class="tool-icon">R</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">READ ARTIFACT</div>
+              <div class="tool-card-desc">artifacts/epics/auth-epic-v2.md</div>
+            </div>
+            <div class="tool-card-time">12:04:31</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">W</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">WRITE ARTIFACT</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md</div>
+            </div>
+            <div class="tool-card-time">12:04:33</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">S</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">SEARCH CODEBASE</div>
+              <div class="tool-card-desc">Searched for auth patterns in <code>src/auth/</code></div>
+            </div>
+            <div class="tool-card-time">12:04:35</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="msg msg-user" style="animation-delay: 0.35s;">
+        Yes, generate the acceptance criteria. Also flag any dependencies between stories.
+      </div>
+
+      <!-- Tool Activity Group — Collapsed -->
+      <div class="msg tool-group" style="animation-delay: 0.4s;">
+        <div class="tool-group-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="tool-group-chevron">&#9654;</span>
+          /// AGENT PERFORMED 2 ACTIONS
+        </div>
+        <div class="tool-group-body">
+          <div class="tool-card">
+            <div class="tool-icon">R</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">READ ARTIFACT</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md</div>
+            </div>
+            <div class="tool-card-time">12:05:01</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-icon">W</div>
+            <div class="tool-card-content">
+              <div class="tool-card-title">WRITE ARTIFACT</div>
+              <div class="tool-card-desc">artifacts/stories/auth-stories-sprint1.md (updated)</div>
+            </div>
+            <div class="tool-card-time">12:05:04</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Response 2 -->
+      <div class="msg msg-agent" style="animation-delay: 0.45s;">
+        <div class="msg-agent-header">
+          <span class="persona-dot dot-pm"></span>
+          PM Agent
+          <span class="skew-tag" style="margin-left: auto;">DEPENDENCY_MAP</span>
+        </div>
+        <div class="msg-agent-body">
+          <p>Updated the stories artifact with full acceptance criteria and dependency map. Key dependencies:</p>
+          <ul>
+            <li>Stories 2 and 3 (OAuth providers) both depend on Story 1 (base auth service)</li>
+            <li>Story 6 (middleware) depends on at least one auth provider being complete</li>
+            <li>Story 5 (password reset) depends on Story 4 (email/password flow)</li>
+          </ul>
+          <p>Artifact ready for architect review. Recommend having the <code>Architect</code> agent validate the session management approach before Sprint 1 begins.</p>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="msg msg-user" style="animation-delay: 0.5s;">
+        Good analysis. Let's proceed with the architect review next.
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking" style="animation-delay: 0.55s;">
+        <span class="persona-dot dot-pm"></span>
+        PM_AGENT_PROCESSING
+        <span class="thinking-cursor"></span>
+      </div>
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <button class="input-btn" title="Attach file">&#128206;</button>
+        <textarea class="chat-textarea" rows="1" placeholder="> TYPE YOUR MESSAGE_"></textarea>
+        <button class="input-btn send-btn" title="Send">&uarr;</button>
+      </div>
+      <div class="input-hint">ENTER = SEND /// SHIFT+ENTER = NEWLINE</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       RIGHT PANEL — Dashboard / Artifact / Readiness
+       ═══════════════════════════════════════════════════════ -->
+  <div class="right-panel">
+
+    <!-- Tabs -->
+    <div class="right-tabs">
+      <button class="right-tab active" onclick="switchTab('dashboard')">DASH</button>
+      <button class="right-tab" onclick="switchTab('artifact')">ARTIFACT</button>
+      <button class="right-tab" onclick="switchTab('readiness')">READINESS</button>
+    </div>
+
+    <div class="right-content">
+
+      <!-- ── Dashboard Tab ───────────────────────────────── -->
+      <div class="tab-pane active" id="tab-dashboard">
+
+        <!-- What Next -->
+        <div class="card what-next">
+          <div class="card-title">/// WHAT NEXT</div>
+          <span class="what-next-stamp">URGENT</span>
+          <div class="what-next-text">
+            Authentication stories are drafted. Next step: architect review of session management design before committing Sprint 1 scope. Blocking 3 downstream stories.
+          </div>
+          <div class="action-btns">
+            <button class="action-btn primary">START REVIEW</button>
+            <button class="action-btn">VIEW STORIES</button>
+            <button class="action-btn">EDIT PLAN</button>
+          </div>
+        </div>
+
+        <!-- Project Health -->
+        <div class="card">
+          <div class="card-title">
+            <span class="status-dot dot-pass" style="margin: 0;"></span>
+            PROJECT HEALTH
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-label">65% &mdash; 7 OF 11 ITEMS DONE</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Project brief defined</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Stakeholder requirements gathered</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Epics identified and scoped</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> User stories drafted</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Wireframes created</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Database schema proposed</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> API contracts defined</div>
+          <div class="checklist-item"><span class="check-icon check-pending">_</span> Architecture review</div>
+          <div class="checklist-item"><span class="check-icon check-pending">_</span> Security review</div>
+          <div class="checklist-item"><span class="check-icon check-pending">_</span> Sprint plan finalized</div>
+          <div class="checklist-item"><span class="check-icon check-pending">_</span> Readiness gate passed</div>
+        </div>
+
+        <!-- Workflow Phases -->
+        <div class="card">
+          <div class="card-title">/// WORKFLOW PHASES</div>
+          <div class="phase-grid">
+            <div class="phase-card phase-done">
+              <div class="phase-label">PH.01</div>
+              <div class="phase-name">DISCOVERY</div>
+              <span class="phase-badge">DONE</span>
+            </div>
+            <div class="phase-card phase-active">
+              <div class="phase-label">PH.02</div>
+              <div class="phase-name">PLANNING</div>
+              <span class="phase-badge">ACTIVE</span>
+            </div>
+            <div class="phase-card">
+              <div class="phase-label">PH.03</div>
+              <div class="phase-name">READINESS</div>
+              <span class="phase-badge phase-pending">PENDING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Runs -->
+        <div class="card">
+          <div class="card-title">/// RECENT RUNS</div>
+          <table class="runs-table">
+            <thead>
+              <tr>
+                <th>WORKFLOW</th>
+                <th>PHASE</th>
+                <th>STATUS</th>
+                <th>TIME</th>
+                <th>DUR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Story Gen</td>
+                <td>Planning</td>
+                <td><span class="status-dot dot-pass"></span>PASS</td>
+                <td>12:04</td>
+                <td>42s</td>
+              </tr>
+              <tr>
+                <td>Schema Rev</td>
+                <td>Planning</td>
+                <td><span class="status-dot dot-pass"></span>PASS</td>
+                <td>11:32</td>
+                <td>1m18s</td>
+              </tr>
+              <tr>
+                <td>Wireframe</td>
+                <td>Discovery</td>
+                <td><span class="status-dot dot-warn"></span>WARN</td>
+                <td>10:15</td>
+                <td>2m04s</td>
+              </tr>
+              <tr>
+                <td>Req Gather</td>
+                <td>Discovery</td>
+                <td><span class="status-dot dot-pass"></span>PASS</td>
+                <td>09:41</td>
+                <td>3m22s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- ── Artifact Tab ────────────────────────────────── -->
+      <div class="tab-pane" id="tab-artifact">
+
+        <div class="artifact-header">
+          <div class="artifact-header-top">
+            <div class="artifact-title">AUTHENTICATION USER STORIES</div>
+            <span class="badge badge-paused" style="margin-top: 6px;">DRAFT</span>
+          </div>
+          <div class="artifact-meta">
+            <span class="artifact-meta-item">[DIR] artifacts/stories/</span>
+            <span class="artifact-meta-item">[DATE] Mar 26, 2026</span>
+            <span class="artifact-meta-item">[LEN] 847 words</span>
+            <span class="artifact-meta-item"><span class="persona-dot dot-pm" style="width:7px;height:7px;"></span> PM</span>
+          </div>
+          <button class="compare-btn">[DIFF] COMPARE</button>
+        </div>
+
+        <div class="artifact-layout">
+          <div class="artifact-outline">
+            <div class="outline-title">INDEX</div>
+            <a class="outline-link active">Overview</a>
+            <a class="outline-link">Story 1: Auth Svc</a>
+            <a class="outline-link">Story 2: Google OAuth</a>
+            <a class="outline-link">Story 3: GitHub OAuth</a>
+            <a class="outline-link">Dependencies</a>
+            <a class="outline-link">Sprint Alloc</a>
+          </div>
+          <div class="artifact-content">
+            <h3>Overview</h3>
+            <p>User stories for the Authentication epic. Covers OAuth2 integration with Google and GitHub, plus email/password fallback. Stories are ordered by dependency and estimated in story points.</p>
+
+            <h3>Story 1: Base Auth Service</h3>
+            <p><strong>As a</strong> developer, <strong>I want</strong> a base authentication service with session management, <strong>so that</strong> all auth providers can plug into a unified interface.</p>
+            <ul>
+              <li>Service exposes <code>login()</code>, <code>logout()</code>, <code>getSession()</code></li>
+              <li>Sessions stored in DB with configurable TTL</li>
+              <li>CSRF protection enabled by default</li>
+              <li>Rate limiting on all auth endpoints</li>
+            </ul>
+            <p><strong>Estimate:</strong> 5 pts / <strong>Priority:</strong> P0</p>
+
+            <h3>Story 2: Google OAuth2</h3>
+            <p><strong>As a</strong> user, <strong>I want</strong> to sign in with Google, <strong>so that</strong> I can access the platform without new credentials.</p>
+            <ul>
+              <li>OAuth2 consent screen with appropriate scopes</li>
+              <li>Profile data (name, email, avatar) synced on first login</li>
+              <li>Account linking for existing email/password users</li>
+            </ul>
+            <p><strong>Estimate:</strong> 8 pts / <strong>Priority:</strong> P0</p>
+
+            <h3>Dependencies</h3>
+            <p>Stories 2&ndash;3 require Story 1. Story 6 (middleware) needs at least one provider. Story 5 depends on Story 4.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Readiness Tab ───────────────────────────────── -->
+      <div class="tab-pane" id="tab-readiness">
+
+        <div class="gate-result gate-concerns">
+          <div class="gate-icon" style="color: var(--orange);">!!!</div>
+          <div class="gate-info">
+            <div class="gate-status" style="color: var(--orange);">PASS_WITH_CONCERNS</div>
+            <div class="gate-desc">3 of 4 gates passed. 1 issue requires attention before proceeding to development.</div>
+          </div>
+        </div>
+
+        <div class="card" style="border-color: var(--red);">
+          <div class="card-title" style="background: var(--red); color: var(--white); border-bottom-color: var(--red);">
+            /// ISSUES
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="issue-item">
+              <span class="severity-badge severity-high">HIGH</span>
+              <div class="issue-text">
+                <strong>MISSING SECURITY REVIEW FOR OAUTH TOKEN STORAGE</strong>
+                Stories do not specify how OAuth refresh tokens will be encrypted at rest. Must be defined before development begins.
+              </div>
+            </div>
+            <div class="issue-item">
+              <span class="severity-badge severity-medium">MED</span>
+              <div class="issue-text">
+                <strong>NO ERROR HANDLING STORIES</strong>
+                Edge cases: expired tokens, revoked access, provider outages not covered in current story set.
+              </div>
+            </div>
+            <div class="issue-item">
+              <span class="severity-badge severity-low">LOW</span>
+              <div class="issue-text">
+                <strong>WIREFRAMES USE DEPRECATED DESIGN TOKENS</strong>
+                Onboarding wireframes reference old color variables. Update to current design system before handoff.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">/// GATE RESULTS</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Stories have acceptance criteria</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Dependencies mapped</div>
+          <div class="checklist-item"><span class="check-icon check-done">X</span> Estimates provided</div>
+          <div class="checklist-item">
+            <span class="check-icon" style="background: var(--orange); color: var(--white); border-color: var(--orange);">!</span>
+            Security review completed
+          </div>
+        </div>
+
+        <div class="readiness-actions">
+          <button class="action-btn primary">REQUEST REVIEW</button>
+          <button class="action-btn">OVERRIDE</button>
+          <button class="action-btn">EXPORT</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function switchTab(tabName) {
+  document.querySelectorAll('.right-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
+}
+</script>
+
+</body>
+</html>

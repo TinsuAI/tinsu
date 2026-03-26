@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Wabi-Sabi Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Custom Properties ──────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parchment:     #F5F0E8;
+    --aged-paper:    #FAF6EE;
+    --card-paper:    #F8F3EA;
+    --ink:           #1A1612;
+    --ink-light:     #3D3630;
+    --ink-faded:     #6B6056;
+    --ink-ghost:     #9E9487;
+    --terracotta:    #C4553A;
+    --terracotta-soft: #D4765F;
+    --terracotta-bg: rgba(196,85,58,0.08);
+    --moss:          #5B7A5E;
+    --moss-soft:     #7A9A7D;
+    --moss-bg:       rgba(91,122,94,0.08);
+    --ochre:         #C49A3C;
+    --ochre-soft:    #D4B05C;
+    --ochre-bg:      rgba(196,154,60,0.08);
+    --clay-rose:     #B87D7D;
+    --clay-rose-soft:#CFA0A0;
+    --clay-rose-bg:  rgba(184,125,125,0.08);
+    --warm-shadow:   rgba(26,22,18,0.06);
+    --warm-shadow-md:rgba(26,22,18,0.10);
+    --warm-shadow-lg:rgba(26,22,18,0.14);
+    --border-warm:   rgba(26,22,18,0.08);
+    --border-medium: rgba(26,22,18,0.12);
+    --radius-sm:     6px;
+    --radius-md:     10px;
+    --radius-lg:     14px;
+  }
+
+  /* ── Noise/Grain Texture (SVG data URI) ─────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  body {
+    font-family: 'Literata', Georgia, 'Times New Roman', serif;
+    background: var(--parchment);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-optical-sizing: auto;
+  }
+
+  /* ── Ink Brush Decorative Stroke (reusable) ─────────────────── */
+  .ink-stroke {
+    position: relative;
+  }
+  .ink-stroke::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--ink) 8%,
+      var(--ink) 15%,
+      transparent 16%,
+      var(--ink) 18%,
+      var(--ink) 82%,
+      transparent 84%,
+      var(--ink) 86%,
+      var(--ink) 92%,
+      transparent 100%
+    );
+    opacity: 0.15;
+    border-radius: 2px;
+  }
+
+  /* ── Torn Edge Effect ───────────────────────────────────────── */
+  .torn-edge {
+    position: relative;
+  }
+  .torn-edge::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -1px;
+    right: -1px;
+    height: 6px;
+    background: var(--parchment);
+    clip-path: polygon(
+      0% 100%, 2% 40%, 5% 80%, 8% 30%, 11% 70%, 14% 20%, 17% 60%, 20% 35%,
+      23% 75%, 26% 25%, 29% 65%, 32% 40%, 35% 80%, 38% 30%, 41% 70%, 44% 20%,
+      47% 55%, 50% 35%, 53% 80%, 56% 25%, 59% 65%, 62% 40%, 65% 75%, 68% 30%,
+      71% 60%, 74% 20%, 77% 70%, 80% 35%, 83% 80%, 86% 25%, 89% 55%, 92% 40%,
+      95% 75%, 98% 30%, 100% 100%
+    );
+    z-index: 2;
+  }
+
+  /* ── Title Bar ──────────────────────────────────────────────── */
+  .title-bar {
+    height: 52px;
+    min-height: 52px;
+    background: linear-gradient(180deg, #F0EAE0 0%, var(--parchment) 100%);
+    border-bottom: 1px solid var(--border-medium);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    user-select: none;
+    position: relative;
+    animation: titleFadeIn 0.6s ease-out;
+  }
+  .title-bar-text {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--ink-faded);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  /* Decorative enso-inspired circle */
+  .title-bar .enso {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--ink-ghost);
+    border-radius: 50%;
+    border-top-color: transparent;
+    border-right-color: transparent;
+    transform: rotate(-30deg);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+  /* Decorative line separators */
+  .title-bar .deco-line {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ink-ghost), transparent);
+    opacity: 0.3;
+  }
+
+  @keyframes titleFadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Main Layout ────────────────────────────────────────────── */
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Left Sidebar ───────────────────────────────────────────── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--aged-paper);
+    border-right: 1px solid var(--border-warm);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: panelSlideIn 0.5s ease-out;
+    position: relative;
+  }
+  /* Subtle vertical ink stroke on right edge */
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    right: 0;
+    width: 1px;
+    background: repeating-linear-gradient(
+      180deg,
+      var(--ink) 0px,
+      var(--ink) 8px,
+      transparent 8px,
+      transparent 12px,
+      var(--ink) 12px,
+      var(--ink) 30px,
+      transparent 30px,
+      transparent 34px
+    );
+    opacity: 0.06;
+  }
+
+  .sidebar-header {
+    padding: 20px 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .sidebar-label {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-ghost);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .btn-new-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--ink);
+    color: var(--parchment);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 11px 16px;
+    font-family: 'Literata', Georgia, serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 0.4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-new-chat::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(196,154,60,0.15) 100%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .btn-new-chat:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--warm-shadow-md); }
+  .btn-new-chat:hover::before { opacity: 1; }
+  .btn-new-chat:active { transform: translateY(0) scale(0.98); }
+  .btn-new-chat .icon-plus {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 300; line-height: 1;
+  }
+
+  /* ── Session List ───────────────────────────────────────────── */
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .session-list::-webkit-scrollbar { width: 4px; }
+  .session-list::-webkit-scrollbar-track { background: transparent; }
+  .session-list::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+
+  .session-card {
+    background: var(--card-paper);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-md);
+    padding: 14px 14px 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    /* Paper texture via subtle gradient */
+    background-image: linear-gradient(135deg, var(--card-paper) 0%, rgba(245,240,232,0.5) 50%, var(--card-paper) 100%);
+    animation: cardFadeUp 0.4s ease-out both;
+  }
+  .session-card:nth-child(1) { animation-delay: 0.08s; }
+  .session-card:nth-child(2) { animation-delay: 0.14s; }
+  .session-card:nth-child(3) { animation-delay: 0.20s; }
+  .session-card:nth-child(4) { animation-delay: 0.26s; }
+  .session-card:nth-child(5) { animation-delay: 0.32s; }
+
+  .session-card:hover {
+    border-color: var(--border-medium);
+    box-shadow: 0 3px 12px var(--warm-shadow);
+    transform: translateY(-1px);
+  }
+  .session-card.active {
+    border-color: var(--terracotta-soft);
+    box-shadow: 0 2px 10px rgba(196,85,58,0.08);
+    background: linear-gradient(135deg, #FFF8F0 0%, var(--card-paper) 100%);
+  }
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 3px;
+    background: var(--terracotta);
+    border-radius: 0 2px 2px 0;
+    opacity: 0.7;
+  }
+
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .session-persona {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .persona-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .persona-dot.pm { background: var(--terracotta); }
+  .persona-dot.architect { background: var(--moss); }
+  .persona-dot.ux { background: var(--clay-rose); }
+  .persona-dot.analyst { background: var(--ochre); }
+  .persona-dot.dev { background: var(--ink-faded); }
+
+  .session-kebab {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; cursor: pointer;
+    border-radius: var(--radius-sm);
+    color: var(--ink-ghost);
+    font-size: 16px; letter-spacing: 2px;
+    transition: all 0.2s;
+    opacity: 0;
+  }
+  .session-card:hover .session-kebab { opacity: 1; }
+  .session-kebab:hover { background: var(--border-warm); color: var(--ink-faded); }
+
+  .session-preview {
+    font-size: 12.5px;
+    color: var(--ink-faded);
+    line-height: 1.5;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .session-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .session-time {
+    font-size: 11px;
+    color: var(--ink-ghost);
+    font-style: italic;
+  }
+  .session-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge {
+    font-family: 'Literata', Georgia, serif;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+  .badge-active {
+    background: var(--moss-bg);
+    color: var(--moss);
+    border: 1px solid rgba(91,122,94,0.15);
+  }
+  .badge-paused {
+    background: var(--ochre-bg);
+    color: var(--ochre);
+    border: 1px solid rgba(196,154,60,0.15);
+  }
+  .badge-completed {
+    background: var(--border-warm);
+    color: var(--ink-ghost);
+    border: 1px solid var(--border-warm);
+  }
+  .badge-auto {
+    background: var(--terracotta-bg);
+    color: var(--terracotta);
+    border: 1px solid rgba(196,85,58,0.12);
+  }
+  .badge-manual {
+    background: rgba(26,22,18,0.04);
+    color: var(--ink-ghost);
+    border: 1px solid var(--border-warm);
+  }
+
+  @keyframes cardFadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Center Panel ───────────────────────────────────────────── */
+  .center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--parchment);
+    overflow: hidden;
+    min-width: 0;
+    animation: panelSlideIn 0.5s ease-out 0.1s both;
+  }
+
+  /* Persona Selector Header */
+  .chat-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border-warm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, var(--aged-paper) 0%, var(--parchment) 100%);
+    flex-shrink: 0;
+  }
+  .persona-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border: 1px solid var(--border-warm);
+    border-radius: 20px;
+    background: var(--card-paper);
+    font-family: 'Literata', Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 400;
+    color: var(--ink-faded);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+  }
+  .persona-btn:hover {
+    border-color: var(--border-medium);
+    box-shadow: 0 2px 8px var(--warm-shadow);
+    transform: translateY(-1px);
+  }
+  .persona-btn.selected {
+    background: var(--ink);
+    color: var(--parchment);
+    border-color: var(--ink);
+    box-shadow: 0 2px 10px var(--warm-shadow-md);
+  }
+  .persona-btn.selected .persona-dot {
+    box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px currentColor;
+  }
+
+  /* ── Message Area ───────────────────────────────────────────── */
+  .message-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .message-area::-webkit-scrollbar { width: 5px; }
+  .message-area::-webkit-scrollbar-track { background: transparent; }
+  .message-area::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+
+  /* Message Bubbles */
+  .message {
+    display: flex;
+    flex-direction: column;
+    max-width: 72%;
+    animation: messageFadeIn 0.35s ease-out both;
+  }
+  .message.user {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+  .message.agent {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+
+  .message-sender {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-faded);
+    margin-bottom: 5px;
+    padding: 0 4px;
+  }
+  .message-sender .persona-dot {
+    width: 6px; height: 6px;
+  }
+
+  .message-bubble {
+    padding: 14px 18px;
+    border-radius: var(--radius-lg);
+    font-size: 13.5px;
+    line-height: 1.65;
+    position: relative;
+  }
+  .message.user .message-bubble {
+    background: var(--ink);
+    color: var(--parchment);
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px var(--warm-shadow-md);
+  }
+  .message.agent .message-bubble {
+    background: var(--card-paper);
+    color: var(--ink-light);
+    border: 1px solid var(--border-warm);
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px var(--warm-shadow);
+    /* paper texture on agent bubbles */
+    background-image:
+      linear-gradient(135deg, rgba(250,246,238,0.6) 0%, transparent 50%),
+      linear-gradient(225deg, rgba(245,240,232,0.4) 0%, transparent 50%);
+    background-color: var(--card-paper);
+  }
+
+  .message-time {
+    font-size: 10.5px;
+    color: var(--ink-ghost);
+    margin-top: 4px;
+    padding: 0 4px;
+    font-style: italic;
+  }
+
+  @keyframes messageFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Tool Activity Group ────────────────────────────────────── */
+  .tool-activity-group {
+    align-self: flex-start;
+    max-width: 80%;
+    animation: messageFadeIn 0.35s ease-out both;
+  }
+  .tool-activity-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--card-paper);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-faded);
+    box-shadow: 0 1px 4px var(--warm-shadow);
+  }
+  .tool-activity-header:hover {
+    border-color: var(--border-medium);
+    box-shadow: 0 2px 8px var(--warm-shadow);
+  }
+  .tool-icon {
+    width: 28px; height: 28px;
+    background: var(--ochre-bg);
+    border: 1px solid rgba(196,154,60,0.15);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .tool-chevron {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--ink-ghost);
+    transition: transform 0.25s;
+  }
+  .tool-activity-group.expanded .tool-chevron {
+    transform: rotate(180deg);
+  }
+
+  .tool-activity-timeline {
+    padding: 8px 0 4px 26px;
+    border-left: 2px solid var(--border-warm);
+    margin-left: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tool-card {
+    background: var(--aged-paper);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    position: relative;
+    transition: all 0.2s;
+    animation: toolCardFadeIn 0.3s ease-out both;
+  }
+  .tool-card:nth-child(1) { animation-delay: 0.1s; }
+  .tool-card:nth-child(2) { animation-delay: 0.2s; }
+  .tool-card:nth-child(3) { animation-delay: 0.3s; }
+
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    left: -19px;
+    top: 14px;
+    width: 8px;
+    height: 8px;
+    background: var(--parchment);
+    border: 2px solid var(--border-medium);
+    border-radius: 50%;
+  }
+  .tool-card:hover {
+    box-shadow: 0 2px 8px var(--warm-shadow);
+  }
+  .tool-card-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-light);
+    margin-bottom: 2px;
+  }
+  .tool-card-detail {
+    font-size: 11.5px;
+    color: var(--ink-ghost);
+    font-family: 'Literata', Georgia, serif;
+  }
+  .tool-card-status {
+    font-size: 10px;
+    color: var(--moss);
+    margin-top: 3px;
+    font-weight: 500;
+  }
+
+  @keyframes toolCardFadeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Thinking Indicator ─────────────────────────────────────── */
+  .thinking-indicator {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--card-paper);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 4px var(--warm-shadow);
+    animation: messageFadeIn 0.35s ease-out both;
+  }
+  .thinking-label {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink-ghost);
+  }
+  .thinking-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .thinking-dots span {
+    width: 6px; height: 6px;
+    background: var(--ink-ghost);
+    border-radius: 50%;
+    animation: dotPulse 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.1); }
+  }
+
+  /* ── Chat Input ─────────────────────────────────────────────── */
+  .chat-input-area {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border-warm);
+    background: var(--aged-paper);
+    flex-shrink: 0;
+  }
+  .chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    background: var(--card-paper);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+    transition: all 0.25s;
+    box-shadow: 0 1px 4px var(--warm-shadow);
+  }
+  .chat-input-wrapper:focus-within {
+    border-color: var(--terracotta-soft);
+    box-shadow: 0 2px 12px rgba(196,85,58,0.08);
+  }
+  .chat-textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: 'Literata', Georgia, serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    padding: 10px 14px;
+    resize: none;
+    min-height: 22px;
+    max-height: 120px;
+    line-height: 1.5;
+    outline: none;
+  }
+  .chat-textarea::placeholder {
+    color: var(--ink-ghost);
+    font-style: italic;
+  }
+  .chat-input-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+  }
+  .btn-icon {
+    width: 34px; height: 34px;
+    border: none; background: transparent;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--ink-ghost);
+    transition: all 0.2s;
+    font-size: 16px;
+  }
+  .btn-icon:hover { background: var(--border-warm); color: var(--ink-faded); }
+  .btn-send {
+    width: 34px; height: 34px;
+    border: none;
+    background: var(--ink);
+    color: var(--parchment);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 15px;
+  }
+  .btn-send:hover { background: var(--ink-light); transform: translateY(-1px); box-shadow: 0 2px 8px var(--warm-shadow-md); }
+  .btn-send:active { transform: scale(0.95); }
+  .input-hint {
+    font-size: 11px;
+    color: var(--ink-ghost);
+    margin-top: 8px;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* ── Right Panel ────────────────────────────────────────────── */
+  .right-panel {
+    width: 380px;
+    min-width: 380px;
+    background: var(--aged-paper);
+    border-left: 1px solid var(--border-warm);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: panelSlideIn 0.5s ease-out 0.2s both;
+    position: relative;
+  }
+  /* Ink stroke on left edge */
+  .right-panel::before {
+    content: '';
+    position: absolute;
+    top: 30px;
+    bottom: 30px;
+    left: 0;
+    width: 1px;
+    background: repeating-linear-gradient(
+      180deg,
+      var(--ink) 0px,
+      var(--ink) 6px,
+      transparent 6px,
+      transparent 10px,
+      var(--ink) 10px,
+      var(--ink) 22px,
+      transparent 22px,
+      transparent 28px
+    );
+    opacity: 0.05;
+  }
+
+  @keyframes panelSlideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Tab Bar */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border-warm);
+    background: linear-gradient(180deg, var(--card-paper) 0%, var(--aged-paper) 100%);
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 14px 8px 12px;
+    border: none;
+    background: transparent;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 400;
+    color: var(--ink-ghost);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.25s;
+    text-align: center;
+  }
+  .tab-btn:hover { color: var(--ink-faded); }
+  .tab-btn.active {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--terracotta);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.7;
+  }
+
+  /* Dashboard Content */
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .panel-content::-webkit-scrollbar { width: 4px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+
+  /* Dashboard Cards */
+  .dash-card {
+    background: var(--card-paper);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    box-shadow: 0 1px 4px var(--warm-shadow);
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+    animation: cardFadeUp 0.4s ease-out both;
+    /* Paper texture */
+    background-image:
+      linear-gradient(160deg, rgba(255,255,255,0.3) 0%, transparent 40%),
+      linear-gradient(340deg, rgba(245,240,232,0.3) 0%, transparent 40%);
+    background-color: var(--card-paper);
+  }
+  .dash-card:nth-child(1) { animation-delay: 0.15s; }
+  .dash-card:nth-child(2) { animation-delay: 0.22s; }
+  .dash-card:nth-child(3) { animation-delay: 0.29s; }
+  .dash-card:nth-child(4) { animation-delay: 0.36s; }
+  .dash-card:nth-child(5) { animation-delay: 0.43s; }
+  .dash-card:hover {
+    box-shadow: 0 3px 12px var(--warm-shadow);
+    transform: translateY(-1px);
+  }
+
+  /* Torn top edge for first card */
+  .dash-card.featured {
+    border-top: none;
+    padding-top: 20px;
+  }
+  .dash-card.featured::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--terracotta), var(--ochre), var(--moss));
+    opacity: 0.4;
+  }
+
+  .dash-card-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dash-card-title .card-icon {
+    font-size: 16px;
+    opacity: 0.7;
+  }
+
+  /* What Next Card */
+  .what-next-text {
+    font-size: 13px;
+    color: var(--ink-faded);
+    line-height: 1.6;
+    font-style: italic;
+  }
+  .what-next-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 7px 14px;
+    background: var(--terracotta);
+    color: var(--parchment);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Literata', Georgia, serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .what-next-action:hover {
+    background: var(--terracotta-soft);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(196,85,58,0.15);
+  }
+
+  /* Project Health */
+  .health-section {
+    margin-bottom: 12px;
+  }
+  .health-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .health-label {
+    font-size: 12px;
+    color: var(--ink-faded);
+    font-weight: 500;
+  }
+  .health-pct {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--moss);
+  }
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--border-warm);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease-out;
+    background: linear-gradient(90deg, var(--moss), var(--moss-soft));
+    animation: progressGrow 1.2s ease-out 0.5s both;
+  }
+  @keyframes progressGrow {
+    from { width: 0 !important; }
+  }
+
+  .checklist {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .checklist li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--ink-faded);
+  }
+  .check-icon {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .check-icon.done {
+    background: var(--moss-bg);
+    color: var(--moss);
+    border: 1px solid rgba(91,122,94,0.2);
+  }
+  .check-icon.pending {
+    background: transparent;
+    border: 1.5px solid var(--border-medium);
+    color: transparent;
+  }
+  .checklist li.done-item { color: var(--ink-ghost); text-decoration: line-through; text-decoration-color: var(--border-medium); }
+
+  /* Phase Cards */
+  .phase-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .phase-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--parchment);
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .phase-card:hover {
+    border-color: var(--border-medium);
+    box-shadow: 0 2px 6px var(--warm-shadow);
+  }
+  .phase-number {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .phase-number.current {
+    background: var(--terracotta);
+    color: var(--parchment);
+  }
+  .phase-number.upcoming {
+    background: var(--border-warm);
+    color: var(--ink-ghost);
+  }
+  .phase-number.complete {
+    background: var(--moss-bg);
+    color: var(--moss);
+    border: 1px solid rgba(91,122,94,0.15);
+  }
+  .phase-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .phase-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .phase-desc {
+    font-size: 11px;
+    color: var(--ink-ghost);
+    margin-top: 1px;
+  }
+  .phase-status-tag {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .phase-status-tag.active-tag {
+    background: var(--terracotta-bg);
+    color: var(--terracotta);
+  }
+  .phase-status-tag.done-tag {
+    background: var(--moss-bg);
+    color: var(--moss);
+  }
+  .phase-status-tag.pending-tag {
+    background: rgba(26,22,18,0.04);
+    color: var(--ink-ghost);
+  }
+
+  /* Recent Runs Mini-Table */
+  .mini-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .mini-table th {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ink-ghost);
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-warm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .mini-table td {
+    font-size: 12px;
+    color: var(--ink-faded);
+    padding: 8px 8px;
+    border-bottom: 1px solid rgba(26,22,18,0.04);
+  }
+  .mini-table tr:last-child td { border-bottom: none; }
+  .mini-table .run-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .run-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .run-dot.success { background: var(--moss); }
+  .run-dot.fail { background: var(--terracotta); }
+  .run-dot.running { background: var(--ochre); animation: dotPulse 1.4s ease-in-out infinite; }
+
+  /* ── Utility ────────────────────────────────────────────────── */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* ── Responsive hint (just in case) ─────────────────────────── */
+  @media (max-width: 1100px) {
+    .right-panel { display: none; }
+  }
+  @media (max-width: 780px) {
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TITLE BAR                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<header class="title-bar">
+  <span class="deco-line"></span>
+  <span class="enso"></span>
+  <span class="title-bar-text">Tinsu Planning Workspace</span>
+  <span class="enso" style="transform: rotate(150deg);"></span>
+  <span class="deco-line"></span>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- WORKSPACE                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<main class="workspace">
+
+  <!-- ─── LEFT SIDEBAR: Chat Sessions ─────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-label">Sessions</span>
+      <button class="btn-new-chat">
+        <span class="icon-plus">+</span>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Session 1 — Active, PM -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot pm"></span>
+            PM Agent
+          </div>
+          <button class="session-kebab" title="More options">&#8942;</button>
+        </div>
+        <div class="session-preview">Reviewing epic breakdown for the authentication module and prioritizing backlog items...</div>
+        <div class="session-card-bottom">
+          <span class="session-time">3 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-active">Active</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 2 — Active, Architect -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot architect"></span>
+            Architect Agent
+          </div>
+          <button class="session-kebab" title="More options">&#8942;</button>
+        </div>
+        <div class="session-preview">Completed system design review. Proposed event-driven architecture for notification service...</div>
+        <div class="session-card-bottom">
+          <span class="session-time">28 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-active">Active</span>
+            <span class="badge badge-manual">Manual</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 3 — Paused, UX Designer -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot ux"></span>
+            UX Designer
+          </div>
+          <button class="session-kebab" title="More options">&#8942;</button>
+        </div>
+        <div class="session-preview">Wireframes for onboarding flow ready. Awaiting stakeholder feedback on step 3 variant...</div>
+        <div class="session-card-bottom">
+          <span class="session-time">2 hours ago</span>
+          <div class="session-badges">
+            <span class="badge badge-paused">Paused</span>
+            <span class="badge badge-manual">Manual</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 4 — Completed, Analyst -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot analyst"></span>
+            Analyst Agent
+          </div>
+          <button class="session-kebab" title="More options">&#8942;</button>
+        </div>
+        <div class="session-preview">Data model analysis complete. Generated ER diagram and identified 3 normalization issues...</div>
+        <div class="session-card-bottom">
+          <span class="session-time">Yesterday</span>
+          <div class="session-badges">
+            <span class="badge badge-completed">Completed</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 5 — Paused, Dev -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <span class="persona-dot dev"></span>
+            Dev Agent
+          </div>
+          <button class="session-kebab" title="More options">&#8942;</button>
+        </div>
+        <div class="session-preview">Scaffolded API endpoints for user management. Unit test coverage at 84% across services...</div>
+        <div class="session-card-bottom">
+          <span class="session-time">2 days ago</span>
+          <div class="session-badges">
+            <span class="badge badge-paused">Paused</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ─── CENTER PANEL: Chat Messages ─────────────────────────── -->
+  <section class="center-panel">
+
+    <!-- Persona Selector -->
+    <div class="chat-header">
+      <button class="persona-btn selected">
+        <span class="persona-dot pm"></span>
+        PM Agent
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot architect"></span>
+        Architect
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot ux"></span>
+        UX Designer
+      </button>
+      <button class="persona-btn">
+        <span class="persona-dot analyst"></span>
+        Analyst
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-area">
+
+      <!-- User Message 1 -->
+      <div class="message user" style="animation-delay: 0.1s">
+        <div class="message-bubble">
+          Can you break down the authentication module into epics and prioritize them for the next sprint?
+        </div>
+        <span class="message-time">10:42 AM</span>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message agent" style="animation-delay: 0.15s">
+        <div class="message-sender">
+          <span class="persona-dot pm"></span>
+          PM Agent
+        </div>
+        <div class="message-bubble">
+          I'll analyze the authentication requirements and create an epic breakdown. Based on the product spec, I see four main areas: credential management, OAuth integration, session handling, and MFA support. Let me review the current backlog and technical constraints before prioritizing.
+        </div>
+        <span class="message-time">10:42 AM</span>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-activity-group expanded">
+        <div class="tool-activity-header">
+          <span class="tool-icon">&#9881;</span>
+          <span>Agent performed 3 actions</span>
+          <span class="tool-chevron">&#9660;</span>
+        </div>
+        <div class="tool-activity-timeline">
+          <div class="tool-card">
+            <div class="tool-card-name">Read File</div>
+            <div class="tool-card-detail">product-requirements/auth-module.md</div>
+            <div class="tool-card-status">&#10003; Complete</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-card-name">Search Codebase</div>
+            <div class="tool-card-detail">Pattern: "auth*" across src/services/</div>
+            <div class="tool-card-status">&#10003; Complete &mdash; 12 matches</div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-card-name">Write Artifact</div>
+            <div class="tool-card-detail">sprint-backlog/auth-epics-v2.yaml</div>
+            <div class="tool-card-status">&#10003; Complete</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message agent" style="animation-delay: 0.2s">
+        <div class="message-sender">
+          <span class="persona-dot pm"></span>
+          PM Agent
+        </div>
+        <div class="message-bubble">
+          Here is the epic breakdown, ordered by priority:<br><br>
+          <strong>Epic 1 &mdash; Credential Management</strong> (8 pts)<br>
+          Core signup/login flow, password hashing, validation rules. This unblocks all downstream work.<br><br>
+          <strong>Epic 2 &mdash; Session Handling</strong> (5 pts)<br>
+          JWT issuance, refresh token rotation, session timeout policies.<br><br>
+          <strong>Epic 3 &mdash; OAuth 2.0 Integration</strong> (8 pts)<br>
+          Google and GitHub providers, account linking, consent screen configuration.<br><br>
+          <strong>Epic 4 &mdash; Multi-Factor Authentication</strong> (13 pts)<br>
+          TOTP-based MFA, backup codes, enrollment flow. Can be deferred to Sprint 3.
+        </div>
+        <span class="message-time">10:43 AM</span>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message user" style="animation-delay: 0.25s">
+        <div class="message-bubble">
+          Good breakdown. Can you also check with the Architect on the session handling approach? I want to make sure we align on Redis vs. in-memory.
+        </div>
+        <span class="message-time">10:45 AM</span>
+      </div>
+
+      <!-- Agent Message 3 -->
+      <div class="message agent" style="animation-delay: 0.3s">
+        <div class="message-sender">
+          <span class="persona-dot pm"></span>
+          PM Agent
+        </div>
+        <div class="message-bubble">
+          Absolutely. I'll coordinate with the Architect Agent on the session store strategy. Redis would be more resilient for horizontal scaling, but adds operational complexity. Let me draft the trade-off analysis and we can review together.
+        </div>
+        <span class="message-time">10:45 AM</span>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message user" style="animation-delay: 0.35s">
+        <div class="message-bubble">
+          Perfect. Also flag any security considerations for the credential management epic.
+        </div>
+        <span class="message-time">10:46 AM</span>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <span class="thinking-label">PM Agent is composing</span>
+        <span class="thinking-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-textarea" rows="1" placeholder="Write your message..."></textarea>
+        <div class="chat-input-actions">
+          <button class="btn-icon" title="Attach file">
+            <!-- Paperclip SVG -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <button class="btn-send" title="Send message">
+            <!-- Arrow up SVG -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/>
+              <polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="input-hint">Press Enter to send &middot; Shift+Enter for new line</div>
+    </div>
+
+  </section>
+
+  <!-- ─── RIGHT PANEL: Dashboard / Artifacts ──────────────────── -->
+  <aside class="right-panel">
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active">Dashboard</button>
+      <button class="tab-btn">Artifact</button>
+      <button class="tab-btn">Readiness</button>
+    </div>
+
+    <div class="panel-content">
+
+      <!-- What Next Card -->
+      <div class="dash-card featured">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9758;</span>
+          What Next
+        </div>
+        <div class="what-next-text">
+          The PM Agent has completed the epic breakdown for Authentication. Review the proposed sprint allocation, then ask the Architect to validate the session handling approach.
+        </div>
+        <button class="what-next-action">
+          Review Sprint Plan
+          <span style="font-size: 14px;">&#8594;</span>
+        </button>
+      </div>
+
+      <!-- Project Health -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9829;</span>
+          Project Health
+        </div>
+        <div class="health-section">
+          <div class="health-header">
+            <span class="health-label">Overall Progress</span>
+            <span class="health-pct">62%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: 62%"></div>
+          </div>
+        </div>
+        <ul class="checklist">
+          <li class="done-item">
+            <span class="check-icon done">&#10003;</span>
+            Product Requirements Document
+          </li>
+          <li class="done-item">
+            <span class="check-icon done">&#10003;</span>
+            System Architecture Proposal
+          </li>
+          <li class="done-item">
+            <span class="check-icon done">&#10003;</span>
+            UX Wireframes &mdash; Core Flows
+          </li>
+          <li>
+            <span class="check-icon pending"></span>
+            API Contract Definition
+          </li>
+          <li>
+            <span class="check-icon pending"></span>
+            Security Threat Model
+          </li>
+        </ul>
+      </div>
+
+      <!-- Phase Cards -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9670;</span>
+          Workflow Phases
+        </div>
+        <div class="phase-cards">
+          <div class="phase-card">
+            <span class="phase-number complete">&#10003;</span>
+            <div class="phase-info">
+              <div class="phase-name">Discovery &amp; Requirements</div>
+              <div class="phase-desc">Stakeholder interviews, PRD drafting</div>
+            </div>
+            <span class="phase-status-tag done-tag">Done</span>
+          </div>
+          <div class="phase-card">
+            <span class="phase-number current">2</span>
+            <div class="phase-info">
+              <div class="phase-name">Architecture &amp; Design</div>
+              <div class="phase-desc">System design, API contracts, wireframes</div>
+            </div>
+            <span class="phase-status-tag active-tag">Active</span>
+          </div>
+          <div class="phase-card">
+            <span class="phase-number upcoming">3</span>
+            <div class="phase-info">
+              <div class="phase-name">Implementation &amp; Testing</div>
+              <div class="phase-desc">Sprint execution, CI/CD, QA validation</div>
+            </div>
+            <span class="phase-status-tag pending-tag">Pending</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Runs -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          <span class="card-icon">&#9654;</span>
+          Recent Runs
+        </div>
+        <table class="mini-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Task</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>PM</td>
+              <td>Epic breakdown</td>
+              <td>
+                <span class="run-status">
+                  <span class="run-dot success"></span>
+                  Passed
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Architect</td>
+              <td>DB schema review</td>
+              <td>
+                <span class="run-status">
+                  <span class="run-dot success"></span>
+                  Passed
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>UX</td>
+              <td>Wireframe export</td>
+              <td>
+                <span class="run-status">
+                  <span class="run-dot running"></span>
+                  Running
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Analyst</td>
+              <td>Data model audit</td>
+              <td>
+                <span class="run-status">
+                  <span class="run-dot fail"></span>
+                  Failed
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </aside>
+
+</main>
+
+</body>
+</html>

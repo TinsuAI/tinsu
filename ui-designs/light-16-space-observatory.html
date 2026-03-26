@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TINSU MISSION CONTROL — Deep Space Observatory</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800;900&family=Overpass:wght@300;400;500;600;700&family=Overpass+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   RESET & VARIABLES
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --mission-white: #F0F2F5;
+  --panel-offwhite: #FAFBFD;
+  --deep-space-navy: #0B1D3A;
+  --nebula-blue: #1E6FD9;
+  --solar-orange: #FF6B35;
+  --mars-red: #D94040;
+  --orbital-cyan: #00B4D8;
+  --starlight-silver: #A0AEC0;
+  --void-black: #050A14;
+  --hull-gray: #E2E6EC;
+  --dim-star: #C5CDD8;
+  --panel-border: rgba(11, 29, 58, 0.08);
+  --grid-line: rgba(11, 29, 58, 0.03);
+  --sidebar-w: 280px;
+  --right-panel-w: 380px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Overpass', sans-serif;
+  background: var(--mission-white);
+  color: var(--deep-space-navy);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ============================================
+   STARFIELD BACKGROUND
+   ============================================ */
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--deep-space-navy);
+  border-radius: 50%;
+  animation: twinkle var(--dur, 3s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.03; transform: scale(0.8); }
+  50% { opacity: var(--max-o, 0.15); transform: scale(1.2); }
+}
+
+/* ============================================
+   BOOT-UP REVEAL ANIMATION
+   ============================================ */
+@keyframes systemOnline {
+  0% { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.boot-reveal {
+  animation: systemOnline 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+}
+
+.boot-d1 { animation-delay: 0.1s; }
+.boot-d2 { animation-delay: 0.2s; }
+.boot-d3 { animation-delay: 0.3s; }
+.boot-d4 { animation-delay: 0.4s; }
+.boot-d5 { animation-delay: 0.5s; }
+.boot-d6 { animation-delay: 0.6s; }
+.boot-d7 { animation-delay: 0.7s; }
+.boot-d8 { animation-delay: 0.8s; }
+.boot-d9 { animation-delay: 0.9s; }
+.boot-d10 { animation-delay: 1.0s; }
+.boot-d11 { animation-delay: 1.1s; }
+.boot-d12 { animation-delay: 1.2s; }
+
+/* ============================================
+   TITLE BAR
+   ============================================ */
+.title-bar {
+  height: 44px;
+  background: var(--deep-space-navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: relative;
+  z-index: 100;
+  animation: systemOnline 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.title-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--orbital-cyan), var(--nebula-blue), var(--orbital-cyan), transparent);
+  opacity: 0.6;
+}
+
+.title-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mission-logo {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--orbital-cyan);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: orbitPulse 4s ease-in-out infinite;
+}
+
+.mission-logo::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--orbital-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--orbital-cyan);
+}
+
+.mission-logo::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(0, 180, 216, 0.3);
+  border-radius: 50%;
+  animation: orbitRing 8s linear infinite;
+}
+
+@keyframes orbitPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(0, 180, 216, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(0, 180, 216, 0.5); }
+}
+
+@keyframes orbitRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.title-text {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #FFFFFF;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.title-text span {
+  color: var(--orbital-cyan);
+  font-weight: 400;
+}
+
+.title-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.mission-clock {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 13px;
+  color: var(--orbital-cyan);
+  letter-spacing: 1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mission-clock::before {
+  content: 'MET';
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--starlight-silver);
+  letter-spacing: 1px;
+}
+
+.clock-separator {
+  animation: clockBlink 1s step-end infinite;
+}
+
+@keyframes clockBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.system-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: #4ADE80;
+  letter-spacing: 1px;
+}
+
+.status-dot-live {
+  width: 6px;
+  height: 6px;
+  background: #4ADE80;
+  border-radius: 50%;
+  animation: statusPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
+   MAIN LAYOUT
+   ============================================ */
+.main-layout {
+  display: flex;
+  height: calc(100vh - 44px);
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   HUD GRID OVERLAY (on panels)
+   ============================================ */
+.hud-grid {
+  position: relative;
+}
+
+.hud-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+
+/* ============================================
+   LEFT SIDEBAR — MISSION LOG
+   ============================================ */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--panel-offwhite);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  position: relative;
+}
+
+.sidebar-label {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--starlight-silver);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.new-mission-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--deep-space-navy);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.new-mission-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(0, 180, 216, 0.15) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.new-mission-btn:hover {
+  background: #0D2347;
+  box-shadow: 0 0 20px rgba(0, 180, 216, 0.2), inset 0 0 20px rgba(0, 180, 216, 0.05);
+  transform: translateY(-1px);
+}
+
+.new-mission-btn:hover::before { opacity: 1; }
+
+.new-mission-btn .plus-icon {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--orbital-cyan);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--orbital-cyan);
+  line-height: 1;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.session-list::-webkit-scrollbar { width: 4px; }
+.session-list::-webkit-scrollbar-track { background: transparent; }
+.session-list::-webkit-scrollbar-thumb { background: var(--hull-gray); border-radius: 4px; }
+
+/* Session Card */
+.session-card {
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+}
+
+.session-card:hover {
+  background: rgba(11, 29, 58, 0.03);
+  border-color: var(--panel-border);
+}
+
+.session-card.active {
+  background: #FFFFFF;
+  border-color: rgba(30, 111, 217, 0.15);
+  box-shadow: 0 2px 8px rgba(11, 29, 58, 0.06);
+}
+
+.session-card.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--nebula-blue);
+  border-radius: 0 3px 3px 0;
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.session-persona {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.persona-orbit-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  color: #FFFFFF;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.persona-orbit-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid;
+  border-color: inherit;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: orbitRing 6s linear infinite;
+}
+
+.persona-orbit-dot.pm { background: var(--nebula-blue); border-color: var(--nebula-blue); }
+.persona-orbit-dot.arch { background: var(--solar-orange); border-color: var(--solar-orange); }
+.persona-orbit-dot.ux { background: #8B5CF6; border-color: #8B5CF6; }
+.persona-orbit-dot.analyst { background: var(--orbital-cyan); border-color: var(--orbital-cyan); }
+.persona-orbit-dot.dev { background: var(--mars-red); border-color: var(--mars-red); }
+
+.session-name {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--deep-space-navy);
+  line-height: 1.3;
+}
+
+.session-kebab {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  color: var(--starlight-silver);
+  flex-shrink: 0;
+}
+
+.session-card:hover .session-kebab { opacity: 1; }
+.session-kebab:hover { background: rgba(11, 29, 58, 0.06); color: var(--deep-space-navy); }
+
+.session-preview {
+  font-size: 11.5px;
+  color: var(--starlight-silver);
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-left: 36px;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 36px;
+}
+
+.session-timestamp {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--dim-star);
+  letter-spacing: 0.5px;
+}
+
+.badge {
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.badge-active { background: rgba(74, 222, 128, 0.12); color: #16A34A; }
+.badge-paused { background: rgba(255, 107, 53, 0.1); color: var(--solar-orange); }
+.badge-completed { background: rgba(30, 111, 217, 0.1); color: var(--nebula-blue); }
+.badge-auto { background: rgba(0, 180, 216, 0.1); color: #0891B2; }
+.badge-manual { background: rgba(160, 174, 192, 0.15); color: #64748B; }
+
+/* ============================================
+   CENTER PANEL — COMMS CHANNEL
+   ============================================ */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--mission-white);
+  min-width: 0;
+  position: relative;
+}
+
+/* Persona Selector — Mission Crew */
+.crew-selector {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel-offwhite);
+  position: relative;
+}
+
+.crew-selector::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(30, 111, 217, 0.15), transparent);
+}
+
+.crew-selector-label {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--starlight-silver);
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+.crew-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: #FFFFFF;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--deep-space-navy);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.crew-btn:hover {
+  border-color: var(--nebula-blue);
+  box-shadow: 0 0 0 3px rgba(30, 111, 217, 0.08);
+  transform: translateY(-1px);
+}
+
+.crew-btn.selected {
+  background: var(--deep-space-navy);
+  color: #FFFFFF;
+  border-color: var(--deep-space-navy);
+}
+
+.crew-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.crew-dot.pm-dot { background: var(--nebula-blue); }
+.crew-dot.arch-dot { background: var(--solar-orange); }
+.crew-dot.ux-dot { background: #8B5CF6; }
+.crew-dot.analyst-dot { background: var(--orbital-cyan); }
+
+/* Message Area */
+.message-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message-area::-webkit-scrollbar { width: 5px; }
+.message-area::-webkit-scrollbar-track { background: transparent; }
+.message-area::-webkit-scrollbar-thumb { background: var(--hull-gray); border-radius: 4px; }
+
+/* Trajectory Arc Divider */
+.trajectory-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.trajectory-arc {
+  flex: 1;
+  height: 20px;
+  border: none;
+  border-bottom: 1px dashed var(--hull-gray);
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  opacity: 0.5;
+}
+
+.trajectory-label {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--dim-star);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Messages */
+.message {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.message-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message-agent {
+  align-self: flex-start;
+}
+
+.msg-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  color: #FFFFFF;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.msg-avatar.user-av {
+  background: var(--deep-space-navy);
+}
+
+.msg-avatar.agent-av {
+  background: var(--nebula-blue);
+}
+
+.msg-avatar.agent-av::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid var(--nebula-blue);
+  border-radius: 50%;
+  opacity: 0.25;
+  animation: orbitRing 8s linear infinite;
+}
+
+.msg-bubble {
+  padding: 12px 16px;
+  border-radius: 12px;
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.msg-user-bubble {
+  background: var(--deep-space-navy);
+  color: #FFFFFF;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-agent-bubble {
+  background: #FFFFFF;
+  color: var(--deep-space-navy);
+  border: 1px solid var(--panel-border);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(11, 29, 58, 0.04);
+}
+
+.msg-agent-name {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--nebula-blue);
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.msg-time {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--dim-star);
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+
+.msg-user-bubble .msg-time { color: rgba(255, 255, 255, 0.45); }
+
+/* Tool Activity Group — Mission Log */
+.tool-group {
+  align-self: flex-start;
+  max-width: 85%;
+  background: #FFFFFF;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(11, 29, 58, 0.04);
+}
+
+.tool-group-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(11, 29, 58, 0.02);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tool-group-icon {
+  width: 20px;
+  height: 20px;
+  background: var(--deep-space-navy);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-group-icon svg { width: 12px; height: 12px; }
+
+.tool-group-title {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--deep-space-navy);
+}
+
+.tool-group-count {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--starlight-silver);
+  margin-left: auto;
+}
+
+.tool-entry {
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid rgba(11, 29, 58, 0.04);
+  transition: background 0.2s;
+}
+
+.tool-entry:last-child { border-bottom: none; }
+.tool-entry:hover { background: rgba(11, 29, 58, 0.015); }
+
+.tool-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.tool-timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ADE80;
+  border: 2px solid rgba(74, 222, 128, 0.3);
+}
+
+.tool-timeline-dot.warn { background: var(--solar-orange); border-color: rgba(255, 107, 53, 0.3); }
+.tool-timeline-dot.info { background: var(--nebula-blue); border-color: rgba(30, 111, 217, 0.3); }
+
+.tool-timeline-line {
+  width: 1px;
+  flex: 1;
+  min-height: 16px;
+  background: var(--hull-gray);
+}
+
+.tool-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-action-name {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--deep-space-navy);
+  margin-bottom: 2px;
+}
+
+.tool-action-desc {
+  font-size: 11.5px;
+  color: var(--starlight-silver);
+  line-height: 1.4;
+}
+
+.tool-action-time {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--dim-star);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Thinking Indicator — Radar Sweep */
+.thinking-indicator {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: #FFFFFF;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(11, 29, 58, 0.04);
+}
+
+.radar-container {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hull-gray);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.radar-container::before {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 50%;
+  top: 50%;
+  left: 50%;
+  background: transparent;
+  border-left: 1px dashed rgba(11, 29, 58, 0.08);
+  transform-origin: top center;
+}
+
+.radar-sweep {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  top: 0;
+  left: 50%;
+  transform-origin: bottom left;
+  animation: radarSweep 2s linear infinite;
+  background: conic-gradient(from 0deg, transparent, rgba(0, 180, 216, 0.25));
+  border-radius: 0 100% 0 0;
+}
+
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.radar-center {
+  width: 4px;
+  height: 4px;
+  background: var(--orbital-cyan);
+  border-radius: 50%;
+  z-index: 1;
+  box-shadow: 0 0 6px rgba(0, 180, 216, 0.4);
+}
+
+.radar-ring-1 {
+  position: absolute;
+  inset: 25%;
+  border: 1px solid rgba(11, 29, 58, 0.06);
+  border-radius: 50%;
+}
+
+.radar-ring-2 {
+  position: absolute;
+  inset: 8%;
+  border: 1px solid rgba(11, 29, 58, 0.04);
+  border-radius: 50%;
+}
+
+.thinking-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thinking-label {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--deep-space-navy);
+  letter-spacing: 0.3px;
+}
+
+.thinking-sub {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--starlight-silver);
+  letter-spacing: 0.5px;
+}
+
+.thinking-dots span {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* Input Area */
+.input-area {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--panel-border);
+  background: var(--panel-offwhite);
+  position: relative;
+}
+
+.input-area::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(30, 111, 217, 0.1), transparent);
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid var(--hull-gray);
+  border-radius: 10px;
+  padding: 8px 10px;
+  transition: all 0.25s;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--nebula-blue);
+  box-shadow: 0 0 0 3px rgba(30, 111, 217, 0.08);
+}
+
+.input-textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'Overpass', sans-serif;
+  font-size: 13px;
+  color: var(--deep-space-navy);
+  background: transparent;
+  min-height: 36px;
+  max-height: 120px;
+  padding: 6px 4px;
+  line-height: 1.5;
+}
+
+.input-textarea::placeholder { color: var(--dim-star); }
+
+.input-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  flex-shrink: 0;
+}
+
+.btn-attach {
+  background: transparent;
+  color: var(--starlight-silver);
+}
+
+.btn-attach:hover {
+  background: rgba(11, 29, 58, 0.05);
+  color: var(--deep-space-navy);
+}
+
+.btn-send {
+  background: var(--deep-space-navy);
+  color: #FFFFFF;
+}
+
+.btn-send:hover {
+  background: #0D2347;
+  box-shadow: 0 0 12px rgba(0, 180, 216, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-send svg, .btn-attach svg { width: 16px; height: 16px; }
+
+/* ============================================
+   RIGHT PANEL — MISSION DASHBOARD
+   ============================================ */
+.right-panel {
+  width: var(--right-panel-w);
+  background: var(--panel-offwhite);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Mission Tabs */
+.mission-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--panel-border);
+  background: #FFFFFF;
+  position: relative;
+}
+
+.mission-tab {
+  flex: 1;
+  padding: 12px 8px;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--starlight-silver);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.mission-tab:hover { color: var(--deep-space-navy); }
+
+.mission-tab.active {
+  color: var(--deep-space-navy);
+}
+
+.mission-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: var(--nebula-blue);
+  border-radius: 2px 2px 0 0;
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-content::-webkit-scrollbar { width: 4px; }
+.dashboard-content::-webkit-scrollbar-track { background: transparent; }
+.dashboard-content::-webkit-scrollbar-thumb { background: var(--hull-gray); border-radius: 4px; }
+
+/* Dashboard Card */
+.dash-card {
+  background: #FFFFFF;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dash-card:hover {
+  box-shadow: 0 2px 12px rgba(11, 29, 58, 0.06);
+  border-color: rgba(30, 111, 217, 0.12);
+}
+
+.dash-card-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(11, 29, 58, 0.04);
+}
+
+.dash-card-title {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--deep-space-navy);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-card-title .card-icon {
+  width: 18px;
+  height: 18px;
+  background: var(--deep-space-navy);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-card-title .card-icon svg { width: 10px; height: 10px; }
+
+.dash-card-body {
+  padding: 14px;
+}
+
+/* Next Objective Card */
+.next-objective-card {
+  border-left: 3px solid var(--solar-orange);
+}
+
+.next-objective-card .dash-card-header {
+  background: rgba(255, 107, 53, 0.04);
+}
+
+.objective-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.objective-title {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--deep-space-navy);
+  line-height: 1.4;
+}
+
+.objective-desc {
+  font-size: 12px;
+  color: var(--starlight-silver);
+  line-height: 1.5;
+}
+
+.objective-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.priority-badge {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.priority-high { background: rgba(217, 64, 64, 0.1); color: var(--mars-red); }
+.priority-med { background: rgba(255, 107, 53, 0.1); color: var(--solar-orange); }
+
+/* Diagnostics Card */
+.diagnostics-card {
+  border-left: 3px solid var(--nebula-blue);
+}
+
+.diag-progress {
+  margin-bottom: 14px;
+}
+
+.diag-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.diag-progress-label {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--deep-space-navy);
+}
+
+.diag-progress-value {
+  font-family: 'Overpass Mono', monospace;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--nebula-blue);
+  letter-spacing: 0.5px;
+}
+
+.diag-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--hull-gray);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.diag-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--nebula-blue), var(--orbital-cyan));
+  position: relative;
+  transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.diag-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+  animation: barShine 2s ease-in-out infinite;
+}
+
+@keyframes barShine {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.system-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.system-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.system-check:hover { background: rgba(11, 29, 58, 0.02); }
+
+.check-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.check-icon.pass { background: rgba(74, 222, 128, 0.15); color: #16A34A; }
+.check-icon.fail { background: rgba(217, 64, 64, 0.12); color: var(--mars-red); }
+.check-icon.warn { background: rgba(255, 107, 53, 0.12); color: var(--solar-orange); }
+
+.check-icon svg { width: 10px; height: 10px; }
+
+.check-label {
+  font-size: 12px;
+  color: var(--deep-space-navy);
+  flex: 1;
+}
+
+.check-status {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.check-status.ok { color: #16A34A; }
+.check-status.err { color: var(--mars-red); }
+.check-status.wrn { color: var(--solar-orange); }
+
+/* Phase Cards */
+.phase-card {
+  position: relative;
+}
+
+.phase-card.phase-1 { border-left: 3px solid #4ADE80; }
+.phase-card.phase-2 { border-left: 3px solid var(--orbital-cyan); }
+.phase-card.phase-3 { border-left: 3px solid var(--starlight-silver); }
+
+.phase-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.phase-name {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--deep-space-navy);
+}
+
+.phase-status-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.phase-status-badge.complete { background: rgba(74, 222, 128, 0.12); color: #16A34A; }
+.phase-status-badge.in-progress { background: rgba(0, 180, 216, 0.1); color: #0891B2; }
+.phase-status-badge.queued { background: rgba(160, 174, 192, 0.15); color: #64748B; }
+
+.phase-desc {
+  font-size: 11.5px;
+  color: var(--starlight-silver);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.workflow-badges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.workflow-badge {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  background: rgba(11, 29, 58, 0.04);
+  color: var(--deep-space-navy);
+  border: 1px solid rgba(11, 29, 58, 0.06);
+}
+
+/* Mission Log Table */
+.mission-log-card {
+  border-left: 3px solid var(--deep-space-navy);
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.log-table th {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--starlight-silver);
+  text-align: left;
+  padding: 0 6px 8px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.log-table td {
+  padding: 7px 6px;
+  font-size: 11.5px;
+  color: var(--deep-space-navy);
+  border-bottom: 1px solid rgba(11, 29, 58, 0.03);
+  vertical-align: middle;
+}
+
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tr:hover td { background: rgba(11, 29, 58, 0.015); }
+
+.log-id {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--nebula-blue);
+  font-weight: 600;
+}
+
+.log-workflow {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+}
+
+.log-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.log-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.log-dot.success { background: #4ADE80; }
+.log-dot.running { background: var(--orbital-cyan); animation: statusPulse 1.5s ease-in-out infinite; }
+.log-dot.failed { background: var(--mars-red); }
+
+.log-time {
+  font-family: 'Overpass Mono', monospace;
+  font-size: 10px;
+  color: var(--dim-star);
+}
+
+/* ============================================
+   ORBITAL RING ANIMATION VARIANTS
+   ============================================ */
+@keyframes orbitSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes orbitReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+
+/* ============================================
+   HOVER GLOW EFFECTS
+   ============================================ */
+.glow-hover {
+  transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glow-hover:hover {
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.1), 0 4px 16px rgba(0, 180, 216, 0.08);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1200px) {
+  .right-panel { display: none; }
+}
+
+@media (max-width: 800px) {
+  .sidebar { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- STARFIELD BACKGROUND -->
+<div class="starfield" id="starfield"></div>
+
+<!-- TITLE BAR -->
+<div class="title-bar">
+  <div class="title-bar-left">
+    <div class="mission-logo"></div>
+    <div class="title-text">TINSU MISSION CONTROL <span>-- Deep Space Observatory</span></div>
+  </div>
+  <div class="title-bar-right">
+    <div class="system-status">
+      <div class="status-dot-live"></div>
+      ALL SYSTEMS NOMINAL
+    </div>
+    <div class="mission-clock" id="missionClock">
+      <span id="clockDisplay">003<span class="clock-separator">:</span>14<span class="clock-separator">:</span>27<span class="clock-separator">:</span>08</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar hud-grid">
+    <div class="sidebar-header boot-reveal boot-d1">
+      <div class="sidebar-label">Mission Log</div>
+      <button class="new-mission-btn">
+        <span class="plus-icon">+</span>
+        NEW MISSION
+      </button>
+    </div>
+
+    <div class="session-list">
+      <!-- Session 1 — Active -->
+      <div class="session-card active boot-reveal boot-d2">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-orbit-dot pm">PM</div>
+            <div class="session-name">Sprint 4 Planning Review</div>
+          </div>
+          <div class="session-kebab">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </div>
+        </div>
+        <div class="session-preview">Analyzing velocity trends and recommending story point allocation for the authentication epic...</div>
+        <div class="session-meta">
+          <span class="session-timestamp">14:27 UTC</span>
+          <span class="badge badge-active">Active</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card boot-reveal boot-d3">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-orbit-dot arch">AR</div>
+            <div class="session-name">API Gateway Architecture</div>
+          </div>
+          <div class="session-kebab">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </div>
+        </div>
+        <div class="session-preview">Evaluated rate limiting strategies. Recommending token bucket with Redis backing for distributed...</div>
+        <div class="session-meta">
+          <span class="session-timestamp">12:05 UTC</span>
+          <span class="badge badge-paused">Paused</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card boot-reveal boot-d4">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-orbit-dot ux">UX</div>
+            <div class="session-name">Onboarding Flow Redesign</div>
+          </div>
+          <div class="session-kebab">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </div>
+        </div>
+        <div class="session-preview">Created wireframes for progressive disclosure pattern. User testing results show 34% improvement...</div>
+        <div class="session-meta">
+          <span class="session-timestamp">09:41 UTC</span>
+          <span class="badge badge-completed">Complete</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card boot-reveal boot-d5">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-orbit-dot analyst">AN</div>
+            <div class="session-name">Q1 Metrics Deep Dive</div>
+          </div>
+          <div class="session-kebab">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </div>
+        </div>
+        <div class="session-preview">Churn rate analysis complete. Identified correlation between onboarding completion and 90-day retention...</div>
+        <div class="session-meta">
+          <span class="session-timestamp">YST 08:12</span>
+          <span class="badge badge-completed">Complete</span>
+          <span class="badge badge-manual">Manual</span>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card boot-reveal boot-d6">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-orbit-dot dev">DV</div>
+            <div class="session-name">CI/CD Pipeline Hardening</div>
+          </div>
+          <div class="session-kebab">
+            <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </div>
+        </div>
+        <div class="session-preview">Investigating flaky test suite. Parallelization of integration tests reduced build time by 40%...</div>
+        <div class="session-meta">
+          <span class="session-timestamp">YST 16:33</span>
+          <span class="badge badge-paused">Paused</span>
+          <span class="badge badge-auto">Auto</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER PANEL -->
+  <main class="center-panel">
+    <!-- Crew Selector -->
+    <div class="crew-selector boot-reveal boot-d2">
+      <span class="crew-selector-label">Crew</span>
+      <button class="crew-btn selected">
+        <span class="crew-dot pm-dot"></span>
+        PM Agent
+      </button>
+      <button class="crew-btn">
+        <span class="crew-dot arch-dot"></span>
+        Architect
+      </button>
+      <button class="crew-btn">
+        <span class="crew-dot ux-dot"></span>
+        UX Designer
+      </button>
+      <button class="crew-btn">
+        <span class="crew-dot analyst-dot"></span>
+        Analyst
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-area boot-reveal boot-d3">
+
+      <!-- Trajectory Divider -->
+      <div class="trajectory-divider">
+        <div class="trajectory-arc"></div>
+        <span class="trajectory-label">Mission Day 003 -- Sprint 4 Planning</span>
+        <div class="trajectory-arc"></div>
+      </div>
+
+      <!-- User Message 1 -->
+      <div class="message message-user">
+        <div class="msg-avatar user-av">CD</div>
+        <div class="msg-bubble msg-user-bubble">
+          <div>Can you review our Sprint 4 backlog and recommend story point allocation? We have 42 points of capacity and the auth epic is the top priority.</div>
+          <div class="msg-time">14:22 UTC</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message message-agent">
+        <div class="msg-avatar agent-av">PM</div>
+        <div class="msg-bubble msg-agent-bubble">
+          <div class="msg-agent-name">PM Agent -- Mission Specialist</div>
+          <div>I've analyzed the backlog against your velocity data. Your team averaged 38.5 points over the last 3 sprints with a standard deviation of 4.2. Given the auth epic's complexity, I recommend allocating <strong>28 points</strong> to auth stories and reserving <strong>14 points</strong> for maintenance and tech debt.</div>
+          <div class="msg-time">14:23 UTC</div>
+        </div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message message-user">
+        <div class="msg-avatar user-av">CD</div>
+        <div class="msg-bubble msg-user-bubble">
+          <div>That makes sense. Can you break down the auth epic into individual stories and run the dependency analysis?</div>
+          <div class="msg-time">14:24 UTC</div>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <div class="tool-group-icon">
+            <svg viewBox="0 0 16 16" fill="white"><path d="M2 3h12v1H2V3zm0 4h8v1H2V7zm0 4h10v1H2v-1z"/></svg>
+          </div>
+          <span class="tool-group-title">Mission Operations Log</span>
+          <span class="tool-group-count">3 actions -- 12.4s</span>
+        </div>
+
+        <div class="tool-entry">
+          <div class="tool-timeline">
+            <div class="tool-timeline-dot info"></div>
+            <div class="tool-timeline-line"></div>
+          </div>
+          <div class="tool-detail">
+            <div class="tool-action-name">ReadFile</div>
+            <div class="tool-action-desc">Scanned backlog manifest: sprint-4-backlog.yaml</div>
+          </div>
+          <div class="tool-action-time">3.2s</div>
+        </div>
+
+        <div class="tool-entry">
+          <div class="tool-timeline">
+            <div class="tool-timeline-dot"></div>
+            <div class="tool-timeline-line"></div>
+          </div>
+          <div class="tool-detail">
+            <div class="tool-action-name">AnalyzeDependencies</div>
+            <div class="tool-action-desc">Mapped 7 story nodes with 12 dependency edges, identified critical path</div>
+          </div>
+          <div class="tool-action-time">6.8s</div>
+        </div>
+
+        <div class="tool-entry">
+          <div class="tool-timeline">
+            <div class="tool-timeline-dot warn"></div>
+          </div>
+          <div class="tool-detail">
+            <div class="tool-action-name">RiskAssessment</div>
+            <div class="tool-action-desc">Flagged AUTH-204 as high-risk: OAuth provider integration has external dependency</div>
+          </div>
+          <div class="tool-action-time">2.4s</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message message-agent">
+        <div class="msg-avatar agent-av">PM</div>
+        <div class="msg-bubble msg-agent-bubble">
+          <div class="msg-agent-name">PM Agent -- Mission Specialist</div>
+          <div>Here's the breakdown. I found <strong>7 stories</strong> in the auth epic with a critical path through AUTH-201 -> AUTH-203 -> AUTH-205. Note that <strong>AUTH-204</strong> (OAuth provider integration) carries elevated risk due to an external API dependency. I recommend scheduling it early in the sprint for maximum buffer time.</div>
+          <div class="msg-time">14:25 UTC</div>
+        </div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message message-user">
+        <div class="msg-avatar user-av">CD</div>
+        <div class="msg-bubble msg-user-bubble">
+          <div>Good call on AUTH-204. Let's also pull in the password reset flow story since it's a dependency for the QA team next sprint.</div>
+          <div class="msg-time">14:26 UTC</div>
+        </div>
+      </div>
+
+      <!-- Agent Message 3 -->
+      <div class="message message-agent">
+        <div class="msg-avatar agent-av">PM</div>
+        <div class="msg-bubble msg-agent-bubble">
+          <div class="msg-agent-name">PM Agent -- Mission Specialist</div>
+          <div>Updated the sprint plan. Adding AUTH-207 (password reset flow, 5pts) brings us to <strong>33 points on auth</strong> and <strong>9 points for maintenance</strong>, which is within your capacity envelope. I'll update the sprint manifest and notify the QA lead about the downstream dependency resolution.</div>
+          <div class="msg-time">14:27 UTC</div>
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="radar-container">
+          <div class="radar-sweep"></div>
+          <div class="radar-ring-1"></div>
+          <div class="radar-ring-2"></div>
+          <div class="radar-center"></div>
+        </div>
+        <div class="thinking-text">
+          <div class="thinking-label">Processing Telemetry</div>
+          <div class="thinking-sub">Updating sprint manifest<span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area boot-reveal boot-d5">
+      <div class="input-wrapper">
+        <textarea class="input-textarea" placeholder="Transmit mission directive..." rows="1"></textarea>
+        <button class="input-btn btn-attach" title="Attach file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+        </button>
+        <button class="input-btn btn-send" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <!-- Mission Tabs -->
+    <div class="mission-tabs boot-reveal boot-d2">
+      <button class="mission-tab active">Dashboard</button>
+      <button class="mission-tab">Artifact</button>
+      <button class="mission-tab">Readiness</button>
+    </div>
+
+    <div class="dashboard-content">
+
+      <!-- NEXT OBJECTIVE -->
+      <div class="dash-card next-objective-card boot-reveal boot-d4 glow-hover">
+        <div class="dash-card-header">
+          <div class="dash-card-title">
+            <div class="card-icon">
+              <svg viewBox="0 0 16 16" fill="white"><path d="M8 1l2.5 5 5.5.8-4 3.9.9 5.3L8 13.4 3.1 16l.9-5.3-4-3.9L5.5 6z"/></svg>
+            </div>
+            NEXT OBJECTIVE
+          </div>
+          <span class="priority-badge priority-high">P0</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="objective-content">
+            <div class="objective-title">Finalize Auth Epic Story Decomposition</div>
+            <div class="objective-desc">Complete dependency mapping for 7 authentication stories. Resolve AUTH-204 risk assessment and update sprint manifest with revised point allocation.</div>
+            <div class="objective-meta">
+              <span class="workflow-badge">sprint-planning</span>
+              <span class="workflow-badge">auth-epic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM DIAGNOSTICS (Project Health) -->
+      <div class="dash-card diagnostics-card boot-reveal boot-d5 glow-hover">
+        <div class="dash-card-header">
+          <div class="dash-card-title">
+            <div class="card-icon">
+              <svg viewBox="0 0 16 16" fill="white"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6 8h4v5H6V8z"/></svg>
+            </div>
+            SYSTEM DIAGNOSTICS
+          </div>
+          <span class="diag-progress-value">65%</span>
+        </div>
+        <div class="dash-card-body">
+          <div class="diag-progress">
+            <div class="diag-bar-bg">
+              <div class="diag-bar-fill" style="width: 65%;"></div>
+            </div>
+          </div>
+
+          <div class="system-checks">
+            <div class="system-check">
+              <div class="check-icon pass"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12L2 7.5l1.4-1.4 3.1 3.1 5.6-5.6L13.5 5z"/></svg></div>
+              <span class="check-label">Sprint backlog defined</span>
+              <span class="check-status ok">PASS</span>
+            </div>
+            <div class="system-check">
+              <div class="check-icon pass"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12L2 7.5l1.4-1.4 3.1 3.1 5.6-5.6L13.5 5z"/></svg></div>
+              <span class="check-label">Velocity baseline calibrated</span>
+              <span class="check-status ok">PASS</span>
+            </div>
+            <div class="system-check">
+              <div class="check-icon pass"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12L2 7.5l1.4-1.4 3.1 3.1 5.6-5.6L13.5 5z"/></svg></div>
+              <span class="check-label">Dependency graph mapped</span>
+              <span class="check-status ok">PASS</span>
+            </div>
+            <div class="system-check">
+              <div class="check-icon warn"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 14h14L8 1zm0 4.5l.9 5H7.1L8 5.5zM8 13a1 1 0 110-2 1 1 0 010 2z"/></svg></div>
+              <span class="check-label">External API risk mitigated</span>
+              <span class="check-status wrn">WARN</span>
+            </div>
+            <div class="system-check">
+              <div class="check-icon fail"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" fill="none"/></svg></div>
+              <span class="check-label">QA handoff schedule confirmed</span>
+              <span class="check-status err">FAIL</span>
+            </div>
+            <div class="system-check">
+              <div class="check-icon fail"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" fill="none"/></svg></div>
+              <span class="check-label">Sprint manifest published</span>
+              <span class="check-status err">PEND</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MISSION PHASES -->
+      <div class="dash-card phase-card phase-1 boot-reveal boot-d7 glow-hover">
+        <div class="dash-card-body">
+          <div class="phase-header-row">
+            <div class="phase-name">Phase 1 -- Discovery & Decomposition</div>
+            <span class="phase-status-badge complete">Complete</span>
+          </div>
+          <div class="phase-desc">Epic analysis, story mapping, and initial point estimation finalized.</div>
+          <div class="workflow-badges">
+            <span class="workflow-badge">epic-review</span>
+            <span class="workflow-badge">story-map</span>
+            <span class="workflow-badge">estimation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-card phase-card phase-2 boot-reveal boot-d8 glow-hover">
+        <div class="dash-card-body">
+          <div class="phase-header-row">
+            <div class="phase-name">Phase 2 -- Risk & Dependency Analysis</div>
+            <span class="phase-status-badge in-progress">In Progress</span>
+          </div>
+          <div class="phase-desc">Evaluating critical path, external dependencies, and resource contention risks.</div>
+          <div class="workflow-badges">
+            <span class="workflow-badge">dep-graph</span>
+            <span class="workflow-badge">risk-matrix</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-card phase-card phase-3 boot-reveal boot-d9 glow-hover">
+        <div class="dash-card-body">
+          <div class="phase-header-row">
+            <div class="phase-name">Phase 3 -- Sprint Manifest & Handoff</div>
+            <span class="phase-status-badge queued">Queued</span>
+          </div>
+          <div class="phase-desc">Final sprint plan publication, team notifications, and QA coordination.</div>
+          <div class="workflow-badges">
+            <span class="workflow-badge">manifest</span>
+            <span class="workflow-badge">notify</span>
+            <span class="workflow-badge">qa-handoff</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MISSION LOG (Recent Runs) -->
+      <div class="dash-card mission-log-card boot-reveal boot-d10 glow-hover">
+        <div class="dash-card-header">
+          <div class="dash-card-title">
+            <div class="card-icon">
+              <svg viewBox="0 0 16 16" fill="white"><path d="M2 2h12v12H2V2zm2 3v1h8V5H4zm0 3v1h6V8H4zm0 3v1h8v-1H4z"/></svg>
+            </div>
+            RECENT MISSION RUNS
+          </div>
+        </div>
+        <div class="dash-card-body" style="padding: 8px 14px 14px;">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Workflow</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="log-id">RUN-047</span></td>
+                <td><span class="log-workflow">sprint-plan</span></td>
+                <td><span class="log-status"><span class="log-dot running"></span> Running</span></td>
+                <td><span class="log-time">14:27</span></td>
+              </tr>
+              <tr>
+                <td><span class="log-id">RUN-046</span></td>
+                <td><span class="log-workflow">dep-analysis</span></td>
+                <td><span class="log-status"><span class="log-dot success"></span> Success</span></td>
+                <td><span class="log-time">14:25</span></td>
+              </tr>
+              <tr>
+                <td><span class="log-id">RUN-045</span></td>
+                <td><span class="log-workflow">risk-assess</span></td>
+                <td><span class="log-status"><span class="log-dot success"></span> Success</span></td>
+                <td><span class="log-time">14:24</span></td>
+              </tr>
+              <tr>
+                <td><span class="log-id">RUN-044</span></td>
+                <td><span class="log-workflow">backlog-scan</span></td>
+                <td><span class="log-status"><span class="log-dot success"></span> Success</span></td>
+                <td><span class="log-time">14:22</span></td>
+              </tr>
+              <tr>
+                <td><span class="log-id">RUN-043</span></td>
+                <td><span class="log-workflow">api-audit</span></td>
+                <td><span class="log-status"><span class="log-dot failed"></span> Failed</span></td>
+                <td><span class="log-time">12:05</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<script>
+// ============================================
+// STARFIELD GENERATOR
+// ============================================
+(function() {
+  const field = document.getElementById('starfield');
+  const count = 80;
+  for (let i = 0; i < count; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.setProperty('--dur', (2 + Math.random() * 5) + 's');
+    star.style.setProperty('--delay', (Math.random() * 5) + 's');
+    star.style.setProperty('--max-o', (0.06 + Math.random() * 0.14).toFixed(2));
+    const size = Math.random() > 0.85 ? 3 : (Math.random() > 0.5 ? 2 : 1);
+    star.style.width = size + 'px';
+    star.style.height = size + 'px';
+    field.appendChild(star);
+  }
+})();
+
+// ============================================
+// MISSION ELAPSED TIME CLOCK
+// ============================================
+(function() {
+  let seconds = 3 * 86400 + 14 * 3600 + 27 * 60 + 8; // 003:14:27:08
+  const display = document.getElementById('clockDisplay');
+
+  function pad(n, d) { return String(n).padStart(d, '0'); }
+
+  function updateClock() {
+    seconds++;
+    const days = Math.floor(seconds / 86400);
+    const hrs = Math.floor((seconds % 86400) / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    display.innerHTML =
+      pad(days, 3) +
+      '<span class="clock-separator">:</span>' +
+      pad(hrs, 2) +
+      '<span class="clock-separator">:</span>' +
+      pad(mins, 2) +
+      '<span class="clock-separator">:</span>' +
+      pad(secs, 2);
+  }
+
+  setInterval(updateClock, 1000);
+})();
+
+// ============================================
+// TEXTAREA AUTO-RESIZE
+// ============================================
+(function() {
+  const ta = document.querySelector('.input-textarea');
+  ta.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+})();
+
+// ============================================
+// TAB SWITCHING
+// ============================================
+(function() {
+  const tabs = document.querySelectorAll('.mission-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      tabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+})();
+
+// ============================================
+// CREW BUTTON SWITCHING
+// ============================================
+(function() {
+  const btns = document.querySelectorAll('.crew-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      btns.forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+    });
+  });
+})();
+
+// ============================================
+// SESSION CARD SELECTION
+// ============================================
+(function() {
+  const cards = document.querySelectorAll('.session-card');
+  cards.forEach(card => {
+    card.addEventListener('click', function() {
+      cards.forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

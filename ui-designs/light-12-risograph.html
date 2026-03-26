@@ -1,0 +1,2376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Risograph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128+Text&family=Syne:wght@400;500;600;700;800&family=Vollkorn:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   RISOGRAPH PRINT — Tinsu Planning Workspace
+   Limited-color overprint, halftone dots, ink bleed,
+   registration offset, zine-culture visual language
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --newsprint: #F2EDE4;
+  --newsprint-dark: #E8E2D6;
+  --newsprint-deeper: #DDD6C8;
+  --riso-blue: #3D5A99;
+  --riso-blue-light: rgba(61, 90, 153, 0.12);
+  --riso-blue-pale: rgba(61, 90, 153, 0.06);
+  --riso-pink: #E55A6E;
+  --riso-pink-light: rgba(229, 90, 110, 0.12);
+  --riso-pink-pale: rgba(229, 90, 110, 0.06);
+  --riso-yellow: #F5C541;
+  --riso-yellow-light: rgba(245, 197, 65, 0.15);
+  --riso-yellow-pale: rgba(245, 197, 65, 0.08);
+  --overprint-purple: #7B4FA2;
+  --overprint-purple-light: rgba(123, 79, 162, 0.1);
+  --overprint-orange: #E8943A;
+  --overprint-orange-light: rgba(232, 148, 58, 0.12);
+  --black: #1A1A1A;
+  --black-soft: rgba(26, 26, 26, 0.7);
+  --black-muted: rgba(26, 26, 26, 0.45);
+  --black-faint: rgba(26, 26, 26, 0.08);
+  --ink-shadow: 0 1px 4px rgba(26, 26, 26, 0.06), 0 0 0 1px rgba(26, 26, 26, 0.03);
+  --ink-bleed: 0 0 6px rgba(26, 26, 26, 0.04), 0 1px 3px rgba(26, 26, 26, 0.06);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Vollkorn', serif;
+  background: var(--newsprint);
+  color: var(--black);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── Halftone Dot Texture Overlay ── */
+.halftone-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image:
+    radial-gradient(circle, var(--black) 0.8px, transparent 0.8px);
+  background-size: 6px 6px;
+}
+
+/* ── SVG Grain/Noise Overlay ── */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ── Misregistration Keyframes ── */
+@keyframes stampIn {
+  0% { opacity: 0; transform: translate(3px, -2px) scale(1.02); filter: blur(1px); }
+  40% { opacity: 0.8; transform: translate(-1px, 1px) scale(1.005); filter: blur(0.3px); }
+  70% { opacity: 0.95; transform: translate(0.5px, -0.3px); filter: blur(0); }
+  100% { opacity: 1; transform: translate(0) scale(1); filter: blur(0); }
+}
+
+@keyframes stampInDelayed {
+  0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+  60% { opacity: 0; transform: translateY(6px) scale(0.98); }
+  80% { opacity: 0.7; transform: translateY(1px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes inkSpread {
+  0% { opacity: 0; transform: scale(0.95); filter: blur(2px); }
+  50% { opacity: 0.6; filter: blur(0.5px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes registrationShift {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(0.5px, -0.3px); }
+  50% { transform: translate(-0.3px, 0.5px); }
+  75% { transform: translate(0.4px, 0.2px); }
+}
+
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+@keyframes barcodeSlide {
+  0% { transform: translateX(-100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes thinkingDots {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
+}
+
+/* ── Title Bar ── */
+.title-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  padding: 0 24px;
+  background: var(--riso-blue);
+  border-bottom: 3px solid var(--black);
+  box-shadow: 0 3px 0 0 var(--riso-pink), 0 5px 12px rgba(26, 26, 26, 0.1);
+  animation: stampIn 0.6s ease-out;
+}
+
+/* Misregistration pseudo-element on title bar */
+.title-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-pink);
+  opacity: 0.08;
+  transform: translate(2px, 2px);
+  pointer-events: none;
+}
+
+.title-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.title-bar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-bar-logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+.title-bar h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--newsprint);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.title-bar h1 span {
+  color: var(--riso-yellow);
+  font-weight: 500;
+  text-transform: none;
+  font-style: italic;
+  font-family: 'Vollkorn', serif;
+  font-size: 15px;
+}
+
+.title-bar-barcode {
+  font-family: 'Libre Barcode 128 Text', cursive;
+  font-size: 28px;
+  color: var(--newsprint);
+  opacity: 0.5;
+  line-height: 1;
+  letter-spacing: 1px;
+  animation: barcodeSlide 1s ease-out 0.3s both;
+}
+
+.title-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title-bar-time {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  color: var(--newsprint);
+  opacity: 0.7;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.title-bar-badge {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: var(--riso-blue);
+  background: var(--riso-yellow);
+  border: 2px solid var(--black);
+  padding: 2px 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transform: rotate(-1deg);
+}
+
+.title-bar-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.title-bar-dots .reg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--newsprint);
+  position: relative;
+}
+
+.reg-dot::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+}
+
+.reg-dot:nth-child(1)::after { background: var(--riso-pink); }
+.reg-dot:nth-child(2)::after { background: var(--riso-yellow); }
+.reg-dot:nth-child(3)::after { background: var(--newsprint); }
+
+/* ── Main Layout ── */
+.workspace {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  height: calc(100vh - 50px);
+}
+
+/* ═══════════════════════════════════════════════════
+   LEFT SIDEBAR — Chat Session List (280px)
+   ═══════════════════════════════════════════════════ */
+.sidebar-left {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--newsprint);
+  border-right: 2px solid var(--black);
+  position: relative;
+  animation: stampIn 0.5s ease-out 0.1s both;
+}
+
+/* Halftone panel texture */
+.sidebar-left::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image:
+    radial-gradient(circle, var(--riso-blue) 0.6px, transparent 0.6px);
+  background-size: 4px 4px;
+}
+
+/* Pink registration offset border */
+.sidebar-left::after {
+  content: '';
+  position: absolute;
+  top: 0; right: -2px; bottom: 0;
+  width: 2px;
+  background: var(--riso-pink);
+  transform: translateX(2px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 2px solid var(--black);
+  position: relative;
+}
+
+.sidebar-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--black);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.sidebar-title svg {
+  width: 14px;
+  height: 14px;
+  color: var(--riso-blue);
+}
+
+.new-chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--newsprint);
+  border: 2px dashed var(--riso-blue);
+  color: var(--riso-blue);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Syne', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.new-chat-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-pink);
+  opacity: 0;
+  transform: translate(2px, 2px);
+  transition: opacity 0.2s;
+  z-index: -1;
+}
+
+.new-chat-btn:hover {
+  background: var(--riso-blue);
+  color: var(--newsprint);
+  border-style: solid;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--riso-pink);
+}
+
+.new-chat-btn:hover::before {
+  opacity: 0.15;
+}
+
+.new-chat-btn svg {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.3s;
+}
+
+.new-chat-btn:hover svg {
+  transform: rotate(90deg);
+}
+
+/* Session Cards */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--riso-blue) transparent;
+}
+
+.session-card {
+  position: relative;
+  padding: 12px 14px;
+  margin-bottom: 3px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: stampIn 0.5s ease-out both;
+  background: var(--newsprint);
+}
+
+.session-card:nth-child(1) { animation-delay: 0.15s; }
+.session-card:nth-child(2) { animation-delay: 0.22s; }
+.session-card:nth-child(3) { animation-delay: 0.29s; }
+.session-card:nth-child(4) { animation-delay: 0.36s; }
+.session-card:nth-child(5) { animation-delay: 0.43s; }
+
+.session-card:hover {
+  border-color: var(--riso-blue);
+  background: var(--riso-blue-pale);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-pink);
+}
+
+.session-card.active {
+  border: 2px solid var(--riso-blue);
+  background: var(--riso-blue-pale);
+  box-shadow: 3px 3px 0 0 var(--riso-pink), -1px -1px 0 0 var(--riso-yellow);
+}
+
+/* Misregistration on active card */
+.session-card.active::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--riso-pink);
+  opacity: 0.2;
+  transform: translate(2px, 2px);
+  pointer-events: none;
+}
+
+.session-card.completed {
+  opacity: 0.5;
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--black);
+  flex-shrink: 0;
+}
+
+.persona-dot.pm { background: var(--riso-blue); }
+.persona-dot.architect { background: var(--overprint-orange); }
+.persona-dot.analyst { background: var(--riso-pink); }
+.persona-dot.ux { background: var(--overprint-purple); }
+
+.persona-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.persona-name.pm { color: var(--riso-blue); }
+.persona-name.architect { color: var(--overprint-orange); }
+.persona-name.analyst { color: var(--riso-pink); }
+.persona-name.ux { color: var(--overprint-purple); }
+
+.permission-badge {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 6px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: 1.5px solid;
+}
+
+.permission-badge.auto {
+  color: var(--riso-blue);
+  border-color: var(--riso-blue);
+  background: var(--riso-blue-light);
+}
+
+.permission-badge.manual {
+  color: var(--riso-pink);
+  border-color: var(--riso-pink);
+  background: var(--riso-pink-light);
+}
+
+.status-badge {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 6px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.status-badge.active {
+  color: var(--newsprint);
+  background: var(--riso-blue);
+}
+
+.status-badge.paused {
+  color: var(--black);
+  background: var(--riso-yellow);
+}
+
+.status-badge.completed {
+  color: var(--newsprint);
+  background: var(--black-muted);
+}
+
+.session-preview {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--black-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+.session-time {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: var(--black-muted);
+  margin-top: 5px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.kebab-menu {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--black-muted);
+  cursor: pointer;
+  padding: 2px;
+  transition: color 0.2s;
+  opacity: 0;
+}
+
+.session-card:hover .kebab-menu {
+  opacity: 1;
+}
+
+.kebab-menu:hover {
+  color: var(--riso-blue);
+}
+
+.kebab-menu svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ═══════════════════════════════════════════════════
+   CENTER PANEL — Chat Message Area (flex-1)
+   ═══════════════════════════════════════════════════ */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--newsprint);
+  position: relative;
+  min-width: 0;
+  animation: stampIn 0.5s ease-out 0.2s both;
+}
+
+/* Subtle halftone on center panel */
+.center-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.015;
+  background-image:
+    radial-gradient(circle, var(--riso-pink) 0.5px, transparent 0.5px);
+  background-size: 8px 8px;
+  background-position: 2px 2px;
+  z-index: 0;
+}
+
+/* Chat Header / Persona Selector */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 2px solid var(--black);
+  background: var(--newsprint);
+  position: relative;
+  z-index: 2;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-btn {
+  background: none;
+  border: 1.5px solid var(--black);
+  color: var(--black);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--riso-blue);
+  color: var(--newsprint);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-pink);
+}
+
+.persona-selector {
+  display: flex;
+  gap: 4px;
+}
+
+.persona-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1.5px solid var(--black-faint);
+  background: var(--newsprint);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--black-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.persona-btn .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--black);
+}
+
+.persona-btn:hover {
+  border-color: var(--black);
+  color: var(--black);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-yellow);
+}
+
+.persona-btn.selected {
+  background: var(--riso-blue);
+  color: var(--newsprint);
+  border-color: var(--black);
+  box-shadow: 2px 2px 0 0 var(--riso-pink);
+  transform: translate(-1px, -1px);
+}
+
+.persona-btn.selected .dot {
+  border-color: var(--newsprint);
+}
+
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--black);
+  background: var(--newsprint);
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--black);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.header-action-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-blue);
+}
+
+.header-action-btn.auto-approve {
+  background: var(--riso-blue-light);
+  color: var(--riso-blue);
+  border-color: var(--riso-blue);
+}
+
+.header-action-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Messages */
+.message-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--riso-blue) transparent;
+}
+
+.message {
+  display: flex;
+  animation: stampIn 0.4s ease-out both;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  max-width: 520px;
+  padding: 14px 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.message.user .message-bubble {
+  background: var(--riso-blue);
+  color: var(--newsprint);
+  border: 2px solid var(--black);
+  box-shadow: 3px 3px 0 0 var(--riso-pink);
+}
+
+/* Misregistration on user messages */
+.message.user .message-bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--riso-yellow);
+  opacity: 0.15;
+  transform: translate(2px, -2px);
+  pointer-events: none;
+}
+
+.message.assistant .message-bubble {
+  background: var(--newsprint);
+  color: var(--black);
+  border: 2px solid var(--black);
+  box-shadow: 3px 3px 0 0 var(--riso-blue);
+  position: relative;
+}
+
+/* Halftone texture inside assistant bubbles */
+.message.assistant .message-bubble::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image:
+    radial-gradient(circle, var(--riso-blue) 0.5px, transparent 0.5px);
+  background-size: 5px 5px;
+}
+
+.assistant-persona-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding: 2px 8px;
+  border: 1.5px solid currentColor;
+  background: var(--newsprint);
+}
+
+.assistant-persona-tag .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.message-time {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: inherit;
+  opacity: 0.5;
+  margin-top: 8px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Tool Activity Group */
+.tool-group {
+  margin: 4px 0;
+  animation: inkSpread 0.6s ease-out both;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--newsprint-dark);
+  border: 2px solid var(--black);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--black-soft);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+/* Overprint effect on tool group header */
+.tool-group-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-yellow);
+  opacity: 0.06;
+  transform: translate(1px, 1px);
+  pointer-events: none;
+}
+
+.tool-group-header:hover {
+  background: var(--newsprint-deeper);
+}
+
+.tool-group-header svg {
+  width: 14px;
+  height: 14px;
+  color: var(--riso-blue);
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  background: var(--riso-pink);
+  color: var(--newsprint);
+  font-size: 10px;
+  font-weight: 800;
+  border: 1.5px solid var(--black);
+}
+
+.tool-timeline {
+  border-left: 2px solid var(--riso-blue);
+  margin-left: 20px;
+  padding: 4px 0;
+  position: relative;
+}
+
+/* Misregistered timeline line */
+.tool-timeline::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--riso-pink);
+  opacity: 0.25;
+}
+
+.tool-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-left: 14px;
+  margin-bottom: 2px;
+  background: var(--newsprint);
+  border: 1px solid var(--black-faint);
+  position: relative;
+  transition: all 0.2s;
+  animation: stampIn 0.4s ease-out both;
+}
+
+.tool-card:nth-child(1) { animation-delay: 0.1s; }
+.tool-card:nth-child(2) { animation-delay: 0.2s; }
+.tool-card:nth-child(3) { animation-delay: 0.3s; }
+
+/* Timeline dot */
+.tool-card::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  background: var(--riso-blue);
+  border: 2px solid var(--newsprint);
+  border-radius: 50%;
+}
+
+.tool-card:hover {
+  border-color: var(--riso-blue);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-yellow);
+}
+
+.tool-card-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--riso-blue);
+}
+
+.tool-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--black);
+  letter-spacing: 0.3px;
+}
+
+.tool-card-detail {
+  font-size: 11px;
+  color: var(--black-muted);
+  margin-top: 2px;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.tool-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tool-status-dot.success { background: var(--riso-blue); }
+.tool-status-dot.running { background: var(--riso-yellow); animation: dotPulse 1s ease-in-out infinite; }
+.tool-status-dot.error { background: var(--riso-pink); }
+
+.tool-duration {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: var(--black-muted);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* Thinking Indicator */
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  animation: inkSpread 0.5s ease-out both;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.thinking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--riso-blue);
+  border: 1.5px solid var(--black);
+  animation: thinkingDots 1.4s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; background: var(--riso-pink); }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; background: var(--riso-yellow); }
+
+.thinking-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--black-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Chat Input */
+.chat-input-area {
+  padding: 12px 20px 16px;
+  border-top: 2px solid var(--black);
+  background: var(--newsprint);
+  position: relative;
+  z-index: 2;
+}
+
+.chat-input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  border: 2px solid var(--black);
+  padding: 4px;
+  background: var(--newsprint);
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+
+.chat-input-container:focus-within {
+  box-shadow: 3px 3px 0 0 var(--riso-blue), -1px -1px 0 0 var(--riso-pink);
+}
+
+/* Misregistration on focused input */
+.chat-input-container:focus-within::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--riso-pink);
+  opacity: 0.12;
+  transform: translate(2px, 2px);
+  pointer-events: none;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'Vollkorn', serif;
+  font-size: 14px;
+  color: var(--black);
+  padding: 10px 14px;
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+}
+
+.chat-input::placeholder {
+  color: var(--black-muted);
+  font-style: italic;
+}
+
+.chat-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--riso-blue);
+  border: 2px solid var(--black);
+  color: var(--newsprint);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-send-btn:hover {
+  background: var(--riso-pink);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-yellow);
+}
+
+.chat-send-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-input-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.input-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attach-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--black-muted);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.attach-btn:hover { color: var(--riso-blue); }
+
+.attach-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.char-count {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: var(--black-muted);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ═══════════════════════════════════════════════════
+   RIGHT PANEL — Dashboard (380px)
+   ═══════════════════════════════════════════════════ */
+.sidebar-right {
+  width: 380px;
+  min-width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--newsprint);
+  border-left: 2px solid var(--black);
+  position: relative;
+  animation: stampIn 0.5s ease-out 0.3s both;
+}
+
+/* Yellow registration offset border */
+.sidebar-right::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -2px; bottom: 0;
+  width: 2px;
+  background: var(--riso-yellow);
+  transform: translateX(-2px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Right panel halftone */
+.sidebar-right::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.018;
+  background-image:
+    radial-gradient(circle, var(--riso-pink) 0.5px, transparent 0.5px);
+  background-size: 5px 5px;
+  background-position: 1px 1px;
+  z-index: 0;
+}
+
+/* Tabs */
+.right-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--black);
+  background: var(--newsprint);
+  position: relative;
+  z-index: 1;
+}
+
+.right-tab {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--black-muted);
+  background: none;
+  border: none;
+  border-right: 1.5px solid var(--black-faint);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.right-tab:last-child { border-right: none; }
+
+.right-tab:hover {
+  color: var(--black);
+  background: var(--riso-blue-pale);
+}
+
+.right-tab.active {
+  color: var(--newsprint);
+  background: var(--riso-blue);
+  border-right-color: var(--riso-blue);
+}
+
+/* Misregistration on active tab */
+.right-tab.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-pink);
+  opacity: 0.1;
+  transform: translate(2px, 1px);
+  pointer-events: none;
+}
+
+.right-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--riso-pink) transparent;
+}
+
+/* Dashboard Cards */
+.dash-card {
+  border: 2px solid var(--black);
+  background: var(--newsprint);
+  position: relative;
+  animation: stampIn 0.5s ease-out both;
+  overflow: hidden;
+}
+
+.dash-card:nth-child(1) { animation-delay: 0.35s; }
+.dash-card:nth-child(2) { animation-delay: 0.42s; }
+.dash-card:nth-child(3) { animation-delay: 0.49s; }
+.dash-card:nth-child(4) { animation-delay: 0.56s; }
+.dash-card:nth-child(5) { animation-delay: 0.63s; }
+
+/* Misregistration shadow on cards */
+.dash-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-pink);
+  transform: translate(3px, 3px);
+  z-index: -1;
+  opacity: 0.15;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.dash-card:hover::before {
+  transform: translate(4px, 4px);
+  opacity: 0.25;
+}
+
+/* Second misregistration layer */
+.dash-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--riso-yellow);
+  transform: translate(-2px, 2px);
+  z-index: -2;
+  opacity: 0.1;
+  transition: transform 0.2s;
+}
+
+.dash-card:hover::after {
+  transform: translate(-3px, 3px);
+}
+
+.dash-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1.5px solid var(--black);
+  background: var(--riso-blue-pale);
+}
+
+.dash-card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--black);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.dash-card-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--riso-blue);
+}
+
+.dash-card-body {
+  padding: 14px;
+}
+
+/* What Next Card */
+.what-next-content {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--black-soft);
+}
+
+.what-next-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: var(--riso-blue);
+  color: var(--newsprint);
+  border: 2px solid var(--black);
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.what-next-action:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-pink);
+}
+
+.what-next-action svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Project Health */
+.health-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.health-percentage {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--riso-blue);
+  line-height: 1;
+  position: relative;
+}
+
+/* Misregistration on percentage */
+.health-percentage::before {
+  content: attr(data-value);
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  color: var(--riso-pink);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.health-bar-track {
+  flex: 1;
+  height: 12px;
+  background: var(--newsprint-dark);
+  border: 1.5px solid var(--black);
+  position: relative;
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: var(--riso-blue);
+  position: relative;
+  transition: width 1s ease-out;
+}
+
+/* Halftone on health bar */
+.health-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, var(--newsprint) 0.6px, transparent 0.6px);
+  background-size: 4px 4px;
+  opacity: 0.2;
+}
+
+/* Misregistration on health bar */
+.health-bar-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 65%;
+  height: 100%;
+  background: var(--riso-pink);
+  opacity: 0.08;
+}
+
+.health-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--black-soft);
+}
+
+.check-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.check-box.checked {
+  background: var(--riso-blue);
+  color: var(--newsprint);
+}
+
+.check-box svg {
+  width: 10px;
+  height: 10px;
+}
+
+.checklist-item.incomplete {
+  color: var(--black-muted);
+}
+
+/* Phase Cards */
+.phase-cards-row {
+  display: flex;
+  gap: 8px;
+}
+
+.phase-card {
+  flex: 1;
+  border: 1.5px solid var(--black);
+  background: var(--newsprint);
+  padding: 10px;
+  position: relative;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.phase-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--riso-pink);
+}
+
+.phase-card-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.phase-card.brainstorm .phase-card-label { color: var(--riso-pink); }
+.phase-card.planning .phase-card-label { color: var(--riso-blue); }
+.phase-card.development .phase-card-label { color: var(--overprint-purple); }
+
+.phase-card-count {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--black);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.phase-card-sub {
+  font-size: 10px;
+  color: var(--black-muted);
+  font-style: italic;
+}
+
+/* Phase indicator stripe */
+.phase-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.phase-card.brainstorm::after { background: var(--riso-pink); }
+.phase-card.planning::after { background: var(--riso-blue); }
+.phase-card.development::after { background: var(--overprint-purple); }
+
+/* Recent Runs Table */
+.runs-table {
+  border: 1.5px solid var(--black);
+  background: var(--newsprint);
+  overflow: hidden;
+}
+
+.runs-table-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--riso-blue);
+  border-bottom: 1.5px solid var(--black);
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--newsprint);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.runs-table-header span:nth-child(1) { flex: 1; }
+.runs-table-header span:nth-child(2) { width: 65px; text-align: center; }
+.runs-table-header span:nth-child(3) { width: 72px; text-align: center; }
+.runs-table-header span:nth-child(4) { width: 55px; text-align: right; }
+
+.runs-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--black-faint);
+  font-size: 12px;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.runs-row:last-child { border-bottom: none; }
+
+.runs-row:hover {
+  background: var(--riso-blue-pale);
+  transform: translateX(2px);
+}
+
+.runs-row span:nth-child(1) {
+  flex: 1;
+  font-weight: 600;
+  color: var(--black);
+  font-family: 'Vollkorn', serif;
+}
+
+.runs-row span:nth-child(2) {
+  width: 65px;
+  text-align: center;
+}
+
+.run-phase-tag {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.run-phase-tag.brainstorm {
+  color: var(--riso-pink);
+  border-color: var(--riso-pink);
+  background: var(--riso-pink-pale);
+}
+
+.run-phase-tag.planning {
+  color: var(--riso-blue);
+  border-color: var(--riso-blue);
+  background: var(--riso-blue-pale);
+}
+
+.run-phase-tag.dev {
+  color: var(--overprint-purple);
+  border-color: var(--overprint-purple);
+  background: var(--overprint-purple-light);
+}
+
+.runs-row span:nth-child(3) {
+  width: 72px;
+  text-align: center;
+}
+
+.run-status-tag {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.run-status-tag.succeeded {
+  color: var(--riso-blue);
+  border-color: var(--riso-blue);
+  background: var(--riso-blue-pale);
+}
+
+.run-status-tag.running {
+  color: var(--overprint-orange);
+  border-color: var(--overprint-orange);
+  background: var(--overprint-orange-light);
+  animation: registrationShift 2s ease-in-out infinite;
+}
+
+.run-status-tag.failed {
+  color: var(--riso-pink);
+  border-color: var(--riso-pink);
+  background: var(--riso-pink-pale);
+}
+
+.run-status-tag svg {
+  width: 8px;
+  height: 8px;
+}
+
+.runs-row span:nth-child(4) {
+  width: 55px;
+  text-align: right;
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  color: var(--black-muted);
+  font-weight: 500;
+}
+
+/* Workflow badges for dashboard */
+.workflow-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+}
+
+.workflow-badge.ready {
+  color: var(--riso-blue);
+  border-color: var(--riso-blue);
+  background: var(--riso-blue-pale);
+}
+
+.workflow-badge.in-review {
+  color: var(--overprint-orange);
+  border-color: var(--overprint-orange);
+  background: var(--overprint-orange-light);
+}
+
+.workflow-badge.missing {
+  color: var(--black-muted);
+  border-color: var(--black-faint);
+  background: var(--newsprint-dark);
+}
+
+.workflow-badge svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--riso-blue);
+  border: 1px solid var(--black);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--riso-pink);
+}
+
+/* ── Registration Mark Decorations ── */
+.reg-mark {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  opacity: 0.15;
+}
+
+.reg-mark::before,
+.reg-mark::after {
+  content: '';
+  position: absolute;
+}
+
+.reg-mark::before {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--black);
+  transform: translateX(-50%);
+}
+
+.reg-mark::after {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--black);
+  transform: translateY(-50%);
+}
+
+.reg-mark .circle {
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--black);
+  border-radius: 50%;
+}
+
+/* ── Barcode Accent ── */
+.barcode-accent {
+  font-family: 'Libre Barcode 128 Text', cursive;
+  font-size: 18px;
+  color: var(--black-muted);
+  letter-spacing: 2px;
+  opacity: 0.4;
+}
+
+/* ── Print Registration Color Swatch ── */
+.color-swatch-strip {
+  display: flex;
+  gap: 2px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--black-faint);
+  background: var(--newsprint);
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--black);
+}
+
+.swatch.s-blue { background: var(--riso-blue); }
+.swatch.s-pink { background: var(--riso-pink); }
+.swatch.s-yellow { background: var(--riso-yellow); }
+.swatch.s-purple { background: var(--overprint-purple); }
+.swatch.s-orange { background: var(--overprint-orange); }
+.swatch.s-black { background: var(--black); }
+
+/* ── Ink bleed on borders ── */
+.ink-bleed-border {
+  box-shadow: 0 0 0 1px rgba(26,26,26,0.06), 0 0 4px rgba(26,26,26,0.04);
+}
+
+/* Section label with print registration marks */
+.section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--black-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-label::before {
+  content: '';
+  width: 12px;
+  height: 1.5px;
+  background: var(--riso-blue);
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--black-faint), transparent);
+}
+</style>
+</head>
+<body>
+
+<!-- Halftone Dot Pattern Overlay -->
+<div class="halftone-overlay"></div>
+
+<!-- Grain/Noise Texture Overlay -->
+<div class="grain-overlay"></div>
+
+<!-- ═══ Title Bar ═══ -->
+<div class="title-bar">
+  <div class="title-bar-left">
+    <div class="title-bar-logo">
+      <!-- Print press / ink roller icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="8" width="18" height="8" rx="1"/>
+        <path d="M7 8V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v3"/>
+        <path d="M7 16v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3"/>
+        <line x1="7" y1="12" x2="17" y2="12" stroke-opacity="0.4"/>
+      </svg>
+    </div>
+    <h1>Tinsu Planning Workspace <span>— Risograph</span></h1>
+    <span class="title-bar-barcode">TINSU-2026</span>
+  </div>
+  <div class="title-bar-right">
+    <div class="title-bar-dots">
+      <div class="reg-dot"></div>
+      <div class="reg-dot"></div>
+      <div class="reg-dot"></div>
+    </div>
+    <span class="title-bar-time">Mar 26, 2026 &middot; 10:34 AM</span>
+    <span class="title-bar-badge">Sprint 4</span>
+  </div>
+</div>
+
+<!-- ═══ Main Workspace ═══ -->
+<div class="workspace">
+
+  <!-- ═══ LEFT SIDEBAR — Chat Session List ═══ -->
+  <div class="sidebar-left">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <!-- Chat bubble icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+        </svg>
+        Sessions
+      </div>
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+      <!-- Session 1: Active PM session -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="persona-dot pm"></div>
+          <span class="persona-name pm">PM</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge active">Active</span>
+        </div>
+        <div class="session-preview">Create the PRD with acceptance criteria for all user stories...</div>
+        <div class="session-time">2 min ago</div>
+        <button class="kebab-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Session 2: Architect session -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="persona-dot architect"></div>
+          <span class="persona-name architect">Architect</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="status-badge active">Active</span>
+        </div>
+        <div class="session-preview">Design the system architecture using event-driven microservices...</div>
+        <div class="session-time">18 min ago</div>
+        <button class="kebab-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Session 3: Analyst session (paused) -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="persona-dot analyst"></div>
+          <span class="persona-name analyst">Analyst</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge paused">Paused</span>
+        </div>
+        <div class="session-preview">The competitive landscape shows three major players dominating...</div>
+        <div class="session-time">2 hours ago</div>
+        <button class="kebab-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Session 4: UX Designer session -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="persona-dot ux"></div>
+          <span class="persona-name ux">UX Designer</span>
+          <span class="permission-badge manual">Manual</span>
+          <span class="status-badge active">Active</span>
+        </div>
+        <div class="session-preview">Mapping the onboarding flow with progressive disclosure pattern...</div>
+        <div class="session-time">3 hours ago</div>
+        <button class="kebab-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Session 5: Completed -->
+      <div class="session-card completed">
+        <div class="session-card-top">
+          <div class="persona-dot analyst"></div>
+          <span class="persona-name analyst">Analyst</span>
+          <span class="permission-badge auto">Auto</span>
+          <span class="status-badge completed">Done</span>
+        </div>
+        <div class="session-preview">Brainstorming session complete. Product vision documented with...</div>
+        <div class="session-time">yesterday</div>
+        <button class="kebab-menu">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Color swatch strip at bottom of sidebar -->
+    <div class="color-swatch-strip">
+      <div class="swatch s-blue"></div>
+      <div class="swatch s-pink"></div>
+      <div class="swatch s-yellow"></div>
+      <div class="swatch s-purple"></div>
+      <div class="swatch s-orange"></div>
+      <div class="swatch s-black"></div>
+      <span class="barcode-accent" style="margin-left:auto; font-size:14px;">TINSU</span>
+    </div>
+  </div>
+
+  <!-- ═══ CENTER PANEL — Chat Message Area ═══ -->
+  <div class="center-panel">
+    <!-- Persona Selector Header -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <button class="back-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
+        <div class="persona-selector">
+          <button class="persona-btn">
+            <span class="dot" style="background:#E55A6E"></span>
+            Analyst
+          </button>
+          <button class="persona-btn selected">
+            <span class="dot" style="background:#F2EDE4"></span>
+            PM
+          </button>
+          <button class="persona-btn">
+            <span class="dot" style="background:#E8943A"></span>
+            Architect
+          </button>
+          <button class="persona-btn">
+            <span class="dot" style="background:#7B4FA2"></span>
+            UX
+          </button>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <button class="header-action-btn auto-approve">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          Auto
+        </button>
+        <button class="header-action-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          </svg>
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-area">
+
+      <!-- User message 1 -->
+      <div class="message user">
+        <div class="message-bubble">
+          I need you to create the PRD for our planning workspace application. Focus on the chat interface and session management features first.
+          <div class="message-time">10:22 AM</div>
+        </div>
+      </div>
+
+      <!-- Assistant message 1 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color:#3D5A99">
+            <span class="dot" style="background:#3D5A99"></span>
+            PM
+          </div>
+          I'll create a comprehensive PRD for the planning workspace. Let me start by reviewing your existing product brief and brainstorming artifacts to ensure alignment with the product vision.
+          <div class="message-time">10:22 AM</div>
+        </div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+          </svg>
+          Agent performed <span class="count-badge">3</span> actions
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12" style="margin-left:auto;opacity:0.4">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </div>
+        <div class="tool-timeline">
+          <!-- Tool 1: Read -->
+          <div class="tool-card">
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            </svg>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Read File</div>
+              <div class="tool-card-detail">docs/product-brief.md</div>
+              <div class="tool-card-meta">
+                <span class="tool-status-dot success"></span>
+                <span class="tool-duration">320ms</span>
+              </div>
+            </div>
+          </div>
+          <!-- Tool 2: Search -->
+          <div class="tool-card">
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Grep Search</div>
+              <div class="tool-card-detail">pattern: "acceptance criteria" in workspace/</div>
+              <div class="tool-card-meta">
+                <span class="tool-status-dot success"></span>
+                <span class="tool-duration">145ms</span>
+              </div>
+            </div>
+          </div>
+          <!-- Tool 3: Write -->
+          <div class="tool-card">
+            <svg class="tool-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>
+            </svg>
+            <div class="tool-card-content">
+              <div class="tool-card-title">Write File</div>
+              <div class="tool-card-detail">artifacts/planning/prd-v1.md (2.4 KB)</div>
+              <div class="tool-card-meta">
+                <span class="tool-status-dot success"></span>
+                <span class="tool-duration">89ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User message 2 -->
+      <div class="message user">
+        <div class="message-bubble">
+          Good start. Can you also add the technical constraints section? We need to support Electron with React and use tRPC for IPC communication.
+          <div class="message-time">10:28 AM</div>
+        </div>
+      </div>
+
+      <!-- Assistant message 2 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color:#3D5A99">
+            <span class="dot" style="background:#3D5A99"></span>
+            PM
+          </div>
+          Absolutely. I've reviewed the existing architecture decisions and will add a technical constraints section covering the Electron + React stack, tRPC for type-safe IPC, and the SQLite database layer. I'll also note the Claude CLI integration requirements since that's central to the agent workflow.
+          <div class="message-time">10:29 AM</div>
+        </div>
+      </div>
+
+      <!-- User message 3 -->
+      <div class="message user">
+        <div class="message-bubble">
+          Perfect. Make sure the PRD captures the multi-persona chat model where each persona runs independently with its own context window.
+          <div class="message-time">10:31 AM</div>
+        </div>
+      </div>
+
+      <!-- Assistant message 3 -->
+      <div class="message assistant">
+        <div class="message-bubble">
+          <div class="assistant-persona-tag" style="color:#3D5A99">
+            <span class="dot" style="background:#3D5A99"></span>
+            PM
+          </div>
+          Updated. The PRD now includes the multi-persona architecture with independent context windows per session. Each persona (Analyst, PM, Architect, UX Designer) maintains its own conversation thread and artifact scope. I've also documented the permission model distinguishing auto-approve from manual-approve tool usage.
+          <div class="message-time">10:32 AM</div>
+        </div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="thinking-dots">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+        </div>
+        <span class="thinking-label">PM is thinking...</span>
+      </div>
+
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-container">
+        <textarea class="chat-input" placeholder="Type your message..." rows="1"></textarea>
+        <button class="chat-send-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m5 12 14-7-4 7 4 7Z"/>
+            <path d="M5 12h9"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chat-input-meta">
+        <div class="input-meta-left">
+          <button class="attach-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            Attach
+          </button>
+          <button class="attach-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+            </svg>
+            Screenshot
+          </button>
+        </div>
+        <span class="char-count">0 / 4000</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL — Dashboard ═══ -->
+  <div class="sidebar-right">
+    <!-- Tabs -->
+    <div class="right-tabs">
+      <button class="right-tab active">Dashboard</button>
+      <button class="right-tab">Artifact</button>
+      <button class="right-tab">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="right-content">
+
+      <!-- What Next Card -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">What Next</span>
+          <svg class="dash-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+          </svg>
+        </div>
+        <div class="dash-card-body">
+          <div class="what-next-content">
+            The PM agent is finalizing the PRD. Once complete, hand off to the <strong>Architect</strong> persona to begin the system design document covering data models, API contracts, and service boundaries.
+          </div>
+          <button class="what-next-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m5 12 14-7-4 7 4 7Z"/><path d="M5 12h9"/>
+            </svg>
+            Start Architect Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Project Health Card -->
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Project Health</span>
+          <svg class="dash-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+          </svg>
+        </div>
+        <div class="dash-card-body">
+          <div class="health-bar-container">
+            <span class="health-percentage" data-value="65%">65%</span>
+            <div class="health-bar-track">
+              <div class="health-bar-fill" style="width: 65%"></div>
+            </div>
+          </div>
+          <div class="health-checklist">
+            <div class="checklist-item">
+              <div class="check-box checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              Product brief completed
+            </div>
+            <div class="checklist-item">
+              <div class="check-box checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              Competitive analysis done
+            </div>
+            <div class="checklist-item">
+              <div class="check-box checked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              PRD in progress
+            </div>
+            <div class="checklist-item incomplete">
+              <div class="check-box"></div>
+              System design document
+            </div>
+            <div class="checklist-item incomplete">
+              <div class="check-box"></div>
+              UX wireframes
+            </div>
+            <div class="checklist-item incomplete">
+              <div class="check-box"></div>
+              Sprint backlog ready
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Cards Row -->
+      <div class="section-label">Phases</div>
+      <div class="phase-cards-row">
+        <div class="phase-card brainstorm">
+          <div class="phase-card-label">Brainstorm</div>
+          <div class="phase-card-count">4</div>
+          <div class="phase-card-sub">artifacts</div>
+        </div>
+        <div class="phase-card planning">
+          <div class="phase-card-label">Planning</div>
+          <div class="phase-card-count">2</div>
+          <div class="phase-card-sub">in progress</div>
+        </div>
+        <div class="phase-card development">
+          <div class="phase-card-label">Dev</div>
+          <div class="phase-card-count">0</div>
+          <div class="phase-card-sub">not started</div>
+        </div>
+      </div>
+
+      <!-- Recent Runs Table -->
+      <div class="section-label">Recent Runs</div>
+      <div class="dash-card" style="animation-delay: 0.7s;">
+        <div class="runs-table">
+          <div class="runs-table-header">
+            <span>Session</span>
+            <span>Phase</span>
+            <span>Status</span>
+            <span>Time</span>
+          </div>
+          <div class="runs-row">
+            <span>PRD Draft v1</span>
+            <span><span class="run-phase-tag planning">Plan</span></span>
+            <span>
+              <span class="run-status-tag running">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/></svg>
+                Running
+              </span>
+            </span>
+            <span>2m</span>
+          </div>
+          <div class="runs-row">
+            <span>Competitor Scan</span>
+            <span><span class="run-phase-tag brainstorm">Brain</span></span>
+            <span>
+              <span class="run-status-tag succeeded">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Done
+              </span>
+            </span>
+            <span>18m</span>
+          </div>
+          <div class="runs-row">
+            <span>Vision Doc</span>
+            <span><span class="run-phase-tag brainstorm">Brain</span></span>
+            <span>
+              <span class="run-status-tag succeeded">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Done
+              </span>
+            </span>
+            <span>45m</span>
+          </div>
+          <div class="runs-row">
+            <span>API Sketch</span>
+            <span><span class="run-phase-tag dev">Dev</span></span>
+            <span>
+              <span class="run-status-tag failed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                Failed
+              </span>
+            </span>
+            <span>3m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workflow Readiness Badges -->
+      <div class="section-label">Artifacts</div>
+      <div class="dash-card" style="animation-delay: 0.77s;">
+        <div class="dash-card-body">
+          <div class="workflow-badges">
+            <span class="workflow-badge ready">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+              product-brief.md
+            </span>
+            <span class="workflow-badge ready">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+              competitive-analysis.md
+            </span>
+            <span class="workflow-badge in-review">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              prd-v1.md
+            </span>
+            <span class="workflow-badge missing">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              system-design.md
+            </span>
+            <span class="workflow-badge missing">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              wireframes.fig
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom barcode decoration -->
+      <div style="text-align: center; margin-top: 4px;">
+        <span class="barcode-accent">TINSU-SPRINT4-RISO</span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

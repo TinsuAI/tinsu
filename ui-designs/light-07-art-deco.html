@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tinsu Planning Workspace — Art Deco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poiret+One&family=Cormorant+Infant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   ART DECO GATSBY — Tinsu Planning Workspace
+   1920s opulence: geometric patterns, gold leaf, champagne
+   ═══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ivory:           #FFFEF5;
+  --ivory-warm:      #FBF8F0;
+  --champagne:       #F7E7CE;
+  --champagne-pale:  #FAF0E0;
+  --gold:            #C9A959;
+  --gold-bright:     #D4B96A;
+  --gold-deep:       #A8893A;
+  --gold-dark:       #8B7230;
+  --emerald:         #1B4332;
+  --emerald-mid:     #2D6A4F;
+  --emerald-light:   #3A7D5F;
+  --emerald-pale:    rgba(27, 67, 50, 0.08);
+  --onyx:            #1A1A2E;
+  --onyx-light:      #2A2A3E;
+  --rose:            #E8B4B8;
+  --rose-deep:       #C9878D;
+  --rose-pale:       rgba(232, 180, 184, 0.15);
+  --cream:           #F5F0E6;
+  --cream-dark:      #E8E0D0;
+  --text-primary:    #1A1A2E;
+  --text-secondary:  #5A5A6E;
+  --text-muted:      #8A8A9E;
+  --border:          rgba(201, 169, 89, 0.2);
+  --border-subtle:   rgba(201, 169, 89, 0.1);
+  --border-strong:   rgba(201, 169, 89, 0.35);
+
+  --gold-gradient:   linear-gradient(135deg, #A8893A, #C9A959, #D4B96A, #C9A959, #A8893A);
+  --gold-shimmer:    linear-gradient(105deg, #A8893A 0%, #C9A959 25%, #D4B96A 50%, #C9A959 75%, #A8893A 100%);
+  --emerald-gradient:linear-gradient(135deg, #1B4332, #2D6A4F);
+
+  --shadow-card:     0 2px 12px rgba(26, 26, 46, 0.06), 0 1px 4px rgba(26, 26, 46, 0.04);
+  --shadow-hover:    0 6px 24px rgba(26, 26, 46, 0.1), 0 2px 8px rgba(26, 26, 46, 0.06);
+  --shadow-gold:     0 0 20px rgba(201, 169, 89, 0.08);
+  --shadow-deep:     0 8px 32px rgba(26, 26, 46, 0.12);
+
+  --radius:          8px;
+  --radius-sm:       6px;
+  --radius-lg:       12px;
+  --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --font-head:       'Poiret One', cursive;
+  --font-body:       'Cormorant Infant', serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--ivory);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 169, 89, 0.25);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 169, 89, 0.4);
+}
+
+/* ── Art Deco Background Pattern ───────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 60px,
+      rgba(201, 169, 89, 0.018) 60px,
+      rgba(201, 169, 89, 0.018) 61px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 60px,
+      rgba(201, 169, 89, 0.018) 60px,
+      rgba(201, 169, 89, 0.018) 61px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Gold Shimmer Animation ────────────────────────────── */
+@keyframes goldShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fadeUpIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes thinkingDot {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes borderPulse {
+  0%, 100% { border-color: rgba(201, 169, 89, 0.12); }
+  50% { border-color: rgba(201, 169, 89, 0.3); }
+}
+
+@keyframes sunburstSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes fanReveal {
+  from { clip-path: polygon(50% 100%, 50% 100%, 50% 100%); opacity: 0; }
+  to   { clip-path: polygon(50% 100%, 0% 0%, 100% 0%); opacity: 1; }
+}
+
+@keyframes progressFill {
+  from { width: 0; }
+}
+
+/* Gold text utility */
+.gold-text {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gold-shimmer-text {
+  background: var(--gold-shimmer);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: goldShimmer 5s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TITLE BAR
+   ══════════════════════════════════════════════════════════ */
+.title-bar {
+  height: 52px;
+  min-height: 52px;
+  background: var(--onyx);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+  -webkit-app-region: drag;
+  overflow: hidden;
+}
+
+/* Art Deco chevron border at bottom */
+.title-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--gold) 0px,
+      var(--gold) 3px,
+      transparent 3px,
+      transparent 6px,
+      var(--gold-deep) 6px,
+      var(--gold-deep) 9px,
+      transparent 9px,
+      transparent 12px
+    );
+}
+
+/* Decorative corner diamonds */
+.title-bar .deco-left,
+.title-bar .deco-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.title-bar .deco-left { left: 80px; }
+.title-bar .deco-right { right: 80px; }
+.title-bar .deco-diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  transform: rotate(45deg);
+  opacity: 0.5;
+}
+.title-bar .deco-line {
+  width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  opacity: 0.3;
+}
+.title-bar .deco-right .deco-line {
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+
+.window-controls {
+  position: absolute;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+.window-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: opacity 300ms;
+}
+.window-dot:hover { opacity: 0.7; }
+.window-dot.red { background: #FF5F57; }
+.window-dot.yellow { background: #FEBC2E; }
+.window-dot.green { background: #28C840; }
+
+.title-bar-text {
+  font-family: var(--font-head);
+  font-size: 14px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--champagne);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.title-bar-text .accent {
+  background: var(--gold-shimmer);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: goldShimmer 6s linear infinite;
+  letter-spacing: 8px;
+  font-size: 16px;
+}
+.title-bar-text .separator {
+  width: 1px;
+  height: 18px;
+  background: rgba(201, 169, 89, 0.3);
+}
+
+/* ══════════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ══════════════════════════════════════════════════════════ */
+.workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr 380px;
+  height: calc(100vh - 52px);
+  position: relative;
+  z-index: 1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ART DECO GEOMETRIC BORDER UTILITY
+   ══════════════════════════════════════════════════════════ */
+.deco-border-v {
+  position: relative;
+}
+.deco-border-v::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--gold) 0px,
+      var(--gold) 8px,
+      transparent 8px,
+      transparent 12px,
+      var(--gold-deep) 12px,
+      var(--gold-deep) 14px,
+      transparent 14px,
+      transparent 18px
+    );
+  opacity: 0.3;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LEFT SIDEBAR — CHAT SESSION LIST
+   ══════════════════════════════════════════════════════════ */
+.sidebar {
+  background: var(--ivory-warm);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  animation: slideInLeft 0.5s var(--ease-out) both;
+}
+
+/* Decorative Art Deco fan at top of sidebar */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 120px;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    rgba(201, 169, 89, 0.06) 0%,
+    rgba(201, 169, 89, 0.03) 40%,
+    transparent 70%
+  );
+  border-radius: 0 0 50% 50%;
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 22px 18px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+/* Art Deco chevron divider */
+.sidebar-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 18px;
+  right: 18px;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 4px,
+      var(--gold) 4px,
+      var(--gold) 6px,
+      transparent 6px,
+      transparent 10px
+    );
+  opacity: 0.25;
+}
+
+.sidebar-title {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-title .deco-gem {
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(201, 169, 89, 0.08), rgba(201, 169, 89, 0.03));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--gold-deep);
+  font-family: var(--font-head);
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 300ms var(--ease-out);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.new-chat-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold-shimmer);
+  background-size: 200% auto;
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out);
+}
+.new-chat-btn:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 20px rgba(201, 169, 89, 0.1);
+  background: linear-gradient(135deg, rgba(201, 169, 89, 0.12), rgba(201, 169, 89, 0.05));
+  transform: translateY(-1px);
+}
+.new-chat-btn:hover::before {
+  opacity: 0.04;
+  animation: goldShimmer 2s linear infinite;
+}
+.new-chat-btn .icon {
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+/* Session Cards */
+.session-card {
+  padding: 14px 14px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 300ms var(--ease-out);
+  position: relative;
+  animation: fadeUpIn 450ms var(--ease-out) both;
+}
+.session-card:nth-child(1) { animation-delay: 100ms; }
+.session-card:nth-child(2) { animation-delay: 160ms; }
+.session-card:nth-child(3) { animation-delay: 220ms; }
+.session-card:nth-child(4) { animation-delay: 280ms; }
+.session-card:nth-child(5) { animation-delay: 340ms; }
+
+.session-card:hover {
+  background: rgba(201, 169, 89, 0.04);
+  border-color: var(--border-subtle);
+}
+
+.session-card.active {
+  background: linear-gradient(135deg, rgba(201, 169, 89, 0.07), rgba(247, 231, 206, 0.3));
+  border-color: var(--border);
+  box-shadow: var(--shadow-gold);
+}
+.session-card.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: var(--gold-gradient);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Corner ornament on active card */
+.session-card.active::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid var(--gold);
+  border-right: 2px solid var(--gold);
+  opacity: 0.4;
+}
+
+.session-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.session-persona {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.persona-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.persona-dot::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.3;
+}
+.persona-dot.architect { background: var(--gold); color: var(--gold); }
+.persona-dot.engineer { background: var(--emerald); color: var(--emerald); }
+.persona-dot.reviewer { background: var(--emerald-mid); color: var(--emerald-mid); }
+.persona-dot.pm { background: var(--rose-deep); color: var(--rose-deep); }
+.persona-dot.designer { background: var(--rose); color: var(--rose); }
+
+.session-persona-name {
+  font-family: var(--font-head);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.session-kebab {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 14px;
+  letter-spacing: 2px;
+  transition: all 200ms;
+  opacity: 0;
+}
+.session-card:hover .session-kebab { opacity: 1; }
+.session-kebab:hover {
+  background: rgba(201, 169, 89, 0.1);
+  color: var(--gold-deep);
+}
+
+.session-preview {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-style: italic;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.session-time {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.session-badges {
+  display: flex;
+  gap: 5px;
+}
+.badge {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  line-height: 1.5;
+}
+.badge-active {
+  background: rgba(27, 67, 50, 0.08);
+  color: var(--emerald);
+  border: 1px solid rgba(27, 67, 50, 0.2);
+}
+.badge-complete {
+  background: rgba(201, 169, 89, 0.1);
+  color: var(--gold-deep);
+  border: 1px solid rgba(201, 169, 89, 0.2);
+}
+.badge-paused {
+  background: rgba(201, 169, 89, 0.06);
+  color: var(--gold-dark);
+  border: 1px solid rgba(201, 169, 89, 0.15);
+}
+.badge-review {
+  background: rgba(232, 180, 184, 0.12);
+  color: var(--rose-deep);
+  border: 1px solid rgba(232, 180, 184, 0.25);
+}
+.badge-permission {
+  background: var(--rose-pale);
+  color: var(--rose-deep);
+  border: 1px solid rgba(232, 180, 184, 0.2);
+}
+.badge-auto {
+  background: var(--emerald-pale);
+  color: var(--emerald-mid);
+  border: 1px solid rgba(27, 67, 50, 0.15);
+}
+
+/* ══════════════════════════════════════════════════════════
+   CENTER PANEL — CHAT MESSAGE AREA
+   ══════════════════════════════════════════════════════════ */
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--ivory);
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+/* Persona Selector Header */
+.persona-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 254, 245, 0.95);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+/* Art Deco stepped divider under persona header */
+.persona-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 24px;
+  right: 24px;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--gold) 0px,
+      var(--gold) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+  opacity: 0.15;
+}
+
+.persona-btn {
+  padding: 8px 18px;
+  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 300ms var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+}
+.persona-btn:hover {
+  border-color: var(--border);
+  color: var(--text-primary);
+  background: rgba(201, 169, 89, 0.04);
+}
+.persona-btn.active {
+  border-color: var(--gold);
+  color: var(--gold-deep);
+  background: linear-gradient(135deg, rgba(201, 169, 89, 0.08), rgba(247, 231, 206, 0.2));
+  box-shadow: 0 0 12px rgba(201, 169, 89, 0.08);
+}
+/* Geometric corner on active persona button */
+.persona-btn.active::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+}
+.persona-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid var(--gold);
+  border-right: 2px solid var(--gold);
+}
+.persona-btn .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* Messages Area */
+.messages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+}
+
+/* Subtle Art Deco vertical guide line */
+.messages-area::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(201, 169, 89, 0.06) 0px,
+    rgba(201, 169, 89, 0.06) 4px,
+    transparent 4px,
+    transparent 12px
+  );
+  pointer-events: none;
+}
+
+/* Message Bubbles */
+.message {
+  max-width: 70%;
+  animation: fadeUpIn 400ms var(--ease-out) both;
+}
+.message:nth-child(1) { animation-delay: 100ms; }
+.message:nth-child(2) { animation-delay: 200ms; }
+.message:nth-child(3) { animation-delay: 300ms; }
+.message:nth-child(4) { animation-delay: 400ms; }
+.message:nth-child(5) { animation-delay: 500ms; }
+.message:nth-child(6) { animation-delay: 600ms; }
+.message:nth-child(7) { animation-delay: 700ms; }
+.message:nth-child(8) { animation-delay: 800ms; }
+
+.message-user { align-self: flex-end; }
+.message-agent { align-self: flex-start; }
+
+.message-user .message-bubble {
+  background: linear-gradient(135deg, var(--emerald), var(--emerald-mid));
+  border: none;
+  border-radius: var(--radius) var(--radius) 3px var(--radius);
+  padding: 14px 20px;
+  color: var(--champagne);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.65;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+/* Gold corner trim on user bubble */
+.message-user .message-bubble::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  border-top: 1.5px solid rgba(201, 169, 89, 0.4);
+  border-right: 1.5px solid rgba(201, 169, 89, 0.4);
+}
+
+.message-agent .message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.message-agent .agent-name {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.message-agent .agent-tag {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  background: rgba(201, 169, 89, 0.08);
+  padding: 2px 7px;
+  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
+}
+
+.message-agent .message-bubble {
+  background: var(--ivory-warm);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px var(--radius) var(--radius) var(--radius);
+  padding: 16px 20px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.7;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+/* Gold corner ornament on agent bubble */
+.message-agent .message-bubble::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-top: 1.5px solid rgba(201, 169, 89, 0.25);
+  border-left: 1.5px solid rgba(201, 169, 89, 0.25);
+}
+
+.message-agent .message-bubble:hover {
+  border-color: var(--border);
+}
+
+.message-time {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  text-transform: uppercase;
+}
+.message-user .message-time { text-align: right; }
+
+/* Tool Activity Group */
+.tool-group {
+  align-self: flex-start;
+  max-width: 70%;
+  animation: fadeUpIn 400ms var(--ease-out) both;
+  animation-delay: 500ms;
+}
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tool-group-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.tool-group-count {
+  font-family: var(--font-head);
+  font-size: 10px;
+  background: rgba(201, 169, 89, 0.1);
+  color: var(--gold-deep);
+  padding: 2px 9px;
+  border-radius: 2px;
+  letter-spacing: 1.5px;
+  border: 1px solid var(--border-subtle);
+}
+
+.tool-group-card {
+  background: var(--ivory-warm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+/* Top gold line on tool group */
+.tool-group-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold-gradient);
+  opacity: 0.5;
+}
+
+.tool-action {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(201, 169, 89, 0.06);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: background 200ms;
+}
+.tool-action:last-child { border-bottom: none; }
+.tool-action:hover { background: rgba(201, 169, 89, 0.03); }
+
+.tool-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding-top: 2px;
+  position: relative;
+}
+.tool-timeline-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  z-index: 1;
+  transform: rotate(45deg);
+}
+.tool-timeline-dot.success {
+  background: var(--emerald);
+  box-shadow: 0 0 6px rgba(27, 67, 50, 0.3);
+}
+.tool-timeline-dot.warning {
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(201, 169, 89, 0.3);
+}
+.tool-timeline-dot.info {
+  background: var(--rose-deep);
+  box-shadow: 0 0 6px rgba(201, 135, 141, 0.3);
+}
+.tool-timeline-line {
+  width: 1px;
+  flex: 1;
+  min-height: 22px;
+  background: linear-gradient(180deg, var(--gold), transparent);
+  opacity: 0.3;
+}
+
+.tool-action-content { flex: 1; }
+.tool-action-name {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.tool-action-detail {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.tool-action-time {
+  font-family: var(--font-head);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Thinking Indicator */
+.thinking-indicator {
+  align-self: flex-start;
+  animation: fadeUpIn 400ms var(--ease-out) both;
+  animation-delay: 800ms;
+}
+.thinking-bubble {
+  background: var(--ivory-warm);
+  border: 1px solid var(--border);
+  border-radius: 3px var(--radius) var(--radius) var(--radius);
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-card);
+  animation: borderPulse 3s ease-in-out infinite;
+}
+.thinking-label {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.thinking-dots {
+  display: flex;
+  gap: 6px;
+}
+.thinking-dots span {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--gold);
+  animation: thinkingDot 1.4s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.16s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+/* Input Area */
+.input-area {
+  padding: 16px 32px 22px;
+  border-top: 1px solid var(--border);
+  background: rgba(255, 254, 245, 0.95);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+/* Decorative stepped top border */
+.input-area::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 32px;
+  right: 32px;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--gold) 0px,
+      var(--gold) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+  opacity: 0.12;
+}
+
+.input-wrapper {
+  background: var(--ivory-warm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  transition: all 300ms var(--ease-out);
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+/* Corner ornaments on input */
+.input-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+  opacity: 0.25;
+  transition: opacity 300ms;
+}
+.input-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid var(--gold);
+  border-right: 2px solid var(--gold);
+  opacity: 0.25;
+  transition: opacity 300ms;
+}
+.input-wrapper:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 24px rgba(201, 169, 89, 0.1);
+}
+.input-wrapper:focus-within::before,
+.input-wrapper:focus-within::after {
+  opacity: 0.5;
+}
+
+.input-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 10px 14px;
+  resize: none;
+  line-height: 1.5;
+  min-height: 42px;
+  max-height: 120px;
+}
+.input-field::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 6px 0;
+}
+.input-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 250ms var(--ease-out);
+  font-size: 16px;
+}
+.input-btn:hover {
+  background: rgba(201, 169, 89, 0.08);
+  color: var(--gold-deep);
+}
+.input-send {
+  background: var(--emerald-gradient);
+  color: var(--champagne);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 4px;
+}
+.input-send:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 16px rgba(27, 67, 50, 0.2);
+}
+
+/* ══════════════════════════════════════════════════════════
+   RIGHT PANEL — DASHBOARD
+   ══════════════════════════════════════════════════════════ */
+.right-panel {
+  background: var(--ivory-warm);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  animation: slideInRight 0.5s var(--ease-out) both;
+}
+
+/* Decorative Art Deco sunburst watermark */
+.right-panel .sunburst-watermark {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  pointer-events: none;
+  opacity: 0.018;
+  z-index: 0;
+}
+.sunburst-watermark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      var(--gold) 0deg 3deg,
+      transparent 3deg 15deg
+    );
+  border-radius: 50%;
+  animation: sunburstSpin 120s linear infinite;
+}
+
+/* Tabs */
+.panel-tabs {
+  display: flex;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--ivory-warm);
+  position: relative;
+  z-index: 2;
+}
+.panel-tabs::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 16px;
+  right: 16px;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 4px,
+      var(--gold) 4px,
+      var(--gold) 6px,
+      transparent 6px,
+      transparent 10px
+    );
+  opacity: 0.15;
+}
+
+.panel-tab {
+  padding: 14px 18px 12px;
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  position: relative;
+  transition: color 300ms var(--ease-out);
+}
+.panel-tab:hover { color: var(--text-primary); }
+.panel-tab.active { color: var(--gold-deep); }
+.panel-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 15%;
+  right: 15%;
+  height: 3px;
+  background: var(--gold-gradient);
+  z-index: 3;
+}
+
+/* Panel content */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Art Deco Section Divider */
+.deco-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.deco-divider .line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.25;
+}
+.deco-divider .gem {
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  transform: rotate(45deg);
+  opacity: 0.4;
+}
+
+/* What Next Card */
+.what-next-card {
+  background: linear-gradient(135deg, rgba(201, 169, 89, 0.06), rgba(247, 231, 206, 0.25));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUpIn 500ms var(--ease-out) both;
+  animation-delay: 100ms;
+}
+/* Art Deco top border with stepped pattern */
+.what-next-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      var(--gold-deep) 10%,
+      var(--gold) 30%,
+      var(--gold-bright) 50%,
+      var(--gold) 70%,
+      var(--gold-deep) 90%,
+      transparent 100%
+    );
+}
+/* Corner ornaments */
+.what-next-card::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-bottom: 2px solid rgba(201, 169, 89, 0.2);
+  border-right: 2px solid rgba(201, 169, 89, 0.2);
+}
+
+.what-next-label {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.what-next-label .pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  transform: rotate(45deg);
+  animation: thinkingDot 2s ease-in-out infinite;
+}
+.what-next-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+.what-next-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* Section Card */
+.section-card {
+  background: var(--ivory);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+  margin-bottom: 14px;
+  transition: all 300ms var(--ease-out);
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+.section-card:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-hover);
+}
+/* Corner ornament */
+.section-card::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-top: 1.5px solid rgba(201, 169, 89, 0.2);
+  border-left: 1.5px solid rgba(201, 169, 89, 0.2);
+}
+
+.section-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title .percentage {
+  font-size: 22px;
+  letter-spacing: 0;
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Health Bar */
+.health-bar-track {
+  height: 5px;
+  background: var(--cream-dark);
+  border-radius: 0;
+  margin-bottom: 14px;
+  overflow: hidden;
+  position: relative;
+}
+/* Art Deco stepped health bar */
+.health-bar-fill {
+  height: 100%;
+  background: var(--gold-gradient);
+  animation: progressFill 1.2s var(--ease-out) both;
+  position: relative;
+}
+.health-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold-bright);
+  box-shadow: 0 0 8px rgba(201, 169, 89, 0.5);
+}
+
+/* Checklist */
+.checklist { list-style: none; }
+.checklist li {
+  padding: 6px 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideInLeft 300ms var(--ease-out) both;
+}
+.checklist li:nth-child(1) { animation-delay: 200ms; }
+.checklist li:nth-child(2) { animation-delay: 260ms; }
+.checklist li:nth-child(3) { animation-delay: 320ms; }
+.checklist li:nth-child(4) { animation-delay: 380ms; }
+.checklist li:nth-child(5) { animation-delay: 440ms; }
+
+.check-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  flex-shrink: 0;
+  transform: rotate(45deg);
+}
+.check-icon span {
+  transform: rotate(-45deg);
+}
+.check-icon.done {
+  background: rgba(27, 67, 50, 0.1);
+  color: var(--emerald);
+  border: 1px solid rgba(27, 67, 50, 0.25);
+}
+.check-icon.pending {
+  background: rgba(201, 169, 89, 0.1);
+  color: var(--gold-deep);
+  border: 1px solid rgba(201, 169, 89, 0.25);
+}
+.check-icon.blocked {
+  background: var(--rose-pale);
+  color: var(--rose-deep);
+  border: 1px solid rgba(232, 180, 184, 0.3);
+}
+.checklist li.completed { color: var(--text-primary); font-weight: 500; }
+
+/* Phase Cards */
+.phases-section {
+  margin-bottom: 14px;
+}
+.phases-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.phases-title .deco-gem {
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+
+.phase-card {
+  background: var(--ivory);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 13px 16px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 300ms var(--ease-out);
+  cursor: pointer;
+  animation: fadeUpIn 400ms var(--ease-out) both;
+  position: relative;
+}
+.phase-card:nth-child(1) { animation-delay: 350ms; }
+.phase-card:nth-child(2) { animation-delay: 410ms; }
+.phase-card:nth-child(3) { animation-delay: 470ms; }
+
+.phase-card:hover {
+  border-color: var(--border);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-card);
+}
+
+.phase-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.phase-number {
+  font-family: var(--font-head);
+  font-size: 18px;
+  color: var(--gold);
+  width: 28px;
+  text-align: center;
+  letter-spacing: 0;
+}
+.phase-info { display: flex; flex-direction: column; }
+.phase-name {
+  font-family: var(--font-head);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+.phase-detail {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.phase-status {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 2px;
+}
+.phase-status.complete {
+  background: rgba(27, 67, 50, 0.08);
+  color: var(--emerald);
+  border: 1px solid rgba(27, 67, 50, 0.2);
+}
+.phase-status.in-progress {
+  background: rgba(201, 169, 89, 0.08);
+  color: var(--gold-deep);
+  border: 1px solid rgba(201, 169, 89, 0.2);
+}
+.phase-status.upcoming {
+  background: rgba(26, 26, 46, 0.04);
+  color: var(--text-muted);
+  border: 1px solid rgba(26, 26, 46, 0.08);
+}
+
+/* Recent Runs Table */
+.runs-section {
+  margin-top: 4px;
+}
+.runs-title {
+  font-family: var(--font-head);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.runs-title .deco-gem {
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  animation: fadeUpIn 500ms var(--ease-out) both;
+  animation-delay: 500ms;
+}
+.runs-table th {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border);
+  background: rgba(201, 169, 89, 0.03);
+}
+.runs-table td {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(201, 169, 89, 0.06);
+  transition: background 200ms;
+}
+.runs-table tr:hover td {
+  background: rgba(201, 169, 89, 0.03);
+}
+.runs-table .run-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.runs-table .run-status {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+.run-status.passed {
+  background: rgba(27, 67, 50, 0.08);
+  color: var(--emerald);
+  border: 1px solid rgba(27, 67, 50, 0.15);
+}
+.run-status.failed {
+  background: var(--rose-pale);
+  color: var(--rose-deep);
+  border: 1px solid rgba(232, 180, 184, 0.2);
+}
+.run-status.running {
+  background: rgba(201, 169, 89, 0.08);
+  color: var(--gold-deep);
+  border: 1px solid rgba(201, 169, 89, 0.2);
+}
+
+/* ══════════════════════════════════════════════════════════
+   ART DECO DECORATIVE ELEMENTS — CSS ONLY
+   ══════════════════════════════════════════════════════════ */
+
+/* Fan decoration for panels */
+.deco-fan {
+  position: relative;
+  overflow: hidden;
+}
+.deco-fan::before {
+  content: '';
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  background:
+    repeating-conic-gradient(
+      from 0deg at 50% 100%,
+      var(--gold) 0deg 3deg,
+      transparent 3deg 12deg
+    );
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+/* Geometric corner frame */
+.corner-frame {
+  position: relative;
+}
+.corner-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+  opacity: 0.2;
+}
+.corner-frame::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  border-bottom: 2px solid var(--gold);
+  border-right: 2px solid var(--gold);
+  opacity: 0.2;
+}
+
+/* SVG Icons — Inline */
+.icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ TITLE BAR ══════════════════ -->
+<div class="title-bar">
+  <div class="window-controls">
+    <div class="window-dot red"></div>
+    <div class="window-dot yellow"></div>
+    <div class="window-dot green"></div>
+  </div>
+  <div class="deco-left">
+    <div class="deco-line"></div>
+    <div class="deco-diamond"></div>
+    <div class="deco-diamond"></div>
+    <div class="deco-diamond"></div>
+  </div>
+  <div class="title-bar-text">
+    <span class="accent">Tinsu</span>
+    <span class="separator"></span>
+    <span>Planning Workspace</span>
+    <span class="separator"></span>
+    <span style="font-size: 11px; letter-spacing: 3px; opacity: 0.5;">Art Deco</span>
+  </div>
+  <div class="deco-right">
+    <div class="deco-diamond"></div>
+    <div class="deco-diamond"></div>
+    <div class="deco-diamond"></div>
+    <div class="deco-line"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ WORKSPACE ══════════════════ -->
+<div class="workspace">
+
+  <!-- ══════════ LEFT SIDEBAR ══════════ -->
+  <div class="sidebar deco-border-v">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <span class="deco-gem"></span>
+        Sessions
+        <span class="deco-gem"></span>
+      </div>
+      <button class="new-chat-btn">
+        <span class="icon">+</span>
+        New Chat
+      </button>
+    </div>
+
+    <div class="session-list">
+      <!-- Session 1 — Active -->
+      <div class="session-card active">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot architect"></div>
+            <span class="session-persona-name">Architect</span>
+          </div>
+          <div class="session-kebab">...</div>
+        </div>
+        <div class="session-preview">"Refactoring the database layer to support multi-tenant isolation with schema-per-tenant..."</div>
+        <div class="session-meta">
+          <span class="session-time">2 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-active">Active</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 2 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot engineer"></div>
+            <span class="session-persona-name">Engineer</span>
+          </div>
+          <div class="session-kebab">...</div>
+        </div>
+        <div class="session-preview">"Implementing the WebSocket gateway for real-time sprint board synchronization..."</div>
+        <div class="session-meta">
+          <span class="session-time">14 min ago</span>
+          <div class="session-badges">
+            <span class="badge badge-review">Review</span>
+            <span class="badge badge-permission">Permit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 3 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot pm"></div>
+            <span class="session-persona-name">PM Agent</span>
+          </div>
+          <div class="session-kebab">...</div>
+        </div>
+        <div class="session-preview">"Sprint velocity analysis shows a 12% improvement over Q3. Recommending scope increase for Epic 7..."</div>
+        <div class="session-meta">
+          <span class="session-time">1 hr ago</span>
+          <div class="session-badges">
+            <span class="badge badge-complete">Done</span>
+            <span class="badge badge-auto">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 4 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot reviewer"></div>
+            <span class="session-persona-name">Reviewer</span>
+          </div>
+          <div class="session-kebab">...</div>
+        </div>
+        <div class="session-preview">"Code review for PR #248: Auth middleware needs error boundary refinement before merge..."</div>
+        <div class="session-meta">
+          <span class="session-time">3 hr ago</span>
+          <div class="session-badges">
+            <span class="badge badge-paused">Paused</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session 5 -->
+      <div class="session-card">
+        <div class="session-card-top">
+          <div class="session-persona">
+            <div class="persona-dot designer"></div>
+            <span class="session-persona-name">Designer</span>
+          </div>
+          <div class="session-kebab">...</div>
+        </div>
+        <div class="session-preview">"Generated component library tokens for the design system. Awaiting review of color palette..."</div>
+        <div class="session-meta">
+          <span class="session-time">Yesterday</span>
+          <div class="session-badges">
+            <span class="badge badge-complete">Done</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ CENTER PANEL ══════════ -->
+  <div class="center-panel">
+    <!-- Persona Selector -->
+    <div class="persona-header">
+      <button class="persona-btn active">
+        <span class="dot" style="background: var(--gold);"></span>
+        Architect
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--emerald);"></span>
+        Engineer
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--rose-deep);"></span>
+        PM
+      </button>
+      <button class="persona-btn">
+        <span class="dot" style="background: var(--emerald-mid);"></span>
+        Reviewer
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area">
+      <!-- User Message 1 -->
+      <div class="message message-user">
+        <div class="message-bubble">
+          I need to refactor the database layer to support multi-tenant isolation. What architectural patterns do you recommend?
+        </div>
+        <div class="message-time">10:24 AM</div>
+      </div>
+
+      <!-- Agent Message 1 -->
+      <div class="message message-agent">
+        <div class="message-header">
+          <span class="agent-name">Architect</span>
+          <span class="agent-tag">Analysis</span>
+        </div>
+        <div class="message-bubble">
+          For multi-tenant isolation in your current stack, I recommend a hybrid approach: <strong>schema-per-tenant</strong> for data isolation with a <strong>shared connection pool</strong> for resource efficiency. This gives you strong tenant boundaries without the operational overhead of database-per-tenant. I've identified three key migration steps that minimize downtime.
+        </div>
+        <div class="message-time">10:24 AM</div>
+      </div>
+
+      <!-- User Message 2 -->
+      <div class="message message-user">
+        <div class="message-bubble">
+          Makes sense. Can you scaffold the migration plan and check if our current ORM supports dynamic schema switching?
+        </div>
+        <div class="message-time">10:26 AM</div>
+      </div>
+
+      <!-- Tool Activity Group -->
+      <div class="tool-group">
+        <div class="tool-group-header">
+          <span class="tool-group-title">Tool Activity</span>
+          <span class="tool-group-count">3 Actions</span>
+        </div>
+        <div class="tool-group-card">
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot success"></div>
+              <div class="tool-timeline-line"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Read File</div>
+              <div class="tool-action-detail">src/main/db/schema.ts -- analyzing current models</div>
+            </div>
+            <div class="tool-action-time">2.1s</div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot warning"></div>
+              <div class="tool-timeline-line"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Search Codebase</div>
+              <div class="tool-action-detail">Pattern: "createConnection|withSchema" across 47 files</div>
+            </div>
+            <div class="tool-action-time">4.8s</div>
+          </div>
+          <div class="tool-action">
+            <div class="tool-timeline">
+              <div class="tool-timeline-dot success"></div>
+            </div>
+            <div class="tool-action-content">
+              <div class="tool-action-name">Write File</div>
+              <div class="tool-action-detail">src/main/db/tenant-migration.ts -- created scaffold</div>
+            </div>
+            <div class="tool-action-time">1.3s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Message 2 -->
+      <div class="message message-agent">
+        <div class="message-header">
+          <span class="agent-name">Architect</span>
+          <span class="agent-tag">Result</span>
+        </div>
+        <div class="message-bubble">
+          I've scaffolded the migration plan at <code style="background: rgba(201,169,89,0.1); padding: 1px 6px; border-radius: 2px; font-size: 12px; border: 1px solid rgba(201,169,89,0.15);">tenant-migration.ts</code>. Your ORM (Drizzle) supports dynamic schema switching via the <code style="background: rgba(201,169,89,0.1); padding: 1px 6px; border-radius: 2px; font-size: 12px; border: 1px solid rgba(201,169,89,0.15);">withSchema()</code> method. The migration involves three phases: schema creation, data partitioning, and connection routing. Shall I proceed with the implementation?
+        </div>
+        <div class="message-time">10:27 AM</div>
+      </div>
+
+      <!-- User Message 3 -->
+      <div class="message message-user">
+        <div class="message-bubble">
+          Yes, proceed with phase one. Also estimate the downtime window for the data migration step.
+        </div>
+        <div class="message-time">10:28 AM</div>
+      </div>
+
+      <!-- Thinking Indicator -->
+      <div class="thinking-indicator">
+        <div class="thinking-bubble">
+          <span class="thinking-label">Architect is reasoning</span>
+          <div class="thinking-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea class="input-field" placeholder="Send a message to Architect..." rows="1"></textarea>
+        <div class="input-actions">
+          <button class="input-btn" title="Attach file">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 8.5l-5.5 5.5a3.5 3.5 0 01-5-5l6.5-6.5a2.5 2.5 0 013.5 3.5l-6.5 6.5a1.5 1.5 0 01-2-2l5.5-5.5"/>
+            </svg>
+          </button>
+          <button class="input-btn input-send" title="Send">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M1.5 1L13 7L1.5 13V8.5L9 7L1.5 5.5V1Z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ RIGHT PANEL ══════════ -->
+  <div class="right-panel">
+    <div class="sunburst-watermark"></div>
+
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <button class="panel-tab active">Dashboard</button>
+      <button class="panel-tab">Artifact</button>
+      <button class="panel-tab">Readiness</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="panel-content">
+      <!-- What Next Card -->
+      <div class="what-next-card">
+        <div class="what-next-label">
+          <span class="pulse-dot"></span>
+          Recommended Next
+        </div>
+        <div class="what-next-title">Complete Tenant Migration Phase 1</div>
+        <div class="what-next-desc">
+          The schema isolation scaffold is ready. Run the migration suite against staging to validate tenant boundary enforcement before proceeding to data partitioning.
+        </div>
+      </div>
+
+      <!-- Project Health -->
+      <div class="section-card">
+        <div class="section-title">
+          <span>Project Health</span>
+          <span class="percentage">65%</span>
+        </div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width: 65%;"></div>
+        </div>
+        <ul class="checklist">
+          <li class="completed">
+            <div class="check-icon done"><span>&#10003;</span></div>
+            Database schema design approved
+          </li>
+          <li class="completed">
+            <div class="check-icon done"><span>&#10003;</span></div>
+            Authentication middleware deployed
+          </li>
+          <li>
+            <div class="check-icon pending"><span>&#9679;</span></div>
+            Tenant isolation migration in progress
+          </li>
+          <li>
+            <div class="check-icon pending"><span>&#9679;</span></div>
+            WebSocket gateway pending review
+          </li>
+          <li>
+            <div class="check-icon blocked"><span>&#10005;</span></div>
+            E2E test suite blocked on CI config
+          </li>
+        </ul>
+      </div>
+
+      <!-- Decorative Divider -->
+      <div class="deco-divider">
+        <div class="line"></div>
+        <div class="gem"></div>
+        <div class="line"></div>
+      </div>
+
+      <!-- Phase Cards -->
+      <div class="phases-section">
+        <div class="phases-title">
+          <span class="deco-gem"></span>
+          Sprint Phases
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-card-left">
+            <span class="phase-number">I</span>
+            <div class="phase-info">
+              <span class="phase-name">Foundation</span>
+              <span class="phase-detail">Schema, auth, base infra</span>
+            </div>
+          </div>
+          <span class="phase-status complete">Complete</span>
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-card-left">
+            <span class="phase-number">II</span>
+            <div class="phase-info">
+              <span class="phase-name">Isolation</span>
+              <span class="phase-detail">Multi-tenant, data partitioning</span>
+            </div>
+          </div>
+          <span class="phase-status in-progress">Active</span>
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-card-left">
+            <span class="phase-number">III</span>
+            <div class="phase-info">
+              <span class="phase-name">Integration</span>
+              <span class="phase-detail">Real-time sync, E2E tests</span>
+            </div>
+          </div>
+          <span class="phase-status upcoming">Upcoming</span>
+        </div>
+      </div>
+
+      <!-- Decorative Divider -->
+      <div class="deco-divider">
+        <div class="line"></div>
+        <div class="gem"></div>
+        <div class="line"></div>
+      </div>
+
+      <!-- Recent Runs -->
+      <div class="runs-section">
+        <div class="runs-title">
+          <span class="deco-gem"></span>
+          Recent Runs
+        </div>
+        <table class="runs-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="run-name">Schema validation</td>
+              <td>3m 12s</td>
+              <td><span class="run-status passed">Passed</span></td>
+            </tr>
+            <tr>
+              <td class="run-name">Migration dry-run</td>
+              <td>7m 48s</td>
+              <td><span class="run-status running">Running</span></td>
+            </tr>
+            <tr>
+              <td class="run-name">Auth unit tests</td>
+              <td>1m 04s</td>
+              <td><span class="run-status passed">Passed</span></td>
+            </tr>
+            <tr>
+              <td class="run-name">E2E smoke suite</td>
+              <td>--</td>
+              <td><span class="run-status failed">Failed</span></td>
+            </tr>
+            <tr>
+              <td class="run-name">Lint + type check</td>
+              <td>0m 38s</td>
+              <td><span class="run-status passed">Passed</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
