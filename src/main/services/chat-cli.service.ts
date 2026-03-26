@@ -516,7 +516,7 @@ export class ChatCliService {
     // CTM-1.1 AC 1: Create detached tmux session
     console.log(`[ChatCliService] Creating tmux session: ${tmuxSessionName}`)
     try {
-      await execAsync(`tmux new-session -d -s ${tmuxSessionName}`, {
+      await execAsync(`tmux new-session -d -s ${tmuxSessionName} -c ${JSON.stringify(projectPath)}`, {
         timeout: TMUX_COMMAND_TIMEOUT
       })
     } catch (error) {

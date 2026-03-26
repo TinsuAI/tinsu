@@ -155,7 +155,7 @@ describe('ChatCliService (CTM-1.1)', () => {
 
       // Should create tmux session
       expect(mockExecAsync).toHaveBeenCalledWith(
-        'tmux new-session -d -s tinsu-testproject-session-1',
+        'tmux new-session -d -s tinsu-testproject-session-1 -c "/project/path"',
         expect.objectContaining({ timeout: 5000 })
       )
 
