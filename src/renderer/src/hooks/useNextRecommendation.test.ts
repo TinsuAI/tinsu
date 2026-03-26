@@ -188,7 +188,7 @@ describe('computeNextRecommendation', () => {
       const result = computeNextRecommendation(buildArtifacts([]))
       expect(result).not.toBeNull()
       if (result && !('complete' in result)) {
-        expect(result.produces).toBe('product-brief.md')
+        expect(result.produces).toBe('product-brief-*.md')
       }
     })
   })

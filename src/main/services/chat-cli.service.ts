@@ -69,6 +69,21 @@ export class ChatCliService {
   /** Map from sessionId to last activity timestamp (Date.now()) (Story 10.6) */
   private lastActivityMap: Map<string, number> = new Map()
 
+  /**
+   * Tracks whether a session is busy (Claude is generating a response).
+   * Set true when a user message is sent, cleared when a chat-stop hook fires.
+   * Prevents writing to PTY stdin while the TUI is in output mode,
+   * which would lose the message or cancel Claude's current generation.
+   */
+  private busySessions: Set<string> = new Set()
+
+  /**
+   * Queued messages for sessions that are currently busy.
+   * Each entry is the raw CLI message string to send when the session becomes free.
+   * Only the latest queued message is kept — intermediate messages are superseded.
+   */
+  private messageQueue: Map<string, string> = new Map()
+
   /** Path to the chat-specific hooks directory */
   private chatHooksDir: string
 
@@ -227,6 +242,9 @@ export class ChatCliService {
     // The TUI outputs escape sequences and prompt indicators when ready.
     this.writeWhenReady(processId, sessionId, initialMessage)
 
+    // Mark busy — message will be submitted once TUI is ready
+    this.busySessions.add(sessionId)
+
     return processId
   }
 
@@ -333,6 +351,15 @@ export class ChatCliService {
       throw new Error(`Chat CLI session has exited: ${sessionId}`)
     }
 
+    // If Claude is currently generating a response, queue the message instead
+    // of writing to PTY. Writing while the TUI is in output mode would either
+    // lose the text or cancel Claude's current generation.
+    if (this.busySessions.has(sessionId)) {
+      console.log(`[ChatCliService] Session ${sessionId} is busy, queuing message (${message.length} chars)`)
+      this.messageQueue.set(sessionId, message)
+      return
+    }
+
     // Write message content, then send \r (Enter) after a short delay.
     // See writeWhenReady for explanation of why the delay is needed.
     ptyService.write(info.processId, message)
@@ -343,8 +370,41 @@ export class ChatCliService {
       }
     }, 150)
 
+    // Mark session as busy until chat-stop hook fires
+    this.busySessions.add(sessionId)
+
     // Track activity for idle timeout (Story 10.6)
     this.lastActivityMap.set(sessionId, Date.now())
+  }
+
+  /**
+   * Mark a session as no longer busy (Claude finished generating).
+   * Called by the hook listener when a chat-stop hook fires.
+   * If a queued message exists, sends it immediately.
+   *
+   * @param sessionId - TinSu's internal chat session ID
+   */
+  markSessionFree(sessionId: string): void {
+    this.busySessions.delete(sessionId)
+
+    // Flush queued message if any
+    const queuedMessage = this.messageQueue.get(sessionId)
+    if (queuedMessage) {
+      this.messageQueue.delete(sessionId)
+      console.log(`[ChatCliService] Session ${sessionId} free, sending queued message (${queuedMessage.length} chars)`)
+      try {
+        this.sendMessage(sessionId, queuedMessage)
+      } catch (err) {
+        console.warn(`[ChatCliService] Failed to send queued message for session ${sessionId}:`, err)
+      }
+    }
+  }
+
+  /**
+   * Check if a session is currently busy (Claude is generating a response).
+   */
+  isSessionBusy(sessionId: string): boolean {
+    return this.busySessions.has(sessionId)
   }
 
   /**
@@ -405,6 +465,9 @@ export class ChatCliService {
     // Wait for TUI ready before writing message
     this.writeWhenReady(processId, sessionId, message)
 
+    // Mark busy — message will be submitted once TUI is ready
+    this.busySessions.add(sessionId)
+
     return processId
   }
 
@@ -452,6 +515,8 @@ export class ChatCliService {
     ptyService.kill(info.processId)
     this.sessions.delete(sessionId)
     this.lastActivityMap.delete(sessionId)
+    this.busySessions.delete(sessionId)
+    this.messageQueue.delete(sessionId)
 
     console.log(`[ChatCliService] Killed session ${sessionId}`)
   }
@@ -488,6 +553,8 @@ export class ChatCliService {
       if (info.processId === event.processId) {
         info.status = 'exited'
         this.processToSessionMap.delete(event.processId)
+        this.busySessions.delete(sessionId)
+        this.messageQueue.delete(sessionId)
         console.warn(
           `[ChatCliService] PTY EXITED for session ${sessionId} (code: ${event.exitCode}, signal: ${(event as Record<string, unknown>).signal ?? 'none'})`
         )

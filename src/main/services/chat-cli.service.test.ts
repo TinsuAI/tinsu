@@ -114,8 +114,8 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       // Simulate TUI input area ready (ctrl+g hint)
       simulatePtyOutput('pty-123', 'ctrl+g to edit in Vim')
 
-      // Now the message should be written
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\r')
+      // Now the message should be written (Enter/\r sent separately after 150ms delay)
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent')
     })
 
     it('auto-dismisses trust prompt before waiting for TUI ready', () => {
@@ -134,8 +134,8 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
       // Now simulate TUI ready after trust is dismissed
       simulatePtyOutput('pty-123', 'ctrl+g to edit in Vim')
 
-      // Now the actual message should be written
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent\r')
+      // Now the actual message should be written (Enter/\r sent separately after 150ms delay)
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Hello agent')
       expect(mockWrite).toHaveBeenCalledTimes(2)
     })
 
@@ -178,14 +178,44 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
   })
 
   describe('sendMessage (AC: 2)', () => {
-    it('writes message to existing PTY session', () => {
+    it('writes message to existing PTY session when not busy', () => {
       mockGetProcess.mockReturnValue({ state: 'running' })
       service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      // Simulate stop hook marking session free after initial message
+      service.markSessionFree('session-1')
       mockWrite.mockClear()
 
       service.sendMessage('session-1', 'Follow-up message')
 
-      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message\r')
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Follow-up message')
+    })
+
+    it('queues message when session is busy', () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      // Session is busy after spawn — don't call markSessionFree
+      mockWrite.mockClear()
+
+      service.sendMessage('session-1', 'Follow-up while busy')
+
+      // Should not write to PTY
+      expect(mockWrite).not.toHaveBeenCalled()
+      expect(service.isSessionBusy('session-1')).toBe(true)
+    })
+
+    it('flushes queued message when markSessionFree is called', () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      service.spawnSession('session-1', 'uuid-abc', '/project/path', 'Hello')
+      mockWrite.mockClear()
+
+      // Queue a message while busy
+      service.sendMessage('session-1', 'Queued message')
+      expect(mockWrite).not.toHaveBeenCalled()
+
+      // Mark free — should flush queued message
+      service.markSessionFree('session-1')
+
+      expect(mockWrite).toHaveBeenCalledWith('pty-123', 'Queued message')
     })
 
     it('throws when session not found', () => {
@@ -446,6 +476,9 @@ describe('ChatCliService (Story 10.3, AC: 1, 2, 5)', () => {
 
       mockGetProcess.mockReturnValue({ state: 'running' })
       service.spawnSession('session-1', 'uuid-1', '/path', 'Hello')
+
+      // Simulate stop hook freeing session
+      service.markSessionFree('session-1')
 
       // Advance time, then send message to reset activity
       vi.setSystemTime(now + IDLE_TIMEOUT_MS - 5000)

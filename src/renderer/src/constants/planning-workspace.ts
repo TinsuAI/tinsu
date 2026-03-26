@@ -50,7 +50,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'analysis',
     name: 'Brainstorming',
     purpose: 'Explore ideas and define product direction',
-    outputFilename: 'brainstorming/brainstorming-session.md',
+    outputFilename: 'brainstorming/brainstorming-session-*.md',
     command: '/bmad-brainstorming',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 1
@@ -60,7 +60,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'analysis',
     name: 'Market Research',
     purpose: 'Analyze competition and market landscape',
-    outputFilename: 'market-research.md',
+    outputFilename: 'research/market-*-research-*.md',
     command: '/bmad-market-research',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 2
@@ -70,7 +70,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'analysis',
     name: 'Domain Research',
     purpose: 'Deep dive into domain-specific knowledge',
-    outputFilename: 'domain-research.md',
+    outputFilename: 'research/domain-*-research-*.md',
     command: '/bmad-domain-research',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 3
@@ -80,7 +80,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'analysis',
     name: 'Product Brief',
     purpose: 'Define product vision and target users',
-    outputFilename: 'product-brief.md',
+    outputFilename: 'product-brief-*.md',
     command: '/bmad-create-product-brief',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 4
@@ -134,7 +134,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     phase: 'solutioning',
     name: 'Implementation Readiness',
     purpose: 'Validate specs are complete before development',
-    outputFilename: 'readiness-check.md',
+    outputFilename: 'implementation-readiness-report-*.md',
     command: '/bmad-check-implementation-readiness',
     persona: 'bmad:bmm:agents:pm',
     stepNumber: 9
@@ -161,7 +161,7 @@ export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
     workflowKey: 'product-brief',
     label: 'Create Product Brief',
     reason: 'Product Brief defines your vision. Everything starts here.',
-    produces: 'product-brief.md',
+    produces: 'product-brief-*.md',
     requires: [],
     phase: 'analysis'
   },
@@ -202,7 +202,7 @@ export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
     workflowKey: 'readiness-check',
     label: 'Run Implementation Readiness Check',
     reason: 'All planning artifacts exist. Validate specs before development begins.',
-    produces: 'readiness-check.md',
+    produces: 'implementation-readiness-report-*.md',
     requires: ['epics-stories'],
     phase: 'solutioning'
   }

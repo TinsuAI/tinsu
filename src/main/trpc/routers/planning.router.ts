@@ -12,11 +12,20 @@ import { GitService } from '../../services/git.service'
 import type { ArtifactVersionEntry } from '../../services/git.service'
 
 /**
- * Resolve a workflow entry to an actual file path relative to the artifacts dir.
+ * Get the base directory for a workflow's artifacts.
+ * Defaults to `_bmad-output/planning-artifacts/` unless overridden via `baseDir`.
+ */
+function getWorkflowBaseDir(bmadOutputDir: string, workflow: (typeof BMAD_WORKFLOWS)[number]): string {
+  const sub = workflow.baseDir ?? 'planning-artifacts'
+  return sub ? join(bmadOutputDir, sub) : bmadOutputDir
+}
+
+/**
+ * Resolve a workflow entry to an actual file path relative to its base dir.
  * For entries with `filename`, returns it directly.
  * For entries with `glob`, scans the subdirectory and returns the most recent match.
  */
-function resolveArtifactFilename(artifactsDir: string, workflow: (typeof BMAD_WORKFLOWS)[number]): string | null {
+function resolveArtifactFilename(baseDir: string, workflow: (typeof BMAD_WORKFLOWS)[number]): string | null {
   if (workflow.filename) return workflow.filename
 
   if (workflow.glob) {
@@ -28,7 +37,7 @@ function resolveArtifactFilename(artifactsDir: string, workflow: (typeof BMAD_WO
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
 
     try {
-      const dir = subdir ? join(artifactsDir, subdir) : artifactsDir
+      const dir = subdir ? join(baseDir, subdir) : baseDir
       const files = readdirSync(dir)
         .filter((f) => regex.test(f))
         .sort()
@@ -56,7 +65,7 @@ export const planningRouter = router({
   scanArtifacts: publicProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
+      const bmadOutputDir = join(ctx.projectRoot, '_bmad-output')
 
       // Load persisted statuses for this project
       const persistedStatuses = await ctx.db
@@ -67,13 +76,14 @@ export const planningRouter = router({
       const statusMap = new Map(persistedStatuses.map((s) => [s.artifact_key, s.status]))
 
       return BMAD_WORKFLOWS.map((workflow) => {
-        const resolved = resolveArtifactFilename(artifactsDir, workflow)
+        const baseDir = getWorkflowBaseDir(bmadOutputDir, workflow)
+        const resolved = resolveArtifactFilename(baseDir, workflow)
         const filename = resolved ?? workflow.filename ?? workflow.glob ?? ''
 
         let fileStat: Stats | null = null
         if (resolved) {
           try {
-            fileStat = statSync(join(artifactsDir, resolved))
+            fileStat = statSync(join(baseDir, resolved))
           } catch {
             // File does not exist
           }
@@ -129,15 +139,16 @@ export const planningRouter = router({
         })
       }
 
-      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
-      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      const bmadOutputDir = join(ctx.projectRoot, '_bmad-output')
+      const baseDir = getWorkflowBaseDir(bmadOutputDir, workflow)
+      const resolved = resolveArtifactFilename(baseDir, workflow)
       if (!resolved) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Artifact not found for workflow: ${input.workflowKey}`
         })
       }
-      const filePath = join(artifactsDir, resolved)
+      const filePath = join(baseDir, resolved)
       let content: string
       try {
         content = readFileSync(filePath, 'utf-8')
@@ -157,9 +168,12 @@ export const planningRouter = router({
           message: `Artifact not found: ${resolved}`
         })
       }
+      // Build relative path from project root for display
+      const sub = workflow.baseDir ?? 'planning-artifacts'
+      const relBase = sub ? `_bmad-output/${sub}` : '_bmad-output'
       return {
         content,
-        filePath: `_bmad-output/planning-artifacts/${resolved}`,
+        filePath: `${relBase}/${resolved}`,
         lastModified: stat.mtimeMs,
         sizeBytes: stat.size,
         wordCount: content.split(/\s+/).filter(Boolean).length,
@@ -181,7 +195,7 @@ export const planningRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Validate the artifact key is known
-      const knownKeys = ARTIFACT_FILES.map((a) => a.workflowKey)
+      const knownKeys = BMAD_WORKFLOWS.map((a) => a.workflowKey)
       if (!knownKeys.includes(input.artifactKey)) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -540,12 +554,15 @@ export const planningRouter = router({
       const workflow = BMAD_WORKFLOWS.find((a) => a.workflowKey === input.workflowKey)
       if (!workflow) return [] as ArtifactVersionEntry[]
 
-      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
-      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      const bmadOutputDir = join(ctx.projectRoot, '_bmad-output')
+      const baseDir = getWorkflowBaseDir(bmadOutputDir, workflow)
+      const resolved = resolveArtifactFilename(baseDir, workflow)
       if (!resolved) return [] as ArtifactVersionEntry[]
 
       // P8: Use forward slashes — git requires '/' regardless of OS
-      const relPath = `_bmad-output/planning-artifacts/${resolved}`.replace(/\\/g, '/')
+      const sub = workflow.baseDir ?? 'planning-artifacts'
+      const relBase = sub ? `_bmad-output/${sub}` : '_bmad-output'
+      const relPath = `${relBase}/${resolved}`.replace(/\\/g, '/')
       return GitService.getFileVersionHistory(ctx.projectRoot, relPath)
     }),
 
@@ -571,8 +588,9 @@ export const planningRouter = router({
         })
       }
 
-      const artifactsDir = join(ctx.projectRoot, '_bmad-output', 'planning-artifacts')
-      const resolved = resolveArtifactFilename(artifactsDir, workflow)
+      const bmadOutputDir = join(ctx.projectRoot, '_bmad-output')
+      const baseDir = getWorkflowBaseDir(bmadOutputDir, workflow)
+      const resolved = resolveArtifactFilename(baseDir, workflow)
       if (!resolved) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -581,7 +599,9 @@ export const planningRouter = router({
       }
 
       // P8: Use forward slashes — git requires '/' regardless of OS
-      const relPath = `_bmad-output/planning-artifacts/${resolved}`.replace(/\\/g, '/')
+      const sub = workflow.baseDir ?? 'planning-artifacts'
+      const relBase = sub ? `_bmad-output/${sub}` : '_bmad-output'
+      const relPath = `${relBase}/${resolved}`.replace(/\\/g, '/')
 
       // Get "from" content — empty string if initial creation
       let original = ''

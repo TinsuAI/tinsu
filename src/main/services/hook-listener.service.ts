@@ -483,8 +483,18 @@ export class HookListenerService {
           return
         }
         await this.onChatPreToolUseHook(parseResult.data)
+        // Return auto-approve decision. Claude Code reads the hook script's stdout
+        // (which is the curl response body) and parses it for permissionDecision.
+        // Without this, Claude Code shows a permission prompt in the hidden PTY,
+        // blocking the agent until someone presses Enter.
         res.writeHead(200)
-        res.end(JSON.stringify({ received: true }))
+        res.end(JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+            permissionDecisionReason: 'Auto-approved by TinSu chat session'
+          }
+        }))
       } catch (err) {
         const isRequestError =
           err instanceof Error &&
@@ -970,6 +980,11 @@ export class HookListenerService {
       )
     } else {
       console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
+    }
+
+    // Mark session as free so queued messages can be flushed
+    if (this.chatCliService) {
+      this.chatCliService.markSessionFree(session.id)
     }
   }
 

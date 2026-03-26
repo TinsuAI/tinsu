@@ -107,6 +107,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     // Find the session in the preview list to get its persona
     const targetSession = sessionsForCheck.find((s) => s.id === targetChatSessionId)
     if (targetSession) {
+      isSessionBindingRef.current = true
       setSessionId(targetChatSessionId)
       setSelectedPersona(targetSession.agent_persona as ChatPersonaKey)
       sessionPersonaRef.current = targetSession.agent_persona as ChatPersonaKey
@@ -129,8 +130,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       { enabled: !!projectId && !!selectedWorkflowKey }
     )
 
-  // Flag to suppress persona-switch effect when workflow binding sets the persona
-  const isWorkflowBindingRef = useRef(false)
+  // Flag to suppress persona-switch effect when session binding sets the persona
+  // (workflow step click, session list click, or target navigation)
+  const isSessionBindingRef = useRef(false)
 
   // When selectedWorkflowKey changes, wait for query to resolve then bind session
   const prevWorkflowKeyRef = useRef<string | null>(null)
@@ -143,7 +145,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
 
     if (workflowSession) {
       // Resume existing workflow session — suppress persona effect
-      isWorkflowBindingRef.current = true
+      isSessionBindingRef.current = true
       setSessionId(workflowSession.id)
       setSelectedPersona(workflowSession.agent_persona as ChatPersonaKey)
       sessionPersonaRef.current = workflowSession.agent_persona as ChatPersonaKey
@@ -154,7 +156,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       // No session for this workflow yet — clear session so a new one is created on send
       // Auto-select the persona matching this workflow
       if (pendingPersona) {
-        isWorkflowBindingRef.current = true
+        isSessionBindingRef.current = true
         setSelectedPersona(pendingPersona as ChatPersonaKey)
         sessionPersonaRef.current = pendingPersona as ChatPersonaKey
       }
@@ -171,8 +173,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   // with the new persona. Old session remains in DB for future resume (Story 10.6).
   // Skip when the persona change was caused by workflow session binding.
   useEffect(() => {
-    if (isWorkflowBindingRef.current) {
-      isWorkflowBindingRef.current = false
+    if (isSessionBindingRef.current) {
+      isSessionBindingRef.current = false
       return
     }
     // Reset session state when persona changes
@@ -326,6 +328,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
 
   /** Story 10.6 AC: 2 — Select a session from the session list to resume it */
   const handleSelectSession = useCallback((session: ChatSessionListItem) => {
+    isSessionBindingRef.current = true
     setSessionId(session.id)
     setSelectedPersona(session.agent_persona as ChatPersonaKey)
     sessionPersonaRef.current = session.agent_persona as ChatPersonaKey

@@ -215,15 +215,19 @@ describe('planningRouter', () => {
     })
 
     it('returns correct status for existing files', async () => {
+      mockReaddirSync = (p: string) => {
+        if (p.endsWith('planning-artifacts')) return ['product-brief-growth-loop-2026-03-25.md']
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
       mockStatSync = (p: string) => {
-        if (p.includes('product-brief.md')) return { mtimeMs: 1700000000000, size: 1024 }
+        if (p.includes('product-brief-growth-loop-2026-03-25.md')) return { mtimeMs: 1700000000000, size: 1024 }
         const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
         throw err
       }
 
       const result = await caller.scanArtifacts({ projectId: 'project-1' })
 
-      // brainstorming and product-brief both map to product-brief.md
       const productBrief = result.find((a) => a.workflowKey === 'product-brief')
       expect(productBrief?.exists).toBe(true)
       expect(productBrief?.status).toBe('draft')
@@ -346,13 +350,18 @@ describe('planningRouter', () => {
   describe('getArtifactContent', () => {
     it('returns content and metadata for existing artifact', async () => {
       const testContent = '# Product Brief\n\nThis is a test product brief with some words.'
+      mockReaddirSync = (p: string) => {
+        if (p.endsWith('planning-artifacts')) return ['product-brief-growth-loop-2026-03-25.md']
+        const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw err
+      }
       mockReadFileSync = (p: string) => {
-        if (p.includes('product-brief.md')) return testContent
+        if (p.includes('product-brief-growth-loop-2026-03-25.md')) return testContent
         const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
         throw err
       }
       mockStatSync = (p: string) => {
-        if (p.includes('product-brief.md')) return { mtimeMs: 1700000000000, size: 512 }
+        if (p.includes('product-brief-growth-loop-2026-03-25.md')) return { mtimeMs: 1700000000000, size: 512 }
         const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
         throw err
       }
@@ -363,7 +372,7 @@ describe('planningRouter', () => {
       })
 
       expect(result.content).toBe(testContent)
-      expect(result.filePath).toBe('_bmad-output/planning-artifacts/product-brief.md')
+      expect(result.filePath).toBe('_bmad-output/planning-artifacts/product-brief-growth-loop-2026-03-25.md')
       expect(result.lastModified).toBe(1700000000000)
       expect(result.sizeBytes).toBe(512)
       expect(result.wordCount).toBe(12)
