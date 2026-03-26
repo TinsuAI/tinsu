@@ -1,5 +1,5 @@
 /**
- * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), CTM-1.1, CTM-1.3
+ * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), CTM-1.1, CTM-1.3, CTM-2.2
  *
  * Tests: spawnSession creates tmux session + attaches PTY with correct args,
  * sendMessage writes to existing PTY, sessionCache/sessionToChatCache populated,
@@ -9,6 +9,9 @@
  *
  * CTM-1.3 Tests: validateSessionsOnStartup, reattachSession, isTmuxAlive,
  * tmuxSessionExists, parallel validation with Promise.allSettled.
+ *
+ * CTM-2.2 Tests: startMonitoring health polling, emitSessionStatus event emission,
+ * onSessionStatus listener registration, idle timeout integration, killAll cleanup.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -976,6 +979,270 @@ describe('ChatCliService (CTM-1.1)', () => {
       expect(cache.get('tinsu-chat-session-x')).toBe('session-x')
       expect(cache.get('tinsu-chat-session-z')).toBe('session-z')
       expect(cache.get('tinsu-chat-session-y')).toBeUndefined()
+    })
+  })
+
+  describe('Health Monitoring (CTM-2.2)', () => {
+    it('startMonitoring() creates a 2-second interval (Task 6.1)', () => {
+      vi.useFakeTimers()
+
+      const setIntervalSpy = vi.spyOn(global, 'setInterval')
+
+      // startMonitoring is called in constructor, so create a fresh service
+      const freshService = new ChatCliService('/test/chat-hooks')
+
+      // The constructor calls startMonitoring, which calls setInterval with 2000ms
+      // Note: constructor also implicitly sets up the interval
+      const intervalCalls = setIntervalSpy.mock.calls.filter(
+        (call) => call[1] === 2000
+      )
+      expect(intervalCalls.length).toBeGreaterThanOrEqual(1)
+
+      freshService.killAll()
+      setIntervalSpy.mockRestore()
+      vi.useRealTimers()
+    })
+
+    it('health poll detects dead tmux session and removes from cache (Task 6.2)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-health-dead', 'uuid-dead', '/path', 'Hello')
+      mockExecAsync.mockClear()
+
+      // Mock tmux has-session to return false (dead)
+      mockExecAsync.mockRejectedValue(new Error('exit code 1'))
+
+      // Reset DB mock for this test
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      // Manually invoke the monitoring logic by calling the private method pattern:
+      // Access the internal tmuxSessionExists + cache cleanup by calling startMonitoring
+      // and then triggering the async iteration. Instead, we can directly test the
+      // behavior by checking that after a polling cycle, the cache is cleaned.
+      // Use a small wait to let the 2-second interval fire.
+      // Better approach: manually call the monitoring logic.
+
+      // The startMonitoring interval is already running from the constructor.
+      // Wait for it to fire (slightly more than 2s real time is too slow).
+      // Instead, test the behavior directly:
+      // Verify the session is in cache, then simulate what the poll does.
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-health-dead')).toBe('session-health-dead')
+
+      // Since the interval is async, let's test by calling startMonitoring with fake timers
+      vi.useFakeTimers()
+      // Re-start monitoring so the interval is under fake timer control
+      service.startMonitoring()
+
+      // Re-mock after startMonitoring (which may have consumed a mock)
+      mockExecAsync.mockRejectedValue(new Error('exit code 1'))
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // Session should be removed from sessionToChatCache
+      expect(cache.get('tinsu-chat-session-health-dead')).toBeUndefined()
+
+      // DB should have been updated with status: 'paused'
+      expect(mockDbUpdate).toHaveBeenCalled()
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'paused' })
+      )
+
+      vi.useRealTimers()
+    })
+
+    it('health poll keeps alive tmux sessions in cache (Task 6.3)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-health-alive', 'uuid-alive', '/path', 'Hello')
+      mockExecAsync.mockClear()
+
+      vi.useFakeTimers()
+      // Re-start monitoring under fake timer control
+      service.startMonitoring()
+
+      // Mock tmux has-session to return true (alive)
+      mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' })
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // Session should still be in sessionToChatCache
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-health-alive')).toBe('session-health-alive')
+
+      vi.useRealTimers()
+    })
+
+    it('emitSessionStatus notifies registered listeners (Task 6.4)', async () => {
+      const listener = vi.fn()
+      service.onSessionStatus(listener)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-emit-test', 'uuid-emit', '/path', 'Hello')
+      mockExecAsync.mockClear()
+
+      vi.useFakeTimers()
+      service.startMonitoring()
+
+      // Mock tmux has-session to return false (dead) to trigger emitSessionStatus
+      mockExecAsync.mockRejectedValue(new Error('exit code 1'))
+
+      // Reset DB mock
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // Listener should have been called with (sessionId, 'exited')
+      expect(listener).toHaveBeenCalledWith('session-emit-test', 'exited')
+
+      vi.useRealTimers()
+    })
+
+    it('onSessionStatus returns unsubscribe function (Task 6.5)', async () => {
+      const listener = vi.fn()
+      const unsubscribe = service.onSessionStatus(listener)
+
+      // Unsubscribe before any events
+      unsubscribe()
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-unsub-test', 'uuid-unsub', '/path', 'Hello')
+      mockExecAsync.mockClear()
+
+      vi.useFakeTimers()
+      service.startMonitoring()
+
+      // Mock tmux as dead to trigger event
+      mockExecAsync.mockRejectedValue(new Error('exit code 1'))
+
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // Listener should NOT have been called (was unsubscribed)
+      expect(listener).not.toHaveBeenCalled()
+
+      vi.useRealTimers()
+    })
+
+    it('idle timeout kills session after 2 hours (Task 6.6)', async () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-idle-2h', 'uuid-idle-2h', '/path', 'Hello')
+
+      // Advance time past idle timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      const killed = service.checkIdleSessions()
+      expect(killed).toContain('session-idle-2h')
+
+      vi.useRealTimers()
+    })
+
+    it('idle timeout does NOT kill session within 2 hours (Task 6.7)', async () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-active-2h', 'uuid-active-2h', '/path', 'Hello')
+
+      // Advance time to just under the timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS - 60000)
+
+      const killed = service.checkIdleSessions()
+      expect(killed).toEqual([])
+
+      vi.useRealTimers()
+    })
+
+    it('killAll clears monitorInterval (Task 6.8)', () => {
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval')
+
+      service.killAll()
+
+      // clearInterval should have been called (for monitorInterval and/or idleCheckInterval)
+      expect(clearIntervalSpy).toHaveBeenCalled()
+
+      clearIntervalSpy.mockRestore()
+    })
+
+    it('concurrent health poll does not modify sessionCache during iteration (Task 6.9)', async () => {
+      mockGetProcess.mockReturnValue({ state: 'running' })
+
+      // Spawn 3 sessions
+      mockSpawn.mockReturnValueOnce('pty-h1').mockReturnValueOnce('pty-h2').mockReturnValueOnce('pty-h3')
+      await service.spawnSession('session-h1', 'uuid-h1', '/path', 'Hello 1')
+      await service.spawnSession('session-h2', 'uuid-h2', '/path', 'Hello 2')
+      await service.spawnSession('session-h3', 'uuid-h3', '/path', 'Hello 3')
+
+      mockExecAsync.mockClear()
+
+      vi.useFakeTimers()
+      service.startMonitoring()
+
+      // First session is dead, others are alive
+      mockExecAsync
+        .mockRejectedValueOnce(new Error('exit code 1')) // session-h1: dead
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // session-h2: alive
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // session-h3: alive
+
+      // Reset DB mock
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      // Advance timer to trigger health poll
+      await vi.advanceTimersByTimeAsync(2100)
+
+      // Only dead session should be removed
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-h1')).toBeUndefined()
+      expect(cache.get('tinsu-chat-session-h2')).toBe('session-h2')
+      expect(cache.get('tinsu-chat-session-h3')).toBe('session-h3')
+
+      vi.useRealTimers()
+    })
+
+    it('checkIdleSessions emits idle-timeout event (Task 3.4)', async () => {
+      vi.useFakeTimers()
+      const now = Date.now()
+      vi.setSystemTime(now)
+
+      const listener = vi.fn()
+      service.onSessionStatus(listener)
+
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-idle-emit', 'uuid-idle-emit', '/path', 'Hello')
+
+      // Advance time past idle timeout
+      vi.setSystemTime(now + IDLE_TIMEOUT_MS + 1000)
+
+      service.checkIdleSessions()
+
+      // Listener should have been called with 'idle-timeout'
+      expect(listener).toHaveBeenCalledWith('session-idle-emit', 'idle-timeout')
+
+      vi.useRealTimers()
+    })
+
+    it('startMonitoring is idempotent -- calling twice clears previous interval (Task 4.3)', () => {
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval')
+
+      // Call startMonitoring again (constructor already called it once)
+      service.startMonitoring()
+
+      // Should have cleared the previous interval before creating a new one
+      expect(clearIntervalSpy).toHaveBeenCalled()
+
+      clearIntervalSpy.mockRestore()
     })
   })
 })

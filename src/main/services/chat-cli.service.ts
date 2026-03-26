@@ -1,5 +1,5 @@
 /**
- * Chat CLI Service - Story 10.3, 10.6, CTM-1.1, CTM-1.3, CTM-2.1
+ * Chat CLI Service - Story 10.3, 10.6, CTM-1.1, CTM-1.3, CTM-2.1, CTM-2.2
  *
  * Manages Claude Code CLI processes for chat sessions via tmux.
  * Uses a two-layer model: tmux session (persistence) + PTY (I/O).
@@ -94,8 +94,11 @@ export class ChatCliService {
   /** Path to the chat-specific hooks directory */
   private chatHooksDir: string
 
-  /** Interval handle for idle session checks (Story 10.6) */
-  private idleCheckInterval: ReturnType<typeof setInterval> | null = null
+  /** CTM-2.2: Interval handle for health monitoring (2-second polling) */
+  private monitorInterval: ReturnType<typeof setInterval> | null = null
+
+  /** CTM-2.2: Registered listeners for session status change events */
+  private statusListeners: Set<(sessionId: string, status: string) => void> = new Set()
 
   /** Callback invoked when a session is killed due to idle timeout (Story 10.6) */
   private onIdleCallback: ((sessionId: string) => void) | null = null
@@ -117,8 +120,90 @@ export class ChatCliService {
       this.handlePtyExit(event)
     })
 
-    // Start periodic idle session check (every 60 seconds) (Story 10.6 AC: 5)
-    this.idleCheckInterval = setInterval(() => this.checkIdleSessions(), 60_000)
+    // CTM-2.2: Start health monitoring (replaces standalone idle check interval)
+    this.startMonitoring()
+  }
+
+  /**
+   * Start health monitoring: 2-second interval that polls `tmux has-session`
+   * for every cached session and runs idle timeout checks.
+   *
+   * CTM-2.2 AC 1: Polls every 2 seconds for all cached sessions.
+   * CTM-2.2 AC 2: Detects dead tmux sessions within one polling interval (<2s, NFR32).
+   * CTM-2.2 AC 3, 4: Runs idle timeout checks (2-hour threshold) in same cycle.
+   *
+   * Idempotent: if monitorInterval is already set, clears it before creating a new one.
+   *
+   * @see CTM-2.2 Task 1, Task 3, Task 4
+   */
+  startMonitoring(): void {
+    // Task 4.3: Idempotent -- clear existing interval if present
+    if (this.monitorInterval) {
+      clearInterval(this.monitorInterval)
+      this.monitorInterval = null
+    }
+
+    this.monitorInterval = setInterval(async () => {
+      // Task 1.4: Snapshot sessionCache entries to guard against concurrent iteration
+      const entries = Array.from(this.sessionCache.entries())
+
+      for (const [sessionId, tmuxName] of entries) {
+        const alive = await this.tmuxSessionExists(tmuxName)
+        if (!alive) {
+          // Remove from in-memory caches
+          this.sessionCache.delete(sessionId)
+          this.sessionToChatCache.delete(tmuxName)
+
+          // Update DB: mark session as paused
+          try {
+            db.update(chat_sessions)
+              .set({ status: 'paused', updated_at: new Date() })
+              .where(eq(chat_sessions.id, sessionId))
+              .run()
+          } catch (dbError) {
+            console.warn(`[ChatCliService] Health monitor: DB update failed for session ${sessionId}:`, dbError)
+          }
+
+          // Emit status change event for UI (Task 2.4)
+          this.emitSessionStatus(sessionId, 'exited')
+
+          console.log(`[ChatCliService] Health monitor: session ${sessionId} tmux exited, marked paused`)
+        }
+      }
+
+      // Task 3.2: Run idle check at the END of each polling cycle
+      // Idle timeout resets on each sendMessage() call (user message), not on agent output.
+      this.checkIdleSessions()
+    }, 2000)
+  }
+
+  /**
+   * Register a listener for session status change events.
+   *
+   * Returns an unsubscribe function to remove the listener.
+   *
+   * @param listener - Callback invoked with (sessionId, status) on status changes
+   * @returns Unsubscribe function
+   *
+   * @see CTM-2.2 Task 2.2
+   */
+  onSessionStatus(listener: (sessionId: string, status: string) => void): () => void {
+    this.statusListeners.add(listener)
+    return () => this.statusListeners.delete(listener)
+  }
+
+  /**
+   * Emit a session status change event to all registered listeners.
+   *
+   * @param sessionId - TinSu's internal chat session ID
+   * @param status - The new status (e.g., 'exited', 'idle-timeout')
+   *
+   * @see CTM-2.2 Task 2.3
+   */
+  private emitSessionStatus(sessionId: string, status: string): void {
+    for (const listener of this.statusListeners) {
+      listener(sessionId, status)
+    }
   }
 
   /**
@@ -330,6 +415,9 @@ export class ChatCliService {
 
     for (const [sessionId, lastActivity] of this.lastActivityMap) {
       if (now - lastActivity > IDLE_TIMEOUT_MS && this.isSessionAlive(sessionId)) {
+        // CTM-2.2 Task 3.4: Emit idle-timeout event before killing
+        this.emitSessionStatus(sessionId, 'idle-timeout')
+
         this.killSession(sessionId)
         killedSessionIds.push(sessionId)
         console.log(
@@ -605,6 +693,9 @@ export class ChatCliService {
     this.busySessions.add(sessionId)
 
     // Track activity for idle timeout (Story 10.6)
+    // CTM-2.2 Task 5.3: The idle timeout (2 hours) resets on each sendMessage() call
+    // (user message), not on agent output. This ensures sessions stay alive while the
+    // user is actively chatting, regardless of agent response frequency.
     this.lastActivityMap.set(sessionId, Date.now())
   }
 
@@ -716,10 +807,10 @@ export class ChatCliService {
    * Called on app shutdown to clean up.
    */
   killAll(): void {
-    // Clear idle check interval (Story 10.6)
-    if (this.idleCheckInterval) {
-      clearInterval(this.idleCheckInterval)
-      this.idleCheckInterval = null
+    // CTM-2.2 Task 3.5: Clear health monitoring interval
+    if (this.monitorInterval) {
+      clearInterval(this.monitorInterval)
+      this.monitorInterval = null
     }
 
     for (const [sessionId, info] of this.sessions) {
@@ -740,6 +831,7 @@ export class ChatCliService {
     this.sessionCache.clear()
     this.sessionToChatCache.clear()
     this.lastActivityMap.clear()
+    this.busySessions.clear()
   }
 
   /**
