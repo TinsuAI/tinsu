@@ -1,5 +1,5 @@
 /**
- * Chat CLI Service - Story 10.3, 10.6, CTM-1.1
+ * Chat CLI Service - Story 10.3, 10.6, CTM-1.1, CTM-1.3
  *
  * Manages Claude Code CLI processes for chat sessions via tmux.
  * Uses a two-layer model: tmux session (persistence) + PTY (I/O).
@@ -17,15 +17,24 @@
  * - Chat sessions are INTERACTIVE: no --dangerously-skip-permissions.
  * - Idle sessions (>2 hours) are auto-killed to free resources.
  *
+ * CTM-1.3: Startup validation and three-case session recovery:
+ *   - validateSessionsOnStartup(): Detects alive/dead tmux sessions on app start
+ *   - reattachSession(): Re-attaches PTY to alive tmux (Case B)
+ *   - isTmuxAlive(): Public check for tmux session existence
+ *
  * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
  * @see Story 10.6: Session Persistence & Resume (AC: 5)
  * @see CTM-1.1: tmux Session Creation & PTY Attachment
+ * @see CTM-1.3: Session Recovery & Startup Validation
  */
 
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { ptyService } from './pty.service'
 import { TmuxService } from './tmux.service'
+import { db } from '../db'
+import { chat_sessions } from '../db/schema'
+import { eq, and, isNotNull } from 'drizzle-orm'
 import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
 
 const execAsync = promisify(exec)
@@ -118,6 +127,179 @@ export class ChatCliService {
    */
   getSessionToChatCache(): Map<string, string> {
     return this.sessionToChatCache
+  }
+
+  /**
+   * Check if a tmux session with the given name exists.
+   *
+   * Runs `tmux has-session -t {sessionName}` with TMUX_COMMAND_TIMEOUT.
+   * Returns true on exit code 0, false otherwise.
+   * Same pattern as TaskTerminalService.tmuxSessionExists().
+   *
+   * @param sessionName - The tmux session name to check
+   * @returns true if session exists, false otherwise
+   *
+   * @see CTM-1.3 Task 1.1
+   */
+  private async tmuxSessionExists(sessionName: string): Promise<boolean> {
+    try {
+      await execAsync(`tmux has-session -t ${sessionName}`, {
+        timeout: TMUX_COMMAND_TIMEOUT
+      })
+      return true // Exit code 0 = session exists
+    } catch {
+      return false // Exit code 1 = session doesn't exist
+    }
+  }
+
+  /**
+   * Validate chat sessions on startup.
+   *
+   * Queries all active chat sessions with a tmux_session value, checks which
+   * tmux sessions are still alive, rebuilds caches for alive ones, and marks
+   * dead ones as 'paused' in the database.
+   *
+   * Parallelizes tmux checks with Promise.allSettled() to meet NFR29 (<5s for 20 sessions).
+   * Failures are treated conservatively as dead sessions.
+   *
+   * @see CTM-1.3 AC 1: Startup validation
+   * @see CTM-1.3 Task 1
+   */
+  async validateSessionsOnStartup(): Promise<void> {
+    try {
+      // Query all active sessions with tmux_session set
+      const activeSessions = db
+        .select()
+        .from(chat_sessions)
+        .where(and(eq(chat_sessions.status, 'active'), isNotNull(chat_sessions.tmux_session)))
+        .all()
+
+      if (activeSessions.length === 0) {
+        console.log('[ChatCliService] Startup validation: 0 active sessions')
+        return
+      }
+
+      // Parallelize tmux checks (NFR29: <5s for 20 sessions)
+      const results = await Promise.allSettled(
+        activeSessions.map(async (session) => ({
+          session,
+          alive: await this.tmuxSessionExists(session.tmux_session!)
+        }))
+      )
+
+      let aliveCount = 0
+      let pausedCount = 0
+
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          // Conservative: treat failures as dead
+          pausedCount++
+          continue
+        }
+        const { session, alive } = result.value
+        if (alive) {
+          // Populate caches for alive sessions (lazy PTY reattach in Case B)
+          this.sessionCache.set(session.id, session.tmux_session!)
+          this.sessionToChatCache.set(session.tmux_session!, session.id)
+          aliveCount++
+        } else {
+          // Mark dead sessions as paused in DB
+          db.update(chat_sessions)
+            .set({ status: 'paused', updated_at: new Date() })
+            .where(eq(chat_sessions.id, session.id))
+            .run()
+          pausedCount++
+        }
+      }
+
+      console.log(
+        `[ChatCliService] Startup validation complete: ${aliveCount} alive, ${pausedCount} paused`
+      )
+    } catch (error) {
+      console.warn('[ChatCliService] Startup validation error:', error)
+      // Don't throw -- startup should continue
+    }
+  }
+
+  /**
+   * Re-attach a PTY to an existing alive tmux session (Case B).
+   *
+   * Used when the app restarted and the tmux session is still alive but the PTY
+   * is detached. Creates a new PTY attached to the tmux session and updates
+   * in-memory tracking maps.
+   *
+   * CRITICAL: Does NOT call writeWhenReady() or add to busySessions.
+   * The TUI is already initialized in the tmux session. The subsequent
+   * sendMessage() call writes directly via ptyService.write().
+   *
+   * @param sessionId - TinSu's internal chat session ID (chat_sessions.id)
+   * @param sessionUuid - Claude Code session UUID (chat_sessions.session_uuid)
+   * @param projectPath - Working directory for the PTY spawn
+   * @returns The new PTY processId
+   * @throws Error if session not in cache or tmux session is dead
+   *
+   * @see CTM-1.3 AC 2: PTY re-attachment
+   * @see CTM-1.3 Task 2
+   */
+  async reattachSession(
+    sessionId: string,
+    sessionUuid: string,
+    projectPath: string
+  ): Promise<string> {
+    // Look up tmux session name from cache
+    const tmuxSessionName = this.sessionCache.get(sessionId)
+    if (!tmuxSessionName) {
+      throw new Error(`No cached tmux session for chat session: ${sessionId}`)
+    }
+
+    // Verify tmux session is still alive before attempting PTY attach
+    const alive = await this.tmuxSessionExists(tmuxSessionName)
+    if (!alive) {
+      throw new Error(`tmux session ${tmuxSessionName} is no longer alive`)
+    }
+
+    // Attach PTY to the existing tmux session
+    const processId = ptyService.spawn('bash', ['-c', `tmux attach-session -t ${tmuxSessionName}`], {
+      cwd: projectPath
+    })
+
+    // Update in-memory tracking maps
+    this.sessions.set(sessionId, {
+      processId,
+      sessionUuid,
+      status: 'running'
+    })
+    this.processToSessionMap.set(processId, sessionId)
+    this.lastActivityMap.set(sessionId, Date.now())
+
+    // NOTE: Do NOT call writeWhenReady() or busySessions.add() here.
+    // The TUI is already initialized. sendMessage() will handle writing.
+
+    console.log(
+      `[ChatCliService] Re-attached PTY to session ${sessionId} (tmux: ${tmuxSessionName}, pid: ${processId})`
+    )
+
+    return processId
+  }
+
+  /**
+   * Check if the tmux session for a chat session is alive.
+   *
+   * Used by the router to distinguish Case B (tmux alive, PTY detached)
+   * from Case C (tmux dead).
+   *
+   * @param sessionId - TinSu's internal chat session ID
+   * @returns true if tmux session exists, false otherwise
+   *
+   * @see CTM-1.3 AC 4: Three-case session handler
+   * @see CTM-1.3 Task 3
+   */
+  async isTmuxAlive(sessionId: string): Promise<boolean> {
+    const tmuxSessionName = this.sessionCache.get(sessionId)
+    if (!tmuxSessionName) {
+      return false
+    }
+    return this.tmuxSessionExists(tmuxSessionName)
   }
 
   /**

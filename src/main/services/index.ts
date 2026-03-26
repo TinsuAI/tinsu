@@ -143,6 +143,28 @@ chatCliService.setOnIdleCallback((sessionId: string) => {
 
 // CTM-1.1: Removed setOnResumeFailedCallback -- orphan/resume logic superseded by tmux persistence
 
+/**
+ * CTM-1.3: Initialize chat sessions by validating tmux session state on startup.
+ *
+ * Calls chatCliService.validateSessionsOnStartup() to detect alive/dead tmux sessions,
+ * rebuild caches for alive ones, and mark dead ones as 'paused' in the DB.
+ *
+ * This call is async and non-blocking -- startup continues even if validation fails.
+ * Same pattern as TaskTerminalService.validateSessionsOnStartup().
+ *
+ * @see CTM-1.3 AC 1: Startup validation
+ * @see CTM-1.3 Task 5
+ */
+export function initializeChatSessions(): void {
+  chatCliService.validateSessionsOnStartup().catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[initializeChatSessions] Startup validation failed: ${msg}`)
+  })
+}
+
+// CTM-1.3: Run startup validation immediately after chatCliService is wired up
+initializeChatSessions()
+
 export {
   ChatCliService,
   type ChatCliSessionInfo,

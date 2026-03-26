@@ -856,12 +856,14 @@ export const chatSessionRouter = router({
    * Send a chat message to a Claude Code CLI session.
    *
    * Combines storing the user message in DB AND sending it to the CLI.
-   * CTM-1.1: Handles two cases:
-   * - Case A: CLI session alive -> send message to existing PTY
-   * - Case B/C: No session or exited -> create new tmux session + PTY
+   * CTM-1.3: Handles three cases:
+   * - Case A: tmux alive + PTY attached -> send message directly
+   * - Case B: tmux alive + PTY detached -> re-attach PTY, then send
+   * - Case C: no tmux session -> create new tmux session + PTY
    *
    * @see Story 10.3: Claude Code CLI Chat Session Spawning (AC: 1, 2, 5)
    * @see CTM-1.1: tmux Session Creation & PTY Attachment
+   * @see CTM-1.3: Session Recovery & Startup Validation (AC: 2, 3, 4)
    */
   sendChatMessage: publicProcedure
     .input(
@@ -948,50 +950,64 @@ export const chatSessionRouter = router({
         cliMessage = `${prefix}[Attached files: ${filePaths}]`
       }
 
-      // 4. Send to CLI session -- CTM-1.1: two cases (tmux-based)
+      // 4. Send to CLI session -- CTM-1.3: three cases (tmux-based)
       try {
         if (chatCliService.isSessionAlive(input.sessionId)) {
-          // Case A: CLI session is alive -- send to existing PTY (AC: 2)
+          // Case A: tmux alive + PTY attached -> send message directly
           chatCliService.sendMessage(input.sessionId, cliMessage)
         } else {
-          // Case B/C: Session exited or never started -- create new tmux session
-          // CTM-1.1: Both cases create a new tmux session + PTY.
-          // Full recovery logic (reattach to existing tmux) comes in Story 1.3.
           const projectPath = getProjectPath(session.project_id)
 
-          let personaContext: string | undefined
-          try {
-            const bmadRoot = join(projectPath, '_bmad')
-            const personaContextService = new PersonaContextService(bmadRoot, projectPath)
-            personaContext = personaContextService.buildContext(session.agent_persona)
-          } catch (personaErr) {
-            const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
-            console.warn(
-              `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+          if (await chatCliService.isTmuxAlive(input.sessionId)) {
+            // Case B: tmux alive + PTY detached -> re-attach PTY, then send
+            // Persona context NOT reloaded -- reuses existing session's persona
+            await chatCliService.reattachSession(
+              input.sessionId,
+              session.session_uuid,
+              projectPath
+            )
+            chatCliService.sendMessage(input.sessionId, cliMessage)
+
+            console.log(
+              `[ChatSessionRouter] Re-attached PTY for ${input.sessionId} (Case B)`
+            )
+          } else {
+            // Case C: no tmux session -> create new tmux session with full claude spawn
+            let personaContext: string | undefined
+            try {
+              const bmadRoot = join(projectPath, '_bmad')
+              const personaContextService = new PersonaContextService(bmadRoot, projectPath)
+              personaContext = personaContextService.buildContext(session.agent_persona)
+            } catch (personaErr) {
+              const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
+              console.warn(
+                `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+              )
+            }
+
+            await chatCliService.spawnSession(
+              input.sessionId,
+              session.session_uuid,
+              projectPath,
+              cliMessage,
+              personaContext
+            )
+
+            // Update tmux_session and status='active' in DB (session was 'paused' from dead tmux)
+            const tmuxSessionName = `tinsu-chat-${input.sessionId}`
+            db.update(chat_sessions)
+              .set({
+                tmux_session: tmuxSessionName,
+                status: 'active',
+                updated_at: now
+              })
+              .where(eq(chat_sessions.id, input.sessionId))
+              .run()
+
+            console.log(
+              `[ChatSessionRouter] Spawned new tmux session for ${input.sessionId} (tmux: ${tmuxSessionName}, Case C)`
             )
           }
-
-          await chatCliService.spawnSession(
-            input.sessionId,
-            session.session_uuid,
-            projectPath,
-            cliMessage,
-            personaContext
-          )
-
-          // CTM-1.1 AC 1: Update chat_sessions.tmux_session in DB.
-          // NOTE: This name MUST stay in sync with the `tinsu-chat-${sessionId}` formula
-          // used inside ChatCliService.spawnSession(). If the naming scheme changes,
-          // update both locations together. Story 1.3 may expose a getter to centralize this.
-          const tmuxSessionName = `tinsu-chat-${input.sessionId}`
-          db.update(chat_sessions)
-            .set({ tmux_session: tmuxSessionName, updated_at: now })
-            .where(eq(chat_sessions.id, input.sessionId))
-            .run()
-
-          console.log(
-            `[ChatSessionRouter] Spawned tmux session for ${input.sessionId} (tmux: ${tmuxSessionName})`
-          )
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

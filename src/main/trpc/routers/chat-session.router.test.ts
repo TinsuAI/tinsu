@@ -38,6 +38,8 @@ const mockHasSession = vi.fn().mockReturnValue(false)
 const mockSpawnSession = vi.fn().mockReturnValue('pty-test')
 const mockSendMessage = vi.fn()
 const mockKillSession = vi.fn()
+const mockIsTmuxAlive = vi.fn().mockResolvedValue(false)
+const mockReattachSession = vi.fn().mockResolvedValue('pty-reattached')
 
 vi.mock('../../services', () => ({
   chatCliService: {
@@ -45,7 +47,9 @@ vi.mock('../../services', () => ({
     hasSession: (...args: unknown[]) => mockHasSession(...args),
     spawnSession: (...args: unknown[]) => mockSpawnSession(...args),
     sendMessage: (...args: unknown[]) => mockSendMessage(...args),
-    killSession: (...args: unknown[]) => mockKillSession(...args)
+    killSession: (...args: unknown[]) => mockKillSession(...args),
+    isTmuxAlive: (...args: unknown[]) => mockIsTmuxAlive(...args),
+    reattachSession: (...args: unknown[]) => mockReattachSession(...args)
   }
 }))
 
@@ -662,11 +666,13 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
     })
   })
 
-  describe('sendChatMessage (Story 10.3, AC: 1, 2, 5)', () => {
+  describe('sendChatMessage (Story 10.3, AC: 1, 2, 5; CTM-1.3 AC: 2, 3, 4)', () => {
     beforeEach(() => {
       vi.clearAllMocks()
       mockIsSessionAlive.mockReturnValue(false)
       mockHasSession.mockReturnValue(false)
+      mockIsTmuxAlive.mockResolvedValue(false)
+      mockReattachSession.mockResolvedValue('pty-reattached')
       mockBuildContext.mockReturnValue('Mock persona context for testing')
       // Restore PersonaContextService mock implementation after clearAllMocks
       // Must use regular function (not arrow) so it can be used with `new`
@@ -827,6 +833,108 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       expect(messages[0].content).toBe('Stored message')
       expect(messages[0].role).toBe('user')
     })
+
+    it('CTM-1.3 Case B: re-attaches PTY when tmux alive but PTY detached', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // Case B: PTY not alive, but tmux IS alive
+      mockIsSessionAlive.mockReturnValue(false)
+      mockIsTmuxAlive.mockResolvedValue(true)
+
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Recovery message'
+      })
+
+      expect(message!.content).toBe('Recovery message')
+
+      // Should call reattachSession then sendMessage (not spawnSession)
+      expect(mockReattachSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project'
+      )
+      expect(mockSendMessage).toHaveBeenCalledWith(session!.id, 'Recovery message')
+      expect(mockSpawnSession).not.toHaveBeenCalled()
+    })
+
+    it('CTM-1.3 Case C: creates new tmux session and updates status to active', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // First set status to 'paused' (as it would be after dead tmux detection)
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'paused'
+      })
+      vi.clearAllMocks()
+      mockIsSessionAlive.mockReturnValue(false)
+      mockIsTmuxAlive.mockResolvedValue(false)
+      mockBuildContext.mockReturnValue('Mock persona context for testing')
+      MockPersonaContextServiceClass.mockImplementation(function () {
+        return {
+          buildContext: mockBuildContext,
+          loadConfig: vi.fn(),
+          getPersonaFilePath: vi.fn()
+        }
+      })
+
+      const message = await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'New session message'
+      })
+
+      expect(message!.content).toBe('New session message')
+
+      // Should call spawnSession (not reattachSession)
+      expect(mockSpawnSession).toHaveBeenCalledWith(
+        session!.id,
+        session!.session_uuid,
+        '/test/project',
+        'New session message',
+        'Mock persona context for testing'
+      )
+      expect(mockReattachSession).not.toHaveBeenCalled()
+
+      // Direct DB check for updated status
+      const dbSession = mockSqlite
+        .prepare('SELECT tmux_session, status FROM chat_sessions WHERE id = ?')
+        .get(session!.id) as { tmux_session: string; status: string }
+
+      expect(dbSession.tmux_session).toBe(`tinsu-chat-${session!.id}`)
+      expect(dbSession.status).toBe('active')
+    })
+
+    it('CTM-1.3 Case B: does NOT reload persona context on reattach', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad:bmm:agents:pm',
+        projectId: 'project-1'
+      })
+
+      // Case B
+      mockIsSessionAlive.mockReturnValue(false)
+      mockIsTmuxAlive.mockResolvedValue(true)
+
+      await caller.chatSession.sendChatMessage({
+        sessionId: session!.id,
+        content: 'Reattach message'
+      })
+
+      // PersonaContextService should NOT be instantiated for Case B
+      expect(MockPersonaContextServiceClass).not.toHaveBeenCalled()
+      expect(mockBuildContext).not.toHaveBeenCalled()
+    })
   })
 
   describe('sendChatMessage persona context injection (Story 10.4, AC: 1-5)', () => {
@@ -834,6 +942,8 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       vi.clearAllMocks()
       mockIsSessionAlive.mockReturnValue(false)
       mockHasSession.mockReturnValue(false)
+      mockIsTmuxAlive.mockResolvedValue(false)
+      mockReattachSession.mockResolvedValue('pty-reattached')
       mockBuildContext.mockReturnValue('Mock persona context for testing')
       // Restore PersonaContextService mock implementation after clearAllMocks
       // Must use regular function (not arrow) so it can be used with `new`

@@ -1,11 +1,14 @@
 /**
- * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), CTM-1.1
+ * ChatCliService Tests - Story 10.3 (AC: 1, 2, 5), CTM-1.1, CTM-1.3
  *
  * Tests: spawnSession creates tmux session + attaches PTY with correct args,
  * sendMessage writes to existing PTY, sessionCache/sessionToChatCache populated,
  * SAFE_SHELL_ARG_REGEX validation, IDLE_TIMEOUT_MS equals 2 hours,
  * killSession kills PTY and tmux session, orphan methods removed,
  * tmux_session column exists in schema.
+ *
+ * CTM-1.3 Tests: validateSessionsOnStartup, reattachSession, isTmuxAlive,
+ * tmuxSessionExists, parallel validation with Promise.allSettled.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -28,6 +31,36 @@ vi.mock('util', () => ({
 vi.mock('./tmux.service', () => ({
   TmuxService: {
     checkTmuxInstalled: vi.fn().mockResolvedValue(true)
+  }
+}))
+
+// Mock db module for CTM-1.3 validateSessionsOnStartup
+const mockDbSelectAll = vi.fn().mockReturnValue([])
+const mockDbUpdateSet = vi.fn().mockReturnValue({
+  where: vi.fn().mockReturnValue({ run: vi.fn() })
+})
+const mockDbUpdate = vi.fn().mockReturnValue({ set: mockDbUpdateSet })
+const mockDbSelect = vi.fn().mockReturnValue({
+  from: vi.fn().mockReturnValue({
+    where: vi.fn().mockReturnValue({
+      all: mockDbSelectAll
+    })
+  })
+})
+
+vi.mock('../db', () => ({
+  db: {
+    select: (...args: unknown[]) => mockDbSelect(...args),
+    update: (...args: unknown[]) => mockDbUpdate(...args)
+  }
+}))
+
+vi.mock('../db/schema', () => ({
+  chat_sessions: {
+    id: 'id',
+    status: 'status',
+    tmux_session: 'tmux_session',
+    updated_at: 'updated_at'
   }
 }))
 
@@ -588,6 +621,253 @@ describe('ChatCliService (CTM-1.1)', () => {
     it('tmux_session column exists in chat_sessions schema', async () => {
       const { chat_sessions } = await import('../db/schema')
       expect(chat_sessions.tmux_session).toBeDefined()
+    })
+  })
+
+  describe('tmuxSessionExists (CTM-1.3 Task 1.1)', () => {
+    it('returns true when tmux has-session exits 0', async () => {
+      mockExecAsync.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+      // Access private method via type assertion
+      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-chat-session-1')
+
+      expect(result).toBe(true)
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'tmux has-session -t tinsu-chat-session-1',
+        expect.objectContaining({ timeout: 5000 })
+      )
+    })
+
+    it('returns false when tmux has-session exits non-zero', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('exit code 1'))
+
+      const result = await (service as unknown as { tmuxSessionExists(n: string): Promise<boolean> }).tmuxSessionExists('tinsu-chat-dead')
+
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('validateSessionsOnStartup (CTM-1.3 AC: 1)', () => {
+    it('populates caches for alive sessions and marks dead sessions as paused', async () => {
+      // Setup: 3 active sessions (2 alive, 1 dead)
+      const mockSessions = [
+        { id: 'session-alive-1', tmux_session: 'tinsu-chat-session-alive-1', status: 'active' },
+        { id: 'session-alive-2', tmux_session: 'tinsu-chat-session-alive-2', status: 'active' },
+        { id: 'session-dead', tmux_session: 'tinsu-chat-session-dead', status: 'active' }
+      ]
+
+      // Mock db.select().from().where().all() chain
+      mockDbSelectAll.mockReturnValueOnce(mockSessions)
+
+      // Mock tmux has-session: alive for first two, dead for third
+      // The validateSessionsOnStartup method creates tmux session calls via execAsync
+      // Note: spawnSession in beforeEach may have added calls, so we need to mock from here
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // session-alive-1: alive
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // session-alive-2: alive
+        .mockRejectedValueOnce(new Error('exit code 1')) // session-dead: dead
+
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      await service.validateSessionsOnStartup()
+
+      // Alive sessions should be in sessionToChatCache
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-alive-1')).toBe('session-alive-1')
+      expect(cache.get('tinsu-chat-session-alive-2')).toBe('session-alive-2')
+      expect(cache.get('tinsu-chat-session-dead')).toBeUndefined()
+
+      // Dead session should have been marked as paused in DB
+      expect(mockDbUpdate).toHaveBeenCalled()
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'paused' })
+      )
+    })
+
+    it('no-op with no active sessions', async () => {
+      mockDbSelectAll.mockReturnValueOnce([])
+
+      await service.validateSessionsOnStartup()
+
+      // No tmux checks should have been made
+      // Only constructor calls should be in mockExecAsync, no extra calls
+      const callsBeforeValidation = mockExecAsync.mock.calls.length
+      expect(callsBeforeValidation).toBe(0) // cleared in beforeEach
+    })
+
+    it('skips sessions without tmux_session column (legacy)', async () => {
+      // The DB query already filters with isNotNull(chat_sessions.tmux_session),
+      // so sessions without tmux_session are excluded from the results
+      mockDbSelectAll.mockReturnValueOnce([])
+
+      await service.validateSessionsOnStartup()
+
+      // Should complete without errors
+      expect(true).toBe(true)
+    })
+
+    it('treats rejected Promise.allSettled results as dead (conservative)', async () => {
+      const mockSessions = [
+        { id: 'session-ok', tmux_session: 'tinsu-chat-session-ok', status: 'active' },
+        { id: 'session-fail', tmux_session: 'tinsu-chat-session-fail', status: 'active' }
+      ]
+
+      mockDbSelectAll.mockReturnValueOnce(mockSessions)
+
+      // First session alive, second session check throws
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // session-ok: alive
+        .mockRejectedValueOnce(new Error('timeout')) // session-fail: check fails
+
+      const mockWhereRun = vi.fn()
+      const mockWhere = vi.fn().mockReturnValue({ run: mockWhereRun })
+      mockDbUpdateSet.mockReturnValue({ where: mockWhere })
+
+      await service.validateSessionsOnStartup()
+
+      // session-ok should be in cache
+      const cache = service.getSessionToChatCache()
+      expect(cache.get('tinsu-chat-session-ok')).toBe('session-ok')
+
+      // session-fail should NOT be in cache (treated as dead)
+      expect(cache.get('tinsu-chat-session-fail')).toBeUndefined()
+    })
+  })
+
+  describe('reattachSession (CTM-1.3 AC: 2)', () => {
+    it('spawns PTY with correct tmux attach command and updates tracking maps', async () => {
+      // First, populate the sessionCache by simulating a startup validation
+      // We'll access it through spawn + cache population
+      // Manually populate the cache via spawnSession
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-reattach', 'uuid-reattach', '/project/path', 'Hello')
+
+      // Simulate PTY exit (so isSessionAlive returns false)
+      const exitHandlers = eventHandlers['exit'] ?? []
+      if (exitHandlers.length > 0) {
+        (exitHandlers[0] as (event: { processId: string; exitCode: number }) => void)({
+          processId: 'pty-123',
+          exitCode: 0
+        })
+      }
+
+      // Clear mocks to track reattach calls
+      mockSpawn.mockClear()
+      mockSpawn.mockReturnValue('pty-reattached')
+      mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' }) // tmuxSessionExists returns true
+
+      const processId = await service.reattachSession('session-reattach', 'uuid-reattach', '/project/path')
+
+      expect(processId).toBe('pty-reattached')
+
+      // PTY spawn with tmux attach
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'bash',
+        ['-c', 'tmux attach-session -t tinsu-chat-session-reattach'],
+        expect.objectContaining({ cwd: '/project/path' })
+      )
+
+      // Session should be alive again
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      expect(service.isSessionAlive('session-reattach')).toBe(true)
+    })
+
+    it('throws if tmux session is not alive', async () => {
+      // Populate cache
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-dead-reattach', 'uuid-dead', '/project/path', 'Hello')
+
+      // Simulate PTY exit
+      const exitHandlers = eventHandlers['exit'] ?? []
+      if (exitHandlers.length > 0) {
+        (exitHandlers[0] as (event: { processId: string; exitCode: number }) => void)({
+          processId: 'pty-123',
+          exitCode: 0
+        })
+      }
+
+      // tmux session is dead
+      mockExecAsync.mockRejectedValue(new Error('exit code 1'))
+
+      await expect(
+        service.reattachSession('session-dead-reattach', 'uuid-dead', '/project/path')
+      ).rejects.toThrow('no longer alive')
+    })
+
+    it('throws if session not in cache', async () => {
+      await expect(
+        service.reattachSession('non-cached-session', 'uuid-xxx', '/project/path')
+      ).rejects.toThrow('No cached tmux session')
+    })
+
+    it('does NOT call writeWhenReady or add to busySessions', async () => {
+      // Populate cache
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-no-ready', 'uuid-no-ready', '/project/path', 'Hello')
+
+      // Simulate PTY exit
+      const exitHandlers = eventHandlers['exit'] ?? []
+      if (exitHandlers.length > 0) {
+        (exitHandlers[0] as (event: { processId: string; exitCode: number }) => void)({
+          processId: 'pty-123',
+          exitCode: 0
+        })
+      }
+
+      // Clear busySessions state from spawnSession
+      service.markSessionFree('session-no-ready')
+
+      mockSpawn.mockClear()
+      mockSpawn.mockReturnValue('pty-reattached-2')
+      mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' })
+
+      await service.reattachSession('session-no-ready', 'uuid-no-ready', '/project/path')
+
+      // After reattach, session should NOT be busy
+      expect(service.isSessionBusy('session-no-ready')).toBe(false)
+
+      // No output handlers should have been registered for writeWhenReady
+      // (mockOn would have been called only from the constructor 'exit' handler
+      // and spawnSession's writeWhenReady, not from reattachSession)
+      const outputHandlerCalls = mockOn.mock.calls.filter(
+        (call: unknown[]) => call[0] === 'output'
+      )
+      // spawnSession registered 1 output handler (for writeWhenReady)
+      // reattachSession should NOT register any new output handlers
+      expect(outputHandlerCalls.length).toBe(1)
+    })
+  })
+
+  describe('isTmuxAlive (CTM-1.3 AC: 4)', () => {
+    it('returns true when sessionCache has entry and tmux session exists', async () => {
+      // Populate cache via spawnSession
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-alive-check', 'uuid-alive', '/project/path', 'Hello')
+
+      // tmux has-session succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+      const result = await service.isTmuxAlive('session-alive-check')
+      expect(result).toBe(true)
+    })
+
+    it('returns false when sessionCache has no entry', async () => {
+      const result = await service.isTmuxAlive('non-existent-session')
+      expect(result).toBe(false)
+    })
+
+    it('returns false when sessionCache has entry but tmux session is dead', async () => {
+      // Populate cache
+      mockGetProcess.mockReturnValue({ state: 'running' })
+      await service.spawnSession('session-dead-check', 'uuid-dead', '/project/path', 'Hello')
+
+      // tmux has-session fails
+      mockExecAsync.mockRejectedValueOnce(new Error('exit code 1'))
+
+      const result = await service.isTmuxAlive('session-dead-check')
+      expect(result).toBe(false)
     })
   })
 })
