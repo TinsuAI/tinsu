@@ -23,6 +23,8 @@ export interface ChatSessionListItem {
   last_message_at: Date | string | number | null
   lastMessagePreview: string | null
   skip_permissions: boolean | number | null
+  /** CTM-2.3: Live tmux/PTY session status for real-time badges */
+  liveStatus?: 'thinking' | 'idle' | 'completed' | 'exited' | 'unknown'
 }
 
 interface ChatSessionContextMenuProps {

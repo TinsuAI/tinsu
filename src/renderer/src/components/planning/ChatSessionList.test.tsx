@@ -1,16 +1,21 @@
 /**
  * ChatSessionList Tests - Story 10.6 (AC: 1, 2, 6)
+ * CTM-2.3: Session List with Live Status Badges (AC: 1, 2, 3, 4, 5)
  *
  * Tests: renders session cards with persona dot, name, preview, timestamp, status,
  * sessions sorted by most recently active, completed sessions have dimmed styling,
  * clicking session card calls onSelectSession, "New Chat" button calls onNewChat,
  * context menu shows "Mark as Completed" and "Delete" options,
  * "Delete" shows confirmation before deleting.
+ *
+ * CTM-2.3 Tests: live status badges (thinking, idle, completed, exited, unknown),
+ * thinking badge has animate-pulse, background session summary visibility,
+ * 2-second refetch interval.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ChatSessionList } from './ChatSessionList'
+import { ChatSessionList, BackgroundSessionSummary } from './ChatSessionList'
 
 // Mock react-markdown to avoid ESM import issues
 vi.mock('react-markdown', () => ({
@@ -84,31 +89,40 @@ const mockSessions = [
     id: 'session-1',
     session_uuid: 'uuid-1',
     agent_persona: 'bmad:bmm:agents:pm',
+    workflow_key: null,
     status: 'active',
     created_at: new Date('2026-03-22T10:00:00Z'),
     updated_at: new Date('2026-03-22T12:00:00Z'),
     last_message_at: new Date('2026-03-22T12:00:00Z'),
-    lastMessagePreview: 'Tell me about the product roadmap'
+    lastMessagePreview: 'Tell me about the product roadmap',
+    skip_permissions: true,
+    liveStatus: 'idle' as const
   },
   {
     id: 'session-2',
     session_uuid: 'uuid-2',
     agent_persona: 'bmad:bmm:agents:architect',
+    workflow_key: 'architecture',
     status: 'completed',
     created_at: new Date('2026-03-21T08:00:00Z'),
     updated_at: new Date('2026-03-21T09:00:00Z'),
     last_message_at: new Date('2026-03-21T09:00:00Z'),
-    lastMessagePreview: 'The architecture is well structured'
+    lastMessagePreview: 'The architecture is well structured',
+    skip_permissions: false,
+    liveStatus: 'completed' as const
   },
   {
     id: 'session-3',
     session_uuid: 'uuid-3',
     agent_persona: 'bmad:bmm:agents:pm',
+    workflow_key: 'create-prd',
     status: 'paused',
     created_at: new Date('2026-03-20T14:00:00Z'),
     updated_at: new Date('2026-03-20T15:00:00Z'),
     last_message_at: new Date('2026-03-20T15:00:00Z'),
-    lastMessagePreview: null
+    lastMessagePreview: null,
+    skip_permissions: true,
+    liveStatus: 'thinking' as const
   }
 ]
 
@@ -196,20 +210,6 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
 
     expect(screen.getByText('Tell me about the product roadmap')).toBeInTheDocument()
     expect(screen.getByText('The architecture is well structured')).toBeInTheDocument()
-  })
-
-  it('renders status badges', () => {
-    render(
-      <ChatSessionList
-        projectId="project-1"
-        onSelectSession={onSelectSession}
-        onNewChat={onNewChat}
-      />
-    )
-
-    expect(screen.getByTestId('session-status-session-1')).toHaveTextContent('Active')
-    expect(screen.getByTestId('session-status-session-2')).toHaveTextContent('Completed')
-    expect(screen.getByTestId('session-status-session-3')).toHaveTextContent('Paused')
   })
 
   it('completed sessions have dimmed styling (opacity-60)', () => {
@@ -358,7 +358,8 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
     expect(screen.queryByTestId('session-menu-complete')).not.toBeInTheDocument()
   })
 
-  it('uses 5 second refetch interval', () => {
+  // CTM-2.3: Updated from 5000ms to 2000ms
+  it('uses 2 second refetch interval (CTM-2.3)', () => {
     render(
       <ChatSessionList
         projectId="project-1"
@@ -367,10 +368,299 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
       />
     )
 
-    // Verify the query was called with refetchInterval: 5000
+    // Verify the query was called with refetchInterval: 2000
     expect(mockListWithPreviewQuery).toHaveBeenCalledWith(
       { projectId: 'project-1' },
-      { refetchInterval: 5000 }
+      { refetchInterval: 2000 }
     )
+  })
+})
+
+describe('ChatSessionList Live Status Badges (CTM-2.3, AC: 1, 3)', () => {
+  const onSelectSession = vi.fn()
+  const onNewChat = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockUpdateStatusMutation.mockReturnValue({
+      mutate: vi.fn()
+    })
+
+    mockDeleteSessionMutation.mockReturnValue({
+      mutate: vi.fn()
+    })
+  })
+
+  it('renders "Thinking" badge for thinking liveStatus', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-thinking',
+        liveStatus: 'thinking'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-thinking')
+    expect(badge).toHaveTextContent('Thinking')
+  })
+
+  it('renders "Idle" badge for idle liveStatus', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-idle',
+        liveStatus: 'idle'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-idle')
+    expect(badge).toHaveTextContent('Idle')
+  })
+
+  it('renders "Completed" badge for completed liveStatus', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[1],
+        id: 'session-completed',
+        liveStatus: 'completed'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-completed')
+    expect(badge).toHaveTextContent('Completed')
+  })
+
+  it('renders "Exited" badge for exited liveStatus', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-exited',
+        liveStatus: 'exited'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-exited')
+    expect(badge).toHaveTextContent('Exited')
+  })
+
+  it('does NOT render badge for unknown liveStatus', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-unknown',
+        liveStatus: 'unknown'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    expect(screen.queryByTestId('session-status-session-unknown')).not.toBeInTheDocument()
+  })
+
+  it('"thinking" badge has animate-pulse class', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-pulse',
+        liveStatus: 'thinking'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-pulse')
+    expect(badge.className).toContain('animate-pulse')
+  })
+
+  it('"idle" badge does NOT have animate-pulse class', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[0],
+        id: 'session-no-pulse',
+        liveStatus: 'idle'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-no-pulse')
+    expect(badge.className).not.toContain('animate-pulse')
+  })
+
+  it('completed sessions use liveStatus "completed" badge (from DB status)', () => {
+    mockListWithPreviewQuery.mockReturnValue({
+      data: [{
+        ...mockSessions[1],
+        status: 'completed',
+        liveStatus: 'completed'
+      }]
+    })
+
+    render(
+      <ChatSessionList
+        projectId="project-1"
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
+    )
+
+    const badge = screen.getByTestId('session-status-session-2')
+    expect(badge).toHaveTextContent('Completed')
+    // Completed badge should have zinc styling
+    expect(badge.className).toContain('text-zinc-400')
+  })
+})
+
+describe('BackgroundSessionSummary (CTM-2.3, AC: 4)', () => {
+  it('renders summary for background sessions with thinking or idle status', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[0], liveStatus: 'idle' },
+          { ...mockSessions[2], liveStatus: 'thinking' }
+        ]}
+        selectedSessionId={null}
+      />
+    )
+
+    expect(screen.getByTestId('background-session-summary')).toBeInTheDocument()
+    // Check persona names are rendered
+    expect(screen.getAllByText('PM').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('hides summary when no active background sessions exist', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[1], liveStatus: 'completed' },
+          { ...mockSessions[0], liveStatus: 'exited' }
+        ]}
+        selectedSessionId={null}
+      />
+    )
+
+    expect(screen.queryByTestId('background-session-summary')).not.toBeInTheDocument()
+  })
+
+  it('excludes the currently selected session from background summary', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[0], id: 'selected-session', liveStatus: 'idle' },
+          { ...mockSessions[2], id: 'background-session', liveStatus: 'thinking' }
+        ]}
+        selectedSessionId="selected-session"
+      />
+    )
+
+    const summary = screen.getByTestId('background-session-summary')
+    expect(summary).toBeInTheDocument()
+    // Only one session should be shown (the background one)
+    expect(screen.getByText('thinking')).toBeInTheDocument()
+  })
+
+  it('hides when all active sessions are the selected session', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[0], id: 'selected-only', liveStatus: 'idle' }
+        ]}
+        selectedSessionId="selected-only"
+      />
+    )
+
+    expect(screen.queryByTestId('background-session-summary')).not.toBeInTheDocument()
+  })
+
+  it('shows workflow_key context when available', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[2], liveStatus: 'thinking', workflow_key: 'create-prd' }
+        ]}
+        selectedSessionId={null}
+      />
+    )
+
+    expect(screen.getByText('(create-prd)')).toBeInTheDocument()
+  })
+
+  it('shows "thinking" label with cyan color for thinking sessions', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[2], liveStatus: 'thinking' }
+        ]}
+        selectedSessionId={null}
+      />
+    )
+
+    const thinkingLabel = screen.getByText('thinking')
+    expect(thinkingLabel.className).toContain('text-cyan-400')
+  })
+
+  it('shows "idle" label with emerald color for idle sessions', () => {
+    render(
+      <BackgroundSessionSummary
+        sessions={[
+          { ...mockSessions[0], liveStatus: 'idle' }
+        ]}
+        selectedSessionId={null}
+      />
+    )
+
+    const idleLabel = screen.getByText('idle')
+    expect(idleLabel.className).toContain('text-emerald-400')
   })
 })

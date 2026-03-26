@@ -1,18 +1,20 @@
 /**
- * ChatSessionList - Scrollable list of chat sessions with previews.
+ * ChatSessionList - Scrollable list of chat sessions with live status badges.
  *
  * Story 10.6: Session Persistence & Resume (AC: 1, 2, 6)
+ * CTM-2.3: Session List with Live Status Badges (AC: 1, 2, 3, 4, 5)
  *
  * Renders session cards showing agent persona, last message preview,
- * relative timestamp, and status badge. Supports "New Chat" creation,
- * session selection for resume, and context menu for complete/delete.
+ * relative timestamp, and live status badge from tmux/PTY monitoring.
+ * Supports "New Chat" creation, session selection for resume,
+ * context menu for complete/delete, and a background session summary strip.
  *
  * Sorted by most recently active. Completed sessions are dimmed.
- * Polls for updates every 5 seconds via tRPC refetchInterval.
+ * Polls for updates every 2 seconds via tRPC refetchInterval (CTM-2.3).
  */
 
 import { useState, useCallback } from 'react'
-import { Plus, MoreVertical, MessageSquare } from 'lucide-react'
+import { Plus, MoreVertical, MessageSquare, Activity, Circle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { AGENT_PERSONA_CONFIG } from '@renderer/constants/planning-workspace'
@@ -24,6 +26,8 @@ interface ChatSessionListProps {
   projectId: string
   onSelectSession: (session: ChatSessionListItem) => void
   onNewChat: () => void
+  /** CTM-2.3: Currently selected session ID to exclude from background summary */
+  selectedSessionId?: string | null
 }
 
 /**
@@ -56,26 +60,133 @@ function formatRelativeTime(ts: Date | string | number | null): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-/** Status badge configuration */
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  active: {
-    label: 'Active',
-    className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
+/**
+ * CTM-2.3: Live status badge configuration.
+ * Maps liveStatus values to visual indicators for real-time session state.
+ */
+const LIVE_STATUS_CONFIG: Record<string, {
+  label: string
+  className: string
+  animationClassName?: string
+  Icon: typeof Activity
+}> = {
+  thinking: {
+    label: 'Thinking',
+    className: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+    animationClassName: 'animate-pulse',
+    Icon: Activity
   },
-  paused: {
-    label: 'Paused',
-    className: 'bg-amber-500/15 text-amber-400 border-amber-500/20'
+  idle: {
+    label: 'Idle',
+    className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+    Icon: Circle
   },
   completed: {
     label: 'Completed',
-    className: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20'
+    className: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20',
+    Icon: CheckCircle2
+  },
+  exited: {
+    label: 'Exited',
+    className: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+    Icon: XCircle
   }
 }
 
-export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatSessionListProps) {
+/**
+ * CTM-2.3: LiveStatusBadge - Compact pill badge showing real-time session status.
+ *
+ * Renders a colored pill with icon and label based on liveStatus.
+ * "thinking" status gets an animate-pulse effect.
+ * "unknown" status renders nothing (hidden).
+ */
+function LiveStatusBadge({
+  liveStatus,
+  sessionId
+}: {
+  liveStatus: string | undefined
+  sessionId: string
+}) {
+  if (!liveStatus || liveStatus === 'unknown') return null
+
+  const config = LIVE_STATUS_CONFIG[liveStatus]
+  if (!config) return null
+
+  const { label, className, animationClassName, Icon } = config
+
+  return (
+    <span
+      className={cn(
+        'ml-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium leading-tight',
+        className,
+        animationClassName
+      )}
+      data-testid={`session-status-${sessionId}`}
+    >
+      <Icon className="h-2.5 w-2.5" />
+      {label}
+    </span>
+  )
+}
+
+/**
+ * CTM-2.3: BackgroundSessionSummary - Thin status strip showing active background sessions.
+ *
+ * Shows persona name + workflow context + live status for each active
+ * background session (thinking or idle). Hidden when no background sessions exist.
+ */
+export function BackgroundSessionSummary({
+  sessions,
+  selectedSessionId
+}: {
+  sessions: Array<ChatSessionListItem>
+  selectedSessionId?: string | null
+}) {
+  // Filter to active background sessions (thinking or idle), excluding the selected foreground session
+  const backgroundSessions = sessions.filter(
+    (s) =>
+      (s.liveStatus === 'thinking' || s.liveStatus === 'idle') &&
+      s.id !== selectedSessionId
+  )
+
+  if (backgroundSessions.length === 0) return null
+
+  return (
+    <div
+      className="shrink-0 border-b border-border/20 px-3 py-1.5"
+      data-testid="background-session-summary"
+    >
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
+        {backgroundSessions.map((session, idx) => {
+          const persona = AGENT_PERSONA_CONFIG[session.agent_persona]
+          const personaName = persona?.displayName ?? (session.agent_persona.split(':').pop() || 'Agent')
+          const statusLabel = session.liveStatus === 'thinking' ? 'thinking' : 'idle'
+          const statusColor = session.liveStatus === 'thinking' ? 'text-cyan-400' : 'text-emerald-400'
+
+          return (
+            <span key={session.id} className="inline-flex items-center gap-1">
+              {idx > 0 && <span className="text-muted-foreground/30">|</span>}
+              <span className="font-medium">{personaName}</span>
+              {session.workflow_key && (
+                <span className="text-muted-foreground/40">({session.workflow_key})</span>
+              )}
+              <span className="text-muted-foreground/40">--</span>
+              <span className={cn('font-medium', statusColor, session.liveStatus === 'thinking' && 'animate-pulse')}>
+                {statusLabel}
+              </span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function ChatSessionList({ projectId, onSelectSession, onNewChat, selectedSessionId }: ChatSessionListProps) {
+  // CTM-2.3: Poll every 2 seconds for real-time status badge updates (was 5000ms)
   const { data: sessions = [] } = trpc.chatSession.listWithPreview.useQuery(
     { projectId },
-    { refetchInterval: 5000 }
+    { refetchInterval: 2000 }
   )
 
   const trpcUtils = trpc.useUtils()
@@ -129,6 +240,12 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatS
         </button>
       </div>
 
+      {/* CTM-2.3: Background session summary strip */}
+      <BackgroundSessionSummary
+        sessions={sessions as Array<ChatSessionListItem>}
+        selectedSessionId={selectedSessionId}
+      />
+
       {/* Session list */}
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
@@ -147,7 +264,6 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatS
           <div className="space-y-px p-1.5" data-testid="session-cards-container">
             {sessions.map((session) => {
               const persona = AGENT_PERSONA_CONFIG[session.agent_persona]
-              const statusConfig = STATUS_CONFIG[session.status] ?? STATUS_CONFIG.active
               const isCompleted = session.status === 'completed'
               const preview = session.lastMessagePreview
                 ? session.lastMessagePreview.length > 60
@@ -156,6 +272,9 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatS
                 : null
 
               const timestamp = session.last_message_at ?? session.updated_at
+
+              // CTM-2.3: Use liveStatus for badge display
+              const liveStatus = (session as ChatSessionListItem).liveStatus
 
               return (
                 <div
@@ -206,16 +325,11 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat }: ChatS
                         {session.skip_permissions ? 'Auto' : 'Manual'}
                       </span>
 
-                      {/* Status badge */}
-                      <span
-                        className={cn(
-                          'ml-auto rounded-full border px-1.5 py-px text-[10px] font-medium leading-tight',
-                          statusConfig.className
-                        )}
-                        data-testid={`session-status-${session.id}`}
-                      >
-                        {statusConfig.label}
-                      </span>
+                      {/* CTM-2.3: Live status badge (replaces static status badge) */}
+                      <LiveStatusBadge
+                        liveStatus={liveStatus}
+                        sessionId={session.id}
+                      />
                     </div>
 
                     {/* Preview text */}

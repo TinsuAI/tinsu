@@ -40,6 +40,8 @@ const mockSendMessage = vi.fn()
 const mockKillSession = vi.fn()
 const mockIsTmuxAlive = vi.fn().mockResolvedValue(false)
 const mockReattachSession = vi.fn().mockResolvedValue('pty-reattached')
+// CTM-2.3: Mock getSessionStatus for live status badge tests
+const mockGetSessionStatus = vi.fn().mockReturnValue('unknown')
 
 vi.mock('../../services', () => ({
   chatCliService: {
@@ -49,7 +51,8 @@ vi.mock('../../services', () => ({
     sendMessage: (...args: unknown[]) => mockSendMessage(...args),
     killSession: (...args: unknown[]) => mockKillSession(...args),
     isTmuxAlive: (...args: unknown[]) => mockIsTmuxAlive(...args),
-    reattachSession: (...args: unknown[]) => mockReattachSession(...args)
+    reattachSession: (...args: unknown[]) => mockReattachSession(...args),
+    getSessionStatus: (...args: unknown[]) => mockGetSessionStatus(...args)
   }
 }))
 
@@ -1640,6 +1643,120 @@ describe('chatSessionRouter (Story 10.1, AC: 5)', () => {
       // Should return the most recent (session2 = architect)
       expect(result!.sessionId).toBe(session2!.id)
       expect(result!.agentPersona).toBe('bmad:bmm:agents:architect')
+    })
+  })
+
+  describe('listWithPreview liveStatus (CTM-2.3)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should include liveStatus field from chatCliService.getSessionStatus()', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      mockGetSessionStatus.mockReturnValue('idle')
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0].liveStatus).toBe('idle')
+      expect(mockGetSessionStatus).toHaveBeenCalledWith(session!.id)
+    })
+
+    it('should return "thinking" liveStatus when chatCliService reports thinking', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      mockGetSessionStatus.mockReturnValue('thinking')
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions[0].liveStatus).toBe('thinking')
+    })
+
+    it('should return "exited" liveStatus when chatCliService reports exited', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      mockGetSessionStatus.mockReturnValue('exited')
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions[0].liveStatus).toBe('exited')
+    })
+
+    it('should return "completed" liveStatus for completed DB sessions without calling getSessionStatus', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      // Mark session as completed in DB
+      await caller.chatSession.updateStatus({
+        sessionId: session!.id,
+        status: 'completed'
+      })
+
+      mockGetSessionStatus.mockClear()
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions[0].liveStatus).toBe('completed')
+      // Should NOT have called getSessionStatus for completed sessions
+      expect(mockGetSessionStatus).not.toHaveBeenCalled()
+    })
+
+    it('should return liveStatus for each session independently', async () => {
+      const caller = testRouter.createCaller(createTestContext())
+
+      const session1 = await caller.chatSession.create({
+        agentPersona: 'bmad-pm',
+        projectId: 'project-1'
+      })
+
+      const session2 = await caller.chatSession.create({
+        agentPersona: 'bmad-architect',
+        projectId: 'project-1'
+      })
+
+      // Return different statuses for different session IDs
+      mockGetSessionStatus.mockImplementation((sessionId: string) => {
+        if (sessionId === session1!.id) return 'thinking'
+        if (sessionId === session2!.id) return 'idle'
+        return 'unknown'
+      })
+
+      const sessions = await caller.chatSession.listWithPreview({
+        projectId: 'project-1'
+      })
+
+      expect(sessions).toHaveLength(2)
+      const statusMap = Object.fromEntries(sessions.map(s => [s.id, s.liveStatus]))
+      expect(statusMap[session1!.id]).toBe('thinking')
+      expect(statusMap[session2!.id]).toBe('idle')
     })
   })
 })

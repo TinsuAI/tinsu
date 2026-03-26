@@ -595,11 +595,12 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             )}
           </div>
 
-          {/* Session list */}
+          {/* Session list — CTM-2.3: pass selectedSessionId for background summary filtering */}
           <ChatSessionList
             projectId={projectId}
             onSelectSession={handleSelectSession}
             onNewChat={handleNewChat}
+            selectedSessionId={sessionId}
           />
         </>
       ) : (

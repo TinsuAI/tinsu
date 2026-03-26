@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-26T-ctm-2-2-done
+# updated: 2026-03-26T-ctm-2-3-done
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -289,5 +289,5 @@ development_status:
   ctm-epic-2: in-progress
   ctm-2-1-concurrent-session-execution-and-background-persistence: done  # Code review complete - 1 auto-fix applied (prevMessageCountRef.current = 0 added to persona-switch useEffect resume path for correct message-arrival tracking), all 86 tests passing
   ctm-2-2-session-health-monitoring-and-idle-timeout: done  # Code review complete - 2 auto-fixes applied (dead idleCheckInterval property removed, busySessions.clear() added to killAll()), all 72 tests passing
-  ctm-2-3-session-list-with-live-status-badges: backlog
+  ctm-2-3-session-list-with-live-status-badges: done  # Code review complete - 2 auto-fixes applied (split(':').pop() || 'Agent' parenthesized fallback for empty string guard, redundant liveStatus type intersection removed from 2 cast sites), all 95 tests passing
   ctm-epic-2-retrospective: optional

@@ -590,6 +590,7 @@ export const chatSessionRouter = router({
         .all()
 
       // Post-fetch map: get last non-tool message for each session
+      // CTM-2.3: Include liveStatus from chatCliService for real-time status badges
       return sessions.map((session) => {
         const lastMessage = db
           .select({ content: chat_messages.content })
@@ -604,9 +605,17 @@ export const chatSessionRouter = router({
           .limit(1)
           .get()
 
+        // For completed sessions, use DB status directly (no tmux session to query).
+        // For all others, query the live tmux/PTY status.
+        const liveStatus: 'thinking' | 'idle' | 'completed' | 'exited' | 'unknown' =
+          session.status === 'completed'
+            ? 'completed'
+            : chatCliService.getSessionStatus(session.id)
+
         return {
           ...session,
-          lastMessagePreview: lastMessage?.content ?? null
+          lastMessagePreview: lastMessage?.content ?? null,
+          liveStatus
         }
       })
     }),
