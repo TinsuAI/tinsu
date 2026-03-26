@@ -11,6 +11,10 @@ documentCounts:
   researchCount: 1
   brainstormingCount: 0
   projectDocsCount: 1
+lastEdited: '2026-03-26'
+editHistory:
+  - date: '2026-03-26'
+    changes: 'Added Planning Workspace chat system with tmux migration architecture — new user journey (Journey 3: Multi-Agent Planning), FR36-FR53, NFR25-NFR32, updated integration architecture to dual tmux model, updated MVP scope and risk mitigation'
 ---
 
 # Product Requirements Document - TinSu
@@ -23,6 +27,8 @@ documentCounts:
 TinSu is an AI Agent Orchestration Platform that transforms unstructured "vibe coding" into trustworthy, structured product development. Built for founders who want to delegate work to AI agents without losing control, TinSu provides a familiar Kanban interface where tasks aren't just tracked — they're executed by AI agents under human oversight.
 
 The platform bridges the gap between powerful-but-inaccessible developer tools (BMAD Method, TaskMaster, Claude Code) and intuitive project management interfaces (Asana, Trello). Founders manage sprints, epics, and stories while AI agents actually implement them — with human approval gates at every critical juncture.
+
+Beyond execution, TinSu provides a **Planning Workspace** where founders collaborate with specialized AI agents (PM, Architect, UX Designer) through concurrent chat sessions. Multiple agents can run simultaneously across projects, each in a persistent terminal session that survives app restarts and continues working in the background.
 
 ### What Makes This Special
 
@@ -110,11 +116,14 @@ The platform bridges the gap between powerful-but-inaccessible developer tools (
 - Review workflow with Approve/Reject mechanism
 - Methodology choice: BMAD Method or TaskMaster
 - GitHub + Git integration
+- Planning Workspace with multi-agent chat sessions (PM, Architect, UX Designer, Dev)
+- Concurrent agent support across multiple projects via persistent tmux sessions
 
 **Architecture:**
 
 - Single-tenant (local install on founder's device)
 - Single role: Founder (full access)
+- tmux-based terminal session management for both task execution and planning chat
 
 ### Growth Features (Post-MVP)
 
@@ -164,6 +173,24 @@ The card moves back to In Progress. The agent fixes it in 2 minutes. Review agai
 
 Later that evening, Tinxu reflects: in the old flow, that Stripe bug would've cost him an hour of debugging and a minor security incident. TinSu caught it in 5 minutes because _nothing moved to Done without his eyes on it_.
 
+### Journey 3: Technical Founder — Multi-Agent Planning Session
+
+**Tinxu — Orchestrating the Brain Trust**
+
+It's Thursday morning. Tinxu is starting a new feature — payment processing. Before writing a single line of code, he needs a PRD, architecture decisions, and UX wireframes. In the old days, he'd do this all in one Claude Code session, losing context when switching between PM thinking and architect thinking.
+
+He opens TinSu's Planning Workspace. The sidebar shows the BMAD workflow steps: Product Brief → PRD → Architecture → Epics. He clicks "PRD" and selects the PM agent persona from the dropdown. Types: "Let's create a PRD for the payment processing feature."
+
+The PM agent spins up in its own persistent tmux session. It starts asking probing questions — WHY payment processing, what's the user pain point, what's the success metric. 10 minutes in, Tinxu realizes he needs the Architect's input on a technical constraint.
+
+He switches the persona dropdown to "Architect" and types: "What are the integration options for Stripe in an Electron app?" A second tmux session spins up. The PM agent's session keeps running in the background — its status badge shows "idle" in the session list.
+
+The Architect responds with three options and trade-offs. Tinxu switches back to PM — the session is exactly where he left it, no context lost, no resume delay. He incorporates the Architect's recommendation into the PRD discussion.
+
+An hour later, Tinxu has a complete PRD drafted by the PM agent, architecture constraints validated by the Architect, and both sessions are still available for follow-up questions. He opens a second project (his side project) and starts a new PM chat there — three concurrent agents across two projects, all running independently.
+
+He checks the session list: PM (payment PRD) — idle, Architect (payment) — idle, PM (side project) — thinking. All sessions persist. He closes TinSu, reopens it after lunch — all three sessions resume exactly where they were.
+
 ### Journey Requirements Summary
 
 These journeys reveal the following capability areas:
@@ -190,6 +217,18 @@ These journeys reveal the following capability areas:
 - Reject with feedback mechanism
 - Agent re-execution with updated context
 - Security review in diff view
+
+**From Journey 3 (Multi-Agent Planning):**
+
+- Planning Workspace with BMAD workflow sidebar
+- Agent persona selector (PM, Architect, UX Designer, Dev, etc.)
+- Concurrent chat sessions with independent tmux-backed processes
+- Background session execution (agent continues working when not in focus)
+- Session list with live status badges (thinking, idle, completed)
+- Instant session switching without context loss or resume delay
+- Multi-project session isolation (sessions scoped to project)
+- Session persistence across app restarts (tmux survives restart)
+- Chat message history with tool activity visibility
 
 ## Innovation & Novel Patterns
 
@@ -268,22 +307,48 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 
 #### Claude Code CLI Integration
 
-**Approach: Subprocess + PTY (Pseudo-Terminal)**
+TinSu uses two terminal session models depending on context:
 
-| Component              | Implementation                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| **Process Management** | Spawn Claude Code via PTY (e.g., `node-pty` or Python `pty`)                     |
-| **I/O Handling**       | Capture real-time stdout/stderr for terminal view in UI                          |
-| **Context Injection**  | Pipe story context, acceptance criteria, and architecture docs as initial prompt |
-| **Control Signals**    | Send SIGSTOP/SIGCONT for Pause/Resume functionality                              |
-| **State Detection**    | Monitor output patterns for completion, stall detection, errors                  |
+**1. Task Execution: tmux Sessions (Kanban Board)**
 
-**Why PTY:**
+| Component              | Implementation                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **Process Management** | One tmux session per task (`tinsu-{project}-{taskId}`)                              |
+| **Command Injection**  | `tmux send-keys` injects Claude CLI commands into persistent session                |
+| **Visual Display**     | PTY attaches to tmux session (`tmux attach-session`), rendered via xterm.js         |
+| **Persistence**        | tmux sessions survive app restarts; sessions validated on startup                   |
+| **Session Monitoring** | Polling `tmux has-session` every 2s detects session exit                            |
+| **Control Signals**    | Send SIGSTOP/SIGCONT via tmux for Pause/Resume                                      |
+| **State Detection**    | Hook scripts POST events to HTTP listener; stall detection via output monitoring    |
 
-- Real-time terminal output for embedded UI view
-- Full control for pause/resume (Journey 2 requirement)
-- Context injection before agent starts
-- Cross-platform compatibility via established libraries
+**2. Planning Chat: tmux Sessions + PTY I/O Channel**
+
+| Component              | Implementation                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **Process Management** | One tmux session per chat (`tinsu-chat-{sessionId}`)                                |
+| **I/O Channel**        | PTY attaches to tmux session for direct stdin writing (not `send-keys`)             |
+| **Message Input**      | `ptyService.write()` for byte-level control over message content and Enter key      |
+| **Persistence**        | tmux sessions survive app restarts; no `--resume` flag needed                       |
+| **Concurrency**        | Multiple tmux sessions run independently across agents and projects                 |
+| **Session Monitoring** | `tmux has-session` polling detects background session completion/exit                |
+| **Hook Routing**       | Chat-specific hook endpoints (`/api/hooks/chat-*`) route by tmux session name       |
+
+**Why tmux for Both:**
+
+- Persistent sessions survive app restarts without `--resume` flag
+- Independent session lifecycle — switching agents doesn't affect background sessions
+- Stable session identifiers (tmux session names) eliminate orphan UUID routing bugs
+- Unified architecture — one session model for all Claude Code interactions
+- PTY attachment provides both visual terminal display (tasks) and reliable I/O (chat)
+
+**Two-Layer Architecture:**
+
+```
+tmux session (persistence layer)
+  └─ PTY attached via ptyService.spawn(tmux attach ...)  (I/O layer)
+       └─ claude --session-id {uuid}  (agent process)
+            └─ hooks POST to /api/hooks/{chat-*|stop|tool-use}  (event routing)
+```
 
 #### Git Integration
 
@@ -384,7 +449,7 @@ project/
 | ------------------------------ | ------------------------------------------- |
 | Kanban Board (4 columns)       | Core visual interface — the "control plane" |
 | Sprint/Epic/Story Hierarchy    | Structure for BMAD/TaskMaster compatibility |
-| Claude Code CLI via PTY        | Agent execution with real-time output       |
+| Claude Code CLI via tmux       | Agent execution with persistent sessions    |
 | Git Worktrees                  | Parallel task isolation without conflicts   |
 | Review Panel + Diff View       | Manager-in-the-Loop pattern                 |
 | Approve/Reject/Request Changes | Human oversight actions                     |
@@ -392,6 +457,9 @@ project/
 | Pause/Resume                   | Intervention without losing context         |
 | Auto-commit on Approve         | Merge worktree, clean up                    |
 | SQLite + YAML Hybrid           | State persistence + human-readable config   |
+| Planning Workspace + Chat      | Multi-agent collaboration for planning phases |
+| Concurrent tmux Chat Sessions  | Multiple agents/projects without interference |
+| Session Persistence            | tmux sessions survive restart, no context loss |
 
 **Explicitly Deferred from MVP:**
 
@@ -425,9 +493,12 @@ project/
 
 | Risk                            | Mitigation                                                  |
 | ------------------------------- | ----------------------------------------------------------- |
-| PTY complexity across platforms | Use battle-tested library (node-pty), test on macOS + Linux |
+| tmux + PTY complexity across platforms | tmux is battle-tested; node-pty for I/O channel; test on macOS + Linux |
 | Worktree merge conflicts        | Surface conflicts in UI, manual resolution workflow         |
 | Stall detection false positives | Tunable thresholds, manual override always available        |
+| Concurrent session rate limits  | Bounded by subscription plan; sessions queue gracefully on 429 |
+| Hook routing for N concurrent sessions | Keyed by tmux session name (stable identifier), eliminates orphan UUID bugs |
+| tmux session accumulation       | Idle timeout (30 min) auto-kills inactive sessions; startup validation cleans stale sessions |
 
 **Market Risks:**
 
@@ -501,6 +572,39 @@ project/
 - FR34: System maintains searchable index of agent logs
 - FR35: System preserves human-readable project config in version-controlled YAML
 
+### Planning Workspace
+
+- FR36: Founder can open a Planning Workspace with BMAD workflow steps displayed in a sidebar
+- FR37: Founder can select an agent persona (PM, Architect, UX Designer, Dev, QA, or custom) for each chat session
+- FR38: Founder can send messages to an agent and receive responses in a chat interface with message bubbles
+
+### Planning Chat Session Management
+
+- FR39: System creates a persistent, isolated terminal session for each new chat conversation
+- FR40: System provides a bidirectional communication channel for sending messages to and receiving output from agent sessions
+- FR41: System launches the agent process with unique session identity and persona context pre-loaded
+- FR42: System routes agent lifecycle events (completion, tool use, permission requests, notifications) to the correct chat session without cross-session leakage
+- FR43: System persists assistant responses and tool activity for retrieval and display in the chat interface
+
+### Concurrent Agent Support
+
+- FR44: Founder can run multiple chat sessions simultaneously across different agent personas, each in an independent persistent session
+- FR45: Founder can switch between active chat sessions without interrupting background agent work
+- FR46: System displays a session list with live status indicators (thinking, idle, completed, exited) reflecting the agent session state
+- FR47: Founder can view and resume any previous chat session from the session list
+
+### Multi-Project Session Scoping
+
+- FR48: Chat sessions are scoped to a project — each session records its project_id and only appears in that project's session list
+- FR49: Founder can run concurrent chat sessions across different projects without cross-project interference
+- FR50: System confines each agent session's file operations to the target project directory, ensuring project isolation
+
+### Planning Chat Persistence
+
+- FR51: Chat sessions persist across app restarts — founder can resume conversations without context loss
+- FR52: System validates chat session health on startup, marking unavailable sessions for re-creation on next message
+- FR53: System monitors agent session health and updates session status within 2 seconds of a session becoming unavailable
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -509,12 +613,12 @@ project/
 
 - NFR1: Kanban board interactions (drag, click, navigation) complete in <100ms
 - NFR2: Board loads with full task list in <1 second
-- NFR3: UI remains responsive (non-blocking) during agent execution
+- NFR3: UI main thread event loop latency remains below 50ms during agent execution
 
 **Terminal Output:**
 
 - NFR4: Agent terminal output streams to UI with <500ms latency
-- NFR5: Terminal view handles high-frequency output without dropping frames
+- NFR5: Terminal view renders agent output at up to 1000 lines/second with no more than 5% frame loss
 
 **Data Operations:**
 
@@ -559,3 +663,22 @@ project/
 
 - NFR23: System handles story files with special characters in filenames
 - NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
+
+### Planning Chat
+
+**Session Concurrency:**
+
+- NFR25: System supports at least 5 concurrent chat tmux sessions without degradation of session management operations (create, switch, monitor)
+- NFR26: Switching between chat sessions completes in <500ms (session list click to message display)
+- NFR27: Background chat sessions experience zero message loss and no added processing latency >1 second due to foreground session activity
+
+**Session Reliability:**
+
+- NFR28: Chat tmux sessions survive app restart with zero context loss — conversation resumes from exact state
+- NFR29: Startup validation of chat tmux sessions completes in <5 seconds for up to 20 sessions
+- NFR30: Hook events from concurrent chat sessions are routed to the correct session with 100% accuracy (no cross-session event leakage)
+
+**Session Lifecycle:**
+
+- NFR31: Chat tmux session creation (including Claude CLI spawn and TUI ready detection) completes in <15 seconds
+- NFR32: Stale session detection (tmux process gone) updates UI status within one polling interval (2 seconds)
