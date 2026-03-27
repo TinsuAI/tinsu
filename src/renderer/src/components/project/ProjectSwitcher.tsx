@@ -6,7 +6,7 @@ import { useProjectStore } from '@renderer/stores/project.store'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
-import { NewProjectDialog } from '@renderer/components/NewProjectDialog'
+import { ProjectSetupDialog } from '@renderer/components/ProjectSetupDialog'
 
 export function ProjectSwitcher() {
   const [open, setOpen] = useState(false)
@@ -220,7 +220,7 @@ export function ProjectSwitcher() {
         </PopoverContent>
       </Popover>
 
-      <NewProjectDialog
+      <ProjectSetupDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onProjectCreated={({ path, projectName: name }) => {
@@ -228,6 +228,7 @@ export function ProjectSwitcher() {
           utils.invalidate()
           toast.success(`Created ${name}`)
         }}
+        mode="create"
       />
     </>
   )
