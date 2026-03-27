@@ -3,7 +3,7 @@ import { FolderOpen, Clock, AlertTriangle, Trash2, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
 import { ThemeToggle } from './ui/theme-toggle'
-import { NewProjectDialog } from './NewProjectDialog'
+import { ProjectSetupDialog } from './ProjectSetupDialog'
 import { trpc } from '@renderer/lib/trpc'
 import { cn } from '@renderer/lib/utils'
 
@@ -223,10 +223,11 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
       </p>
 
       {/* Create New Project Dialog */}
-      <NewProjectDialog
+      <ProjectSetupDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onProjectCreated={onProjectOpened}
+        mode="create"
       />
     </div>
   )
