@@ -8,7 +8,7 @@ import { settings } from './db/schema'
 import { eq } from 'drizzle-orm'
 import { createIPCHandler } from 'trpc-electron/main'
 import { appRouter, createContext } from './trpc'
-import { ptyService, TmuxService, TaskTerminalService, StallDetectorService, hookListenerService } from './services'
+import { ptyService, TaskTerminalService, StallDetectorService, hookListenerService } from './services'
 
 // Register tinsu-file:// as a privileged scheme so it can load local files in the renderer.
 // Must be called before app.whenReady(). Used to serve attachment images/files.
