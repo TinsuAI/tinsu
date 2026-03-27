@@ -40,6 +40,7 @@ export interface ProjectInfo {
   path: string
   config: ProjectConfig
   isNewProject: boolean
+  needsOnboarding: boolean
 }
 
 /**
@@ -201,7 +202,7 @@ export class ProjectService {
     }
 
     // Story 3.1.5: Register or lookup project in database
-    const projectId = await this.registerOrUpdateProject(projectPath, config.projectName)
+    const { id: projectId, alreadyRegistered } = await this.registerOrUpdateProject(projectPath, config.projectName)
 
     // Ensure project has at least one sprint (create default Backlog if none exist)
     this.ensureDefaultSprint(projectId)
@@ -220,7 +221,8 @@ export class ProjectService {
       id: projectId,
       path: projectPath,
       config,
-      isNewProject
+      isNewProject,
+      needsOnboarding: !alreadyRegistered
     }
 
     return this.currentProjectInfo
@@ -236,7 +238,7 @@ export class ProjectService {
   private static async registerOrUpdateProject(
     projectPath: string,
     projectName?: string
-  ): Promise<string> {
+  ): Promise<{ id: string; alreadyRegistered: boolean }> {
     // Check if project exists in database by path
     const existingProject = db
       .select()
@@ -250,7 +252,7 @@ export class ProjectService {
         .set({ last_opened_at: new Date() })
         .where(eq(projects.id, existingProject.id))
         .run()
-      return existingProject.id
+      return { id: existingProject.id, alreadyRegistered: true }
     }
 
     // Create new project record
@@ -266,7 +268,7 @@ export class ProjectService {
       })
       .run()
 
-    return projectId
+    return { id: projectId, alreadyRegistered: false }
   }
 
   /**
