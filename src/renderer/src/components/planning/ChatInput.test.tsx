@@ -10,6 +10,17 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatInput } from './ChatInput'
 
+// Mock useAutocomplete to avoid tRPC context requirement
+vi.mock('@renderer/hooks/useAutocomplete', () => ({
+  useAutocomplete: () => ({
+    state: { isOpen: false, trigger: null, query: '', triggerIndex: -1, items: [], selectedIndex: 0, isLoading: false },
+    handleInputChange: vi.fn(),
+    handleKeyDown: () => false,
+    selectItem: vi.fn(),
+    dismiss: vi.fn()
+  })
+}))
+
 const defaultProps = {
   onSend: vi.fn(),
   onAttachmentsAdded: vi.fn(),

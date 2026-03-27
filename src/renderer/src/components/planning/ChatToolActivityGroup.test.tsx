@@ -21,7 +21,7 @@ function makeToolMessage(id: string, toolName: string, toolInput: Record<string,
   return {
     id,
     role: 'tool' as const,
-    content: `Tool: ${toolName}`,
+    content: `PreToolUse: ${toolName}`,
     tool_name: toolName,
     tool_input: JSON.stringify(toolInput),
     created_at: new Date(baseTime.getTime() + parseInt(id.replace('msg-', '')) * 1000)

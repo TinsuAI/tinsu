@@ -23,6 +23,10 @@ interface PlanningWorkspaceState {
   pendingChatPrefill: string | null
   /** Persona to auto-select when a workflow step is clicked */
   pendingPersona: string | null
+  /** Active chat session ID — set by ChatPanel so content panel can show session docs */
+  activeChatSessionId: string | null
+  /** Whether the terminal panel column is visible */
+  showTerminal: boolean
 }
 
 interface PlanningWorkspaceActions {
@@ -46,6 +50,10 @@ interface PlanningWorkspaceActions {
   setPendingChatPrefill: (prefill: string | null, persona?: string | null) => void
   /** Clear the pending chat prefill after it's been consumed */
   clearPendingChatPrefill: () => void
+  /** Set active chat session ID (called by ChatPanel when session changes) */
+  setActiveChatSessionId: (id: string | null) => void
+  /** Toggle terminal panel visibility */
+  setShowTerminal: (show: boolean) => void
 }
 
 export const usePlanningWorkspaceStore = create<
@@ -59,6 +67,8 @@ export const usePlanningWorkspaceStore = create<
   targetChatSessionId: null,
   pendingChatPrefill: null,
   pendingPersona: null,
+  activeChatSessionId: null,
+  showTerminal: false,
 
   // Actions
   openWorkspace: (phase) =>
@@ -115,5 +125,8 @@ export const usePlanningWorkspaceStore = create<
   // Chat-centric layout: Prefill and workflow session state
   setPendingChatPrefill: (prefill, persona) =>
     set({ pendingChatPrefill: prefill, pendingPersona: persona ?? null }),
-  clearPendingChatPrefill: () => set({ pendingChatPrefill: null, pendingPersona: null })
+  clearPendingChatPrefill: () => set({ pendingChatPrefill: null, pendingPersona: null }),
+
+  setActiveChatSessionId: (id) => set({ activeChatSessionId: id }),
+  setShowTerminal: (show) => set({ showTerminal: show })
 }))

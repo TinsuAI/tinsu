@@ -13,6 +13,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { Send, ArrowUp, Paperclip, FileIcon, X } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
+import { useAutocomplete } from '@renderer/hooks/useAutocomplete'
+import { AutocompleteDropdown } from './AutocompleteDropdown'
 
 /** A file staged for sending but not yet saved to disk */
 export interface PendingAttachment {
@@ -60,6 +62,8 @@ export function ChatInput({
   const [isDragOver, setIsDragOver] = useState(false)
   const dragCounterRef = useRef(0)
 
+  const autocomplete = useAutocomplete({ textareaRef, value, setValue })
+
   const isEmpty = value.trim().length === 0
   const hasAttachments = pendingAttachments.length > 0
   const canSend = !isEmpty || hasAttachments
@@ -106,11 +110,13 @@ export function ChatInput({
   /** Handle textarea value change */
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setValue(e.target.value)
+      const newValue = e.target.value
+      setValue(newValue)
       setIsPrefilled(false)
       adjustHeight()
+      autocomplete.handleInputChange(newValue, e.target.selectionStart)
     },
-    [adjustHeight]
+    [adjustHeight, autocomplete]
   )
 
   /** Handle message submission */
@@ -131,15 +137,16 @@ export function ChatInput({
     })
   }, [value, onSend, disabled, canSend, pendingAttachments])
 
-  /** Handle keydown for Enter/Shift+Enter behavior */
+  /** Handle keydown — autocomplete gets first crack, then Enter/Shift+Enter */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (autocomplete.handleKeyDown(e)) return
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         handleSubmit()
       }
     },
-    [handleSubmit]
+    [autocomplete, handleSubmit]
   )
 
   /** Handle paste — intercept image paste from clipboard */
@@ -265,6 +272,9 @@ export function ChatInput({
           ))}
         </div>
       )}
+
+      {/* Autocomplete dropdown — positioned above the input */}
+      <AutocompleteDropdown state={autocomplete.state} onSelect={autocomplete.selectItem} />
 
       <div
         className={cn(

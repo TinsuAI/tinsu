@@ -228,6 +228,13 @@ export class HookListenerService {
   private chatSessionStatus: Map<string, ChatSessionStatusData> = new Map()
 
   /**
+   * Tracks sessions where assistant text has already been extracted for the current turn.
+   * Prevents duplicate extraction. Cleared when Stop hook fires for the session.
+   * Key: chat session DB ID.
+   */
+  private turnTextExtracted: Set<string> = new Set()
+
+  /**
    * Pending permission requests — held HTTP responses waiting for user approval.
    * Key: requestId, Value: resolve callback + metadata.
    */
@@ -1160,37 +1167,63 @@ export class HookListenerService {
       return
     }
 
-    // Resolve the assistant message: check payload field first, then fall back
-    // to reading the Claude Code transcript JSONL file. Claude Code's Stop hook
-    // payload may or may not include the response depending on version and mode.
-    let assistantMessage: string | undefined =
-      payload.last_assistant_message ??
-      (payload as Record<string, unknown>).result as string | undefined
+    // Check if we already stored intermediate assistant text for this turn.
+    // If so, skip storing again from Stop to prevent duplicates.
+    const alreadyStoredIntermediate = this.turnTextExtracted.has(session.id)
+    this.turnTextExtracted.delete(session.id)
 
-    // Fallback: read the transcript JSONL file and extract the last assistant text
-    if (assistantMessage == null && payload.transcript_path) {
-      try {
-        assistantMessage = this.extractLastAssistantMessage(payload.transcript_path)
-      } catch (err) {
-        console.warn('[HookListener] Failed to read transcript for chat response:', err)
+    if (!alreadyStoredIntermediate) {
+      // Resolve the assistant message: check payload field first, then fall back
+      // to reading the Claude Code transcript JSONL file. Claude Code's Stop hook
+      // payload may or may not include the response depending on version and mode.
+      let assistantMessage: string | undefined =
+        payload.last_assistant_message ??
+        (payload as Record<string, unknown>).result as string | undefined
+
+      // Fallback: read the transcript JSONL file and extract the last assistant text
+      if (assistantMessage == null && payload.transcript_path) {
+        try {
+          assistantMessage = this.extractLastAssistantMessage(payload.transcript_path)
+        } catch (err) {
+          console.warn('[HookListener] Failed to read transcript for chat response:', err)
+        }
       }
-    }
 
-    if (assistantMessage != null) {
-      const messageId = crypto.randomUUID()
+      if (assistantMessage != null) {
+        const messageId = crypto.randomUUID()
+        const now = new Date()
+
+        db.insert(chat_messages)
+          .values({
+            id: messageId,
+            session_id: session.id,
+            role: 'assistant',
+            content: assistantMessage,
+            created_at: now
+          })
+          .run()
+
+        // Update session timestamps
+        db.update(chat_sessions)
+          .set({
+            last_message_at: now,
+            updated_at: now
+          })
+          .where(eq(chat_sessions.id, session.id))
+          .run()
+
+        console.log(
+          `[HookListener] Stored chat assistant message for session ${session.id}`
+        )
+      } else {
+        console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
+      }
+    } else {
+      console.log(
+        `[HookListener] Skipping Stop assistant text for session ${session.id} — already stored during PreToolUse`
+      )
+      // Still update session timestamps
       const now = new Date()
-
-      db.insert(chat_messages)
-        .values({
-          id: messageId,
-          session_id: session.id,
-          role: 'assistant',
-          content: assistantMessage,
-          created_at: now
-        })
-        .run()
-
-      // Update session timestamps
       db.update(chat_sessions)
         .set({
           last_message_at: now,
@@ -1198,12 +1231,6 @@ export class HookListenerService {
         })
         .where(eq(chat_sessions.id, session.id))
         .run()
-
-      console.log(
-        `[HookListener] Stored chat assistant message for session ${session.id}`
-      )
-    } else {
-      console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
     }
 
     // Mark session as free so queued messages can be flushed
@@ -1246,6 +1273,63 @@ export class HookListenerService {
             return contentBlocks[j].text as string
           }
         }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+
+    return undefined
+  }
+
+  /**
+   * Extract the latest assistant text blocks from a Claude Code transcript JSONL.
+   *
+   * Reads backwards from the end to find the most recent assistant entry that
+   * contains text content blocks (not just tool_use blocks). Returns the
+   * concatenated text from all text blocks in that entry.
+   *
+   * This is used during execution (on first PreToolUse) to capture the
+   * assistant's opening text before tool calls begin.
+   *
+   * @param transcriptPath - Absolute path to the .jsonl transcript file
+   * @returns The assistant text, or undefined if none found or only tool_use blocks
+   */
+  private extractLatestAssistantTextBlocks(transcriptPath: string): string | undefined {
+    if (!fs.existsSync(transcriptPath)) return undefined
+
+    const content = fs.readFileSync(transcriptPath, 'utf-8')
+    const lines = content.trim().split('\n')
+
+    // Walk backwards to find the last assistant message
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]) as Record<string, unknown>
+        if (entry.type !== 'assistant') continue
+
+        const message = entry.message as Record<string, unknown> | undefined
+        if (!message || message.role !== 'assistant') continue
+
+        const contentBlocks = message.content as Array<Record<string, unknown>> | undefined
+        if (!Array.isArray(contentBlocks)) continue
+
+        // Collect all text blocks from this entry
+        const textParts: string[] = []
+        for (const block of contentBlocks) {
+          if (block.type === 'text' && typeof block.text === 'string') {
+            textParts.push(block.text as string)
+          }
+        }
+
+        // Only return if there are text blocks AND tool_use blocks (mixed turn).
+        // If only text blocks exist, this is a pure text response that will be
+        // captured by the Stop hook. We only want intermediate text before tools.
+        const hasToolUse = contentBlocks.some((b) => b.type === 'tool_use')
+        if (textParts.length > 0 && hasToolUse) {
+          return textParts.join('\n\n')
+        }
+
+        // Found an assistant entry but it's pure tool_use or pure text — stop searching
+        return undefined
       } catch {
         // Skip malformed lines
       }
@@ -1369,8 +1453,41 @@ export class HookListenerService {
       return
     }
 
-    const messageId = crypto.randomUUID()
     const now = new Date()
+
+    // Extract assistant text from transcript on the first tool call of a turn.
+    // Claude Code writes text blocks to the transcript BEFORE firing PreToolUse hooks,
+    // so by now the assistant's opening text (e.g., "Let me investigate...") is available.
+    // Only mark as extracted when text is actually stored — otherwise the Stop hook
+    // must still store the final assistant message.
+    if (!this.turnTextExtracted.has(session.id)) {
+      const transcriptPath = (payload as Record<string, unknown>).transcript_path as string | undefined
+      if (transcriptPath) {
+        try {
+          const assistantText = this.extractLatestAssistantTextBlocks(transcriptPath)
+          if (assistantText) {
+            this.turnTextExtracted.add(session.id)
+            const assistantMsgId = crypto.randomUUID()
+            db.insert(chat_messages)
+              .values({
+                id: assistantMsgId,
+                session_id: session.id,
+                role: 'assistant',
+                content: assistantText,
+                created_at: new Date(now.getTime() - 1) // 1ms before tool event for correct ordering
+              })
+              .run()
+            console.log(
+              `[HookListener] Stored intermediate assistant text for session ${session.id} (${assistantText.length} chars)`
+            )
+          }
+        } catch (err) {
+          console.warn('[HookListener] Failed to extract intermediate assistant text:', err)
+        }
+      }
+    }
+
+    const messageId = crypto.randomUUID()
 
     db.insert(chat_messages)
       .values({

@@ -18,7 +18,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert, Terminal } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { trpc } from '@renderer/lib/trpc'
 import { usePlanningWorkspaceStore } from '@renderer/stores'
@@ -44,6 +44,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const clearPendingChatPrefill = usePlanningWorkspaceStore((s) => s.clearPendingChatPrefill)
   const setSelectedWorkflow = usePlanningWorkspaceStore((s) => s.setSelectedWorkflow)
   const setActivePhase = usePlanningWorkspaceStore((s) => s.setActivePhase)
+  const setActiveChatSessionId = usePlanningWorkspaceStore((s) => s.setActiveChatSessionId)
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
 
@@ -55,6 +56,11 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
 
   // Active session — transient UI state (not Zustand)
   const [sessionId, setSessionId] = useState<string | null>(null)
+
+  // Sync active chat session ID to store so content panel can show session docs
+  useEffect(() => {
+    setActiveChatSessionId(sessionId)
+  }, [sessionId, setActiveChatSessionId])
 
   // Agent thinking indicator — set true after sending, cleared when new assistant message arrives
   const [isAgentThinking, setIsAgentThinking] = useState(false)
@@ -243,15 +249,30 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   // Track when new messages arrive to update thinking indicator and tool activity
   useEffect(() => {
     if (messages.length > prevMessageCountRef.current) {
-      // Check if the latest message is from the assistant
       const lastMessage = messages[messages.length - 1]
+
+      // Only clear thinking when the LAST message is from the assistant AND
+      // there are no tool messages after it. This prevents falsely clearing
+      // the thinking indicator when intermediate assistant text arrives
+      // before tool calls (the intermediate text is stored with created_at
+      // 1ms before the first tool message, so tool messages will follow).
       if (lastMessage && lastMessage.role === 'assistant') {
-        setIsAgentThinking(false)
-        setCurrentToolActivity(null)
-        // Clear safety timeout — response arrived normally
-        if (thinkingTimeoutRef.current) {
-          clearTimeout(thinkingTimeoutRef.current)
-          thinkingTimeoutRef.current = null
+        // Check if this assistant message is followed by any tool activity
+        // (look at all new messages, not just the last one)
+        const newMessages = messages.slice(prevMessageCountRef.current)
+        const lastNewAssistantIdx = newMessages.map(m => m.role).lastIndexOf('assistant')
+        const hasToolAfterAssistant = newMessages.slice(lastNewAssistantIdx + 1).some(
+          m => m.role === 'tool'
+        )
+
+        if (!hasToolAfterAssistant) {
+          setIsAgentThinking(false)
+          setCurrentToolActivity(null)
+          // Clear safety timeout — response arrived normally
+          if (thinkingTimeoutRef.current) {
+            clearTimeout(thinkingTimeoutRef.current)
+            thinkingTimeoutRef.current = null
+          }
         }
       }
       // Story 10.5: Track PreToolUse events for contextual working indicator (AC: 1)
@@ -323,6 +344,10 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
 
   // Track skip_permissions for the active session
   const [skipPermissions, setSkipPermissions] = useState(true)
+
+  // Terminal viewer toggle (stored in workspace store so page layout can react)
+  const showTerminal = usePlanningWorkspaceStore((s) => s.showTerminal)
+  const setShowTerminal = usePlanningWorkspaceStore((s) => s.setShowTerminal)
 
   // Sync skip_permissions from workflow session or session list selection
   useEffect(() => {
@@ -643,6 +668,23 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
                     <ShieldAlert className="h-3 w-3" />
                   )}
                   <span className="text-[10px]">{skipPermissions ? 'Auto' : 'Manual'}</span>
+                </button>
+              )}
+              {sessionId && (
+                <button
+                  type="button"
+                  onClick={() => setShowTerminal(!showTerminal)}
+                  className={cn(
+                    'flex h-5 items-center gap-1 rounded px-1.5 transition-colors',
+                    showTerminal
+                      ? 'text-cyan-400/80 bg-cyan-500/10'
+                      : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40'
+                  )}
+                  aria-label={showTerminal ? 'Hide terminal' : 'Show terminal'}
+                  title="Toggle terminal view"
+                  data-testid="toggle-terminal"
+                >
+                  <Terminal className="h-3 w-3" />
                 </button>
               )}
               {sessionId && messages.length > 0 && (

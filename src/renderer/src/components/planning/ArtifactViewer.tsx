@@ -11,7 +11,8 @@ import {
   RotateCw,
   Hash,
   GitCompare,
-  MessageSquare
+  MessageSquare,
+  X
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
@@ -133,18 +134,38 @@ const STATUS_CYCLE: Record<ArtifactStatus, ArtifactStatus> = {
 
 /* ── ArtifactViewer ── */
 
-export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
+export function ArtifactViewer({ workflowKey, filePath, onCloseFile }: {
+  workflowKey: string
+  /** Optional: display a file by path instead of the workflow artifact */
+  filePath?: string | null
+  /** Called when the file viewer close button is clicked */
+  onCloseFile?: () => void
+}) {
   const { data: project } = trpc.project.getCurrent.useQuery()
   const projectId = project?.id ?? ''
 
+  // When filePath is provided, fetch file directly instead of workflow artifact
   const {
-    data: artifactContent,
+    data: fileByPathData,
+    isError: isFileByPathError
+  } = trpc.planning.getFileByPath.useQuery(
+    { relativePath: filePath! },
+    { enabled: !!filePath, retry: false }
+  )
+
+  const {
+    data: workflowArtifactContent,
     isError: isContentError,
     refetch: refetchContent
   } = trpc.planning.getArtifactContent.useQuery(
     { projectId, workflowKey },
-    { enabled: !!projectId }
+    { enabled: !!projectId && !filePath }
   )
+
+  // Use file-by-path data when available, otherwise workflow artifact
+  const artifactContent = filePath
+    ? (fileByPathData ? { ...fileByPathData, workflowKey } : undefined)
+    : workflowArtifactContent
 
   const { data: artifacts } = trpc.planning.scanArtifacts.useQuery(
     { projectId },
@@ -276,7 +297,7 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
   }, [])
 
   /* ── Loading state ── */
-  if (!artifactContent && !isContentError) {
+  if (!artifactContent && !isContentError && !isFileByPathError) {
     return (
       <div className="flex h-full w-full flex-col">
         {/* Skeleton header */}
@@ -316,7 +337,7 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
   }
 
   /* ── Error state ── */
-  if (isContentError) {
+  if (isContentError || isFileByPathError) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center">
@@ -340,6 +361,9 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
     )
   }
 
+  // After loading and error guards, artifactContent is guaranteed to exist
+  if (!artifactContent) return null
+
   const statusCfg = STATUS_CONFIG[currentStatus]
   const StatusIcon = statusCfg.icon
 
@@ -348,58 +372,82 @@ export function ArtifactViewer({ workflowKey }: { workflowKey: string }) {
       {/* ── Header bar ── */}
       <div className="shrink-0 border-b border-border/50 bg-card/30">
         <div className="flex items-center gap-3 px-5 py-2.5">
-          {/* Artifact name */}
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Hash className="h-3.5 w-3.5 text-cyan-500/70" />
-            {workflow?.name ?? workflowKey}
-          </div>
+          {filePath ? (
+            <>
+              {/* File-path mode: simplified header */}
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-foreground">
+                <Hash className="h-3.5 w-3.5 shrink-0 text-cyan-500/70" />
+                <span className="truncate">
+                  {(filePath.split('/').pop() ?? '').replace(/\.md$/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                </span>
+              </div>
+              {onCloseFile && (
+                <button
+                  type="button"
+                  onClick={onCloseFile}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-accent/40 hover:text-foreground"
+                  aria-label="Close document"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Workflow mode: full header */}
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Hash className="h-3.5 w-3.5 text-cyan-500/70" />
+                {workflow?.name ?? workflowKey}
+              </div>
 
-          {/* Status badge (clickable cycle) */}
-          <button
-            type="button"
-            onClick={handleStatusToggle}
-            disabled={updateStatus.isPending}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-              statusCfg.className
-            )}
-            data-testid="status-badge"
-          >
-            <StatusIcon className="h-2.5 w-2.5" />
-            {statusCfg.label}
-          </button>
+              {/* Status badge (clickable cycle) */}
+              <button
+                type="button"
+                onClick={handleStatusToggle}
+                disabled={updateStatus.isPending}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                  statusCfg.className
+                )}
+                data-testid="status-badge"
+              >
+                <StatusIcon className="h-2.5 w-2.5" />
+                {statusCfg.label}
+              </button>
 
-          {/* Story 9.7: Compare Versions button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCompareVersions}
-            disabled={!hasMultipleVersions}
-            className={cn(
-              'gap-1.5 text-xs',
-              !hasMultipleVersions && 'opacity-50 cursor-not-allowed'
-            )}
-            title={hasMultipleVersions ? 'Compare artifact versions' : 'Needs at least 2 committed versions'}
-            data-testid="compare-versions-btn"
-          >
-            <GitCompare className="h-3 w-3" />
-            Compare Versions
-          </Button>
+              {/* Story 9.7: Compare Versions button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCompareVersions}
+                disabled={!hasMultipleVersions}
+                className={cn(
+                  'gap-1.5 text-xs',
+                  !hasMultipleVersions && 'opacity-50 cursor-not-allowed'
+                )}
+                title={hasMultipleVersions ? 'Compare artifact versions' : 'Needs at least 2 committed versions'}
+                data-testid="compare-versions-btn"
+              >
+                <GitCompare className="h-3 w-3" />
+                Compare Versions
+              </Button>
 
-          {/* Spacer */}
-          <div className="flex-1" />
+              {/* Spacer */}
+              <div className="flex-1" />
 
-          {/* Edit with Agent */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleEditWithAgent}
-            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            data-testid="edit-with-agent"
-          >
-            <Terminal className="h-3 w-3" />
-            Edit with Agent
-          </Button>
+              {/* Edit with Agent */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEditWithAgent}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                data-testid="edit-with-agent"
+              >
+                <Terminal className="h-3 w-3" />
+                Edit with Agent
+              </Button>
+            </>
+          )}
         </div>
 
         {/* ── Metadata bar ── */}

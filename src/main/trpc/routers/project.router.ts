@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import fs from 'fs'
+import path from 'path'
+import ignore from 'ignore'
 import { dialog, BrowserWindow } from 'electron'
 import { desc, eq } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
@@ -82,6 +84,87 @@ function projectErrorToTRPCError(error: ProjectError): TRPCError {
         message: error.message,
         cause: error
       })
+  }
+}
+
+/** Always-ignored directories regardless of .gitignore */
+const ALWAYS_IGNORED = ['node_modules', '.git', '.tinsu', '.DS_Store']
+
+const MAX_FILE_RESULTS = 50
+
+/**
+ * List files/directories at a given prefix path within a project root.
+ * Respects .gitignore and hardcoded ignores. Returns at most MAX_FILE_RESULTS entries.
+ */
+export function listProjectFiles(
+  projectRoot: string,
+  prefix: string
+): Array<{ name: string; relativePath: string; isDirectory: boolean }> {
+  try {
+    // Build gitignore filter
+    const ig = ignore()
+    ig.add(ALWAYS_IGNORED)
+    const gitignorePath = path.join(projectRoot, '.gitignore')
+    if (fs.existsSync(gitignorePath)) {
+      const content = fs.readFileSync(gitignorePath, 'utf-8')
+      ig.add(content)
+    }
+
+    // Split prefix: "src/comp" → dir="src", filter="comp"
+    // "src/" → dir="src", filter=""
+    // "" → dir="", filter=""
+    const normalized = prefix.replace(/\\/g, '/')
+    const segments = normalized.split('/').filter((s) => s !== '')
+    const hasTrailingSlash = normalized.endsWith('/')
+
+    let dirSegments: string[]
+    let filterStr: string
+
+    if (hasTrailingSlash || segments.length === 0) {
+      dirSegments = segments
+      filterStr = ''
+    } else {
+      dirSegments = segments.slice(0, -1)
+      filterStr = segments[segments.length - 1].toLowerCase()
+    }
+
+    const targetDir = path.join(projectRoot, ...dirSegments)
+    if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
+      return []
+    }
+
+    const entries = fs.readdirSync(targetDir, { withFileTypes: true })
+    const results: Array<{ name: string; relativePath: string; isDirectory: boolean }> = []
+
+    for (const entry of entries) {
+      if (results.length >= MAX_FILE_RESULTS) break
+
+      // Filter by prefix
+      if (filterStr && !entry.name.toLowerCase().startsWith(filterStr)) continue
+
+      // Build relative path for gitignore check
+      const relPath = path.join(...dirSegments, entry.name)
+      const isDir = entry.isDirectory()
+
+      // Check gitignore (add trailing slash for dirs per gitignore spec)
+      if (ig.ignores(isDir ? relPath + '/' : relPath)) continue
+
+      results.push({
+        name: entry.name,
+        relativePath: relPath,
+        isDirectory: isDir
+      })
+    }
+
+    // Sort: directories first, then alphabetical
+    results.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+
+    return results
+  } catch {
+    return []
   }
 }
 
@@ -243,5 +326,16 @@ export const projectRouter = router({
       } catch {
         return false
       }
+    }),
+
+  /**
+   * List files and directories for chat input autocomplete.
+   * Reads one directory level at a time based on the prefix path.
+   * Respects .gitignore rules and filters out common non-project directories.
+   */
+  listFiles: publicProcedure
+    .input(z.object({ prefix: z.string().max(500).default('') }))
+    .query(({ ctx, input }) => {
+      return listProjectFiles(ctx.projectRoot, input.prefix)
     })
 })

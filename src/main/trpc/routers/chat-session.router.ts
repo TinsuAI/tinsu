@@ -28,6 +28,7 @@ import {
   CHAT_MESSAGE_ROLE
 } from '../../db/schema'
 import { chatCliService, hookListenerService } from '../../services'
+import { ptyService } from '../../services/pty.service'
 import { PersonaContextService } from '../../services/persona-context.service'
 
 /** Simple mime type lookup from file extension */
@@ -972,7 +973,7 @@ export const chatSessionRouter = router({
           const project = getProject(session.project_id)
           const projectPath = project.path
 
-          if (await chatCliService.isTmuxAlive(input.sessionId)) {
+          if (await chatCliService.isTmuxAlive(input.sessionId, session.tmux_session ?? undefined)) {
             // Case B: tmux alive + PTY detached -> re-attach PTY, then send
             // Persona context NOT reloaded -- reuses existing session's persona
             await chatCliService.reattachSession(
@@ -986,17 +987,25 @@ export const chatSessionRouter = router({
               `[ChatSessionRouter] Re-attached PTY for ${input.sessionId} (Case B)`
             )
           } else {
-            // Case C: no tmux session -> create new tmux session with full claude spawn
+            // Case C: tmux dead or Claude exited -> (re)spawn claude in tmux session
+            // If tmux exists but Claude exited, spawnSession handles "duplicate session"
+            // gracefully and re-launches Claude with --session-id to resume the conversation.
+            const tmuxSessionName = chatCliService.buildTmuxSessionName(project.name, input.sessionId)
+            const isReLaunch = session.tmux_session != null
+
+            // Only inject persona context on first spawn — resumed sessions already have it
             let personaContext: string | undefined
-            try {
-              const bmadRoot = join(projectPath, '_bmad')
-              const personaContextService = new PersonaContextService(bmadRoot, projectPath)
-              personaContext = personaContextService.buildContext(session.agent_persona)
-            } catch (personaErr) {
-              const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
-              console.warn(
-                `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
-              )
+            if (!isReLaunch) {
+              try {
+                const bmadRoot = join(projectPath, '_bmad')
+                const personaContextService = new PersonaContextService(bmadRoot, projectPath)
+                personaContext = personaContextService.buildContext(session.agent_persona)
+              } catch (personaErr) {
+                const msg = personaErr instanceof Error ? personaErr.message : String(personaErr)
+                console.warn(
+                  `[ChatSessionRouter] Warning: Failed to load persona context for ${session.agent_persona}: ${msg}`
+                )
+              }
             }
 
             await chatCliService.spawnSession(
@@ -1005,11 +1014,11 @@ export const chatSessionRouter = router({
               project.name,
               projectPath,
               cliMessage,
-              personaContext
+              personaContext,
+              isReLaunch
             )
 
-            // Update tmux_session and status='active' in DB (session was 'paused' from dead tmux)
-            const tmuxSessionName = chatCliService.buildTmuxSessionName(project.name, input.sessionId)
+            // Update tmux_session and status='active' in DB
             db.update(chat_sessions)
               .set({
                 tmux_session: tmuxSessionName,
@@ -1020,7 +1029,7 @@ export const chatSessionRouter = router({
               .run()
 
             console.log(
-              `[ChatSessionRouter] Spawned new tmux session for ${input.sessionId} (tmux: ${tmuxSessionName}, Case C)`
+              `[ChatSessionRouter] ${isReLaunch ? 'Re-launched Claude' : 'Spawned new tmux session'} for ${input.sessionId} (tmux: ${tmuxSessionName}, Case C)`
             )
           }
         }
@@ -1058,5 +1067,131 @@ export const chatSessionRouter = router({
       if (!session) return null
 
       return hookListenerService.getChatSessionStatus(session.session_uuid)
+    }),
+
+  /**
+   * Attach a terminal viewer to a chat session's tmux session.
+   * Spawns a new PTY that runs `tmux attach-session` for read/write terminal access.
+   */
+  attachTerminal: publicProcedure
+    .input(z.object({
+      sessionId: z.string().min(1),
+      cols: z.number().optional(),
+      rows: z.number().optional()
+    }))
+    .mutation(({ input }) => {
+      const session = db
+        .select()
+        .from(chat_sessions)
+        .where(eq(chat_sessions.id, input.sessionId))
+        .get()
+
+      if (!session?.tmux_session) {
+        return { attached: false, processId: null }
+      }
+
+      const processId = ptyService.spawn(
+        'bash',
+        ['-c', `tmux attach-session -t ${session.tmux_session}`],
+        {
+          cols: input.cols,
+          rows: input.rows
+        }
+      )
+
+      return { attached: true, processId }
+    }),
+
+  /**
+   * Detach the terminal viewer PTY (soft detach — tmux session continues).
+   */
+  detachTerminal: publicProcedure
+    .input(z.object({ processId: z.string().min(1) }))
+    .mutation(({ input }) => {
+      ptyService.kill(input.processId)
+      return { detached: true }
+    }),
+
+  /**
+   * Get documents created during a chat session.
+   * Queries __artifact_created__ messages and also finds Write tool uses
+   * that target _bmad-output or docs directories.
+   */
+  getSessionDocuments: publicProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(({ input }) => {
+      // Get artifact-created messages
+      const artifactMessages = db
+        .select()
+        .from(chat_messages)
+        .where(
+          and(
+            eq(chat_messages.session_id, input.sessionId),
+            eq(chat_messages.tool_name, '__artifact_created__')
+          )
+        )
+        .orderBy(asc(chat_messages.created_at))
+        .all()
+
+      // Also get Write tool messages that created files
+      const writeMessages = db
+        .select()
+        .from(chat_messages)
+        .where(
+          and(
+            eq(chat_messages.session_id, input.sessionId),
+            eq(chat_messages.role, 'tool')
+          )
+        )
+        .orderBy(asc(chat_messages.created_at))
+        .all()
+        .filter((m) => {
+          if (m.tool_name === 'Write' && m.tool_input) {
+            try {
+              const input = JSON.parse(m.tool_input)
+              const fp = input.file_path as string | undefined
+              return fp && (fp.includes('_bmad-output') || fp.includes('/docs/') || fp.endsWith('.md'))
+            } catch { return false }
+          }
+          return false
+        })
+
+      // Deduplicate by file path
+      const seen = new Set<string>()
+      const docs: Array<{ filename: string; filePath: string; workflowKey: string | null; createdAt: string }> = []
+
+      for (const msg of artifactMessages) {
+        try {
+          const data = JSON.parse(msg.tool_input ?? '{}')
+          const fp = data.filePath as string
+          if (fp && !seen.has(fp)) {
+            seen.add(fp)
+            docs.push({
+              filename: data.filename ?? fp.split('/').pop() ?? fp,
+              filePath: fp,
+              workflowKey: data.workflowKey ?? null,
+              createdAt: msg.created_at?.toISOString() ?? ''
+            })
+          }
+        } catch { /* skip */ }
+      }
+
+      for (const msg of writeMessages) {
+        try {
+          const data = JSON.parse(msg.tool_input ?? '{}')
+          const fp = data.file_path as string
+          if (fp && !seen.has(fp)) {
+            seen.add(fp)
+            docs.push({
+              filename: fp.split('/').pop() ?? fp,
+              filePath: fp,
+              workflowKey: null,
+              createdAt: msg.created_at?.toISOString() ?? ''
+            })
+          }
+        } catch { /* skip */ }
+      }
+
+      return docs
     })
 })

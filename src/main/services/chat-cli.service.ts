@@ -33,8 +33,9 @@ import { promisify } from 'util'
 import { ptyService } from './pty.service'
 import { TmuxService } from './tmux.service'
 import { db } from '../db'
-import { chat_sessions } from '../db/schema'
+import { chat_sessions, chat_messages } from '../db/schema'
 import { eq, and, isNotNull } from 'drizzle-orm'
+import crypto from 'crypto'
 import type { PtyExitEvent, PtyOutputEvent } from './pty.service'
 
 const execAsync = promisify(exec)
@@ -113,12 +114,22 @@ export class ChatCliService {
   /** CTM-1.1: Reverse cache: tmuxSessionName -> chatSessionId (for hook routing in Story 1.2) */
   private sessionToChatCache: Map<string, string> = new Map()
 
+  /** Buffer for capturing slash command overlay output per PTY process */
+  private slashCmdBuffer: Map<string, { chunks: string[]; timer: ReturnType<typeof setTimeout> | null }> = new Map()
+
   constructor(chatHooksDir: string) {
     this.chatHooksDir = chatHooksDir
 
     // Listen for PTY exit events to update session map
     ptyService.on('exit', (event: PtyExitEvent) => {
       this.handlePtyExit(event)
+    })
+
+    // Listen for PTY output to detect and capture slash command overlay responses.
+    // Claude Code renders slash command results in a TUI overlay with "Esc to close".
+    // We capture the output, auto-dismiss with Escape, and store as a chat message.
+    ptyService.on('output', (event: PtyOutputEvent) => {
+      this.handleSlashCommandOutput(event)
     })
 
     // CTM-2.2: Start health monitoring (replaces standalone idle check interval)
@@ -235,6 +246,25 @@ export class ChatCliService {
       return true // Exit code 0 = session exists
     } catch {
       return false // Exit code 1 = session doesn't exist
+    }
+  }
+
+  /**
+   * Check if Claude Code is actively running inside a tmux session's pane.
+   * Uses `tmux list-panes` to inspect the current command of the active pane.
+   * Returns false if the pane is running a bare shell (bash/zsh), meaning Claude has exited.
+   */
+  private async isClaudeRunningInTmux(sessionName: string): Promise<boolean> {
+    try {
+      const { stdout } = await execAsync(
+        `tmux list-panes -t ${sessionName} -F '#{pane_current_command}'`,
+        { timeout: TMUX_COMMAND_TIMEOUT }
+      )
+      const cmd = stdout.trim().toLowerCase()
+      // Claude Code runs as a node process; a bare shell means Claude exited
+      return cmd !== 'bash' && cmd !== 'zsh' && cmd !== 'sh' && cmd !== 'fish'
+    } catch {
+      return false
     }
   }
 
@@ -380,12 +410,31 @@ export class ChatCliService {
    * @see CTM-1.3 AC 4: Three-case session handler
    * @see CTM-1.3 Task 3
    */
-  async isTmuxAlive(sessionId: string): Promise<boolean> {
-    const tmuxSessionName = this.sessionCache.get(sessionId)
+  async isTmuxAlive(sessionId: string, fallbackTmuxName?: string): Promise<boolean> {
+    const tmuxSessionName = this.sessionCache.get(sessionId) || fallbackTmuxName || null
     if (!tmuxSessionName) {
       return false
     }
-    return this.tmuxSessionExists(tmuxSessionName)
+    const alive = await this.tmuxSessionExists(tmuxSessionName)
+    if (!alive) return false
+
+    // Populate cache from DB fallback so subsequent lookups (reattach, hooks) work
+    if (!this.sessionCache.has(sessionId)) {
+      this.sessionCache.set(sessionId, tmuxSessionName)
+      this.sessionToChatCache.set(tmuxSessionName, sessionId)
+    }
+
+    // Tmux exists but Claude may have exited (bare shell prompt).
+    // Return false so Case C re-launches Claude in the existing tmux session.
+    const claudeRunning = await this.isClaudeRunningInTmux(tmuxSessionName)
+    if (!claudeRunning) {
+      console.log(
+        `[ChatCliService] tmux session ${tmuxSessionName} alive but Claude not running — will re-launch`
+      )
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -498,7 +547,9 @@ export class ChatCliService {
     projectName: string,
     projectPath: string,
     initialMessage: string,
-    personaContext?: string
+    personaContext?: string,
+    /** Use --resume instead of --session-id to resume an existing Claude Code session */
+    resume?: boolean
   ): Promise<string> {
     // CTM-1.1 AC 3: Validate sessionId against SAFE_SHELL_ARG_REGEX
     if (!SAFE_SHELL_ARG_REGEX.test(sessionId)) {
@@ -538,7 +589,10 @@ export class ChatCliService {
     )
 
     // CTM-1.1 AC 1: Build and send claude command into tmux session
-    const claudeArgs = ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
+    // Use --resume for re-launching an exited session, --session-id for fresh sessions
+    const claudeArgs = resume
+      ? ['--resume', sessionUuid, '--settings', this.buildChatSettingsJson()]
+      : ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
     if (personaContext) {
       claudeArgs.push('--append-system-prompt', personaContext)
     }
@@ -546,8 +600,11 @@ export class ChatCliService {
     // Build the full command string for tmux send-keys
     // Use single quotes to protect special characters in the settings JSON and persona
     // (bash inside the tmux session interprets these single-quoted arguments)
-    const claudeCommand = `claude ${claudeArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
-    console.log(`[ChatCliService] Sending claude command to tmux: claude --session-id ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
+    // Prefix with env vars inline so the claude process and its hook scripts inherit them.
+    // (tmux set-environment only affects new windows/panes, not the already-running shell)
+    const envPrefix = `TINSU_SESSION_UUID='${sessionUuid}' TINSU_TMUX_SESSION='${tmuxSessionName}'`
+    const claudeCommand = `${envPrefix} claude ${claudeArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
+    console.log(`[ChatCliService] Sending claude command to tmux: claude ${resume ? '--resume' : '--session-id'} ${sessionUuid} --settings "<json>" ${personaContext ? '--append-system-prompt "<persona>"' : ''}`)
 
     // Use execFileAsync (not execAsync) to bypass shell interpretation entirely.
     // The persona text can contain backticks, <>, $, etc. that /bin/sh would
@@ -615,15 +672,26 @@ export class ChatCliService {
       // Write message content first, then send \r (Enter) separately after a
       // short delay. When written in a single call, the terminal treats the
       // entire payload (including \r) as a "paste" and the TUI interprets \r
-      // as a literal newline rather than as a submit action. The 150ms gap
-      // ensures the TUI exits paste mode before receiving Enter.
+      // as a literal newline rather than as a submit action.
+      const isSlashCommand = message.startsWith('/')
       ptyService.write(processId, message)
       setTimeout(() => {
         const p = ptyService.getProcess(processId)
         if (p && p.state === 'running') {
           ptyService.write(processId, '\r')
+          // Slash commands trigger Claude Code's autocomplete — first Enter
+          // selects the item, second Enter submits. The TUI needs time to
+          // process autocomplete selection and re-render before the submit Enter.
+          if (isSlashCommand) {
+            setTimeout(() => {
+              const p2 = ptyService.getProcess(processId)
+              if (p2 && p2.state === 'running') {
+                ptyService.write(processId, '\r')
+              }
+            }, 500)
+          }
         }
-      }, 150)
+      }, 300)
     }
 
     const outputHandler = (event: PtyOutputEvent): void => {
@@ -697,15 +765,27 @@ export class ChatCliService {
       console.warn(`[ChatCliService] Session ${sessionId} is busy, sending anyway (agent may be generating)`)
     }
 
-    // Write message content, then send \r (Enter) after a short delay.
-    // See writeWhenReady for explanation of why the 150ms delay is needed.
+    // Write message content, then Enter after a short delay.
+    // For slash commands, a second Enter is needed: first Enter selects the
+    // autocomplete item, second Enter submits the command.
+    // The TUI needs time between Enter presses to process autocomplete selection
+    // and re-render — 150ms was too short and caused the submit to be swallowed.
+    const isSlashCommand = message.startsWith('/')
     ptyService.write(info.processId, message)
     setTimeout(() => {
       const proc = ptyService.getProcess(info.processId)
       if (proc && proc.state === 'running') {
         ptyService.write(info.processId, '\r')
+        if (isSlashCommand) {
+          setTimeout(() => {
+            const p2 = ptyService.getProcess(info.processId)
+            if (p2 && p2.state === 'running') {
+              ptyService.write(info.processId, '\r')
+            }
+          }, 500)
+        }
       }
-    }, 150)
+    }, 300)
 
     // Mark session as busy until chat-stop hook fires
     this.busySessions.add(sessionId)
@@ -858,6 +938,98 @@ export class ChatCliService {
    * Does NOT terminate the chat session or change DB status --
    * the session remains 'active' so it can be recovered (Story 1.3).
    */
+  /**
+   * Detect and capture slash command overlay output from Claude Code's TUI.
+   *
+   * Claude Code renders slash command responses (e.g., /skills, /cost, /status)
+   * in a full-screen TUI overlay that shows "Esc to close" at the bottom.
+   * This blocks further input until Escape is pressed.
+   *
+   * We buffer PTY output chunks, detect the "Esc to close" marker, then:
+   * 1. Send Escape to dismiss the overlay (unblock the session)
+   * 2. Store the captured text as a chat message for the user to read
+   */
+  private handleSlashCommandOutput(event: PtyOutputEvent): void {
+    const sessionId = this.processToSessionMap.get(event.processId)
+    if (!sessionId) return
+
+    // Strip ANSI escape codes for pattern matching
+    const clean = event.data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '')
+
+    // Start buffering when we see content that looks like a command response
+    // (we buffer all output and only act on "Esc to close")
+    let buf = this.slashCmdBuffer.get(event.processId)
+
+    if (!buf) {
+      // Only start buffering if this looks like slash command output
+      // (not regular assistant messages). Slash command overlays contain
+      // structured text without the usual assistant message patterns.
+      if (clean.includes('Esc to close')) {
+        // Single-chunk response — process immediately
+        buf = { chunks: [event.data], timer: null }
+        this.slashCmdBuffer.set(event.processId, buf)
+      } else {
+        return
+      }
+    } else {
+      buf.chunks.push(event.data)
+      // Reset debounce timer — wait for all chunks to arrive
+      if (buf.timer) clearTimeout(buf.timer)
+    }
+
+    // Check if we've received the "Esc to close" marker
+    const allText = buf.chunks.join('')
+    const allClean = allText.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '')
+
+    if (allClean.includes('Esc to close')) {
+      // Clear buffer
+      if (buf.timer) clearTimeout(buf.timer)
+      this.slashCmdBuffer.delete(event.processId)
+
+      // Extract meaningful text: strip ANSI, clean up whitespace
+      const lines = allClean
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && l !== 'Esc to close')
+
+      if (lines.length > 0) {
+        const content = lines.join('\n')
+
+        // Store as a tool message in the chat so the UI can display it
+        const session = this.sessions.get(sessionId)
+        if (session) {
+          db.insert(chat_messages)
+            .values({
+              id: crypto.randomUUID(),
+              session_id: sessionId,
+              role: 'tool',
+              content,
+              tool_name: '__command_output__',
+              tool_input: JSON.stringify({ type: 'slash_command_response' }),
+              created_at: new Date()
+            })
+            .run()
+
+          console.log(
+            `[ChatCliService] Captured slash command output for session ${sessionId} (${lines.length} lines)`
+          )
+        }
+      }
+
+      // Auto-dismiss the overlay so the session isn't blocked
+      const proc = ptyService.getProcess(event.processId)
+      if (proc && proc.state === 'running') {
+        ptyService.write(event.processId, '\x1b') // Escape to close overlay
+      }
+      return
+    }
+
+    // Set a timeout to stop buffering if "Esc to close" never arrives (safety net)
+    buf.timer = setTimeout(() => {
+      this.slashCmdBuffer.delete(event.processId)
+    }, 10_000)
+  }
+
   private handlePtyExit(event: PtyExitEvent): void {
     for (const [sessionId, info] of this.sessions) {
       if (info.processId === event.processId) {

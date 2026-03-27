@@ -14,7 +14,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Activity } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { ChatToolActivityCard } from './ChatToolActivityCard'
+import { ChatToolActivityCard, getToolDescription } from './ChatToolActivityCard'
 
 interface ToolMessage {
   id: string
@@ -28,6 +28,8 @@ interface ToolMessage {
 interface ChatToolActivityGroupProps {
   toolMessages: ToolMessage[]
   defaultExpanded?: boolean
+  /** When true, this group is actively receiving new tool messages (agent is working) */
+  isLive?: boolean
 }
 
 /** Check if a tool message has meaningful output content */
@@ -37,10 +39,11 @@ function hasOutput(msg: ToolMessage): boolean {
 
 export function ChatToolActivityGroup({
   toolMessages,
-  defaultExpanded = false
+  defaultExpanded = false,
+  isLive = false
 }: ChatToolActivityGroupProps) {
-  // Auto-expand when any tool in the group has output content
-  const anyHasOutput = toolMessages.some(hasOutput)
+  // Auto-expand when any tool in the group has output content (but NOT when live — keep collapsed to show status line)
+  const anyHasOutput = !isLive && toolMessages.some(hasOutput)
   const [expanded, setExpanded] = useState(defaultExpanded || anyHasOutput)
 
   // Single tool message — render directly, no group wrapper
@@ -89,6 +92,31 @@ export function ChatToolActivityGroup({
           actions
         </span>
       </button>
+
+      {/* Live status line — shows current action when collapsed */}
+      {!expanded && isLive && toolMessages.length > 0 && (
+        <div
+          className="flex items-center gap-2 px-2.5 py-1"
+          data-testid="chat-tool-group-live-status"
+        >
+          <span
+            className="ml-[18px] inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400"
+            style={{ animation: 'tool-live-pulse 1.5s ease-in-out infinite' }}
+          />
+          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground/60">
+            {getToolDescription(
+              toolMessages[toolMessages.length - 1].tool_name ?? 'Unknown',
+              toolMessages[toolMessages.length - 1].tool_input
+            )}
+          </span>
+          <style>{`
+            @keyframes tool-live-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.3; transform: scale(0.7); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Expanded: individual cards with timeline connector */}
       {expanded && (

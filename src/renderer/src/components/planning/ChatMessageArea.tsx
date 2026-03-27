@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { MessageSquare, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { MessageSquare, AlertTriangle, ShieldAlert, Terminal } from 'lucide-react'
 import { ChatMessageBubble } from './ChatMessageBubble'
 import { ChatToolActivityGroup } from './ChatToolActivityGroup'
 import { ChatWorkingIndicator } from './ChatWorkingIndicator'
@@ -61,6 +61,7 @@ type MessageSegment =
   | { type: 'notification'; message: ChatMessage }
   | { type: 'artifactNotification'; message: ChatMessage }
   | { type: 'permissionRequest'; message: ChatMessage }
+  | { type: 'commandOutput'; message: ChatMessage }
 
 /**
  * Group messages into segments for rendering.
@@ -90,6 +91,10 @@ function groupMessages(messages: ChatMessage[]): MessageSegment[] {
       } else if (msg.tool_name === '__artifact_created__') {
         flushToolGroup()
         segments.push({ type: 'artifactNotification', message: msg })
+      // Slash command output renders as a code block (AC: 5)
+      } else if (msg.tool_name === '__command_output__') {
+        flushToolGroup()
+        segments.push({ type: 'commandOutput', message: msg })
       // Notification messages render standalone (AC: 5)
       } else if (msg.tool_name === '__notification__') {
         flushToolGroup()
@@ -241,7 +246,16 @@ export function ChatMessageArea({
   const bottomRef = useRef<HTMLDivElement>(null)
   const isUserScrolledUp = useRef(false)
 
-  /** Detect user scroll position relative to bottom */
+  // Snapshot distance-from-bottom before each render so we can decide
+  // whether to auto-scroll after React commits the new DOM.
+  const prevDistanceRef = useRef(0)
+  // Capture pre-render scroll position whenever messages change
+  if (containerRef.current) {
+    const c = containerRef.current
+    prevDistanceRef.current = c.scrollHeight - c.scrollTop - c.clientHeight
+  }
+
+  /** Detect user scroll position relative to bottom (on user scroll) */
   const handleScroll = useCallback(() => {
     const container = containerRef.current
     if (!container) return
@@ -251,9 +265,12 @@ export function ChatMessageArea({
     isUserScrolledUp.current = distanceFromBottom > SCROLL_THRESHOLD
   }, [])
 
-  /** Auto-scroll to bottom on new messages or thinking indicator if user hasn't scrolled up */
+  /** Auto-scroll to bottom only if user was near the bottom before new content arrived */
   useEffect(() => {
-    if (!isUserScrolledUp.current && bottomRef.current) {
+    if (!bottomRef.current) return
+    // Use the pre-render snapshot: if user was within threshold before the
+    // DOM grew, they intended to stay at the bottom → scroll down.
+    if (prevDistanceRef.current <= SCROLL_THRESHOLD) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages.length, isAgentThinking])
@@ -282,7 +299,7 @@ export function ChatMessageArea({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-3 py-3"
+      className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
       data-testid="chat-message-area"
     >
       <div className="space-y-3">
@@ -301,7 +318,13 @@ export function ChatMessageArea({
                 />
               )
 
-            case 'toolGroup':
+            case 'toolGroup': {
+              // Mark the last tool group as "live" when the agent is actively working
+              const isLastToolGroup =
+                isAgentThinking &&
+                segments
+                  .slice(segments.indexOf(segment) + 1)
+                  .every((s) => s.type !== 'toolGroup')
               return (
                 <ChatToolActivityGroup
                   key={`tool-group-${segment.messages[0].id}`}
@@ -313,8 +336,10 @@ export function ChatMessageArea({
                     tool_input: m.tool_input ?? null,
                     created_at: m.created_at
                   }))}
+                  isLive={isLastToolGroup}
                 />
               )
+            }
 
             case 'permissionRequest': {
               const permInput = parsePermissionInput(segment.message.tool_input)
@@ -335,6 +360,23 @@ export function ChatMessageArea({
                   key={segment.message.id}
                   message={segment.message}
                 />
+              )
+
+            case 'commandOutput':
+              return (
+                <div
+                  key={segment.message.id}
+                  className="mx-1 rounded-lg border border-border/30 bg-muted/20 px-3 py-2"
+                  data-testid="chat-command-output"
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Terminal className="h-3.5 w-3.5 shrink-0 text-cyan-400/60" />
+                    <span className="text-[10px] font-medium text-muted-foreground/50">Command Output</span>
+                  </div>
+                  <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap font-mono text-xs text-foreground/70 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border">
+                    {segment.message.content}
+                  </pre>
+                </div>
               )
 
             case 'notification': {

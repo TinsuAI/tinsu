@@ -617,5 +617,34 @@ export const planningRouter = router({
         modified,
         language: 'markdown' as const
       }
+    }),
+
+  /**
+   * Read any file within the project by relative path.
+   * Used by SessionDocumentsBar to display arbitrary session documents.
+   */
+  getFileByPath: publicProcedure
+    .input(z.object({ relativePath: z.string().min(1) }))
+    .query(({ ctx, input }) => {
+      // Security: prevent path traversal
+      if (input.relativePath.includes('..')) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Path traversal not allowed' })
+      }
+      // Handle both absolute paths (from hook payloads) and relative paths
+      const isAbsolute = input.relativePath.startsWith('/')
+      const filePath = isAbsolute ? input.relativePath : join(ctx.projectRoot, input.relativePath)
+      try {
+        const content = readFileSync(filePath, 'utf-8')
+        const stat = statSync(filePath)
+        return {
+          content,
+          filePath: input.relativePath,
+          lastModified: stat.mtimeMs,
+          sizeBytes: stat.size,
+          wordCount: content.split(/\s+/).filter(Boolean).length
+        }
+      } catch {
+        throw new TRPCError({ code: 'NOT_FOUND', message: `File not found: ${input.relativePath}` })
+      }
     })
 })

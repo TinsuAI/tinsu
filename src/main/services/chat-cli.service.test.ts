@@ -841,14 +841,15 @@ describe('ChatCliService (CTM-1.1)', () => {
       expect(service.isSessionBusy('session-no-ready')).toBe(false)
 
       // No output handlers should have been registered for writeWhenReady
-      // (mockOn would have been called only from the constructor 'exit' handler
+      // (mockOn would have been called from the constructor's slash-command listener,
       // and spawnSession's writeWhenReady, not from reattachSession)
       const outputHandlerCalls = mockOn.mock.calls.filter(
         (call: unknown[]) => call[0] === 'output'
       )
-      // spawnSession registered 1 output handler (for writeWhenReady)
+      // constructor registered 1 output handler (slash command capture)
+      // spawnSession registered 1 output handler (writeWhenReady)
       // reattachSession should NOT register any new output handlers
-      expect(outputHandlerCalls.length).toBe(1)
+      expect(outputHandlerCalls.length).toBe(2)
     })
   })
 

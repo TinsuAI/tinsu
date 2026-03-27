@@ -32,11 +32,13 @@ import {
 } from '@renderer/constants/planning-workspace'
 import { PhaseProgressDashboard } from '@renderer/components/planning/PhaseProgressDashboard'
 import { ArtifactViewer } from '@renderer/components/planning/ArtifactViewer'
+import { SessionDocumentsBar } from '@renderer/components/planning/SessionDocumentsBar'
 import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
 import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
 import { AgentPersonaIndicator } from '@renderer/components/planning/AgentPersonaIndicator'
 import { KeyboardShortcutsOverlay } from '@renderer/components/planning/KeyboardShortcutsOverlay'
 import { ChatPanel } from '@renderer/components/planning/ChatPanel'
+import { ChatTerminal } from '@renderer/components/planning/ChatTerminal'
 import { usePlanningKeyboardShortcuts } from '@renderer/hooks/usePlanningKeyboardShortcuts'
 
 // localStorage key for planning workspace layout persistence
@@ -76,7 +78,10 @@ export function PlanningWorkspacePage() {
     setActivePhase,
     setSelectedWorkflow,
     setShowDashboard,
-    setPendingChatPrefill
+    setPendingChatPrefill,
+    activeChatSessionId,
+    showTerminal,
+    setShowTerminal
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
   const { data: project } = trpc.project.getCurrent.useQuery()
@@ -92,6 +97,14 @@ export function PlanningWorkspacePage() {
   )
 
   const workspaceRef = useRef<HTMLDivElement>(null)
+  // Active document path for session documents bar
+  const [activeDocPath, setActiveDocPath] = useState<string | null>(null)
+
+  // Clear doc viewer when workflow selection changes (user clicked a sidebar step)
+  useEffect(() => {
+    if (selectedWorkflowKey) setActiveDocPath(null)
+  }, [selectedWorkflowKey])
+
   // Story 9.9: Keyboard shortcuts help overlay state
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
 
@@ -573,6 +586,32 @@ export function PlanningWorkspacePage() {
               <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />
             </Panel>
 
+            {/* Terminal panel (only when open) */}
+            {showTerminal && activeChatSessionId && (
+              <>
+                <Separator
+                  className={cn(
+                    'mx-1 w-1',
+                    'bg-border/30 hover:bg-cyan-500/50 active:bg-cyan-500/70',
+                    'cursor-col-resize transition-colors duration-150 rounded-full'
+                  )}
+                />
+                <Panel
+                  id="terminal"
+                  defaultSize={20}
+                  minSize={10}
+                  collapsible
+                >
+                  <div className="flex h-full flex-col bg-card/20">
+                    <ChatTerminal
+                      sessionId={activeChatSessionId}
+                      onClose={() => setShowTerminal(false)}
+                    />
+                  </div>
+                </Panel>
+              </>
+            )}
+
             <Separator
               className={cn(
                 'mx-1 w-1',
@@ -598,17 +637,34 @@ export function PlanningWorkspacePage() {
                 {/* Story 9.5: Active workflow run banner — always top-aligned */}
                 <WorkflowRunPanel />
 
+                {/* Session documents bar — shows all docs from active chat session */}
+                {activeChatSessionId && (
+                  <SessionDocumentsBar
+                    sessionId={activeChatSessionId}
+                    activeDocPath={activeDocPath}
+                    onSelectDoc={(filePath) => {
+                      setActiveDocPath(filePath)
+                    }}
+                  />
+                )}
+
                 <div
                   className={cn(
                     'flex min-h-0 flex-1',
-                    selectedWorkflow &&
+                    !activeDocPath && selectedWorkflow &&
                       !showDashboard &&
                       !artifactExists &&
                       !isReadinessCheck &&
                       'items-center justify-center p-8'
                   )}
                 >
-                  {showDashboard || !selectedWorkflow ? (
+                  {activeDocPath ? (
+                    <ArtifactViewer
+                      workflowKey=""
+                      filePath={activeDocPath}
+                      onCloseFile={() => setActiveDocPath(null)}
+                    />
+                  ) : showDashboard || !selectedWorkflow ? (
                     <PhaseProgressDashboard />
                   ) : isReadinessCheck && artifactExists ? (
                     <div className="h-full overflow-y-auto">
