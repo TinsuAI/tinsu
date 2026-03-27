@@ -11,6 +11,7 @@ import { useProjectStore } from './stores/project.store'
 import { useStoryViewStore, useTaskWorkspaceStore, usePlanningWorkspaceStore } from './stores'
 import { trpc } from './lib/trpc'
 import { useFileWatcher } from './hooks/useFileWatcher'
+import { ProjectSetupDialog } from './components/ProjectSetupDialog'
 
 function App(): React.JSX.Element {
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
@@ -29,6 +30,10 @@ function App(): React.JSX.Element {
     return !!projectPath && !projectName
   })
 
+  // Onboarding wizard state
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingProjectPath, setOnboardingProjectPath] = useState<string | null>(null)
+
   // Story 8.10 AC4: Crash recovery state
   const [showCrashRecovery, setShowCrashRecovery] = useState(false)
   const [crashRecoveryData, setCrashRecoveryData] = useState<{
@@ -44,6 +49,12 @@ function App(): React.JSX.Element {
   // Try to re-open last project on mount
   const openPathMutation = trpc.project.openPath.useMutation({
     onSuccess: (result) => {
+      if (result.needsOnboarding) {
+        setOnboardingProjectPath(result.path)
+        setShowOnboarding(true)
+        setIsReopening(false)
+        return
+      }
       setProject(result.path, result.config.projectName)
       setIsReopening(false)
       // Story 8.10 AC4: Check for crashed operations after project opens
@@ -75,9 +86,58 @@ function App(): React.JSX.Element {
   }, []) // Only run on mount - intentionally omit dependencies
 
   const handleProjectOpened = useCallback(
-    (info: { path: string; projectName: string }): void => {
+    (info: { path: string; projectName: string; needsOnboarding?: boolean }): void => {
+      if (info.needsOnboarding) {
+        setOnboardingProjectPath(info.path)
+        setShowOnboarding(true)
+        return
+      }
       setProject(info.path, info.projectName)
       // Story 8.10 AC4: Check for crashed operations after project opens
+      crashRecoveryQuery.refetch().then((response) => {
+        if (response.data && response.data.crashedOperations.length > 0) {
+          setCrashRecoveryData({
+            crashedOperations: response.data.crashedOperations,
+            summary: response.data.summary
+          })
+          setShowCrashRecovery(true)
+        }
+      })
+    },
+    [setProject, crashRecoveryQuery]
+  )
+
+  // Background health check: re-verify critical tools on window focus
+  const healthCheckQuery = trpc.project.checkToolHealth.useQuery(undefined, {
+    enabled: false
+  })
+
+  useEffect(() => {
+    if (!projectPath || !projectName) return
+
+    const handleFocus = (): void => {
+      healthCheckQuery.refetch().then((response) => {
+        if (response.data) {
+          const anyMissing = response.data.some(
+            (t) => t.critical && t.status !== 'installed'
+          )
+          if (anyMissing) {
+            setOnboardingProjectPath(projectPath)
+            setShowOnboarding(true)
+          }
+        }
+      })
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [projectPath, projectName, healthCheckQuery])
+
+  const handleOnboardingComplete = useCallback(
+    (info: { path: string; projectName: string }): void => {
+      setShowOnboarding(false)
+      setOnboardingProjectPath(null)
+      setProject(info.path, info.projectName)
       crashRecoveryQuery.refetch().then((response) => {
         if (response.data && response.data.crashedOperations.length > 0) {
           setCrashRecoveryData({
@@ -100,6 +160,30 @@ function App(): React.JSX.Element {
             <h1 className="text-2xl font-semibold text-foreground">TinSu</h1>
             <p className="mt-2 text-muted-foreground">Opening project...</p>
           </div>
+        </div>
+        <Toaster />
+      </>
+    )
+  }
+
+  // Show onboarding wizard if triggered
+  if (showOnboarding && onboardingProjectPath) {
+    return (
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <ProjectSetupDialog
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowOnboarding(false)
+                setOnboardingProjectPath(null)
+                clearProject()
+              }
+            }}
+            onProjectCreated={handleOnboardingComplete}
+            mode="onboard"
+            projectPath={onboardingProjectPath}
+          />
         </div>
         <Toaster />
       </>

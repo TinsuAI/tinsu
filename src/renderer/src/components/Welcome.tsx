@@ -10,6 +10,7 @@ import { cn } from '@renderer/lib/utils'
 interface ProjectOpenedInfo {
   path: string
   projectName: string
+  needsOnboarding?: boolean
 }
 
 interface WelcomeProps {
@@ -58,7 +59,8 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
         // Project successfully opened
         onProjectOpened({
           path: result.path,
-          projectName: result.config.projectName
+          projectName: result.config.projectName,
+          needsOnboarding: result.needsOnboarding
         })
       }
       // If result is null, dialog was cancelled - do nothing
@@ -72,7 +74,8 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
     onSuccess: (result) => {
       onProjectOpened({
         path: result.path,
-        projectName: result.config.projectName
+        projectName: result.config.projectName,
+        needsOnboarding: result.needsOnboarding
       })
     },
     onError: (err) => {
