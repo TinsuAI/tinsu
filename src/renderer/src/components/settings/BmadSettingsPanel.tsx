@@ -10,85 +10,9 @@ import { Package, AlertTriangle, CheckCircle2, Loader2, Download, RefreshCw } fr
 import { toast } from 'sonner'
 import { trpc } from '@renderer/lib/trpc'
 import { Button } from '@renderer/components/ui/button'
-import { Input } from '@renderer/components/ui/input'
-import { Label } from '@renderer/components/ui/label'
-import { Checkbox } from '@renderer/components/ui/checkbox'
 import { Badge } from '@renderer/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@renderer/components/ui/select'
-import type { BmadInstallOptions, BmadTool } from '@shared/types/bmad.types'
-
-function ToolCheckboxGrid({
-  tools,
-  selectedTools,
-  toggleTool,
-  disabled
-}: {
-  tools: BmadTool[]
-  selectedTools: string[]
-  toggleTool: (id: string) => void
-  disabled: boolean
-}): React.JSX.Element {
-  const [showAll, setShowAll] = useState(false)
-  const preferred = tools.filter((t) => t.preferred)
-  const other = tools.filter((t) => !t.preferred)
-
-  return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium">Tools / IDE</Label>
-      <div className="grid grid-cols-2 gap-2">
-        {preferred.map((tool) => (
-          <label
-            key={tool.id}
-            className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
-          >
-            <Checkbox
-              checked={selectedTools.includes(tool.id)}
-              onCheckedChange={(): void => toggleTool(tool.id)}
-              disabled={disabled}
-              data-testid={`tool-checkbox-${tool.id}`}
-            />
-            <span>{tool.name}</span>
-          </label>
-        ))}
-      </div>
-      {other.length > 0 && (
-        <>
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            onClick={(): void => setShowAll((v) => !v)}
-          >
-            {showAll ? '▾ Hide other tools' : `▸ Show ${other.length} more tools…`}
-          </button>
-          {showAll && (
-            <div className="grid grid-cols-2 gap-2">
-              {other.map((tool) => (
-                <label
-                  key={tool.id}
-                  className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
-                >
-                  <Checkbox
-                    checked={selectedTools.includes(tool.id)}
-                    onCheckedChange={(): void => toggleTool(tool.id)}
-                    disabled={disabled}
-                    data-testid={`tool-checkbox-${tool.id}`}
-                  />
-                  <span>{tool.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
+import { BmadConfigForm } from '@renderer/components/setup/BmadConfigForm'
+import type { BmadInstallOptions } from '@shared/types/bmad.types'
 
 export function BmadSettingsPanel(): React.JSX.Element {
   const utils = trpc.useUtils()
@@ -298,73 +222,20 @@ export function BmadSettingsPanel(): React.JSX.Element {
       )}
 
       {/* Configuration form */}
-      <fieldset disabled={!nodeInstalled || isMutating} className="space-y-4">
-        {/* User Name */}
-        <div className="space-y-1.5">
-          <Label htmlFor="bmad-username" className="text-sm font-medium">
-            User Name
-          </Label>
-          <Input
-            id="bmad-username"
-            placeholder="Your name (used in BMAD templates)"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            data-testid="bmad-username-input"
-          />
-        </div>
-
-        {/* Modules */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Modules</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {modules.map((mod) => (
-              <label
-                key={mod.id}
-                className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-accent/50"
-              >
-                <Checkbox
-                  checked={selectedModules.includes(mod.id)}
-                  onCheckedChange={() => toggleModule(mod.id)}
-                  data-testid={`module-checkbox-${mod.id}`}
-                />
-                <span>{mod.name}</span>
-                {mod.builtIn && (
-                  <span className="ml-auto text-[10px] text-muted-foreground uppercase tracking-wider">
-                    built-in
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Tools / IDE */}
-        <ToolCheckboxGrid
-          tools={tools}
-          selectedTools={selectedTools}
-          toggleTool={toggleTool}
-          disabled={!nodeInstalled || isMutating}
-        />
-
-        {/* Language */}
-        <div className="space-y-1.5">
-          <Label htmlFor="bmad-language" className="text-sm font-medium">
-            Language
-          </Label>
-          <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger id="bmad-language" data-testid="bmad-language-select">
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang} value={lang}>
-                  {lang}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </fieldset>
+      <BmadConfigForm
+        userName={userName}
+        onUserNameChange={setUserName}
+        selectedModules={selectedModules}
+        onToggleModule={toggleModule}
+        selectedTools={selectedTools}
+        onToggleTool={toggleTool}
+        language={language}
+        onLanguageChange={setLanguage}
+        modules={modules}
+        tools={tools}
+        languages={languages}
+        disabled={!nodeInstalled || isMutating}
+      />
 
       {/* Action button */}
       {bmadInstalled ? (
