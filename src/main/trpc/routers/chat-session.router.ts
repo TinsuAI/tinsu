@@ -1015,7 +1015,8 @@ export const chatSessionRouter = router({
               projectPath,
               cliMessage,
               personaContext,
-              isReLaunch
+              isReLaunch,
+              session.skip_permissions ?? true
             )
 
             // Update tmux_session and status='active' in DB

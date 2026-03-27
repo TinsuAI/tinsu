@@ -286,6 +286,62 @@ describe('ChatCliService (CTM-1.1)', () => {
     })
   })
 
+  describe('spawnSession with skipPermissions', () => {
+    it('includes --dangerously-skip-permissions when skipPermissions is true', async () => {
+      await service.spawnSession(
+        'session-1',
+        'uuid-abc',
+        'TestProject',
+        '/project/path',
+        'Hello agent',
+        undefined,
+        false,
+        true
+      )
+
+      const sendKeysCall = mockExecAsync.mock.calls.find(
+        (call: unknown[]) => call[0] === 'tmux' && Array.isArray(call[1]) &&
+          (call[1] as string[]).includes('send-keys')
+      )
+      expect(sendKeysCall).toBeDefined()
+      const claudeCommandArg = (sendKeysCall![1] as string[])[3]
+      expect(claudeCommandArg).toContain('--dangerously-skip-permissions')
+    })
+
+    it('does not include --dangerously-skip-permissions when skipPermissions is false', async () => {
+      await service.spawnSession(
+        'session-1',
+        'uuid-abc',
+        'TestProject',
+        '/project/path',
+        'Hello agent',
+        undefined,
+        false,
+        false
+      )
+
+      const sendKeysCall = mockExecAsync.mock.calls.find(
+        (call: unknown[]) => call[0] === 'tmux' && Array.isArray(call[1]) &&
+          (call[1] as string[]).includes('send-keys')
+      )
+      expect(sendKeysCall).toBeDefined()
+      const claudeCommandArg = (sendKeysCall![1] as string[])[3]
+      expect(claudeCommandArg).not.toContain('--dangerously-skip-permissions')
+    })
+
+    it('does not include --dangerously-skip-permissions when skipPermissions is omitted', async () => {
+      await service.spawnSession('session-1', 'uuid-abc', 'TestProject', '/project/path', 'Hello agent')
+
+      const sendKeysCall = mockExecAsync.mock.calls.find(
+        (call: unknown[]) => call[0] === 'tmux' && Array.isArray(call[1]) &&
+          (call[1] as string[]).includes('send-keys')
+      )
+      expect(sendKeysCall).toBeDefined()
+      const claudeCommandArg = (sendKeysCall![1] as string[])[3]
+      expect(claudeCommandArg).not.toContain('--dangerously-skip-permissions')
+    })
+  })
+
   describe('sendMessage (AC: 2)', () => {
     it('writes message to existing PTY session when not busy', async () => {
       mockGetProcess.mockReturnValue({ state: 'running' })

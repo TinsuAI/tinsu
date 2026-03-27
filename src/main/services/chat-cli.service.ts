@@ -14,7 +14,8 @@
  * - PTY is the I/O channel: messages written via ptyService.write() (byte-level stdin),
  *   NOT via tmux send-keys (which has escaping issues with multi-line/special chars).
  * - Uses --settings CLI flag to inject chat-specific hooks.
- * - Chat sessions are INTERACTIVE: no --dangerously-skip-permissions.
+ * - Chat sessions pass --dangerously-skip-permissions when skip_permissions=true (Auto mode).
+ * - When skip_permissions=false, the PreToolUse hook handles manual approval via the UI.
  * - Idle sessions (>2 hours) are auto-killed to free resources.
  *
  * CTM-1.3: Startup validation and three-case session recovery:
@@ -549,7 +550,9 @@ export class ChatCliService {
     initialMessage: string,
     personaContext?: string,
     /** Use --resume instead of --session-id to resume an existing Claude Code session */
-    resume?: boolean
+    resume?: boolean,
+    /** When true, pass --dangerously-skip-permissions to auto-approve all tool use */
+    skipPermissions?: boolean
   ): Promise<string> {
     // CTM-1.1 AC 3: Validate sessionId against SAFE_SHELL_ARG_REGEX
     if (!SAFE_SHELL_ARG_REGEX.test(sessionId)) {
@@ -593,6 +596,9 @@ export class ChatCliService {
     const claudeArgs = resume
       ? ['--resume', sessionUuid, '--settings', this.buildChatSettingsJson()]
       : ['--session-id', sessionUuid, '--settings', this.buildChatSettingsJson()]
+    if (skipPermissions) {
+      claudeArgs.push('--dangerously-skip-permissions')
+    }
     if (personaContext) {
       claudeArgs.push('--append-system-prompt', personaContext)
     }

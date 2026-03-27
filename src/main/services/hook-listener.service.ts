@@ -228,11 +228,11 @@ export class HookListenerService {
   private chatSessionStatus: Map<string, ChatSessionStatusData> = new Map()
 
   /**
-   * Tracks sessions where assistant text has already been extracted for the current turn.
-   * Prevents duplicate extraction. Cleared when Stop hook fires for the session.
-   * Key: chat session DB ID.
+   * Tracks sessions where intermediate assistant text has been stored for the current turn.
+   * Maps session DB ID → the stored text content, so the Stop handler can compare
+   * and avoid duplicates while still storing genuinely new final responses.
    */
-  private turnTextExtracted: Set<string> = new Set()
+  private turnTextExtracted: Map<string, string> = new Map()
 
   /**
    * Pending permission requests — held HTTP responses waiting for user approval.
@@ -1167,60 +1167,70 @@ export class HookListenerService {
       return
     }
 
-    // Check if we already stored intermediate assistant text for this turn.
-    // If so, skip storing again from Stop to prevent duplicates.
-    const alreadyStoredIntermediate = this.turnTextExtracted.has(session.id)
+    // Retrieve and clear any intermediate text stored during PreToolUse for this turn.
+    const intermediateText = this.turnTextExtracted.get(session.id)
     this.turnTextExtracted.delete(session.id)
 
-    if (!alreadyStoredIntermediate) {
-      // Resolve the assistant message: check payload field first, then fall back
-      // to reading the Claude Code transcript JSONL file. Claude Code's Stop hook
-      // payload may or may not include the response depending on version and mode.
-      let assistantMessage: string | undefined =
-        payload.last_assistant_message ??
-        (payload as Record<string, unknown>).result as string | undefined
+    // Resolve the final assistant message: check payload field first, then fall back
+    // to reading the Claude Code transcript JSONL file. Claude Code's Stop hook
+    // payload may or may not include the response depending on version and mode.
+    let assistantMessage: string | undefined =
+      payload.last_assistant_message ??
+      (payload as Record<string, unknown>).result as string | undefined
 
-      // Fallback: read the transcript JSONL file and extract the last assistant text
-      if (assistantMessage == null && payload.transcript_path) {
-        try {
-          assistantMessage = this.extractLastAssistantMessage(payload.transcript_path)
-        } catch (err) {
-          console.warn('[HookListener] Failed to read transcript for chat response:', err)
-        }
+    // Fallback: read the transcript JSONL file and extract the last assistant text
+    if (assistantMessage == null && payload.transcript_path) {
+      try {
+        assistantMessage = this.extractLastAssistantMessage(payload.transcript_path)
+      } catch (err) {
+        console.warn('[HookListener] Failed to read transcript for chat response:', err)
       }
+    }
 
-      if (assistantMessage != null) {
-        const messageId = crypto.randomUUID()
-        const now = new Date()
+    // Store the final message if it exists and is different from intermediate text.
+    // When intermediate text was stored via PreToolUse (e.g., "Let me investigate..."),
+    // the agent may produce a different final response after tool execution (e.g., findings).
+    // Only skip if the final message is identical to what was already stored.
+    if (assistantMessage != null && assistantMessage !== intermediateText) {
+      const messageId = crypto.randomUUID()
+      const now = new Date()
 
-        db.insert(chat_messages)
-          .values({
-            id: messageId,
-            session_id: session.id,
-            role: 'assistant',
-            content: assistantMessage,
-            created_at: now
-          })
-          .run()
+      db.insert(chat_messages)
+        .values({
+          id: messageId,
+          session_id: session.id,
+          role: 'assistant',
+          content: assistantMessage,
+          created_at: now
+        })
+        .run()
 
-        // Update session timestamps
-        db.update(chat_sessions)
-          .set({
-            last_message_at: now,
-            updated_at: now
-          })
-          .where(eq(chat_sessions.id, session.id))
-          .run()
+      // Update session timestamps
+      db.update(chat_sessions)
+        .set({
+          last_message_at: now,
+          updated_at: now
+        })
+        .where(eq(chat_sessions.id, session.id))
+        .run()
 
-        console.log(
-          `[HookListener] Stored chat assistant message for session ${session.id}`
-        )
-      } else {
-        console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
-      }
+      console.log(
+        `[HookListener] Stored chat assistant message for session ${session.id}${intermediateText ? ' (final response after tools)' : ''}`
+      )
+    } else if (assistantMessage == null) {
+      console.warn(`[HookListener] No assistant message found for chat session ${session.id}`)
+      // Still update session timestamps
+      const now = new Date()
+      db.update(chat_sessions)
+        .set({
+          last_message_at: now,
+          updated_at: now
+        })
+        .where(eq(chat_sessions.id, session.id))
+        .run()
     } else {
       console.log(
-        `[HookListener] Skipping Stop assistant text for session ${session.id} — already stored during PreToolUse`
+        `[HookListener] Skipping Stop assistant text for session ${session.id} — same as intermediate`
       )
       // Still update session timestamps
       const now = new Date()
@@ -1466,7 +1476,7 @@ export class HookListenerService {
         try {
           const assistantText = this.extractLatestAssistantTextBlocks(transcriptPath)
           if (assistantText) {
-            this.turnTextExtracted.add(session.id)
+            this.turnTextExtracted.set(session.id, assistantText)
             const assistantMsgId = crypto.randomUUID()
             db.insert(chat_messages)
               .values({

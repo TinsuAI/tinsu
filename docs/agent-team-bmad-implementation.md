@@ -8,7 +8,7 @@ This document defines the automated agent team workflow for implementing epics s
 |-------|-------|------|
 | **SM** (Scrum Master) | Opus 4.6 | Creates stories from epic backlog |
 | **DEV 1** (Developer) | Opus 4.6 | Implements story code |
-| **DEV 2** (Reviewer) | Sonnet 4.5 | Reviews code and auto-fixes issues |
+| **DEV 2** (Reviewer) | Sonnet 4.6 | Reviews code and auto-fixes issues |
 
 ## Pipeline Steps (per story)
 
@@ -66,7 +66,7 @@ This document defines the automated agent team workflow for implementing epics s
 │       status: ready-for-dev → in-progress → review           │
 │       │                                                      │
 │       ▼                                                      │
-│  DEV 2 (Sonnet 4.5)                                          │
+│  DEV 2 (Sonnet 4.6)                                          │
 │  └─► /bmad-bmm-code-review *N  (review + auto-fix)          │
 │       status: review → done                                  │
 │       │                                                      │
