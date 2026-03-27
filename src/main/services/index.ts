@@ -27,6 +27,9 @@ export {
 // tmux dependency detection service
 export { TmuxService } from './tmux.service'
 
+// Tool verification service (onboarding wizard)
+export { ToolVerificationService } from './tool-verification.service'
+
 // Per-task terminal session management (TES-1.3)
 export { TaskTerminalService } from './task-terminal.service'
 
