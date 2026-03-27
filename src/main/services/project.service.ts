@@ -222,7 +222,7 @@ export class ProjectService {
       path: projectPath,
       config,
       isNewProject,
-      needsOnboarding: !alreadyRegistered
+      needsOnboarding: !alreadyRegistered && !isNewProject
     }
 
     return this.currentProjectInfo

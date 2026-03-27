@@ -57,10 +57,12 @@ export class ToolVerificationService {
     try {
       const installed = await TmuxService.checkTmuxInstalled()
       if (installed) {
+        const version = await TmuxService.getTmuxVersion().catch(() => null)
         return {
           id: 'tmux',
           name: 'tmux',
           status: 'installed',
+          version: version ?? undefined,
           critical: true
         }
       }
@@ -94,7 +96,7 @@ export class ToolVerificationService {
         id: 'nodejs',
         name: 'Node.js',
         status: 'installed',
-        version: result.version ?? undefined,
+        version: result.version ? result.version.replace(/^v/, '') : undefined,
         critical: true
       }
     }

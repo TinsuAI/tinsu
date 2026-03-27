@@ -108,7 +108,7 @@ function App(): React.JSX.Element {
   )
 
   // Background health check: re-verify critical tools on window focus
-  const healthCheckQuery = trpc.project.checkToolHealth.useQuery(undefined, {
+  const { refetch: recheckHealth } = trpc.project.checkToolHealth.useQuery(undefined, {
     enabled: false
   })
 
@@ -116,7 +116,7 @@ function App(): React.JSX.Element {
     if (!projectPath || !projectName) return
 
     const handleFocus = (): void => {
-      healthCheckQuery.refetch().then((response) => {
+      recheckHealth().then((response) => {
         if (response.data) {
           const anyMissing = response.data.some(
             (t) => t.critical && t.status !== 'installed'
@@ -131,7 +131,8 @@ function App(): React.JSX.Element {
 
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [projectPath, projectName, healthCheckQuery])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectPath, projectName])
 
   const handleOnboardingComplete = useCallback(
     (info: { path: string; projectName: string }): void => {

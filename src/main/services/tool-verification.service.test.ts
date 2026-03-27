@@ -10,6 +10,7 @@ vi.mock('child_process', () => ({
 vi.mock('./tmux.service', () => ({
   TmuxService: {
     checkTmuxInstalled: vi.fn(),
+    getTmuxVersion: vi.fn(),
     getInstallInstructions: vi.fn()
   }
 }))
@@ -112,6 +113,7 @@ describe('ToolVerificationService', () => {
   describe('checkTmux', () => {
     it('returns installed when tmux is available', async () => {
       vi.mocked(TmuxService.checkTmuxInstalled).mockResolvedValue(true)
+      vi.mocked(TmuxService.getTmuxVersion).mockResolvedValue('3.4')
       vi.mocked(TmuxService.getInstallInstructions).mockReturnValue('brew install tmux')
 
       const result = await ToolVerificationService.checkTmux()
@@ -145,7 +147,7 @@ describe('ToolVerificationService', () => {
 
       expect(result.id).toBe('nodejs')
       expect(result.status).toBe('installed')
-      expect(result.version).toBe('v20.11.0')
+      expect(result.version).toBe('20.11.0')
       expect(result.critical).toBe(true)
     })
 
