@@ -6,6 +6,7 @@ import { dialog, BrowserWindow } from 'electron'
 import { desc, eq } from 'drizzle-orm'
 import { router, publicProcedure, TRPCError } from '../trpc'
 import { ProjectService, ProjectError, ProjectInfo } from '../../services/project.service'
+import { ToolVerificationService } from '../../services/tool-verification.service'
 import { db } from '../../db'
 import { projects } from '../../db/schema'
 
@@ -337,5 +338,23 @@ export const projectRouter = router({
     .input(z.object({ prefix: z.string().max(500).default('') }))
     .query(({ ctx, input }) => {
       return listProjectFiles(ctx.projectRoot, input.prefix)
-    })
+    }),
+
+  /**
+   * Verifies all required tools for project setup.
+   * Returns status for git, tmux, Node.js, Claude CLI, and BMAD.
+   */
+  verifyTools: publicProcedure
+    .input(z.object({ projectPath: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return ToolVerificationService.verifyAllTools(input.projectPath)
+    }),
+
+  /**
+   * Lightweight health check for critical tools only.
+   * Used for background monitoring — does not check BMAD.
+   */
+  checkToolHealth: publicProcedure.query(async () => {
+    return ToolVerificationService.verifyHealthTools()
+  })
 })
