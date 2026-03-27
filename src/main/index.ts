@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, dialog, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, protocol, net } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -69,33 +69,6 @@ function createWindow(): void {
   }
 }
 
-// Check if tmux is installed (required for per-task terminal sessions)
-async function checkTmuxDependency(): Promise<boolean> {
-  console.log('[TMUX] Checking tmux installation...')
-
-  try {
-    const isInstalled = await TmuxService.checkTmuxInstalled()
-
-    if (!isInstalled) {
-      console.log('[TMUX] tmux not found - showing error dialog')
-      const message = TmuxService.getInstallInstructions()
-      dialog.showErrorBox('tmux Required', message)
-      return false
-    }
-
-    const version = await TmuxService.getTmuxVersion()
-    console.log(`[TMUX] tmux installed, version: ${version}`)
-    return true
-  } catch (error) {
-    console.error('[TMUX] Error checking tmux:', error)
-    dialog.showErrorBox(
-      'tmux Check Failed',
-      `TinSu could not verify tmux installation.\n\nError: ${error instanceof Error ? error.message : String(error)}\n\nPlease ensure tmux is installed and try again.`
-    )
-    return false
-  }
-}
-
 // Initialize database and verify connectivity
 function initializeDatabase(): boolean {
   console.log('[DB] Initializing database...')
@@ -142,13 +115,6 @@ app.whenReady().then(async () => {
     const filePath = decodeURIComponent(request.url.replace('tinsu-file://', ''))
     return net.fetch(pathToFileURL(filePath).href)
   })
-
-  // Check tmux dependency before proceeding
-  const tmuxAvailable = await checkTmuxDependency()
-  if (!tmuxAvailable) {
-    app.quit()
-    return
-  }
 
   // Initialize database on app ready
   initializeDatabase()
