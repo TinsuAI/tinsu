@@ -25,13 +25,18 @@ export interface BmadProjectConfig {
 /**
  * Maps persona keys (used in renderer's AGENT_PERSONA_CONFIG and chat_sessions.agent_persona)
  * to their corresponding .md file paths relative to the _bmad/ directory.
+ * Paths starting with '.claude/' are resolved relative to the project root instead.
  */
 const PERSONA_FILE_MAP: Readonly<Record<string, string>> = Object.freeze({
   'bmad:bmm:agents:pm': 'bmm/agents/pm.md',
   'bmad:bmm:agents:architect': 'bmm/agents/architect.md',
   'bmad:bmm:agents:ux-designer': 'bmm/agents/ux-designer.md',
-  'bmad:bmm:agents:analyst': 'bmm/agents/analyst.md'
+  'bmad:bmm:agents:analyst': 'bmm/agents/analyst.md',
+  'bmad:ghk:agents:growth-guru': '.claude/skills/bmad-agent-growth-guru/SKILL.md'
 })
+
+/** Persona keys that have no agent context — plain Claude Code chat */
+const NO_CONTEXT_PERSONAS = new Set(['general'])
 
 /**
  * Service for loading and formatting BMAD agent persona context.
@@ -102,14 +107,22 @@ export class PersonaContextService {
    * @see AC 1-5: Persona context with project config
    */
   buildContext(personaKey: string): string {
+    // General chat — no persona context injection
+    if (NO_CONTEXT_PERSONAS.has(personaKey)) {
+      return ''
+    }
+
     const relativePath = PERSONA_FILE_MAP[personaKey]
     if (!relativePath) {
       throw new Error(
-        `Unknown persona key: "${personaKey}". Valid keys: ${Object.keys(PERSONA_FILE_MAP).join(', ')}`
+        `Unknown persona key: "${personaKey}". Valid keys: ${[...NO_CONTEXT_PERSONAS, ...Object.keys(PERSONA_FILE_MAP)].join(', ')}`
       )
     }
 
-    const personaFilePath = join(this.bmadRoot, relativePath)
+    // Paths starting with '.claude/' are relative to project root, not _bmad/
+    const personaFilePath = relativePath.startsWith('.claude/')
+      ? join(this.projectRoot, relativePath)
+      : join(this.bmadRoot, relativePath)
     const personaContent = fs.readFileSync(personaFilePath, 'utf-8')
 
     const config = this.loadConfig()
@@ -140,8 +153,11 @@ export class PersonaContextService {
    * @returns Absolute path if personaKey is known, null otherwise
    */
   getPersonaFilePath(personaKey: string): string | null {
+    if (NO_CONTEXT_PERSONAS.has(personaKey)) return null
     const relativePath = PERSONA_FILE_MAP[personaKey]
     if (!relativePath) return null
-    return join(this.bmadRoot, relativePath)
+    return relativePath.startsWith('.claude/')
+      ? join(this.projectRoot, relativePath)
+      : join(this.bmadRoot, relativePath)
   }
 }

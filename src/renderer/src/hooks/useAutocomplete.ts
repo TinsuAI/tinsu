@@ -132,9 +132,16 @@ export function useAutocomplete({
     async (query: string) => {
       setState((s) => ({ ...s, isLoading: true }))
       try {
-        const results = await utils.project.listFiles.fetch({ prefix: query })
+        // If query contains '/', use directory-based prefix listing
+        // If query is empty, show root directory listing
+        // Otherwise, use fuzzy search across all project files
+        const useFuzzy = query !== '' && !query.includes('/')
+        const results = useFuzzy
+          ? await utils.project.searchFiles.fetch({ query })
+          : await utils.project.listFiles.fetch({ prefix: query })
+
         setState((s) => {
-          // Only update if we're still in file mode with same query
+          // Only update if we're still in file mode
           if (s.trigger !== '@') return s
           const items: AutocompleteItem[] = results.map((r) => ({
             id: r.relativePath,
@@ -156,7 +163,7 @@ export function useAutocomplete({
         setState((s) => ({ ...s, items: [], isLoading: false, isOpen: false }))
       }
     },
-    [utils.project.listFiles]
+    [utils.project.listFiles, utils.project.searchFiles]
   )
 
   const handleInputChange = useCallback(

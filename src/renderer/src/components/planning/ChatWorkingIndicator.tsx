@@ -127,7 +127,7 @@ export function ChatWorkingIndicator({
       ? AGENT_PERSONA_CONFIG[agentPersona]
       : null
 
-  const agentName = persona?.characterName ?? persona?.displayName ?? 'Agent'
+  const agentName = persona?.characterName || persona?.displayName || 'Agent'
   const roleLabel = persona?.displayName ?? 'Agent'
   const dotColor = persona?.dot ?? 'bg-muted-foreground/40'
 
@@ -226,7 +226,9 @@ export function ChatWorkingIndicator({
                             ? 'linear-gradient(90deg, #fb923c, #f59e0b, #fb923c)'
                             : agentName === 'Sally'
                               ? 'linear-gradient(90deg, #c084fc, #e879f9, #c084fc)'
-                              : undefined,
+                              : agentName === 'Greg'
+                                ? 'linear-gradient(90deg, #34d399, #10b981, #34d399)'
+                                : 'linear-gradient(90deg, #a78bfa, #f472b6, #fb923c)',
                   }
                 : {}),
             }}
@@ -268,7 +270,9 @@ export function ChatWorkingIndicator({
                       ? 'linear-gradient(90deg, #fb923c, #f59e0b)'
                       : agentName === 'Sally'
                         ? 'linear-gradient(90deg, #c084fc, #e879f9)'
-                        : 'linear-gradient(90deg, #a78bfa, #f472b6)'
+                        : agentName === 'Greg'
+                          ? 'linear-gradient(90deg, #34d399, #10b981)'
+                          : 'linear-gradient(90deg, #a78bfa, #f472b6)'
                 : 'linear-gradient(90deg, #a78bfa, #f472b6)',
               animation: 'cooking-progress 2s ease-in-out infinite',
             }}

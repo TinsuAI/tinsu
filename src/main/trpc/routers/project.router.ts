@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
+import { execSync } from 'child_process'
 import ignore from 'ignore'
 import { dialog, BrowserWindow } from 'electron'
 import { desc, eq } from 'drizzle-orm'
@@ -167,6 +168,134 @@ export function listProjectFiles(
   } catch {
     return []
   }
+}
+
+// --- Fuzzy file search ---
+
+/** In-memory cache for git file list */
+let fileListCache: { files: string[]; timestamp: number; projectRoot: string } | null = null
+const FILE_LIST_CACHE_TTL = 30_000
+
+function getProjectFileList(projectRoot: string): string[] {
+  const now = Date.now()
+  if (
+    fileListCache &&
+    fileListCache.projectRoot === projectRoot &&
+    now - fileListCache.timestamp < FILE_LIST_CACHE_TTL
+  ) {
+    return fileListCache.files
+  }
+
+  try {
+    const tracked = execSync('git ls-files', {
+      cwd: projectRoot,
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+
+    const untracked = execSync('git ls-files --others --exclude-standard', {
+      cwd: projectRoot,
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+
+    const allFiles = [...new Set([...tracked, ...untracked])]
+    fileListCache = { files: allFiles, timestamp: now, projectRoot }
+    return allFiles
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Fuzzy match score. Returns null if no match, or a numeric score (higher = better).
+ * Prefers: basename matches, word-boundary hits, consecutive chars, shorter paths.
+ */
+function fuzzyScore(query: string, filePath: string): number | null {
+  const q = query.toLowerCase()
+  const fullLower = filePath.toLowerCase()
+
+  // Quick reject: all query chars must appear in order in the full path
+  let qi = 0
+  for (let i = 0; i < fullLower.length && qi < q.length; i++) {
+    if (fullLower[i] === q[qi]) qi++
+  }
+  if (qi < q.length) return null
+
+  const basename = path.basename(filePath)
+  const basenameLower = basename.toLowerCase()
+  let score = 0
+
+  // Score against basename (most important)
+  qi = 0
+  let consecutive = 0
+  let prevIdx = -2
+  for (let i = 0; i < basenameLower.length && qi < q.length; i++) {
+    if (basenameLower[i] === q[qi]) {
+      qi++
+      if (i === prevIdx + 1) {
+        consecutive++
+        score += 3 + consecutive
+      } else {
+        consecutive = 0
+      }
+      // Start of basename
+      if (i === 0) score += 15
+      // After separator: -, _, .
+      else if ('-_.' .includes(basenameLower[i - 1])) score += 10
+      // CamelCase boundary
+      else if (
+        basename[i] >= 'A' &&
+        basename[i] <= 'Z' &&
+        basename[i - 1] >= 'a' &&
+        basename[i - 1] <= 'z'
+      ) {
+        score += 8
+      }
+      score += 1
+      prevIdx = i
+    }
+  }
+
+  // All query chars matched in basename → strong bonus
+  if (qi === q.length) score += 25
+
+  // Shorter paths preferred
+  score -= filePath.split('/').length * 0.5
+
+  return score
+}
+
+export function searchProjectFiles(
+  projectRoot: string,
+  query: string
+): Array<{ name: string; relativePath: string; isDirectory: boolean }> {
+  if (!query.trim()) return []
+
+  const files = getProjectFileList(projectRoot)
+  const scored: Array<{ file: string; score: number }> = []
+
+  for (const file of files) {
+    const s = fuzzyScore(query, file)
+    if (s !== null) {
+      scored.push({ file, score: s })
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score)
+  const top = scored.slice(0, MAX_FILE_RESULTS)
+
+  return top.map((m) => ({
+    name: path.basename(m.file),
+    relativePath: m.file,
+    isDirectory: false
+  }))
 }
 
 export const projectRouter = router({
@@ -338,6 +467,13 @@ export const projectRouter = router({
     .input(z.object({ prefix: z.string().max(500).default('') }))
     .query(({ ctx, input }) => {
       return listProjectFiles(ctx.projectRoot, input.prefix)
+    }),
+
+  /** Fuzzy search across all project files (git-tracked + untracked non-ignored). */
+  searchFiles: publicProcedure
+    .input(z.object({ query: z.string().max(500).default('') }))
+    .query(({ ctx, input }) => {
+      return searchProjectFiles(ctx.projectRoot, input.query)
     }),
 
   /**

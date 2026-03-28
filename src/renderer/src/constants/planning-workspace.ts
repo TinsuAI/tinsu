@@ -98,6 +98,16 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     stepNumber: 5
   },
   {
+    key: 'growth-review',
+    phase: 'planning',
+    name: 'Growth Review',
+    purpose: 'Evaluate PRD for organic growth potential before architecture',
+    outputFilename: 'growth-hacking-review.md',
+    command: '/bmad-growth-review',
+    persona: 'bmad:ghk:agents:growth-guru',
+    stepNumber: 6
+  },
+  {
     key: 'ux-design',
     phase: 'planning',
     name: 'UX Design',
@@ -105,7 +115,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     outputFilename: 'ux-design-specification.md',
     command: '/bmad-create-ux-design',
     persona: 'bmad:bmm:agents:ux-designer',
-    stepNumber: 6
+    stepNumber: 7
   },
 
   // Solutioning phase
@@ -117,7 +127,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     outputFilename: 'architecture.md',
     command: '/bmad-create-architecture',
     persona: 'bmad:bmm:agents:architect',
-    stepNumber: 7
+    stepNumber: 8
   },
   {
     key: 'epics-stories',
@@ -127,7 +137,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     outputFilename: 'epics.md',
     command: '/bmad-create-epics-and-stories',
     persona: 'bmad:bmm:agents:pm',
-    stepNumber: 8
+    stepNumber: 9
   },
   {
     key: 'readiness-check',
@@ -137,7 +147,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     outputFilename: 'implementation-readiness-report-*.md',
     command: '/bmad-check-implementation-readiness',
     persona: 'bmad:bmm:agents:pm',
-    stepNumber: 9
+    stepNumber: 10
   }
 ]
 
@@ -171,6 +181,14 @@ export const BMAD_RECOMMENDATION_CHAIN: readonly BmadRecommendationEntry[] = [
     reason: 'Product Brief is complete. PRD defines requirements before solutioning.',
     produces: 'prd.md',
     requires: ['product-brief'],
+    phase: 'planning'
+  },
+  {
+    workflowKey: 'growth-review',
+    label: 'Run Growth Review',
+    reason: 'PRD is complete. Evaluate organic growth potential before architecture locks decisions.',
+    produces: 'growth-hacking-review.md',
+    requires: ['prd'],
     phase: 'planning'
   },
   {
@@ -226,6 +244,14 @@ export interface AgentPersonaConfig {
 }
 
 export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> = Object.freeze({
+  'general': {
+    displayName: 'General',
+    characterName: '',
+    bg: 'bg-slate-500/20',
+    text: 'text-slate-400',
+    border: 'border-slate-500/30',
+    dot: 'bg-slate-400'
+  },
   'bmad:bmm:agents:analyst': {
     displayName: 'Analyst',
     characterName: 'Mary',
@@ -257,6 +283,14 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     text: 'text-purple-400',
     border: 'border-purple-500/30',
     dot: 'bg-purple-400'
+  },
+  'bmad:ghk:agents:growth-guru': {
+    displayName: 'Growth Guru',
+    characterName: 'Greg',
+    bg: 'bg-emerald-500/20',
+    text: 'text-emerald-400',
+    border: 'border-emerald-500/30',
+    dot: 'bg-emerald-400'
   }
 })
 

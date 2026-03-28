@@ -1277,11 +1277,17 @@ export class HookListenerService {
         const contentBlocks = message.content as Array<Record<string, unknown>> | undefined
         if (!Array.isArray(contentBlocks)) continue
 
-        // Find the last text block in the content array
-        for (let j = contentBlocks.length - 1; j >= 0; j--) {
-          if (contentBlocks[j].type === 'text' && typeof contentBlocks[j].text === 'string') {
-            return contentBlocks[j].text as string
+        // Collect ALL text blocks from this assistant entry (not just the last one).
+        // Assistant responses often contain multiple text blocks interspersed with
+        // tool_use blocks — we need to concatenate them all for the full response.
+        const textParts: string[] = []
+        for (const block of contentBlocks) {
+          if (block.type === 'text' && typeof block.text === 'string') {
+            textParts.push(block.text as string)
           }
+        }
+        if (textParts.length > 0) {
+          return textParts.join('\n\n')
         }
       } catch {
         // Skip malformed lines

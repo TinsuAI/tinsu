@@ -771,24 +771,27 @@ export class ChatCliService {
       console.warn(`[ChatCliService] Session ${sessionId} is busy, sending anyway (agent may be generating)`)
     }
 
-    // Write message content, then Enter after a short delay.
-    // For slash commands, a second Enter is needed: first Enter selects the
-    // autocomplete item, second Enter submits the command.
-    // The TUI needs time between Enter presses to process autocomplete selection
-    // and re-render — 150ms was too short and caused the submit to be swallowed.
+    // Write message content, then submit after a short delay.
+    // For slash commands: Escape dismisses autocomplete, then Enter submits
+    // the raw text. Claude Code CLI will still interpret the /command correctly.
+    // Previous approach (two Enters for autocomplete select+submit) was fragile
+    // because autocomplete timing is unpredictable when text is pasted at once.
     const isSlashCommand = message.startsWith('/')
     ptyService.write(info.processId, message)
     setTimeout(() => {
       const proc = ptyService.getProcess(info.processId)
       if (proc && proc.state === 'running') {
-        ptyService.write(info.processId, '\r')
         if (isSlashCommand) {
+          // Dismiss autocomplete dropdown first, then submit
+          ptyService.write(info.processId, '\x1b') // Escape
           setTimeout(() => {
             const p2 = ptyService.getProcess(info.processId)
             if (p2 && p2.state === 'running') {
               ptyService.write(info.processId, '\r')
             }
-          }, 500)
+          }, 150)
+        } else {
+          ptyService.write(info.processId, '\r')
         }
       }
     }, 300)

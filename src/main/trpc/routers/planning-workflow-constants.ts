@@ -19,6 +19,7 @@ export const BMAD_WORKFLOWS: Array<{
   { workflowKey: 'market-research', glob: 'research/market-*-research-*.md' },
   { workflowKey: 'domain-research', glob: 'research/domain-*-research-*.md' },
   { workflowKey: 'prd', filename: 'prd.md' },
+  { workflowKey: 'growth-review', filename: 'growth-hacking-review.md' },
   { workflowKey: 'ux-design', filename: 'ux-design-specification.md' },
   { workflowKey: 'architecture', filename: 'architecture.md' },
   { workflowKey: 'epics-stories', filename: 'epics.md' },
