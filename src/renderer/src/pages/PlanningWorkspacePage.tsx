@@ -105,6 +105,15 @@ export function PlanningWorkspacePage() {
     if (selectedWorkflowKey) setActiveDocPath(null)
   }, [selectedWorkflowKey])
 
+  // Clear doc viewer when navigating to dashboard or switching phase
+  useEffect(() => {
+    if (showDashboard) setActiveDocPath(null)
+  }, [showDashboard])
+
+  useEffect(() => {
+    setActiveDocPath(null)
+  }, [activePhase])
+
   // Story 9.9: Keyboard shortcuts help overlay state
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
 
