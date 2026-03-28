@@ -1,0 +1,14 @@
+code: ghk
+name: "Growth Hacking"
+description: "Organic growth strategy module — injects growth thinking into the BMAD planning workflow before architecture decisions are locked."
+module_version: 1.0.0
+default_selected: false
+module_greeting: >
+  Growth Hacking module installed! Greg the Growth Guru is ready.
+  Run [GR] Growth Review after PRD validation to evaluate your product's organic growth potential before architecture begins.
+  Growth infrastructure is 10x harder to retrofit than to design in — now it's baked into your workflow from day one.
+
+growth_research_output:
+  prompt: "Where should growth research and review artifacts be saved?"
+  default: "{output_folder}/growth"
+  result: "{project-root}/{value}"

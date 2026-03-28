@@ -1,0 +1,6 @@
+module,skill,display-name,menu-code,description,action,args,phase,after,before,required,output-location,outputs
+Growth Hacking,growth-hacking-setup,Setup Growth Module,GHS,"Install or update Growth Hacking module config and help entries.",configure,,anytime,,,false,{project-root}/_bmad,config.yaml and config.user.yaml
+Growth Hacking,bmad-agent-growth-guru,Talk to Greg,GG,"Organic growth strategist for interactive growth consulting and go-to-market planning.",,,,,,false,,
+Growth Hacking,bmad-growth-review,Growth Review,GR,"Autonomous growth strategy review of the PRD. Evaluates organic growth potential and identifies growth levers that should be designed into the MVP architecture from day one.",,,,bmad-validate-prd,bmad-create-architecture,true,growth_research_output,growth-hacking-review
+Growth Hacking,bmad-market-research,Market Research (Growth),MGR,"Market research focused on competition and customer acquisition channels through a growth lens.",,,,,,false,growth_research_output,market research
+Growth Hacking,bmad-domain-research,Domain Research (Growth),DGR,"Domain deep dive focused on growth dynamics and audience behavior.",,,,,,false,growth_research_output,domain research

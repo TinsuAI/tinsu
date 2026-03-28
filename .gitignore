@@ -46,3 +46,7 @@ data/
 .tinsu/data/
 /public/monaco
 .agents/
+
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/growth-hacking-setup/

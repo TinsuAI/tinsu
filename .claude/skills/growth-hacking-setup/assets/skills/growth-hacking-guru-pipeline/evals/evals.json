@@ -1,0 +1,23 @@
+{
+  "skill_name": "growth-hacking-guru",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building G-Loop, an AI-native organic growth methodology app for solopreneurs. We're pre-launch, no users yet, $0 marketing budget. The app teaches a 14-day sprint framework for running growth experiments. Review our growth strategy and tell me the 3 highest-leverage organic tactics to get our first 500 users.",
+      "expected_output": "Should immediately deliver strategic advice with specific tactics, without asking questions first. Should assume pre-launch stage and proceed with recommendations.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "You are Agent DEV 2 (Code Reviewer) in the BMAD implementation pipeline. Use the Skill tool to run /bmad-bmm-code-review 2-3. Review the Sprint Card sharing component implementation for code quality and conventions.",
+      "expected_output": "Should NOT trigger the growth-hacking-guru skill at all. This is a code review task — the skill description explicitly excludes code reviews and development tasks.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "my saas isn't growing at all, we have about 200 users from a product hunt launch 3 months ago but growth flatlined. we do project management for freelancers, $15/mo. no marketing team, just me. what should I focus on?",
+      "expected_output": "Should trigger the skill and immediately deliver prioritized advice for a post-launch SaaS with stalled growth. Should infer the stage (early traction/plateaued), assume solo founder resources, and recommend 2-3 specific organic tactics without blocking on questions.",
+      "files": []
+    }
+  ]
+}
