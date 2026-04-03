@@ -953,10 +953,7 @@ export const chatSessionRouter = router({
         .run()
 
       // 3. Build CLI message -- append file paths if attachments exist.
-      // IMPORTANT: The message MUST be single-line (no \n). Newlines cause
-      // Claude's TUI to enter paste/multi-line mode where \r is treated as
-      // a literal newline rather than as Enter (submit). The message then
-      // sits in the input buffer and is never submitted.
+      // Multi-line messages are supported via bracketed paste mode in sendMessage().
       let cliMessage = input.content
       if (input.attachments && input.attachments.length > 0) {
         const filePaths = input.attachments.map((a) => a.filePath).join(' ')

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { join } from 'path'
-import { readFileSync, statSync, readdirSync } from 'fs'
+import { readFileSync, statSync, readdirSync, existsSync } from 'fs'
 import type { Stats } from 'fs'
 import crypto from 'crypto'
 import { eq, desc, and, or } from 'drizzle-orm'
@@ -51,6 +51,40 @@ function resolveArtifactFilename(baseDir: string, workflow: (typeof BMAD_WORKFLO
   }
 
   return null
+}
+
+/**
+ * Parse a single CSV line respecting quoted fields (handles commas inside quotes).
+ */
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"'
+          i++ // skip escaped quote
+        } else {
+          inQuotes = false
+        }
+      } else {
+        current += ch
+      }
+    } else if (ch === '"') {
+      inQuotes = true
+    } else if (ch === ',') {
+      fields.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  fields.push(current)
+  return fields
 }
 
 /**
@@ -618,6 +652,69 @@ export const planningRouter = router({
         language: 'markdown' as const
       }
     }),
+
+  /**
+   * Return all installed BMAD skills from the manifest CSV + .claude/skills/ directory.
+   * Used by autocomplete to show all available slash commands.
+   */
+  getSkillManifest: publicProcedure.query(({ ctx }) => {
+    const skills: { id: string; name: string; description: string; module: string }[] = []
+    const seenIds = new Set<string>()
+
+    // 1. Parse skill-manifest.csv
+    const manifestPath = join(ctx.projectRoot, '_bmad', '_config', 'skill-manifest.csv')
+    if (existsSync(manifestPath)) {
+      const raw = readFileSync(manifestPath, 'utf-8')
+      const lines = raw.split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l.trim())
+
+      // Skip header row
+      for (let i = 1; i < lines.length; i++) {
+        const fields = parseCSVLine(lines[i])
+        if (fields.length >= 4) {
+          const id = fields[0]
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id)
+            skills.push({
+              id,
+              name: fields[1] || id,
+              description: fields[2] || '',
+              module: fields[3] || 'core'
+            })
+          }
+        }
+      }
+    }
+
+    // 2. Scan .claude/skills/ for skills not in manifest
+    const skillsDir = join(ctx.projectRoot, '.claude', 'skills')
+    if (existsSync(skillsDir)) {
+      try {
+        const entries = readdirSync(skillsDir)
+        for (const entry of entries) {
+          // Only directories (skill folders) that aren't already in manifest
+          const entryPath = join(skillsDir, entry)
+          try {
+            if (statSync(entryPath).isDirectory() && !seenIds.has(entry)) {
+              seenIds.add(entry)
+              const module = entry.startsWith('growth') ? 'growth' : 'custom'
+              skills.push({
+                id: entry,
+                name: entry,
+                description: '',
+                module
+              })
+            }
+          } catch {
+            // Skip entries we can't stat
+          }
+        }
+      } catch {
+        // Directory read failed
+      }
+    }
+
+    return skills
+  }),
 
   /**
    * Read any file within the project by relative path.

@@ -81,7 +81,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     name: 'Product Brief',
     purpose: 'Define product vision and target users',
     outputFilename: 'product-brief-*.md',
-    command: '/bmad-create-product-brief',
+    command: '/bmad-product-brief',
     persona: 'bmad:bmm:agents:analyst',
     stepNumber: 4
   },
@@ -103,7 +103,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     name: 'Growth Review',
     purpose: 'Evaluate PRD for organic growth potential before architecture',
     outputFilename: 'growth-hacking-review.md',
-    command: '/bmad-growth-review',
+    command: '/growth-hacking-guru',
     persona: 'bmad:ghk:agents:growth-guru',
     stepNumber: 6
   },

@@ -2,16 +2,26 @@
  * Slash command definitions for chat input autocomplete.
  *
  * Combines Claude Code CLI commands with BMAD workflow commands
- * for unified `/` autocomplete in the chat input.
+ * and dynamically loaded skill manifest entries for unified `/` autocomplete.
  */
 
 import { BMAD_WORKFLOWS } from './planning-workspace'
+import { fuzzyFilter } from '@renderer/lib/fuzzy-match'
+
+export type SlashCommandCategory =
+  | 'claude-code'
+  | 'workflow'
+  | 'skill-core'
+  | 'skill-bmm'
+  | 'skill-tea'
+  | 'skill-growth'
+  | 'skill-custom'
 
 export interface SlashCommandDefinition {
   command: string
   label: string
   description: string
-  category: 'claude-code' | 'workflow'
+  category: SlashCommandCategory
 }
 
 /**
@@ -95,12 +105,46 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
 ]
 
 /**
- * Filter slash commands by query string (case-insensitive match on command or label).
+ * Fuzzy-filter slash commands by query string.
+ * When query is empty, returns all commands unfiltered.
  */
-export function getFilteredCommands(query: string): SlashCommandDefinition[] {
-  if (!query) return SLASH_COMMANDS
-  const q = query.toLowerCase()
-  return SLASH_COMMANDS.filter(
-    (cmd) => cmd.command.toLowerCase().includes(q) || cmd.label.toLowerCase().includes(q)
-  )
+export function fuzzyFilterCommands(
+  commands: SlashCommandDefinition[],
+  query: string
+): SlashCommandDefinition[] {
+  if (!query) return commands
+  return fuzzyFilter(query, commands, (cmd) => `${cmd.command} ${cmd.label}`)
+}
+
+const MODULE_TO_CATEGORY: Record<string, SlashCommandCategory> = {
+  core: 'skill-core',
+  bmm: 'skill-bmm',
+  tea: 'skill-tea',
+  growth: 'skill-growth'
+}
+
+/**
+ * Merge manifest skills into existing commands, deduplicating by command string.
+ * Pipeline workflow commands (richer metadata) take precedence over manifest entries.
+ */
+export function mergeManifestSkills(
+  manifest: { id: string; name: string; description: string; module: string }[],
+  existingCommands: SlashCommandDefinition[]
+): SlashCommandDefinition[] {
+  const existing = new Set(existingCommands.map((c) => c.command))
+  const merged = [...existingCommands]
+
+  for (const skill of manifest) {
+    const command = `/${skill.id}`
+    if (existing.has(command)) continue
+    existing.add(command)
+    merged.push({
+      command,
+      label: skill.name,
+      description: skill.description,
+      category: MODULE_TO_CATEGORY[skill.module] ?? 'skill-custom'
+    })
+  }
+
+  return merged
 }

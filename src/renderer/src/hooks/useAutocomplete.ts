@@ -9,9 +9,15 @@
  * handleChange and handleKeyDown callbacks.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { trpc } from '@renderer/lib/trpc'
-import { getFilteredCommands, type SlashCommandDefinition } from '@renderer/constants/slash-commands'
+import {
+  SLASH_COMMANDS,
+  fuzzyFilterCommands,
+  mergeManifestSkills,
+  type SlashCommandDefinition
+} from '@renderer/constants/slash-commands'
+import { fuzzyFilter } from '@renderer/lib/fuzzy-match'
 
 type AutocompleteTrigger = '/' | '@'
 
@@ -44,6 +50,16 @@ const INITIAL_STATE: AutocompleteState = {
   isLoading: false
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  'claude-code': 'Commands',
+  workflow: 'Planning Workflows',
+  'skill-core': 'Utilities',
+  'skill-bmm': 'BMad Workflows',
+  'skill-tea': 'Testing',
+  'skill-growth': 'Growth',
+  'skill-custom': 'Skills'
+}
+
 function commandToItem(cmd: SlashCommandDefinition): AutocompleteItem {
   return {
     id: cmd.command,
@@ -51,7 +67,7 @@ function commandToItem(cmd: SlashCommandDefinition): AutocompleteItem {
     description: cmd.description,
     icon: cmd.category === 'workflow' ? 'workflow' : 'command',
     insertText: cmd.command,
-    category: cmd.category === 'workflow' ? 'Workflows' : 'Commands'
+    category: CATEGORY_LABELS[cmd.category] ?? 'Skills'
   }
 }
 
@@ -121,6 +137,18 @@ export function useAutocomplete({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const utils = trpc.useUtils()
 
+  // Fetch skill manifest (cached, fetched once)
+  const { data: manifestSkills } = trpc.planning.getSkillManifest.useQuery(undefined, {
+    staleTime: Infinity,
+    refetchOnWindowFocus: false
+  })
+
+  // Merge manifest skills into base commands
+  const allCommands = useMemo(
+    () => (manifestSkills ? mergeManifestSkills(manifestSkills, SLASH_COMMANDS) : SLASH_COMMANDS),
+    [manifestSkills]
+  )
+
   // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
@@ -143,7 +171,7 @@ export function useAutocomplete({
         setState((s) => {
           // Only update if we're still in file mode
           if (s.trigger !== '@') return s
-          const items: AutocompleteItem[] = results.map((r) => ({
+          let items: AutocompleteItem[] = results.map((r) => ({
             id: r.relativePath,
             label: r.name,
             description: r.relativePath,
@@ -151,6 +179,10 @@ export function useAutocomplete({
             insertText: r.relativePath + (r.isDirectory ? '/' : ' '),
             category: 'Files'
           }))
+          // Re-rank file results by fuzzy score
+          if (query) {
+            items = fuzzyFilter(query, items, (item) => item.label)
+          }
           return {
             ...s,
             items,
@@ -177,8 +209,8 @@ export function useAutocomplete({
       }
 
       if (found.trigger === '/') {
-        // Slash commands: client-side filter
-        const commands = getFilteredCommands('/' + found.query)
+        // Slash commands: fuzzy filter client-side
+        const commands = fuzzyFilterCommands(allCommands, '/' + found.query)
         const items = commands.map(commandToItem)
         setState({
           isOpen: items.length > 0,
@@ -205,7 +237,7 @@ export function useAutocomplete({
         }, 200)
       }
     },
-    [state.isOpen, fetchFiles]
+    [state.isOpen, fetchFiles, allCommands]
   )
 
   const insertSelection = useCallback(

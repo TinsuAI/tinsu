@@ -774,10 +774,19 @@ export class ChatCliService {
     // Write message content, then submit after a short delay.
     // For slash commands: Escape dismisses autocomplete, then Enter submits
     // the raw text. Claude Code CLI will still interpret the /command correctly.
-    // Previous approach (two Enters for autocomplete select+submit) was fragile
-    // because autocomplete timing is unpredictable when text is pasted at once.
+    // For multi-line messages: bracketed paste mode wraps the content so the
+    // terminal treats newlines as literal text, not as Enter keypresses.
     const isSlashCommand = message.startsWith('/')
-    ptyService.write(info.processId, message)
+    const usesBracketedPaste = !isSlashCommand && message.includes('\n')
+
+    if (usesBracketedPaste) {
+      // Strip ESC bytes to prevent premature bracketed paste termination
+      const sanitized = message.replace(/\x1b/g, '')
+      ptyService.write(info.processId, `\x1b[200~${sanitized}\x1b[201~`)
+    } else {
+      ptyService.write(info.processId, message)
+    }
+
     setTimeout(() => {
       const proc = ptyService.getProcess(info.processId)
       if (proc && proc.state === 'running') {
