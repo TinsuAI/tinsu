@@ -1,0 +1,4 @@
+TEAM_ID=
+BUNDLE_ID=com.tinsu.mobile
+APP_NAME=TinSu Mobile
+IPHONEOS_DEPLOYMENT_TARGET=16.0

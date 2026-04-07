@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-03-26T-ctm-2-3-done
+# updated: 2026-04-06T-mobile-epics-added
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -291,3 +291,70 @@ development_status:
   ctm-2-2-session-health-monitoring-and-idle-timeout: done  # Code review complete - 2 auto-fixes applied (dead idleCheckInterval property removed, busySessions.clear() added to killAll()), all 72 tests passing
   ctm-2-3-session-list-with-live-status-badges: done  # Code review complete - 2 auto-fixes applied (split(':').pop() || 'Agent' parenthesized fallback for empty string guard, redundant liveStatus type intersection removed from 2 cast sites), all 95 tests passing
   ctm-epic-2-retrospective: optional
+
+  # ============================================================================
+  # TINSU MOBILE (added 2026-04-06)
+  # ============================================================================
+  # Source: _bmad-output/planning-artifacts/epics-mobile.md
+  # KMP mobile app for remote Claude Code interaction via SSH/mosh + tmux.
+  # Android (Jetpack Compose) + iOS (SwiftUI) with shared KMP business logic.
+  # ============================================================================
+
+  # Mobile Epic 1: Project Foundation & KMP Scaffold
+  mobile-epic-1: in-progress
+  mobile-1-1-initialize-kmp-project-with-jetbrains-wizard: done  # Code review complete - 2 auto-fixes applied (INTERNET permission added to AndroidManifest.xml, *.iml/*.iws/*.ipr gitignore entries split to separate lines), build verified 209 tasks BUILD SUCCESSFUL
+  mobile-1-2-implement-shared-infrastructure-di-error-types-and-logging: backlog
+  mobile-1-3-set-up-sqldelight-local-cache-schema: backlog
+  mobile-1-4-implement-terminal-luxe-design-system-android: backlog
+  mobile-1-5-implement-terminal-luxe-design-system-ios: backlog
+  mobile-1-6-configure-ci-cd-pipelines: backlog
+  mobile-epic-1-retrospective: optional
+
+  # Mobile Epic 2: Connect to Your PC
+  mobile-epic-2: backlog
+  mobile-2-1-implement-ssh-key-generation-and-secure-storage: backlog
+  mobile-2-2-create-and-save-remote-connections: backlog
+  mobile-2-3-implement-ssh-connection-and-test-flow: backlog
+  mobile-2-4-implement-guided-first-time-setup-flow: backlog
+  mobile-2-5-discover-and-select-remote-projects: backlog
+  mobile-2-6-implement-connection-status-display-and-lifecycle: backlog
+  mobile-epic-2-retrospective: optional
+
+  # Mobile Epic 3: Chat with Your Agents
+  mobile-epic-3: backlog
+  mobile-3-1-implement-tmux-session-discovery-and-attachment: backlog
+  mobile-3-2-build-agent-chat-session-list: backlog
+  mobile-3-3-implement-agent-chat-conversation-view: backlog
+  mobile-3-4-implement-agent-response-streaming: backlog
+  mobile-3-5-start-new-chat-session-with-agent-persona: backlog
+  mobile-epic-3-retrospective: optional
+
+  # Mobile Epic 4: Read Planning Documents
+  mobile-epic-4: backlog
+  mobile-4-1-browse-remote-planning-documents: backlog
+  mobile-4-2-read-rendered-markdown-documents: backlog
+  mobile-4-3-cache-documents-for-offline-reading: backlog
+  mobile-4-4-search-within-documents-and-navigate-internal-links: backlog
+  mobile-epic-4-retrospective: optional
+
+  # Mobile Epic 5: Review Code & Act on Tasks
+  mobile-epic-5: backlog
+  mobile-5-1-view-task-list-with-status-filtering: backlog
+  mobile-5-2-view-code-diffs-with-syntax-highlighting: backlog
+  mobile-5-3-approve-request-changes-or-reject-tasks: backlog
+  mobile-5-4-view-agent-reasoning-log: backlog
+  mobile-epic-5-retrospective: optional
+
+  # Mobile Epic 6: Project Dashboard & Status at a Glance
+  mobile-epic-6: backlog
+  mobile-6-1-build-project-dashboard-overview: backlog
+  mobile-6-2-implement-bottom-navigation-with-badge-counts: backlog
+  mobile-epic-6-retrospective: optional
+
+  # Mobile Epic 7: Resilient Connections & Settings
+  mobile-epic-7: backlog
+  mobile-7-1-integrate-mosh-for-resilient-connections: backlog
+  mobile-7-2-implement-offline-mode-and-message-queuing: backlog
+  mobile-7-3-implement-mosh-and-connection-settings: backlog
+  mobile-7-4-implement-cache-management-and-app-diagnostics: backlog
+  mobile-epic-7-retrospective: optional

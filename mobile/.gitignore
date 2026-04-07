@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+*/build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+
+
+# Kotlin
+*.class
+
+# Android
+androidApp/release/
+
+# iOS
+iosApp/DerivedData/
+iosApp/xcuserdata/
+iosApp/Pods/
+iosApp/.build/
+
+# OS
+.DS_Store
+Thumbs.db
