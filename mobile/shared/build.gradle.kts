@@ -3,6 +3,14 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
+    id("org.jlleitschuh.gradle.ktlint")
+}
+
+ktlint {
+    filter {
+        exclude("**/build/**")
+        exclude("**/generated/**")
+    }
 }
 
 kotlin {

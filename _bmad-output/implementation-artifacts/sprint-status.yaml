@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-07T-mobile-1-5-ready-for-dev
+# updated: 2026-04-07T-mobile-1-6-done
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -307,7 +307,7 @@ development_status:
   mobile-1-3-set-up-sqldelight-local-cache-schema: done  # Code review complete - 1 auto-fix applied (KoinHelper.initKoin bare Exception catch reverted to GlobalContext.getOrNull() guard), 4 deferred FK/cascade items, all ACs verified
   mobile-1-4-implement-terminal-luxe-design-system-android: done  # Code review complete - 3 auto-fixes applied (unused dp import removed from Buttons.kt, Routes.kt connected via TinsuTab enum, LightPrimary constant used in Theme.kt light userBubble), all ACs verified
   mobile-1-5-implement-terminal-luxe-design-system-ios: done  # Code review complete - 2 auto-fixes applied (TinsuTypography.code Dynamic Type via Font.system(.body, design: .monospaced), TinsuLoadingView.cornerRadius deprecated → clipShape), all ACs verified
-  mobile-1-6-configure-ci-cd-pipelines: backlog
+  mobile-1-6-configure-ci-cd-pipelines: done  # Code review complete - 5 auto-fixes applied (SwiftLint rules_customization→top-level, Fastlane stubs created, release.yml workflow_dispatch+platform input, jvmTest removed from shared-tests, SwiftLint working-directory fix), all ACs verified
   mobile-epic-1-retrospective: optional
 
   # Mobile Epic 2: Connect to Your PC

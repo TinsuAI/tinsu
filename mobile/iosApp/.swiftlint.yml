@@ -1,0 +1,37 @@
+# SwiftLint configuration for TinSu iOS app
+included:
+  - iosApp
+
+excluded:
+  - iosApp.xcodeproj
+  - Pods
+  - build
+
+opt_in_rules:
+  - force_unwrapping
+  - empty_count
+
+disabled_rules:
+  - trailing_whitespace    # handled by editorconfig
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+identifier_name:
+  min_length: 1
+  max_length: 50
+  excluded:
+    - id
+    - x
+    - y
+
+custom_rules:
+  swiftui_view_suffix:
+    name: "SwiftUI View Suffix"
+    regex: 'struct\s+(\w+):\s*(some\s+)?View\b'
+    capture_group: 1
+    match_kinds:
+      - identifier
+    message: "SwiftUI View structs must end with 'View' suffix"
+    severity: warning

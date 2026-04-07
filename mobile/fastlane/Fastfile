@@ -1,0 +1,17 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build and upload Android release to Play Store"
+  lane :release do
+    # gradle(task: "bundle", build_type: "Release")
+    # upload_to_play_store
+  end
+end
+
+platform :ios do
+  desc "Build and upload iOS release to App Store"
+  lane :release do
+    # gym
+    # upload_to_app_store
+  end
+end

@@ -1,0 +1,32 @@
+name: Mobile Shared Tests
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/shared/**'
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile Shared Module Metadata
+        run: ./gradlew :shared:compileKotlinMetadata
+
+      - name: Run Shared Android Unit Tests
+        run: ./gradlew :shared:testDebugUnitTest

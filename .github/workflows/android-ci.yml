@@ -1,0 +1,35 @@
+name: Mobile Android CI
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: KtLint Check
+        run: ./gradlew :shared:ktlintCheck :androidApp:ktlintCheck
+
+      - name: Build Android Debug APK
+        run: ./gradlew :androidApp:assembleDebug
+
+      - name: Run Android Unit Tests
+        run: ./gradlew :androidApp:test :shared:testDebugUnitTest

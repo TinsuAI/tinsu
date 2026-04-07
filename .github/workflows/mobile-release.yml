@@ -1,0 +1,64 @@
+name: Mobile Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to deploy'
+        required: true
+        type: choice
+        options:
+          - android
+          - ios
+          - both
+        default: 'both'
+
+jobs:
+  android-release:
+    if: ${{ github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Android AAB for Release
+        working-directory: mobile
+        run: |
+          # TODO: Configure keystore credentials via secrets
+          # KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+          ./gradlew :androidApp:bundleRelease
+
+      - name: Upload to Play Store
+        working-directory: mobile
+        run: |
+          # TODO: Configure fastlane for Play Store upload
+          # bundle exec fastlane android release
+
+  ios-release:
+    if: ${{ github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' }}
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build iOS Archive for Release
+        working-directory: mobile/iosApp
+        run: |
+          # TODO: Configure code signing via fastlane match
+          # xcodebuild archive ...
+
+      - name: Upload to App Store
+        working-directory: mobile
+        run: |
+          # TODO: Configure fastlane for App Store upload
+          # APP_STORE_CONNECT_API_KEY secret required
+          # bundle exec fastlane ios release

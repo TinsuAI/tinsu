@@ -4,6 +4,14 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
+    id("org.jlleitschuh.gradle.ktlint")
+}
+
+ktlint {
+    filter {
+        exclude("**/build/**")
+        exclude("**/generated/**")
+    }
 }
 
 android {
