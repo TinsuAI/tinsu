@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-07T-mobile-1-4-ready-for-dev
+# updated: 2026-04-07T-mobile-1-5-ready-for-dev
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -306,7 +306,7 @@ development_status:
   mobile-1-2-implement-shared-infrastructure-di-error-types-and-logging: done  # Code review complete - 3 auto-fixes applied (Android Logger double-tag removed, initKoin double-init guard added, iOS Logger error() uses stackTraceToString()), all 16 tests passing
   mobile-1-3-set-up-sqldelight-local-cache-schema: done  # Code review complete - 1 auto-fix applied (KoinHelper.initKoin bare Exception catch reverted to GlobalContext.getOrNull() guard), 4 deferred FK/cascade items, all ACs verified
   mobile-1-4-implement-terminal-luxe-design-system-android: done  # Code review complete - 3 auto-fixes applied (unused dp import removed from Buttons.kt, Routes.kt connected via TinsuTab enum, LightPrimary constant used in Theme.kt light userBubble), all ACs verified
-  mobile-1-5-implement-terminal-luxe-design-system-ios: backlog
+  mobile-1-5-implement-terminal-luxe-design-system-ios: done  # Code review complete - 2 auto-fixes applied (TinsuTypography.code Dynamic Type via Font.system(.body, design: .monospaced), TinsuLoadingView.cornerRadius deprecated → clipShape), all ACs verified
   mobile-1-6-configure-ci-cd-pipelines: backlog
   mobile-epic-1-retrospective: optional
 

@@ -9,12 +9,22 @@
 /* Begin PBXBuildFile section */
 		2A7B7E2A2B1C3D4E00F1A2B3 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7B7E292B1C3D4E00F1A2B3 /* iOSApp.swift */; };
 		2A7B7E2C2B1C3D4E00F1A2B3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7B7E2B2B1C3D4E00F1A2B3 /* ContentView.swift */; };
+		BB0001AABBCC000001000002 /* TinsuColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000001 /* TinsuColors.swift */; };
+		BB0001AABBCC000001000004 /* TinsuTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000003 /* TinsuTypography.swift */; };
+		BB0001AABBCC000001000006 /* TinsuSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000005 /* TinsuSpacing.swift */; };
+		BB0001AABBCC000001000008 /* TinsuStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000007 /* TinsuStyles.swift */; };
+		BB0001AABBCC00000100000A /* TinsuLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000009 /* TinsuLoadingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2A7B7E262B1C3D4E00F1A2B3 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A7B7E292B1C3D4E00F1A2B3 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 		2A7B7E2B2B1C3D4E00F1A2B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		BB0001AABBCC000001000001 /* TinsuColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuColors.swift; sourceTree = "<group>"; };
+		BB0001AABBCC000001000003 /* TinsuTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuTypography.swift; sourceTree = "<group>"; };
+		BB0001AABBCC000001000005 /* TinsuSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuSpacing.swift; sourceTree = "<group>"; };
+		BB0001AABBCC000001000007 /* TinsuStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuStyles.swift; sourceTree = "<group>"; };
+		BB0001AABBCC000001000009 /* TinsuLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuLoadingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,6 +59,11 @@
 			children = (
 				2A7B7E292B1C3D4E00F1A2B3 /* iOSApp.swift */,
 				2A7B7E2B2B1C3D4E00F1A2B3 /* ContentView.swift */,
+				BB0001AABBCC000001000001 /* TinsuColors.swift */,
+				BB0001AABBCC000001000003 /* TinsuTypography.swift */,
+				BB0001AABBCC000001000005 /* TinsuSpacing.swift */,
+				BB0001AABBCC000001000007 /* TinsuStyles.swift */,
+				BB0001AABBCC000001000009 /* TinsuLoadingView.swift */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -118,6 +133,11 @@
 			files = (
 				2A7B7E2C2B1C3D4E00F1A2B3 /* ContentView.swift in Sources */,
 				2A7B7E2A2B1C3D4E00F1A2B3 /* iOSApp.swift in Sources */,
+				BB0001AABBCC000001000002 /* TinsuColors.swift in Sources */,
+				BB0001AABBCC000001000004 /* TinsuTypography.swift in Sources */,
+				BB0001AABBCC000001000006 /* TinsuSpacing.swift in Sources */,
+				BB0001AABBCC000001000008 /* TinsuStyles.swift in Sources */,
+				BB0001AABBCC00000100000A /* TinsuLoadingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

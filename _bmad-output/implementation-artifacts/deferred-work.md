@@ -33,3 +33,7 @@
 - **Android `Log` tag truncation at >23 chars** — Platform limitation; add tag length validation in a future logging story.
 - **`Timeout.operation` not surfaced in logs** — Field is captured but never logged or displayed. Add `toLogMessage()` helper (see above) to surface it.
 - **Android TinsuApplication Koin re-init in instrumented tests** — No guard; test runner calling `startKoin` twice throws. Add test-specific Koin setup in a future testing infrastructure story.
+
+## Deferred from: code review of mobile-1-5-implement-terminal-luxe-design-system-ios (2026-04-07)
+
+- **`KoinHelper.kt` broad `catch (_: Exception)` swallows non-reentry errors** — Pre-existing try-catch pattern accepted in mobile-1-3 review. The expected exception is `KoinAlreadyStartedException`; catching all Exception types could mask module configuration errors. Revisit when testing infrastructure is added to verify Koin module health.
