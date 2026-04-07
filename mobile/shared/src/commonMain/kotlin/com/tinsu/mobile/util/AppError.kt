@@ -14,4 +14,12 @@ sealed interface AppError {
     data class SyncFailed(val reason: String) : AppError {
         override val userMessage: String get() = "Sync failed. Data may be outdated."
     }
+
+    data class KeyGenerationFailed(val reason: String) : AppError {
+        override val userMessage: String get() = "Key generation failed: $reason"
+    }
+
+    data class KeyNotFound(val alias: String) : AppError {
+        override val userMessage: String get() = "Key '$alias' not found."
+    }
 }

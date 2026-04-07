@@ -60,6 +60,8 @@ kotlin {
             implementation(libs.sqldelight.android.driver)
             implementation(libs.koin.android)
             implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.bouncy.castle)
+            implementation(libs.security.crypto)
         }
 
         iosMain.dependencies {
