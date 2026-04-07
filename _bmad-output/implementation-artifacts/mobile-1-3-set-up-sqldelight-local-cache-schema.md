@@ -1,6 +1,6 @@
 # Story 1.3: Set Up SQLDelight Local Cache Schema
 
-Status: review
+Status: done
 
 ## Story
 
@@ -66,7 +66,7 @@ So that the app can cache remote data and store local preferences with type-safe
 
 ### Review Findings
 
-- [ ] [Review][Patch] KoinHelper.initKoin() catches bare Exception — silently swallows non-initialization errors [mobile/shared/src/iosMain/kotlin/com/tinsu/mobile/di/KoinHelper.kt]
+- [x] [Review][Patch] KoinHelper.initKoin() catches bare Exception — reverted to GlobalContext.getOrNull() guard [mobile/shared/src/iosMain/kotlin/com/tinsu/mobile/di/KoinHelper.kt]
 - [x] [Review][Defer] agent_runs and task_activities missing ON DELETE CASCADE — deferred, pre-existing design choice not required by spec
 - [x] [Review][Defer] document_cache.project_id has no FK to projects — deferred, mobile-only table design not constrained by spec
 - [x] [Review][Defer] tasks.rejected_agent_run_id references agent_runs without FK constraint — deferred, mirrors desktop schema as-is, FK not in spec

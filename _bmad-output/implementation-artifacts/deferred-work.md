@@ -13,6 +13,13 @@
 **Source:** Code review of planning-chat-input-enhancements  
 **Issue:** `getSkillManifest` (and all other planning router queries) use synchronous filesystem I/O (`readFileSync`, `readdirSync`, `statSync`) which blocks the Electron main process thread. Should be migrated to async `fs/promises` equivalents.
 
+## Deferred from: code review of mobile-1-3-set-up-sqldelight-local-cache-schema (2026-04-07)
+
+- **agent_runs and task_activities missing ON DELETE CASCADE** — Deleting a task leaves orphaned agent_runs/task_activities rows. Add `ON DELETE CASCADE` to FK constraints in a future DB maintenance story.
+- **document_cache.project_id has no FK to projects** — Mobile-only table; add FK constraint and cascade when document sync logic is built (Story 4.x).
+- **tasks.rejected_agent_run_id references agent_runs without FK** — Mirrors desktop schema as-is. Add FK constraint when mobile task execution features are built (Story 5.x).
+- **SQLite FK enforcement requires PRAGMA foreign_keys = ON** — Must be set on each connection at driver setup. Add when any FK-constrained data mutation is introduced (Story 2.x+).
+
 ## Deferred from: code review of mobile-1-2-implement-shared-infrastructure-di-error-types-and-logging (2026-04-06)
 
 - **`AppError` missing catch-all/unknown variant** — No `Unknown(cause: Throwable?)` subtype; adding new subtypes is a binary break. Add before first external library release.

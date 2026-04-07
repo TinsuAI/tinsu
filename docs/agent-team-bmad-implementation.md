@@ -6,14 +6,14 @@ This document defines the automated agent team workflow for implementing epics s
 
 | Agent | Model | Role |
 |-------|-------|------|
-| **SM** (Scrum Master) | Opus 4.6 | Creates stories from epic backlog |
-| **DEV 1** (Developer) | Opus 4.6 | Implements story code |
+| **SM** (Scrum Master) | Sonnet 4.6 | Creates stories from epic backlog |
+| **DEV 1** (Developer) | Sonnet 4.6 | Implements story code |
 | **DEV 2** (Reviewer) | Sonnet 4.6 | Reviews code and auto-fixes issues |
 
 ## Pipeline Steps (per story)
 
 ### Step 1: Create Story
-**Agent:** SM (Opus 4.6)
+**Agent:** SM (Sonnet 4.6)
 ```
 /bmad-bmm-create-story *story-number
 ```
@@ -22,7 +22,7 @@ This document defines the automated agent team workflow for implementing epics s
 - **Status update:** `sprint-status.yaml` story status → `ready-for-dev`
 
 ### Step 2: Develop Story
-**Agent:** DEV 1 (Opus 4.6)
+**Agent:** DEV 1 (Sonnet 4.6)
 ```
 /bmad-bmm-dev-story *story-number
 ```
@@ -34,6 +34,7 @@ This document defines the automated agent team workflow for implementing epics s
 
 ### Step 3: Code Review & Auto-Fix
 **Agent:** DEV 2 (Sonnet 4.6)
+
 ```
 /bmad-bmm-code-review *story-number
 ```
@@ -56,12 +57,12 @@ This document defines the automated agent team workflow for implementing epics s
 ┌──────────────────────────────────────────────────────────────┐
 │                   For each story:                             │
 │                                                              │
-│  SM (Opus 4.6)                                               │
+│  SM (Sonnet 4.6)                                               │
 │  └─► /bmad-bmm-create-story *N                               │
 │       status: backlog → ready-for-dev                        │
 │       │                                                      │
 │       ▼                                                      │
-│  DEV 1 (Opus 4.6)                                            │
+│  DEV 1 (Sonnet 4.6)                                            │
 │  └─► /bmad-bmm-dev-story *N                                  │
 │       status: ready-for-dev → in-progress → review           │
 │       │                                                      │
