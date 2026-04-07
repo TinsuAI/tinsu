@@ -1,0 +1,57 @@
+CREATE TABLE tasks (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'backlog',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    epic_id TEXT,
+    sprint_id TEXT,
+    task_type TEXT NOT NULL DEFAULT 'story',
+    phase_number INTEGER,
+    phase_name TEXT,
+    bmad_agent TEXT,
+    bmad_workflow TEXT,
+    is_start_here INTEGER,
+    artifact_path TEXT,
+    story_number TEXT,
+    story_file_path TEXT,
+    full_content TEXT,
+    story_file_status TEXT,
+    context_notes TEXT,
+    project_id TEXT,
+    worktree_path TEXT,
+    branch_name TEXT,
+    merge_commit_sha TEXT,
+    has_merge_conflict INTEGER NOT NULL DEFAULT 0,
+    conflict_files TEXT,
+    worktree_skipped INTEGER NOT NULL DEFAULT 0,
+    rejection_feedback TEXT,
+    rejected_agent_run_id TEXT,
+    inline_comments TEXT,
+    rejection_count INTEGER NOT NULL DEFAULT 0,
+    last_review_commit TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (epic_id) REFERENCES epics(id),
+    FOREIGN KEY (sprint_id) REFERENCES sprints(id),
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX tasks_status ON tasks(status);
+CREATE INDEX tasks_epic_id ON tasks(epic_id);
+CREATE INDEX tasks_sprint_id ON tasks(sprint_id);
+CREATE INDEX tasks_project_id ON tasks(project_id);
+CREATE INDEX tasks_task_type ON tasks(task_type);
+
+selectAll:
+SELECT * FROM tasks;
+
+selectById:
+SELECT * FROM tasks WHERE id = ?;
+
+insert:
+INSERT INTO tasks (id, title, description, status, sort_order, epic_id, sprint_id, task_type, phase_number, phase_name, bmad_agent, bmad_workflow, is_start_here, artifact_path, story_number, story_file_path, full_content, story_file_status, context_notes, project_id, worktree_path, branch_name, merge_commit_sha, has_merge_conflict, conflict_files, worktree_skipped, rejection_feedback, rejected_agent_run_id, inline_comments, rejection_count, last_review_commit, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM tasks WHERE id = ?;

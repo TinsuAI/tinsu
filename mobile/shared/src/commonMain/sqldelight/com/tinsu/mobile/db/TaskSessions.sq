@@ -1,0 +1,25 @@
+CREATE TABLE task_sessions (
+    id TEXT NOT NULL PRIMARY KEY,
+    task_id TEXT NOT NULL UNIQUE,
+    session_id TEXT,
+    tmux_session TEXT NOT NULL,
+    current_phase TEXT,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX task_sessions_session_id ON task_sessions(session_id);
+CREATE UNIQUE INDEX task_sessions_task_id ON task_sessions(task_id);
+
+selectAll:
+SELECT * FROM task_sessions;
+
+selectById:
+SELECT * FROM task_sessions WHERE id = ?;
+
+insert:
+INSERT INTO task_sessions (id, task_id, session_id, tmux_session, current_phase, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM task_sessions WHERE id = ?;

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -71,5 +72,17 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    testImplementation(libs.sqldelight.sqlite.driver)
+}
+
+sqldelight {
+    databases {
+        create("TinsuMobile") {
+            packageName.set("com.tinsu.mobile.db")
+        }
     }
 }

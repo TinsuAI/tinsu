@@ -1,0 +1,22 @@
+CREATE TABLE projects (
+    id TEXT NOT NULL PRIMARY KEY,
+    path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_opened_at INTEGER
+);
+
+CREATE INDEX projects_path ON projects(path);
+
+selectAll:
+SELECT * FROM projects;
+
+selectById:
+SELECT * FROM projects WHERE id = ?;
+
+insert:
+INSERT INTO projects (id, path, name, created_at, last_opened_at)
+VALUES (?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM projects WHERE id = ?;

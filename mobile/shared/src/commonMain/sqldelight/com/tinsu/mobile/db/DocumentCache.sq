@@ -1,0 +1,23 @@
+CREATE TABLE document_cache (
+    id TEXT NOT NULL PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    remote_path TEXT NOT NULL,
+    content TEXT NOT NULL,
+    remote_modified_at INTEGER,
+    cached_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX document_cache_project_path ON document_cache(project_id, remote_path);
+
+selectAll:
+SELECT * FROM document_cache;
+
+selectById:
+SELECT * FROM document_cache WHERE id = ?;
+
+insert:
+INSERT INTO document_cache (id, project_id, remote_path, content, remote_modified_at, cached_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM document_cache WHERE id = ?;

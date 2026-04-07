@@ -1,0 +1,18 @@
+CREATE TABLE app_preferences (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM app_preferences;
+
+selectByKey:
+SELECT * FROM app_preferences WHERE key = ?;
+
+insert:
+INSERT INTO app_preferences (key, value, updated_at)
+VALUES (?, ?, ?);
+
+deleteByKey:
+DELETE FROM app_preferences WHERE key = ?;

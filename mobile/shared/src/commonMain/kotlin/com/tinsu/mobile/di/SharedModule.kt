@@ -1,8 +1,8 @@
 package com.tinsu.mobile.di
 
+import com.tinsu.mobile.db.TinsuMobile
 import org.koin.dsl.module
 
 val sharedModule = module {
-    // Future: singleOf(::ConnectionRepository)
-    // Future: viewModelOf(::ChatViewModel)
+    single { TinsuMobile(get()) }
 }

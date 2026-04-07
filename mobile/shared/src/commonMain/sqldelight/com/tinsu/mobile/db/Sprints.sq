@@ -1,0 +1,31 @@
+CREATE TABLE sprints (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    start_date INTEGER,
+    end_date INTEGER,
+    status TEXT NOT NULL DEFAULT 'planning',
+    goal TEXT,
+    velocity INTEGER,
+    capacity INTEGER,
+    project_id TEXT,
+    story_prefix TEXT,
+    epics_file_path TEXT,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX sprints_project_id ON sprints(project_id);
+CREATE INDEX sprints_status ON sprints(status);
+
+selectAll:
+SELECT * FROM sprints;
+
+selectById:
+SELECT * FROM sprints WHERE id = ?;
+
+insert:
+INSERT INTO sprints (id, name, start_date, end_date, status, goal, velocity, capacity, project_id, story_prefix, epics_file_path, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM sprints WHERE id = ?;

@@ -1,0 +1,24 @@
+CREATE TABLE chat_cache (
+    id TEXT NOT NULL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    content TEXT NOT NULL,
+    message_type TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX chat_cache_session_id ON chat_cache(session_id);
+CREATE INDEX chat_cache_session_created ON chat_cache(session_id, created_at);
+
+selectAll:
+SELECT * FROM chat_cache;
+
+selectById:
+SELECT * FROM chat_cache WHERE id = ?;
+
+insert:
+INSERT INTO chat_cache (id, session_id, sender, content, message_type, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM chat_cache WHERE id = ?;

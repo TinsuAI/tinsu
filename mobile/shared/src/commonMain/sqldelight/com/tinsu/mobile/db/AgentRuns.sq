@@ -1,0 +1,26 @@
+CREATE TABLE agent_runs (
+    id TEXT NOT NULL PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER,
+    duration_ms INTEGER,
+    token_usage INTEGER,
+    exit_status TEXT,
+    log_path TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+
+CREATE INDEX agent_runs_task_id ON agent_runs(task_id);
+
+selectAll:
+SELECT * FROM agent_runs;
+
+selectById:
+SELECT * FROM agent_runs WHERE id = ?;
+
+insert:
+INSERT INTO agent_runs (id, task_id, start_time, end_time, duration_ms, token_usage, exit_status, log_path)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM agent_runs WHERE id = ?;

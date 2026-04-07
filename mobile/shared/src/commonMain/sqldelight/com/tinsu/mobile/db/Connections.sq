@@ -1,0 +1,25 @@
+CREATE TABLE connections (
+    id TEXT NOT NULL PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 22,
+    username TEXT NOT NULL,
+    transport TEXT NOT NULL DEFAULT 'ssh',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    last_connected_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM connections;
+
+selectById:
+SELECT * FROM connections WHERE id = ?;
+
+insert:
+INSERT INTO connections (id, display_name, host, port, username, transport, sort_order, last_connected_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM connections WHERE id = ?;
