@@ -41,3 +41,10 @@
 ## Deferred from: code review of mobile-1-5-implement-terminal-luxe-design-system-ios (2026-04-07)
 
 - **`KoinHelper.kt` broad `catch (_: Exception)` swallows non-reentry errors** — Pre-existing try-catch pattern accepted in mobile-1-3 review. The expected exception is `KoinAlreadyStartedException`; catching all Exception types could mask module configuration errors. Revisit when testing infrastructure is added to verify Koin module health.
+
+## Deferred from: code review of mobile-2-5-discover-and-select-remote-projects (2026-04-08)
+
+- **Missing connectionId extraction and navigation wiring** — SaveConnectionStep/ConnectionListScreen not wired to PROJECT_DISCOVERY route; broader integration gap deferred to mobile-2-6 when connection lifecycle is formalized
+- **iOS polling timer inefficiency** — 200ms polling instead of direct StateFlow observation; matches mobile-2-4 SetupObservableViewModel pattern, change would require refactoring across multiple bridge files
+- **ViewModel init main thread DB access** — getSelectedProject() is synchronous; matches SetupDetector pattern, SQLDelight synchronous queries on local SQLite are <1ms
+- **JSON deserialization exception swallowing** — fromJson() exceptions return null silently; graceful degradation but no logging, deferred until logging module is added

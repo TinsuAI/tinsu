@@ -8,4 +8,5 @@ object Routes {
     const val TASKS = "tasks"
     const val SETTINGS = "settings"
     const val SETUP_FLOW = "setup_flow"
+    const val PROJECT_DISCOVERY = "project-discovery/{connectionId}"
 }

@@ -48,6 +48,7 @@ import com.tinsu.mobile.ui.components.PrimaryButton
 import com.tinsu.mobile.ui.components.SecondaryButton
 import com.tinsu.mobile.ui.components.ShimmerBox
 import com.tinsu.mobile.ui.navigation.Routes
+import com.tinsu.mobile.ui.project.ProjectDiscoveryScreen
 import com.tinsu.mobile.ui.setup.SetupFlowScreen
 import com.tinsu.mobile.ui.theme.TinsuTheme
 import org.koin.compose.koinInject
@@ -100,6 +101,14 @@ fun TinsuApp() {
                             popUpTo(Routes.SETUP_FLOW) { inclusive = true }
                         }
                     }
+                )
+            }
+            composable(
+                route = Routes.PROJECT_DISCOVERY,
+                arguments = listOf(androidx.navigation.NavArgument("connectionId") { type = androidx.navigation.NavType.StringType })
+            ) {
+                ProjectDiscoveryScreen(
+                    onProjectSelected = { /* TODO: navigate to project dashboard in future story */ }
                 )
             }
             composable(TinsuTab.CHAT.route) { Box(Modifier.fillMaxSize()) }

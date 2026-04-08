@@ -1,6 +1,7 @@
 package com.tinsu.mobile.di
 
 import com.tinsu.mobile.connection.SshSessionProvider
+import com.tinsu.mobile.project.ProjectViewModel
 import com.tinsu.mobile.security.Ed25519KeyProvider
 import com.tinsu.mobile.security.SecureKeyStore
 import com.tinsu.mobile.setup.SetupDetector
@@ -31,4 +32,8 @@ fun getSetupViewModel(): SetupViewModel {
 
 fun getSetupDetector(): SetupDetector {
     return org.koin.core.context.GlobalContext.get().get<SetupDetector>()
+}
+
+fun getProjectViewModel(): ProjectViewModel {
+    return org.koin.core.context.GlobalContext.get().get<ProjectViewModel>()
 }
