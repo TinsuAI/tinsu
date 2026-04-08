@@ -24,7 +24,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -35,12 +40,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.tinsu.mobile.setup.SetupDetector
 import com.tinsu.mobile.ui.components.DestructiveButton
 import com.tinsu.mobile.ui.components.PrimaryButton
 import com.tinsu.mobile.ui.components.SecondaryButton
 import com.tinsu.mobile.ui.components.ShimmerBox
 import com.tinsu.mobile.ui.navigation.Routes
+import com.tinsu.mobile.ui.setup.SetupFlowScreen
 import com.tinsu.mobile.ui.theme.TinsuTheme
+import org.koin.compose.koinInject
 
 enum class TinsuTab(
     val route: String,
@@ -58,6 +68,13 @@ enum class TinsuTab(
 fun TinsuApp() {
     val navController = rememberNavController()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val setupDetector: SetupDetector = koinInject()
+
+    val showSetup by produceState(initialValue = true) {
+        value = withContext(Dispatchers.IO) { setupDetector.shouldShowSetup() }
+    }
+
+    val startDestination = if (showSetup) Routes.SETUP_FLOW else TinsuTab.CHAT.route
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -73,9 +90,18 @@ fun TinsuApp() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = TinsuTab.CHAT.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(paddingValues),
         ) {
+            composable(Routes.SETUP_FLOW) {
+                SetupFlowScreen(
+                    onComplete = {
+                        navController.navigate(TinsuTab.CHAT.route) {
+                            popUpTo(Routes.SETUP_FLOW) { inclusive = true }
+                        }
+                    }
+                )
+            }
             composable(TinsuTab.CHAT.route) { Box(Modifier.fillMaxSize()) }
             composable(TinsuTab.DOCS.route) { Box(Modifier.fillMaxSize()) }
             composable(TinsuTab.TASKS.route) { Box(Modifier.fillMaxSize()) }

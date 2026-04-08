@@ -315,7 +315,7 @@ development_status:
   mobile-2-1-implement-ssh-key-generation-and-secure-storage: done  # Code review complete - 7 auto-fixes applied (SecKeyCopyPublicKey critical fix, dead code removal, alias validation, NSNumber cast, DER bounds checks, deprecated synchronize removal, type-safe filterIsInstance)
   mobile-2-2-create-and-save-remote-connections: done  # Code review complete - 4 auto-fixes applied (iOS refreshState() implementation, iOS method name fix, Android duplicate ConnectionCard removed, iOS Dispatchers.Default→IO for consistency); SSH key alias validation deferred to follow-up (requires SecureKeyStore injection into repository)
   mobile-2-3-implement-ssh-connection-and-test-flow: done  # Code review complete - 4 auto-fixes applied (SwiftNIO SSH simplified, iOS getPrivateKeyData improvements, SecureKeyStore, iOS filterIsInstance checks, mandatory test-before save, Deferred: platform integration tests)
-  mobile-2-4-implement-guided-first-time-setup-flow: backlog
+  mobile-2-4-implement-guided-first-time-setup-flow: done  # Code review complete - 4 auto-fixes applied (iOS port range validation 1-65535, iOS SetupObservableViewModel replaced hardcoded delays with state polling, concurrent test connection guard, retryTest redundant when simplified); all 9 ACs verified PASS
   mobile-2-5-discover-and-select-remote-projects: backlog
   mobile-2-6-implement-connection-status-display-and-lifecycle: backlog
   mobile-epic-2-retrospective: optional

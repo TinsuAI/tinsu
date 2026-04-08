@@ -7,4 +7,5 @@ object Routes {
     const val DOCS = "docs"
     const val TASKS = "tasks"
     const val SETTINGS = "settings"
+    const val SETUP_FLOW = "setup_flow"
 }
