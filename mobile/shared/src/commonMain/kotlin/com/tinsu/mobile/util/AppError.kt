@@ -22,4 +22,16 @@ sealed interface AppError {
     data class KeyNotFound(val alias: String) : AppError {
         override val userMessage: String get() = "Key '$alias' not found."
     }
+
+    data class InvalidConnectionDetails(val reason: String) : AppError {
+        override val userMessage: String get() = "Invalid connection details: $reason"
+    }
+
+    data class ConnectionNotFound(val id: String) : AppError {
+        override val userMessage: String get() = "Connection '$id' not found."
+    }
+
+    data class DatabaseError(val reason: String) : AppError {
+        override val userMessage: String get() = "Database error: $reason"
+    }
 }

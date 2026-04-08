@@ -53,6 +53,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
 
         androidMain.dependencies {
@@ -62,6 +63,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.bouncy.castle)
             implementation(libs.security.crypto)
+            implementation(libs.sshd.core)
+            implementation(libs.sshd.common)
         }
 
         iosMain.dependencies {

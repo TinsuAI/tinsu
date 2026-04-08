@@ -62,7 +62,7 @@ interface Ed25519KeyProvider {
 @OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 actual class SecureKeyStore(
     private val ed25519Provider: Ed25519KeyProvider? = null
-) {
+) : SecureKeyStoreContract {
 
     private val defaults = NSUserDefaults(suiteName = DEFAULTS_SUITE)
 
@@ -126,7 +126,7 @@ actual class SecureKeyStore(
             }
         }
 
-    actual suspend fun hasKey(alias: String): Result<Boolean> =
+    actual override suspend fun hasKey(alias: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             try {
                 val exists = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE") != null
@@ -135,6 +135,80 @@ actual class SecureKeyStore(
                 Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
             }
         }
+
+    actual override suspend fun getKeyType(alias: String): Result<KeyType> =
+        withContext(Dispatchers.IO) {
+            try {
+                val typeName = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE")
+                if (typeName != null) {
+                    val keyType = try { KeyType.valueOf(typeName) } catch (_: IllegalArgumentException) { return@withContext Result.Failure(AppError.KeyNotFound(alias)) }
+                    Result.Success(keyType)
+                } else {
+                    Result.Failure(AppError.KeyNotFound(alias))
+                }
+            } catch (e: Exception) {
+                Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
+            }
+        }
+
+    actual override suspend fun getPrivateKeyData(alias: String): Result<ByteArray> =
+        withContext(Dispatchers.IO) {
+            try {
+                val typeName = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE")
+                if (typeName == null) {
+                    return@withContext Result.Failure(AppError.KeyNotFound(alias))
+                }
+                val keyType = try { KeyType.valueOf(typeName) } catch (_: IllegalArgumentException) { return@withContext Result.Failure(AppError.KeyNotFound(alias)) }
+
+                when (keyType) {
+                    KeyType.Ed25519 -> {
+                        // Ed25519 keys are managed by Swift bridge - export via SecKeyCopyExternalRepresentation
+                        val keyData = getSecKeyData(alias)
+                        if (keyData != null) {
+                            Result.Success(keyData)
+                        } else {
+                            Result.Failure(AppError.KeyNotFound(alias))
+                        }
+                    }
+                    else -> {
+                        val keyData = getSecKeyData(alias)
+                        if (keyData != null) {
+                            Result.Success(keyData)
+                        } else {
+                            Result.Failure(AppError.KeyNotFound(alias))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
+            }
+        }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun getSecKeyData(alias: String): ByteArray? = memScoped {
+        val tagString = NSString.create(string = "$TAG_PREFIX$alias")
+        val tagData = tagString.dataUsingEncoding(NSUTF8StringEncoding) ?: return@memScoped null
+
+        val query = CFDictionaryCreateMutable(kCFAllocatorDefault, 4, null, null) ?: return@memScoped null
+        CFDictionarySetValue(query, kSecClass, kSecClassKey)
+        CFDictionarySetValue(query, kSecAttrApplicationTag, CFBridgingRetain(tagData))
+        CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPrivate)
+        CFDictionarySetValue(query, kSecReturnData, CFBridgingRetain(platform.Foundation.NSNumber(bool = true)))
+
+        val resultRef = alloc<CFTypeRefVar>()
+        val status = platform.Security.SecItemCopyMatching(query as CFDictionaryRef, resultRef.ptr.reinterpret())
+        CFRelease(query)
+
+        if (status != errSecSuccess) return@memScoped null
+
+        val resultData = resultRef.value
+        if (resultData == null) return@memScoped null
+
+        val nsData = resultData as? NSData ?: run { CFRelease(resultData); return@memScoped null }
+        val bytes = nsData.toByteArray()
+        CFRelease(resultData)
+        bytes
+    }
 
     // --- Ed25519 via Swift bridge ---
 

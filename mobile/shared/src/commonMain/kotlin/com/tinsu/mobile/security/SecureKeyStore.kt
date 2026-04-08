@@ -2,7 +2,17 @@ package com.tinsu.mobile.security
 
 import com.tinsu.mobile.util.Result
 
-expect class SecureKeyStore {
+/**
+ * Interface for key storage operations used by ConnectionTester.
+ * The expect class SecureKeyStore implements this interface.
+ */
+interface SecureKeyStoreContract {
+    suspend fun hasKey(alias: String): Result<Boolean>
+    suspend fun getKeyType(alias: String): Result<KeyType>
+    suspend fun getPrivateKeyData(alias: String): Result<ByteArray>
+}
+
+expect class SecureKeyStore : SecureKeyStoreContract {
     suspend fun generateKeyPair(
         alias: String,
         keyType: KeyType = KeyType.Ed25519
@@ -14,5 +24,9 @@ expect class SecureKeyStore {
 
     suspend fun deleteKey(alias: String): Result<Unit>
 
-    suspend fun hasKey(alias: String): Result<Boolean>
+    override suspend fun hasKey(alias: String): Result<Boolean>
+
+    override suspend fun getKeyType(alias: String): Result<KeyType>
+
+    override suspend fun getPrivateKeyData(alias: String): Result<ByteArray>
 }

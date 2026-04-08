@@ -32,6 +32,13 @@ android {
         }
     }
 
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -55,6 +62,7 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.koin.android)
+    implementation(libs.koin.compose)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

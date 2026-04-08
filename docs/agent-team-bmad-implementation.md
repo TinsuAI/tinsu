@@ -6,25 +6,25 @@ This document defines the automated agent team workflow for implementing epics s
 
 | Agent | Model | Role |
 |-------|-------|------|
-| **SM** (Scrum Master) | Sonnet 4.6 | Creates stories from epic backlog |
-| **DEV 1** (Developer) | Sonnet 4.6 | Implements story code |
+| **SM** (Scrum Master) | Opus 4.6 | Creates stories from epic backlog |
+| **DEV 1** (Developer) | Opus 4.6 | Implements story code |
 | **DEV 2** (Reviewer) | Sonnet 4.6 | Reviews code and auto-fixes issues |
 
 ## Pipeline Steps (per story)
 
 ### Step 1: Create Story
-**Agent:** SM (Sonnet 4.6)
+**Agent:** SM (Opus 4.6)
 ```
-/bmad-bmm-create-story *story-number
+/bmad-create-story *story-number
 ```
 - Generates the story file with acceptance criteria, tasks, and technical details
 - Output: Story file ready for development
 - **Status update:** `sprint-status.yaml` story status → `ready-for-dev`
 
 ### Step 2: Develop Story
-**Agent:** DEV 1 (Sonnet 4.6)
+**Agent:** DEV 1 (Opus 4.6)
 ```
-/bmad-bmm-dev-story *story-number
+/bmad-dev-story *story-number
 ```
 - Implements all code changes defined in the story
 - Follows project conventions from CLAUDE.md
@@ -36,7 +36,7 @@ This document defines the automated agent team workflow for implementing epics s
 **Agent:** DEV 2 (Sonnet 4.6)
 
 ```
-/bmad-bmm-code-review *story-number
+/bmad-code-review *story-number
 ```
 - Reviews the implemented code for quality, conventions, and correctness
 - Automatically fixes all identified issues
@@ -57,18 +57,18 @@ This document defines the automated agent team workflow for implementing epics s
 ┌──────────────────────────────────────────────────────────────┐
 │                   For each story:                             │
 │                                                              │
-│  SM (Sonnet 4.6)                                               │
-│  └─► /bmad-bmm-create-story *N                               │
+│  SM (Opus 4.6)                                                │
+│  └─► /bmad-create-story *N                                   │
 │       status: backlog → ready-for-dev                        │
 │       │                                                      │
 │       ▼                                                      │
-│  DEV 1 (Sonnet 4.6)                                            │
-│  └─► /bmad-bmm-dev-story *N                                  │
+│  DEV 1 (Opus 4.6)                                             │
+│  └─► /bmad-dev-story *N                                      │
 │       status: ready-for-dev → in-progress → review           │
 │       │                                                      │
 │       ▼                                                      │
 │  DEV 2 (Sonnet 4.6)                                          │
-│  └─► /bmad-bmm-code-review *N  (review + auto-fix)          │
+│  └─► /bmad-code-review *N  (review + auto-fix)              │
 │       status: review → done                                  │
 │       │                                                      │
 │       ▼                                                      │
@@ -152,7 +152,7 @@ Before starting, read these two files for context:
 1. {project-root}/agent-team-bmad-implementation.md
 2. {project-root}/CLAUDE.md
 
-Your ONLY task: Use the Skill tool to run /bmad-bmm-dev-story {story-number}
+Your ONLY task: Use the Skill tool to run /bmad-dev-story {story-number}
 
 You MUST use the Skill tool to invoke this command. Do NOT attempt to implement the story
 manually or read the story file directly. The Skill tool will load the full BMAD workflow
@@ -178,7 +178,7 @@ Before starting, read these two files for context:
 1. {project-root}/agent-team-bmad-implementation.md
 2. {project-root}/CLAUDE.md
 
-Your ONLY task: Use the Skill tool to run /bmad-bmm-code-review {story-number}
+Your ONLY task: Use the Skill tool to run /bmad-code-review {story-number}
 
 You MUST use the Skill tool to invoke this command. Do NOT attempt to review the code
 manually or read files directly. The Skill tool will load the full BMAD workflow which

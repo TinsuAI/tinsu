@@ -17,7 +17,7 @@ import java.security.spec.ECGenParameterSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-actual class SecureKeyStore(private val context: Context) {
+actual class SecureKeyStore(private val context: Context) : SecureKeyStoreContract {
 
     private val androidKeyStore: KeyStore by lazy {
         KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -111,7 +111,7 @@ actual class SecureKeyStore(private val context: Context) {
             }
         }
 
-    actual suspend fun hasKey(alias: String): Result<Boolean> =
+    actual override suspend fun hasKey(alias: String): Result<Boolean> =
         withContext(Dispatchers.Default) {
             try {
                 val metadata = loadKeyMetadata(alias)
@@ -120,6 +120,52 @@ actual class SecureKeyStore(private val context: Context) {
                 Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
             }
         }
+
+    actual override suspend fun getKeyType(alias: String): Result<KeyType> =
+        withContext(Dispatchers.Default) {
+            try {
+                val metadata = loadKeyMetadata(alias)
+                if (metadata != null) {
+                    Result.Success(metadata.keyType)
+                } else {
+                    Result.Failure(AppError.KeyNotFound(alias))
+                }
+            } catch (e: Exception) {
+                Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
+            }
+        }
+
+    actual override suspend fun getPrivateKeyData(alias: String): Result<ByteArray> =
+        withContext(Dispatchers.Default) {
+            try {
+                val metadata = loadKeyMetadata(alias)
+                    ?: return@withContext Result.Failure(AppError.KeyNotFound(alias))
+
+                val keyBytes = when (metadata.keyType) {
+                    KeyType.Ed25519 -> getEd25519PrivateKeyBytes(alias)
+                    else -> getPrivateKeyFromAndroidKeyStore(alias)
+                }
+                if (keyBytes != null) {
+                    Result.Success(keyBytes)
+                } else {
+                    Result.Failure(AppError.KeyNotFound(alias))
+                }
+            } catch (e: Exception) {
+                Result.Failure(AppError.KeyGenerationFailed(e.message ?: "Unknown error"))
+            }
+        }
+
+    private fun getEd25519PrivateKeyBytes(alias: String): ByteArray? {
+        val prefs = getEncryptedPrefs()
+        val base64 = prefs.getString(ed25519FallbackKey(alias), null) ?: return null
+        return Base64.decode(base64, Base64.NO_WRAP)
+    }
+
+    private fun getPrivateKeyFromAndroidKeyStore(alias: String): ByteArray? {
+        val entry = androidKeyStore.getEntry(alias, null) as? KeyStore.PrivateKeyEntry
+            ?: return null
+        return entry.privateKey.encoded
+    }
 
     // --- Key Generation ---
 

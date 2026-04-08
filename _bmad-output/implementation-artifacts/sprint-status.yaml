@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-06T-mobile-2-1-review
+# updated: 2026-04-08T-mobile-2-3-in-progress
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -313,8 +313,8 @@ development_status:
   # Mobile Epic 2: Connect to Your PC
   mobile-epic-2: in-progress
   mobile-2-1-implement-ssh-key-generation-and-secure-storage: done  # Code review complete - 7 auto-fixes applied (SecKeyCopyPublicKey critical fix, dead code removal, alias validation, NSNumber cast, DER bounds checks, deprecated synchronize removal, type-safe filterIsInstance)
-  mobile-2-2-create-and-save-remote-connections: backlog
-  mobile-2-3-implement-ssh-connection-and-test-flow: backlog
+  mobile-2-2-create-and-save-remote-connections: done  # Code review complete - 4 auto-fixes applied (iOS refreshState() implementation, iOS method name fix, Android duplicate ConnectionCard removed, iOS Dispatchers.Default→IO for consistency); SSH key alias validation deferred to follow-up (requires SecureKeyStore injection into repository)
+  mobile-2-3-implement-ssh-connection-and-test-flow: done  # Code review complete - 4 auto-fixes applied (SwiftNIO SSH simplified, iOS getPrivateKeyData improvements, SecureKeyStore, iOS filterIsInstance checks, mandatory test-before save, Deferred: platform integration tests)
   mobile-2-4-implement-guided-first-time-setup-flow: backlog
   mobile-2-5-discover-and-select-remote-projects: backlog
   mobile-2-6-implement-connection-status-display-and-lifecycle: backlog
