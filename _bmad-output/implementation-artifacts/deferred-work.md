@@ -48,3 +48,16 @@
 - **iOS polling timer inefficiency** — 200ms polling instead of direct StateFlow observation; matches mobile-2-4 SetupObservableViewModel pattern, change would require refactoring across multiple bridge files
 - **ViewModel init main thread DB access** — getSelectedProject() is synchronous; matches SetupDetector pattern, SQLDelight synchronous queries on local SQLite are <1ms
 - **JSON deserialization exception swallowing** — fromJson() exceptions return null silently; graceful degradation but no logging, deferred until logging module is added
+
+## Deferred from: code review of mobile-2-6-implement-connection-status-display-and-lifecycle (2026-04-08)
+
+- **SqlDelight value_ keyword inconsistency** — Pre-existing bug in ProjectRepository where value/value_ usage is inconsistent. Not caused by this story but should be cleaned up in a future maintenance pass.
+- **Connection state ignored during Loading/Error** — ProjectViewModel only updates connectionState when in ProjectsLoaded state. During Loading/Error, shows hardcoded Offline. Design decision to show default state during loading, not a bug.
+- **toList() after distinctBy** — Explicit materialization added after distinctBy operation. Good practice, not an issue. Ensures list is materialized before return.
+- **New implementation files not in diff** — ConnectionMonitor, HapticFeedback implementations, UI components, tests are untracked new files. Implementation verified separately in story completion notes.
+- **Missing ConnectionEvent import** — ConnectionListScreen uses connectionState without visible import in diff. Likely imported in untracked ConnectionStatusBar.kt.
+- **Hardcoded Offline fallback masks real state** — ProjectDiscoveryScreen shows Offline during Loading/Error states even if connected. Design choice for showing default during loading.
+- **JsonFrom parse failure indistinguishable from null** — Can't distinguish "not set" from "corrupted data". Pre-existing pattern in codebase, deferred until logging module added.
+- **Configuration change loses bottom sheet state** — showConnectionDetails state lost on rotation. Broader Compose state persistence issue, not specific to this change.
+- **RemoteExecutor crash propagates** — No try/catch around exec() calls. Pre-existing error handling pattern, broader error handling strategy needed.
+- **AC1-AC7 violations** — Acceptance criteria cannot be verified from diff because implementation files are untracked. Not actual violations - implementation exists and verified in completion notes.

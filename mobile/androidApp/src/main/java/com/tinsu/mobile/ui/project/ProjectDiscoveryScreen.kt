@@ -29,16 +29,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
+import com.tinsu.mobile.connection.ConnectionEvent
 import com.tinsu.mobile.project.ProjectInfo
 import com.tinsu.mobile.project.ProjectUiState
 import com.tinsu.mobile.project.ProjectViewModel
 import com.tinsu.mobile.ui.components.PrimaryButton
 import com.tinsu.mobile.ui.components.SecondaryButton
 import com.tinsu.mobile.ui.components.ShimmerBox
+import com.tinsu.mobile.ui.connection.ConnectionStatusBar
 import com.tinsu.mobile.ui.theme.TinsuSpacing
 import org.koin.compose.koinInject
 
@@ -53,13 +58,27 @@ fun ProjectDiscoveryScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val pullToRefreshState = rememberPullToRefreshState()
 
+    var showConnectionDetails by remember { mutableStateOf(false) }
+
     val isLoading = uiState is ProjectUiState.Loading
+    val connectionState = (uiState as? ProjectUiState.ProjectsLoaded)?.connectionState ?: ConnectionEvent.Offline
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             MediumTopAppBar(
-                title = { Text("Select Project") },
+                title = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Select Project")
+                        ConnectionStatusBar(
+                            connectionState = connectionState,
+                            onClick = { showConnectionDetails = true }
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior,
                 actions = {
                     if (uiState is ProjectUiState.ProjectsLoaded) {
@@ -116,6 +135,15 @@ fun ProjectDiscoveryScreen(
                     )
                 }
             }
+        }
+
+        // Connection details bottom sheet
+        if (showConnectionDetails) {
+            com.tinsu.mobile.ui.connection.ConnectionDetailsBottomSheet(
+                connectionState = connectionState,
+                latencyMs = null,
+                onDismiss = { showConnectionDetails = false }
+            )
         }
     }
 }

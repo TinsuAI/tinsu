@@ -16,7 +16,8 @@ data class ConnectionListUiState(
     val isLoading: Boolean = false,
     val connections: List<ConnectionConfig> = emptyList(),
     val error: String? = null,
-    val isEmpty: Boolean = false
+    val isEmpty: Boolean = false,
+    val connectionState: ConnectionEvent = ConnectionEvent.Offline
 )
 
 /**
@@ -24,7 +25,8 @@ data class ConnectionListUiState(
  */
 class ConnectionListViewModel(
     private val repository: ConnectionRepository,
-    private val connectionTester: ConnectionTester? = null
+    private val connectionTester: ConnectionTester? = null,
+    private val connectionManager: ConnectionManager
 ) {
     private val viewModelScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -38,6 +40,23 @@ class ConnectionListViewModel(
 
     init {
         loadConnections()
+        // Observe connection state from ConnectionManager
+        viewModelScope.launch {
+            try {
+                connectionManager.connectionState.collect { connectionEvent ->
+                    val current = _uiState.value
+                    _uiState.value = current.copy(
+                        isLoading = current.isLoading,
+                        connections = current.connections,
+                        error = current.error,
+                        isEmpty = current.isEmpty,
+                        connectionState = connectionEvent
+                    )
+                }
+            } catch (e: Exception) {
+                // Log error but don't crash - state collection will restart on ViewModel recreation
+            }
+        }
     }
 
     /**

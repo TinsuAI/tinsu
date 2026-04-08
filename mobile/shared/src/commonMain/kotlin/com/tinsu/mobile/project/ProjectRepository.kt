@@ -29,12 +29,12 @@ class ProjectRepositoryImpl(
                     val findResult = remoteExecutor.exec(FIND_COMMAND)
                     // Accept output with non-zero exit if stdout has content (e.g., permission denied warnings suppressed)
                     if (findResult.exitCode != 0 && findResult.stdout.isBlank()) {
-                        return@withContext Result.Success(emptyList())
+                        return@withTimeout Result.Success(emptyList())
                     }
 
                     val projects = parseProjectPaths(findResult.stdout)
                     if (projects.isEmpty()) {
-                        return@withContext Result.Success(emptyList())
+                        return@withTimeout Result.Success(emptyList())
                     }
 
                     // Enrich with active session counts
@@ -52,7 +52,7 @@ class ProjectRepositoryImpl(
         val row = database.appPreferencesQueries.selectByKey(SELECTED_PROJECT_KEY).executeAsOneOrNull()
             ?: return null
         return try {
-            ProjectInfo.fromJson(row.value)
+            ProjectInfo.fromJson(row.value_)
         } catch (e: Exception) {
             // Corrupt preference data - clear it to prevent repeated failures
             database.appPreferencesQueries.deleteByKey(SELECTED_PROJECT_KEY)
@@ -82,9 +82,10 @@ class ProjectRepositoryImpl(
                 if (name.isNotBlank()) ProjectInfo(name = name, path = projectPath) else null
             }
             .distinctBy { it.path }
+            .toList()
     }
 
-    private fun enrichWithSessionCounts(
+    private suspend fun enrichWithSessionCounts(
         remoteExecutor: RemoteExecutorContract,
         projects: List<ProjectInfo>
     ): List<ProjectInfo> {

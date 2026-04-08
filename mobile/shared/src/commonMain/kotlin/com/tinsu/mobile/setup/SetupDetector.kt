@@ -12,7 +12,7 @@ class SetupDetector(
     suspend fun shouldShowSetup(): Boolean {
         // Check if setup is already completed
         val prefs = database.appPreferencesQueries.selectByKey(SETUP_COMPLETED_KEY).executeAsOneOrNull()
-        if (prefs != null && prefs.value == "true") {
+        if (prefs != null && prefs.value_ == "true") {
             return false
         }
 
@@ -35,7 +35,7 @@ class SetupDetector(
 
     fun isSetupSkipped(): Boolean {
         val prefs = database.appPreferencesQueries.selectByKey(SETUP_SKIPPED_KEY).executeAsOneOrNull()
-        return prefs != null && prefs.value == "true"
+        return prefs != null && prefs.value_ == "true"
     }
 
     fun saveSetupProgress(stepIndex: Int) {
@@ -45,7 +45,7 @@ class SetupDetector(
 
     fun getSetupProgress(): Int? {
         val prefs = database.appPreferencesQueries.selectByKey(SETUP_IN_PROGRESS_KEY).executeAsOneOrNull()
-        return prefs?.value?.toIntOrNull()
+        return prefs?.value_?.toIntOrNull()
     }
 
     fun clearSetupProgress() {

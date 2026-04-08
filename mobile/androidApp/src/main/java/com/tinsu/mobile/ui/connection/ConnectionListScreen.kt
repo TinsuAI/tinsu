@@ -69,12 +69,24 @@ fun ConnectionListScreen(
     val pullToRefreshState = rememberPullToRefreshState()
 
     var deleteConfirmation by remember { mutableStateOf<ConnectionConfig?>(null) }
+    var showConnectionDetails by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Connections") },
+                title = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Connections")
+                        ConnectionStatusBar(
+                            connectionState = uiState.connectionState,
+                            onClick = { showConnectionDetails = true }
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -185,6 +197,15 @@ fun ConnectionListScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // Connection details bottom sheet
+    if (showConnectionDetails) {
+        ConnectionDetailsBottomSheet(
+            connectionState = uiState.connectionState,
+            latencyMs = null,
+            onDismiss = { showConnectionDetails = false }
         )
     }
 }

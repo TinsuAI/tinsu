@@ -1,5 +1,7 @@
 package com.tinsu.mobile.project
 
+import com.tinsu.mobile.connection.ConnectionEvent
+import com.tinsu.mobile.connection.ConnectionManager
 import com.tinsu.mobile.connection.ConnectionRepository
 import com.tinsu.mobile.connection.RemoteExecutor
 import com.tinsu.mobile.connection.RemoteExecutorContract
@@ -18,7 +20,8 @@ sealed class ProjectUiState {
     data object Loading : ProjectUiState()
     data class ProjectsLoaded(
         val projects: List<ProjectInfo>,
-        val selectedProject: ProjectInfo?
+        val selectedProject: ProjectInfo?,
+        val connectionState: ConnectionEvent = ConnectionEvent.Offline
     ) : ProjectUiState()
 
     data class Error(
@@ -30,7 +33,8 @@ sealed class ProjectUiState {
 class ProjectViewModel(
     private val projectRepository: ProjectRepository,
     private val remoteExecutor: RemoteExecutor,
-    private val connectionRepository: ConnectionRepository
+    private val connectionRepository: ConnectionRepository,
+    private val connectionManager: ConnectionManager
 ) {
     private val viewModelScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -53,6 +57,22 @@ class ProjectViewModel(
         } catch (e: Exception) {
             // Log but don't crash - can recover on discovery
             _uiState.value = ProjectUiState.Idle
+        }
+
+        // Observe connection state from ConnectionManager
+        viewModelScope.launch {
+            try {
+                connectionManager.connectionState.collect { connectionEvent ->
+                    val currentState = _uiState.value
+                    if (currentState is ProjectUiState.ProjectsLoaded) {
+                        _uiState.value = currentState.copy(
+                            connectionState = connectionEvent
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // Log error but don't crash - state collection will restart on ViewModel recreation
+            }
         }
     }
 
