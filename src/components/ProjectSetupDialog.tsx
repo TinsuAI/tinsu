@@ -11,12 +11,12 @@ import {
 } from './ui/dialog'
 import { ProjectBasicsStep } from './setup/ProjectBasicsStep'
 import { ToolVerificationStep } from './setup/ToolVerificationStep'
-import { trpc } from '@renderer/lib/trpc'
+import { useSelectParentDirectory, useCreateProject } from '@renderer/hooks/useProjectCommands'
 
 interface ProjectSetupDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onProjectCreated: (info: { path: string; projectName: string }) => void
+  onProjectCreated: (info: { path: string; projectId: string; projectName: string }) => void
   mode: 'create' | 'onboard'
   projectPath?: string // Required for onboard mode
 }
@@ -39,19 +39,23 @@ export function ProjectSetupDialog({
   // Step 2 state
   const [allCriticalPassed, setAllCriticalPassed] = useState(false)
   const [createdProjectPath, setCreatedProjectPath] = useState<string | null>(null)
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
 
   const effectiveProjectPath = initialProjectPath ?? createdProjectPath
 
-  const selectDirMutation = trpc.project.selectParentDirectory.useMutation({
-    onSuccess: (result) => {
-      if (!result.canceled && result.path) {
-        setParentDir(result.path)
-        setCreateError(null)
-      }
-    }
-  })
+  const selectDirMutation = useSelectParentDirectory()
+  const createMutation = useCreateProject()
 
-  const createMutation = trpc.project.create.useMutation()
+  const handleSelectDirectory = async (): Promise<void> => {
+    selectDirMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result) {
+          setParentDir(result)
+          setCreateError(null)
+        }
+      },
+    })
+  }
 
   const handleCreateAndNext = async (): Promise<void> => {
     if (!parentDir || !projectName.trim()) return
@@ -59,9 +63,10 @@ export function ProjectSetupDialog({
     try {
       const result = await createMutation.mutateAsync({
         parentDir,
-        projectName: projectName.trim()
+        projectName: projectName.trim(),
       })
       setCreatedProjectPath(result.path)
+      setCreatedProjectId(result.id)
       setStep(2)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create project')
@@ -74,7 +79,11 @@ export function ProjectSetupDialog({
       mode === 'onboard'
         ? effectiveProjectPath.split('/').pop() ?? 'Project'
         : projectName.trim()
-    onProjectCreated({ path: effectiveProjectPath, projectName: name })
+    onProjectCreated({
+      path: effectiveProjectPath,
+      projectId: createdProjectId ?? '',
+      projectName: name,
+    })
   }
 
   const handleOpenChange = useCallback(
@@ -87,6 +96,7 @@ export function ProjectSetupDialog({
         setCreateError(null)
         setAllCriticalPassed(false)
         setCreatedProjectPath(null)
+        setCreatedProjectId(null)
       }
       onOpenChange(nextOpen)
     },
@@ -138,7 +148,7 @@ export function ProjectSetupDialog({
                 projectName={projectName}
                 onProjectNameChange={setProjectName}
                 parentDir={parentDir}
-                onSelectDirectory={() => selectDirMutation.mutate()}
+                onSelectDirectory={handleSelectDirectory}
                 nameError={nameError}
                 onNameErrorChange={setNameError}
                 disabled={isCreating}

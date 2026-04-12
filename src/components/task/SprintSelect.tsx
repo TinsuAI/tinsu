@@ -6,7 +6,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { trpc } from '@renderer/lib/trpc'
+import { useProjectStore } from '@renderer/stores/project.store'
+import { useListSprints } from '@renderer/hooks/useSprintCommands'
 
 interface SprintSelectProps {
   value: string | undefined
@@ -19,7 +20,8 @@ export function SprintSelect({
   onValueChange,
   placeholder = 'Select sprint...'
 }: SprintSelectProps) {
-  const { data: sprints, isLoading } = trpc.sprints.getAll.useQuery()
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
+  const { data: sprints, isLoading } = useListSprints(activeProjectId)
 
   return (
     <Select
@@ -41,7 +43,7 @@ export function SprintSelect({
               <span>{sprint.name}</span>
               {sprint.start_date && sprint.end_date && (
                 <span className="text-xs text-muted-foreground">
-                  ({formatDateRange(new Date(sprint.start_date), new Date(sprint.end_date))})
+                  ({formatDateRange(sprint.start_date, sprint.end_date)})
                 </span>
               )}
             </span>
@@ -53,8 +55,8 @@ export function SprintSelect({
 }
 
 // Format date range for sprint display
-function formatDateRange(start: Date | null, end: Date | null): string {
+function formatDateRange(start: string | null, end: string | null): string {
   if (!start) return 'No dates'
-  if (!end) return `Starts ${format(start, 'MMM d')}`
-  return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`
+  if (!end) return `Starts ${format(new Date(start), 'MMM d')}`
+  return `${format(new Date(start), 'MMM d')} - ${format(new Date(end), 'MMM d')}`
 }

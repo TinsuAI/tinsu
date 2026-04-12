@@ -1,4 +1,6 @@
-import { trpc } from '@renderer/lib/trpc'
+import { useQuery } from '@tanstack/react-query'
+import { commands } from '@renderer/lib/rspc'
+import { useProjectStore } from '@renderer/stores/project.store'
 import {
   Dialog,
   DialogContent,
@@ -6,8 +8,6 @@ import {
   DialogTitle,
   DialogDescription
 } from '@renderer/components/ui/dialog'
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 'recharts'
-import { format } from 'date-fns'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 interface VelocityDetailPanelProps {
@@ -15,34 +15,18 @@ interface VelocityDetailPanelProps {
   onOpenChange: (open: boolean) => void
 }
 
-// Custom tooltip for detail chart
-function DetailTooltip({
-  active,
-  payload
-}: {
-  active?: boolean
-  payload?: Array<{ payload: { date: Date; count: number } }>
-}) {
-  if (!active || !payload?.[0]) return null
-
-  const item = payload[0].payload
-  return (
-    <div className="rounded border border-border bg-popover px-2 py-1 text-xs shadow-lg">
-      <div className="font-medium text-foreground">{item.count} tasks</div>
-      <div className="text-muted-foreground">{format(new Date(item.date), 'EEE, MMM d')}</div>
-    </div>
-  )
-}
-
 export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelProps) {
-  const { data: weeklyData } = trpc.velocity.getWeeklyVelocity.useQuery(
-    { weeks: 8 },
-    { enabled: open }
-  )
-  const { data: dailyData } = trpc.velocity.getDailyVelocity.useQuery(
-    { days: 28 },
-    { enabled: open }
-  )
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
+
+  const { data: weeklyData } = useQuery({
+    queryKey: ['velocity', 'weekly', 8, activeProjectId],
+    queryFn: async () => {
+      const result = await commands.getWeeklyVelocity({ weeks: 8, project_id: activeProjectId })
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return result.data
+    },
+    enabled: open,
+  })
 
   // Calculate comparison: current 4-week vs previous 4-week
   const current4Week =
@@ -56,18 +40,8 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
         ? 100
         : 0
 
-  // Calculate avg velocity based on current 4 weeks (not 8-week query)
-  // This ensures the "Avg/week" label accurately reflects the "Last 4 weeks" period
+  // Calculate avg velocity based on current 4 weeks
   const avgVelocity4Week = Math.round(current4Week / 4)
-
-  // Prepare daily chart data (reverse for chronological order)
-  const dailyChartData = dailyData?.days
-    ? [...dailyData.days].reverse().map((d) => ({
-        date: d.date,
-        count: d.count,
-        label: format(new Date(d.date), 'M/d')
-      }))
-    : []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,38 +87,21 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
             </div>
           </div>
 
-          {/* Daily chart */}
+          {/* Weekly breakdown */}
           <div>
-            <h4 className="mb-2 text-sm font-medium">Daily Completions (28 days)</h4>
-            {dailyChartData.length > 0 ? (
-              <div className="h-40" data-testid="velocity-detail-chart">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyChartData} margin={{ top: 5, right: 5, bottom: 20, left: 0 }}>
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#71717a' : '#64748b' }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#71717a' : '#64748b' }}
-                      tickLine={false}
-                      axisLine={false}
-                      width={20}
-                    />
-                    <Tooltip content={<DetailTooltip />} cursor={{ fill: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }} />
-                    <Bar dataKey="count" radius={[2, 2, 0, 0]} animationDuration={300}>
-                      {dailyChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.count > 0 ? (document.documentElement.classList.contains('dark') ? '#52525b' : '#94a3b8') : (document.documentElement.classList.contains('dark') ? '#27272a' : '#e2e8f0')} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <h4 className="mb-2 text-sm font-medium">Weekly Completions</h4>
+            {weeklyData && weeklyData.weeks.length > 0 ? (
+              <div className="space-y-1" data-testid="velocity-detail-weekly">
+                {weeklyData.weeks.map((week) => (
+                  <div key={week.week_label} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{week.week_label}</span>
+                    <span className="font-medium">{week.count} tasks</span>
+                  </div>
+                ))}
               </div>
             ) : (
               <div
-                className="flex h-40 items-center justify-center rounded bg-muted/50 text-sm text-muted-foreground"
+                className="flex h-20 items-center justify-center rounded bg-muted/50 text-sm text-muted-foreground"
                 data-testid="velocity-detail-empty"
               >
                 No completion data available
@@ -153,7 +110,7 @@ export function VelocityDetailPanel({ open, onOpenChange }: VelocityDetailPanelP
           </div>
 
           {/* Empty state message when no data */}
-          {weeklyData?.totalCompleted === 0 && (
+          {weeklyData?.total_completed === 0 && (
             <div className="rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">
               Start completing tasks to see your velocity metrics here. Move tasks to the
               &quot;Done&quot; column to track your progress over time.

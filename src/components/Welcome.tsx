@@ -1,14 +1,23 @@
 import { useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import { FolderOpen, Clock, AlertTriangle, Trash2, Plus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
 import { ThemeToggle } from './ui/theme-toggle'
 import { ProjectSetupDialog } from './ProjectSetupDialog'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
 import { cn } from '@renderer/lib/utils'
+import {
+  useListRecentProjects,
+  useOpenProjectByPath,
+  useRemoveProject,
+  useSelectParentDirectory,
+  projectQueryKeys,
+} from '@renderer/hooks/useProjectCommands'
 
 interface ProjectOpenedInfo {
   path: string
+  projectId: string
   projectName: string
   needsOnboarding?: boolean
 }
@@ -25,27 +34,24 @@ interface WelcomeProps {
 export function Welcome({ onProjectOpened, className }: WelcomeProps) {
   const [error, setError] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const utils = trpc.useUtils()
 
   // Query for recent projects
-  const { data: recentProjects } = trpc.project.getRecent.useQuery(
-    { limit: 5 },
-    { staleTime: 30000 }
-  )
+  const { data: recentProjects } = useListRecentProjects(5)
 
   // Validate paths for recent projects
   const paths = recentProjects?.map((p) => p.path) ?? []
-  const validationQueries = trpc.useQueries((t) =>
-    paths.map((path) =>
-      t.project.validatePath(
-        { path },
-        {
-          enabled: paths.length > 0,
-          staleTime: 60000
-        }
-      )
-    )
-  )
+  const validationQueries = useQueries({
+    queries: paths.map((path) => ({
+      queryKey: projectQueryKeys.validate(path),
+      queryFn: async () => {
+        const result = await commands.validateProjectPath(path)
+        if (result.status === 'error') return true
+        return result.data
+      },
+      enabled: paths.length > 0,
+      staleTime: 60000,
+    })),
+  })
 
   // Create a map of path -> isValid
   const pathValidation = new Map<string, boolean>()
@@ -53,63 +59,55 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
     pathValidation.set(path, validationQueries[index]?.data ?? true)
   })
 
-  const openProjectMutation = trpc.project.open.useMutation({
-    onSuccess: (result) => {
-      if (result) {
-        // Project successfully opened
-        onProjectOpened({
-          path: result.path,
-          projectName: result.config.projectName,
-          needsOnboarding: result.needsOnboarding
-        })
-      }
-      // If result is null, dialog was cancelled - do nothing
-    },
-    onError: (err) => {
-      setError(err.message || 'Failed to open project')
-    }
-  })
+  const selectDirMutation = useSelectParentDirectory()
+  const openByPathMutation = useOpenProjectByPath()
+  const removeProjectMutation = useRemoveProject()
 
-  const openPathMutation = trpc.project.openPath.useMutation({
-    onSuccess: (result) => {
-      onProjectOpened({
-        path: result.path,
-        projectName: result.config.projectName,
-        needsOnboarding: result.needsOnboarding
-      })
-    },
-    onError: (err) => {
-      setError(err.message || 'Failed to open project')
-    }
-  })
+  const isLoading =
+    selectDirMutation.isPending || openByPathMutation.isPending
 
-  const removeProjectMutation = trpc.project.remove.useMutation({
-    onSuccess: () => {
-      utils.project.getRecent.invalidate()
-    }
-  })
-
-  const handleOpenProject = () => {
+  const handleOpenProject = async () => {
     setError(null)
-    openProjectMutation.mutate()
+    try {
+      const path = await selectDirMutation.mutateAsync(undefined)
+      if (!path) return // user cancelled
+
+      // Check if this folder has a .tinsu/config.yaml
+      const validateResult = await commands.validateProjectPath(path)
+      const hasConfig = validateResult.status === 'ok' && validateResult.data
+
+      if (!hasConfig) {
+        // No config — needs onboarding / first-time setup
+        onProjectOpened({ path, projectId: '', projectName: '', needsOnboarding: true })
+        return
+      }
+
+      const project = await openByPathMutation.mutateAsync(path)
+      onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open project')
+    }
   }
 
-  const handleOpenRecent = (path: string) => {
+  const handleOpenRecent = async (path: string) => {
     const isValid = pathValidation.get(path) ?? true
     if (!isValid) {
       setError('Project folder not found. It may have been moved or deleted.')
       return
     }
     setError(null)
-    openPathMutation.mutate({ path })
+    try {
+      const project = await openByPathMutation.mutateAsync(path)
+      onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open project')
+    }
   }
 
   const handleRemoveProject = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    removeProjectMutation.mutate({ id })
+    removeProjectMutation.mutate(id)
   }
-
-  const isLoading = openProjectMutation.isPending || openPathMutation.isPending
 
   return (
     <div
@@ -202,7 +200,9 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
                     )}
                     {project.last_opened_at && (
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(project.last_opened_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(project.last_opened_at * 1000), {
+                          addSuffix: true,
+                        })}
                       </span>
                     )}
                   </button>

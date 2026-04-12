@@ -18,16 +18,99 @@ export const commands = {
 	 */
 	reorderTasks: (input: ReorderTasksInput) => typedError<null, AppError>(__TAURI_INVOKE("reorder_tasks", { input })),
 	deleteTask: (input: DeleteTaskInput) => typedError<null, AppError>(__TAURI_INVOKE("delete_task", { input })),
+	// Returns tasks completed per week for the last N weeks.
+	getWeeklyVelocity: (input: GetWeeklyVelocityInput) => typedError<WeeklyVelocityData, AppError>(__TAURI_INVOKE("get_weekly_velocity", { input })),
 	// Returns all epics for a project. If project_id is empty, returns all epics.
 	listEpics: (input: ListEpicsInput) => typedError<EpicModel[], AppError>(__TAURI_INVOKE("list_epics", { input })),
+	// Creates a new epic.
+	createEpic: (input: CreateEpicInput) => typedError<EpicModel, AppError>(__TAURI_INVOKE("create_epic", { input })),
+	// Updates an existing epic.
+	updateEpic: (input: UpdateEpicInput) => typedError<EpicModel, AppError>(__TAURI_INVOKE("update_epic", { input })),
+	// Deletes an epic by id.
+	deleteEpic: (input: DeleteEpicInput) => typedError<null, AppError>(__TAURI_INVOKE("delete_epic", { input })),
+	/**
+	 *  Returns all sprints for a project ordered by created_at ASC.
+	 *  If project_id is empty, returns all sprints.
+	 */
+	listSprints: (input: ListSprintsInput) => typedError<SprintModel[], AppError>(__TAURI_INVOKE("list_sprints", { input })),
+	// Creates a new sprint.
+	createSprint: (input: CreateSprintInput) => typedError<SprintModel, AppError>(__TAURI_INVOKE("create_sprint", { input })),
+	// Updates an existing sprint's details.
+	updateSprint: (input: UpdateSprintInput) => typedError<SprintModel, AppError>(__TAURI_INVOKE("update_sprint", { input })),
+	// Updates only the status of an existing sprint.
+	updateSprintStatus: (input: UpdateSprintStatusInput) => typedError<SprintModel, AppError>(__TAURI_INVOKE("update_sprint_status", { input })),
+	// Deletes a sprint by id.
+	deleteSprint: (input: DeleteSprintInput) => typedError<null, AppError>(__TAURI_INVOKE("delete_sprint", { input })),
+	// Returns the first active sprint for a project, or None if not found.
+	getActiveSprint: (input: ListSprintsInput) => typedError<{
+	id: string,
+	name: string,
+	start_date: string | null,
+	end_date: string | null,
+	status: string,
+	goal: string | null,
+	velocity: number | null,
+	capacity: number | null,
+	project_id: string,
+	story_prefix: string | null,
+	epics_file_path: string | null,
+	created_at: number,
+} | null, AppError>(__TAURI_INVOKE("get_active_sprint", { input })),
+	// Returns recent projects ordered by last_opened_at DESC, created_at DESC, capped at limit.
+	listRecentProjects: (input: ListRecentProjectsInput) => typedError<ProjectModel[], AppError>(__TAURI_INVOKE("list_recent_projects", { input })),
+	// Returns true if path is a directory containing .tinsu/config.yaml.
+	validateProjectPath: (path: string) => typedError<boolean, AppError>(__TAURI_INVOKE("validate_project_path", { path })),
+	// Opens a project by path: reads config, upserts in DB, returns ProjectModel.
+	openProjectByPath: (path: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("open_project_by_path", { path })),
+	// Removes a project from DB (does NOT delete files).
+	removeProject: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_project", { id })),
+	// Opens a native folder picker dialog; returns the selected ProjectModel or None if cancelled.
+	openProjectDialog: () => typedError<{
+	id: string,
+	path: string,
+	name: string,
+	created_at: number,
+	last_opened_at: number | null,
+} | null, AppError>(__TAURI_INVOKE("open_project_dialog")),
+	// Opens a native folder picker and returns the selected path or None if cancelled.
+	selectParentDirectory: () => typedError<string | null, AppError>(__TAURI_INVOKE("select_parent_directory")),
+	// Creates a new project directory, initializes git, writes config, and inserts in DB.
+	createProject: (parentDir: string, projectName: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("create_project", { parentDir, projectName })),
 };
 
 /* Types */
 export type AppError = ({ NotFound: string }) & { BadRequest?: never; Database?: never; Internal?: never } | ({ BadRequest: string }) & { Database?: never; Internal?: never; NotFound?: never } | ({ Internal: string }) & { BadRequest?: never; Database?: never; NotFound?: never } | ({ Database: string }) & { BadRequest?: never; Internal?: never; NotFound?: never };
 
+export type CreateEpicInput = {
+	title: string,
+	description: string | null,
+	color: string | null,
+	epic_number: number | null,
+	goal: string | null,
+	sprint_id: string | null,
+	project_id: string,
+};
+
+export type CreateSprintInput = {
+	name: string,
+	goal: string | null,
+	status: string,
+	start_date: string | null,
+	end_date: string | null,
+	project_id: string,
+};
+
 export type CreateTaskInput = {
 	title: string,
 	project_id: string,
+};
+
+export type DeleteEpicInput = {
+	id: string,
+};
+
+export type DeleteSprintInput = {
+	id: string,
 };
 
 export type DeleteTaskInput = {
@@ -54,7 +137,20 @@ export type GetTaskInput = {
 	id: string,
 };
 
+export type GetWeeklyVelocityInput = {
+	weeks: number,
+	project_id: string,
+};
+
 export type ListEpicsInput = {
+	project_id: string,
+};
+
+export type ListRecentProjectsInput = {
+	limit: number,
+};
+
+export type ListSprintsInput = {
 	project_id: string,
 };
 
@@ -98,14 +194,74 @@ export type Model = {
 	updated_at: number,
 };
 
+// DTO for project data exposed via tauri-specta.
+export type ProjectModel = {
+	id: string,
+	path: string,
+	name: string,
+	created_at: number,
+	last_opened_at: number | null,
+};
+
 export type ReorderTasksInput = {
 	task_ids: string[],
+	status: string,
+};
+
+/**
+ *  DTO for sprint data exposed via tauri-specta.
+ *  Mirrors sprint::Model but with a unique specta type name to avoid collision.
+ */
+export type SprintModel = {
+	id: string,
+	name: string,
+	start_date: string | null,
+	end_date: string | null,
+	status: string,
+	goal: string | null,
+	velocity: number | null,
+	capacity: number | null,
+	project_id: string,
+	story_prefix: string | null,
+	epics_file_path: string | null,
+	created_at: number,
+};
+
+export type UpdateEpicInput = {
+	id: string,
+	title: string,
+	description: string | null,
+	color: string | null,
+	goal: string | null,
+	sprint_id: string | null,
+};
+
+export type UpdateSprintInput = {
+	id: string,
+	name: string,
+	goal: string | null,
+	start_date: string | null,
+	end_date: string | null,
+};
+
+export type UpdateSprintStatusInput = {
+	id: string,
 	status: string,
 };
 
 export type UpdateTaskStatusInput = {
 	id: string,
 	status: string,
+};
+
+export type WeekBucket = {
+	week_label: string,
+	count: number,
+};
+
+export type WeeklyVelocityData = {
+	total_completed: number,
+	weeks: WeekBucket[],
 };
 
 /* Tauri Specta runtime */

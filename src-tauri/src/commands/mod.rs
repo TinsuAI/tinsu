@@ -4,6 +4,7 @@ pub mod chat;
 pub mod config;
 pub mod epic;
 pub mod git;
+pub mod project;
 pub mod review;
 pub mod sprint;
 pub mod task;

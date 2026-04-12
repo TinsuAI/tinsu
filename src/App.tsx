@@ -12,6 +12,7 @@ import { useStoryViewStore, useTaskWorkspaceStore, usePlanningWorkspaceStore } f
 import { trpc } from './lib/trpc'
 import { useFileWatcher } from './hooks/useFileWatcher'
 import { ProjectSetupDialog } from './components/ProjectSetupDialog'
+import { useOpenProjectByPath } from './hooks/useProjectCommands'
 
 function App(): React.JSX.Element {
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
@@ -47,58 +48,63 @@ function App(): React.JSX.Element {
   })
 
   // Try to re-open last project on mount
-  const openPathMutation = trpc.project.openPath.useMutation({
-    onSuccess: (result) => {
-      if (result.needsOnboarding) {
-        setOnboardingProjectPath(result.path)
-        setShowOnboarding(true)
-        setIsReopening(false)
-        return
-      }
-      setProject(result.path, result.config.projectName)
-      setIsReopening(false)
-      // Story 8.10 AC4: Check for crashed operations after project opens
-      crashRecoveryQuery.refetch().then((response) => {
-        if (response.data && response.data.crashedOperations.length > 0) {
-          setCrashRecoveryData({
-            crashedOperations: response.data.crashedOperations,
-            summary: response.data.summary
-          })
-          setShowCrashRecovery(true)
-        }
-      })
-    },
-    onError: () => {
-      // Failed to open last project, clear stored path
-      clearProject()
-      setIsReopening(false)
-    }
-  })
+  const reopenMutation = useOpenProjectByPath()
 
   useEffect(() => {
     // On mount, if we have a stored project path, try to re-open it
     if (projectPath && !hasAttemptedReopen.current) {
       hasAttemptedReopen.current = true
       setIsReopening(true)
-      openPathMutation.mutate({ path: projectPath })
+      reopenMutation.mutate(projectPath, {
+        onSuccess: (result) => {
+          setProject(result.id, result.path, result.name)
+          setIsReopening(false)
+          // Story 8.10 AC4: Check for crashed operations after project opens
+          crashRecoveryQuery.refetch().then((response) => {
+            if (response.data && response.data.crashedOperations.length > 0) {
+              setCrashRecoveryData({
+                crashedOperations: response.data.crashedOperations,
+                summary: response.data.summary,
+              })
+              setShowCrashRecovery(true)
+            }
+          })
+        },
+        onError: (err) => {
+          // If no .tinsu/config.yaml — path exists but not yet set up
+          if (err.message.includes('"NotFound"') || err.message.includes('config.yaml')) {
+            setOnboardingProjectPath(projectPath)
+            setShowOnboarding(true)
+          } else {
+            // Path gone or unreadable — clear and show welcome
+            clearProject()
+          }
+          setIsReopening(false)
+        },
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount - intentionally omit dependencies
 
   const handleProjectOpened = useCallback(
-    (info: { path: string; projectName: string; needsOnboarding?: boolean }): void => {
+    (info: {
+      path: string
+      projectId: string
+      projectName: string
+      needsOnboarding?: boolean
+    }): void => {
       if (info.needsOnboarding) {
         setOnboardingProjectPath(info.path)
         setShowOnboarding(true)
         return
       }
-      setProject(info.path, info.projectName)
+      setProject(info.projectId, info.path, info.projectName)
       // Story 8.10 AC4: Check for crashed operations after project opens
       crashRecoveryQuery.refetch().then((response) => {
         if (response.data && response.data.crashedOperations.length > 0) {
           setCrashRecoveryData({
             crashedOperations: response.data.crashedOperations,
-            summary: response.data.summary
+            summary: response.data.summary,
           })
           setShowCrashRecovery(true)
         }
@@ -135,15 +141,15 @@ function App(): React.JSX.Element {
   }, [projectPath, projectName])
 
   const handleOnboardingComplete = useCallback(
-    (info: { path: string; projectName: string }): void => {
+    (info: { path: string; projectId: string; projectName: string }): void => {
       setShowOnboarding(false)
       setOnboardingProjectPath(null)
-      setProject(info.path, info.projectName)
+      setProject(info.projectId, info.path, info.projectName)
       crashRecoveryQuery.refetch().then((response) => {
         if (response.data && response.data.crashedOperations.length > 0) {
           setCrashRecoveryData({
             crashedOperations: response.data.crashedOperations,
-            summary: response.data.summary
+            summary: response.data.summary,
           })
           setShowCrashRecovery(true)
         }

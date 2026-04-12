@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { commands } from '@renderer/lib/rspc'
-import type { EpicModel } from '@renderer/lib/rspc'
+import type { EpicModel, CreateEpicInput, UpdateEpicInput } from '@renderer/lib/rspc'
 import type { Epic, EpicColor } from '@shared/types/task.types'
 
 /** Convert a Rust EpicModel DTO to the shared Epic interface. */
@@ -31,6 +31,50 @@ export function useListEpics(projectId: string) {
       const result = await commands.listEpics({ project_id: projectId })
       if (result.status === 'error') throw new Error(JSON.stringify(result.error))
       return result.data.map(transformEpic)
+    },
+  })
+}
+
+/** Creates a new epic. Invalidates the epics list on success. */
+export function useCreateEpic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateEpicInput) => {
+      const result = await commands.createEpic(input)
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return transformEpic(result.data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: epicQueryKeys.list(projectId) })
+    },
+  })
+}
+
+/** Updates an existing epic. Invalidates the epics list on success. */
+export function useUpdateEpic() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateEpicInput) => {
+      const result = await commands.updateEpic(input)
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return transformEpic(result.data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['epics', 'list'] })
+    },
+  })
+}
+
+/** Deletes an epic. Invalidates the epics list on success. */
+export function useDeleteEpic() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string }) => {
+      const result = await commands.deleteEpic(input)
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['epics', 'list'] })
     },
   })
 }

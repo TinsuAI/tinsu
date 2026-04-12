@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { trpc } from '@renderer/lib/trpc'
+import { useQuery } from '@tanstack/react-query'
+import { commands } from '@renderer/lib/rspc'
+import { useProjectStore } from '@renderer/stores/project.store'
 import { VelocityChart } from './VelocityChart'
 import { VelocityDetailPanel } from './VelocityDetailPanel'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
@@ -22,9 +24,37 @@ function calculateTrend(weeks: Array<{ count: number }>): number {
   return 0
 }
 
+/** Parse ISO week label (e.g. "2026-W15") to a date range. */
+function weekLabelToDateRange(weekLabel: string): { startDate: Date; endDate: Date } {
+  const match = weekLabel.match(/^(\d{4})-W(\d{2})$/)
+  if (!match) {
+    const now = new Date()
+    return { startDate: now, endDate: now }
+  }
+  const year = parseInt(match[1], 10)
+  const week = parseInt(match[2], 10)
+  // Find Monday of ISO week 1: the Monday on or before Jan 4th
+  const jan4 = new Date(year, 0, 4)
+  const dayOfWeek = jan4.getDay() === 0 ? 7 : jan4.getDay()
+  const weekStart = new Date(jan4)
+  weekStart.setDate(jan4.getDate() - (dayOfWeek - 1) + (week - 1) * 7)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  return { startDate: weekStart, endDate: weekEnd }
+}
+
 export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { data: velocityData, isLoading } = trpc.velocity.getWeeklyVelocity.useQuery({ weeks: 4 })
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
+
+  const { data: velocityData, isLoading } = useQuery({
+    queryKey: ['velocity', 'weekly', 4, activeProjectId],
+    queryFn: async () => {
+      const result = await commands.getWeeklyVelocity({ weeks: 4, project_id: activeProjectId })
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return result.data
+    },
+  })
 
   if (isLoading) {
     return (
@@ -36,7 +66,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
     )
   }
 
-  if (!velocityData || velocityData.totalCompleted === 0) {
+  if (!velocityData || velocityData.total_completed === 0) {
     return (
       <>
         <button
@@ -56,6 +86,17 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
   const currentWeekCount = velocityData.weeks[0]?.count ?? 0
   const trend = calculateTrend(velocityData.weeks)
 
+  // Adapt WeekBucket to VelocityChart's WeekData format
+  const chartData = velocityData.weeks.map((w) => {
+    const { startDate, endDate } = weekLabelToDateRange(w.week_label)
+    return {
+      week: w.week_label,
+      count: w.count,
+      startDate,
+      endDate,
+    }
+  })
+
   return (
     <>
       <button
@@ -71,13 +112,7 @@ export function VelocityWidget({ className: _className }: VelocityWidgetProps) {
         {trend > 0 && <TrendingUp className="h-3 w-3 text-green-500" data-testid="trend-up" />}
         {trend < 0 && <TrendingDown className="h-3 w-3 text-red-500" data-testid="trend-down" />}
         {trend === 0 && <Minus className="h-3 w-3 text-muted-foreground" data-testid="trend-neutral" />}
-        <VelocityChart
-          data={velocityData.weeks.map((w) => ({
-            ...w,
-            startDate: new Date(w.startDate),
-            endDate: new Date(w.endDate)
-          }))}
-        />
+        <VelocityChart data={chartData} />
       </button>
 
       <VelocityDetailPanel open={detailOpen} onOpenChange={setDetailOpen} />

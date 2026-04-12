@@ -18,8 +18,13 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { trpc } from '@renderer/lib/trpc'
 import { toast } from 'sonner'
+import { useProjectStore } from '@renderer/stores/project.store'
+import {
+  useCreateSprint,
+  useUpdateSprint,
+  useUpdateSprintStatus,
+} from '@renderer/hooks/useSprintCommands'
 
 type SprintStatus = 'planning' | 'active' | 'completed'
 
@@ -39,14 +44,14 @@ interface SprintFormProps {
     name: string
     goal: string | null
     status: string
-    start_date: Date | string | null
-    end_date: Date | string | null
+    start_date: string | null
+    end_date: string | null
   } | null
 }
 
 export function SprintForm({ open, onOpenChange, sprint }: SprintFormProps) {
   const isEdit = !!sprint
-  const utils = trpc.useUtils()
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
 
   const [formData, setFormData] = useState<SprintFormData>({
     name: '',
@@ -81,37 +86,9 @@ export function SprintForm({ open, onOpenChange, sprint }: SprintFormProps) {
     }
   }, [open, sprint])
 
-  const createMutation = trpc.sprints.create.useMutation({
-    onSuccess: () => {
-      utils.sprints.getAll.invalidate()
-      toast.success('Sprint created')
-      onOpenChange(false)
-    },
-    onError: (error) => {
-      toast.error(`Failed to create sprint: ${error.message}`)
-    }
-  })
-
-  const updateMutation = trpc.sprints.update.useMutation({
-    onSuccess: () => {
-      utils.sprints.getAll.invalidate()
-      toast.success('Sprint updated')
-      onOpenChange(false)
-    },
-    onError: (error) => {
-      toast.error(`Failed to update sprint: ${error.message}`)
-    }
-  })
-
-  const updateStatusMutation = trpc.sprints.updateStatus.useMutation({
-    onSuccess: () => {
-      utils.sprints.getAll.invalidate()
-      utils.sprints.getActive.invalidate()
-    },
-    onError: (error) => {
-      toast.error(`Failed to update status: ${error.message}`)
-    }
-  })
+  const createMutation = useCreateSprint(activeProjectId)
+  const updateMutation = useUpdateSprint()
+  const updateStatusMutation = useUpdateSprintStatus()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,35 +98,53 @@ export function SprintForm({ open, onOpenChange, sprint }: SprintFormProps) {
       return
     }
 
-    const startDate = formData.start_date ? new Date(formData.start_date) : undefined
-    const endDate = formData.end_date ? new Date(formData.end_date) : undefined
+    // Dates stay as ISO strings (string | null)
+    const startDate = formData.start_date || null
+    const endDate = formData.end_date || null
 
     if (isEdit && sprint) {
-      // Update sprint
-      await updateMutation.mutateAsync({
-        id: sprint.id,
-        name: formData.name,
-        goal: formData.goal || null,
-        start_date: startDate ?? null,
-        end_date: endDate ?? null
-      })
-
-      // Update status separately if changed
-      if (formData.status !== sprint.status) {
-        await updateStatusMutation.mutateAsync({
+      try {
+        await updateMutation.mutateAsync({
           id: sprint.id,
-          status: formData.status
+          name: formData.name,
+          goal: formData.goal || null,
+          start_date: startDate,
+          end_date: endDate,
         })
+
+        // Update status separately if changed
+        if (formData.status !== sprint.status) {
+          await updateStatusMutation.mutateAsync({
+            id: sprint.id,
+            status: formData.status,
+          })
+        }
+
+        toast.success('Sprint updated')
+        onOpenChange(false)
+      } catch (error) {
+        toast.error(`Failed to update sprint: ${error instanceof Error ? error.message : String(error)}`)
       }
     } else {
-      // Create sprint
-      await createMutation.mutateAsync({
-        name: formData.name,
-        goal: formData.goal || undefined,
-        status: formData.status,
-        start_date: startDate,
-        end_date: endDate
-      })
+      createMutation.mutate(
+        {
+          name: formData.name,
+          goal: formData.goal || null,
+          status: formData.status,
+          start_date: startDate,
+          end_date: endDate,
+          project_id: activeProjectId,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Sprint created')
+            onOpenChange(false)
+          },
+          onError: (error) => {
+            toast.error(`Failed to create sprint: ${error.message}`)
+          },
+        }
+      )
     }
   }
 

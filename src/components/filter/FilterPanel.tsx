@@ -3,10 +3,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { EpicBadge } from '@renderer/components/task/EpicBadge'
-import { trpc } from '@renderer/lib/trpc'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useProjectStore } from '@renderer/stores/project.store'
 import { TASK_STATUS, type TaskStatus } from '@shared/types/task.types'
 import { COLUMN_CONFIG } from '../board/KanbanColumn'
+import { useListEpics } from '@renderer/hooks/useEpicCommands'
+import { useListSprints } from '@renderer/hooks/useSprintCommands'
 
 interface FilterPanelProps {
   open: boolean
@@ -15,8 +17,9 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ open, onOpenChange, trigger }: FilterPanelProps) {
-  const { data: epics } = trpc.epics.getAll.useQuery()
-  const { data: sprints } = trpc.sprints.getAll.useQuery()
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
+  const { data: epics } = useListEpics(activeProjectId)
+  const { data: sprints } = useListSprints(activeProjectId)
 
   const {
     selectedSprintId,

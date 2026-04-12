@@ -1,6 +1,6 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
-    QueryOrder, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait,
+    ModelTrait, QueryFilter, QueryOrder, Set, Statement, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -203,6 +203,90 @@ pub async fn delete_task(
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct GetWeeklyVelocityInput {
+    pub weeks: u32,
+    pub project_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct WeekBucket {
+    pub week_label: String,
+    pub count: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct WeeklyVelocityData {
+    pub total_completed: u32,
+    pub weeks: Vec<WeekBucket>,
+}
+
+/// Returns tasks completed per week for the last N weeks.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_weekly_velocity(
+    db: State<'_, DatabaseConnection>,
+    input: GetWeeklyVelocityInput,
+) -> Result<WeeklyVelocityData, AppError> {
+    let weeks = input.weeks.max(1) as i64;
+    let now = now_unix_secs();
+    let weeks_ago_ts = now - (weeks * 7 * 24 * 3600);
+
+    let sql = if input.project_id.is_empty() {
+        format!(
+            r#"
+            SELECT
+                strftime('%Y-W%W', datetime(updated_at, 'unixepoch')) as week_label,
+                COUNT(*) as count
+            FROM tasks
+            WHERE status = 'done'
+              AND updated_at >= {}
+            GROUP BY week_label
+            ORDER BY week_label ASC
+            "#,
+            weeks_ago_ts
+        )
+    } else {
+        format!(
+            r#"
+            SELECT
+                strftime('%Y-W%W', datetime(updated_at, 'unixepoch')) as week_label,
+                COUNT(*) as count
+            FROM tasks
+            WHERE status = 'done'
+              AND updated_at >= {}
+              AND project_id = '{}'
+            GROUP BY week_label
+            ORDER BY week_label ASC
+            "#,
+            weeks_ago_ts,
+            input.project_id.replace('\'', "''")
+        )
+    };
+
+    let stmt = Statement::from_string(DbBackend::Sqlite, sql);
+    let rows = db.inner().query_all(stmt).await?;
+
+    let mut week_buckets: Vec<WeekBucket> = Vec::new();
+    let mut total: u32 = 0;
+
+    for row in rows {
+        let week_label: String = row.try_get("", "week_label").unwrap_or_default();
+        let count: i32 = row.try_get("", "count").unwrap_or(0);
+        let count_u32 = count.max(0) as u32;
+        total += count_u32;
+        week_buckets.push(WeekBucket {
+            week_label,
+            count: count_u32,
+        });
+    }
+
+    Ok(WeeklyVelocityData {
+        total_completed: total,
+        weeks: week_buckets,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,5 +381,36 @@ mod tests {
     fn test_default_constants() {
         assert_eq!(DEFAULT_TASK_STATUS, "backlog");
         assert_eq!(DEFAULT_TASK_TYPE, "basic");
+    }
+
+    #[test]
+    fn test_get_weekly_velocity_input_serializes() {
+        let input = GetWeeklyVelocityInput {
+            weeks: 4,
+            project_id: "p1".to_string(),
+        };
+        let json = serde_json::to_string(&input).expect("serialize");
+        assert!(json.contains("4"));
+        assert!(json.contains("p1"));
+    }
+
+    #[test]
+    fn test_weekly_velocity_data_serializes() {
+        let data = WeeklyVelocityData {
+            total_completed: 10,
+            weeks: vec![
+                WeekBucket {
+                    week_label: "2026-W15".to_string(),
+                    count: 5,
+                },
+                WeekBucket {
+                    week_label: "2026-W16".to_string(),
+                    count: 5,
+                },
+            ],
+        };
+        let json = serde_json::to_string(&data).expect("serialize");
+        assert!(json.contains("2026-W15"));
+        assert!(json.contains("10"));
     }
 }

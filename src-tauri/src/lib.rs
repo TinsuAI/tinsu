@@ -19,7 +19,24 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::task::update_task_status,
         commands::task::reorder_tasks,
         commands::task::delete_task,
+        commands::task::get_weekly_velocity,
         commands::epic::list_epics,
+        commands::epic::create_epic,
+        commands::epic::update_epic,
+        commands::epic::delete_epic,
+        commands::sprint::list_sprints,
+        commands::sprint::create_sprint,
+        commands::sprint::update_sprint,
+        commands::sprint::update_sprint_status,
+        commands::sprint::delete_sprint,
+        commands::sprint::get_active_sprint,
+        commands::project::list_recent_projects,
+        commands::project::validate_project_path,
+        commands::project::open_project_by_path,
+        commands::project::remove_project,
+        commands::project::open_project_dialog,
+        commands::project::select_parent_directory,
+        commands::project::create_project,
     ])
 }
 
@@ -33,6 +50,7 @@ pub fn run() {
         .expect("Failed to export TypeScript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(builder.invoke_handler())
         .setup(|app| {
             let app_handle = app.handle().clone();

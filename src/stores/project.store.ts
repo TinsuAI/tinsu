@@ -8,8 +8,12 @@ interface ProjectState {
   // Project name from config (for display)
   projectName: string | null
 
+  // Current project ID from DB (null until project is opened via Rust command)
+  activeProjectId: string | null
+
   // Actions
-  setProject: (path: string, name: string) => void
+  setProject: (id: string, path: string, name: string) => void
+  setProjectId: (id: string | null) => void
   clearProject: () => void
 }
 
@@ -22,23 +26,28 @@ export const useProjectStore = create<ProjectState>()(
     (set) => ({
       projectPath: null,
       projectName: null,
+      activeProjectId: null,
 
-      setProject: (path, name) =>
+      setProject: (id, path, name) =>
         set({
+          activeProjectId: id,
           projectPath: path,
-          projectName: name
+          projectName: name,
         }),
+
+      setProjectId: (id) => set({ activeProjectId: id }),
 
       clearProject: () =>
         set({
           projectPath: null,
-          projectName: null
-        })
+          projectName: null,
+          activeProjectId: null,
+        }),
     }),
     {
       name: 'tinsu-project-storage',
-      // Only persist the path, not the name (name comes from config)
-      partialize: (state) => ({ projectPath: state.projectPath })
+      // Only persist the path — id and name are resolved fresh from DB on open
+      partialize: (state) => ({ projectPath: state.projectPath }),
     }
   )
 )

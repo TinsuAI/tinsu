@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Calendar, X, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { trpc } from '@renderer/lib/trpc'
 import { useUIStore } from '@renderer/stores/ui.store'
+import { useProjectStore } from '@renderer/stores/project.store'
 import { SprintStatusBadge } from '@renderer/components/sprint/SprintStatusBadge'
 import { SprintForm } from '@renderer/components/sprint/SprintForm'
 import { Button } from '@renderer/components/ui/button'
@@ -13,6 +13,7 @@ import {
   PopoverTrigger
 } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
+import { useListSprints, useDeleteSprint } from '@renderer/hooks/useSprintCommands'
 
 type SprintStatus = 'planning' | 'active' | 'completed'
 
@@ -21,28 +22,20 @@ interface Sprint {
   name: string
   status: string
   goal: string | null
-  start_date: Date | string | null
-  end_date: Date | string | null
+  start_date: string | null
+  end_date: string | null
 }
 
 export function SprintList() {
-  const { data: sprints, isLoading } = trpc.sprints.getAll.useQuery()
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
+  const { data: sprints, isLoading } = useListSprints(activeProjectId)
   const { selectedSprintId, setSelectedSprint, clearSprintFilter } = useUIStore()
-  const utils = trpc.useUtils()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
 
-  const deleteMutation = trpc.sprints.delete.useMutation({
-    onSuccess: () => {
-      utils.sprints.getAll.invalidate()
-      toast.success('Sprint deleted')
-    },
-    onError: (error) => {
-      toast.error(`Failed to delete sprint: ${error.message}`)
-    }
-  })
+  const deleteMutation = useDeleteSprint()
 
   const handleCreate = () => {
     setEditingSprint(null)
@@ -57,10 +50,20 @@ export function SprintList() {
 
   const handleDelete = async (sprint: Sprint) => {
     if (confirm(`Delete sprint "${sprint.name}"? This will also delete all associated epics and tasks.`)) {
-      await deleteMutation.mutateAsync({ id: sprint.id })
-      if (selectedSprintId === sprint.id) {
-        clearSprintFilter()
-      }
+      deleteMutation.mutate(
+        { id: sprint.id },
+        {
+          onSuccess: () => {
+            toast.success('Sprint deleted')
+            if (selectedSprintId === sprint.id) {
+              clearSprintFilter()
+            }
+          },
+          onError: (error) => {
+            toast.error(`Failed to delete sprint: ${error.message}`)
+          },
+        }
+      )
     }
     setMenuOpenId(null)
   }
@@ -213,10 +216,10 @@ export function SprintList() {
 }
 
 // Format date range for sprint display
-function formatDateRange(start: Date | string | null, end: Date | string | null): string {
+function formatDateRange(start: string | null, end: string | null): string {
   if (!start) return ''
-  const startDate = typeof start === 'string' ? new Date(start) : start
-  const endDate = end ? (typeof end === 'string' ? new Date(end) : end) : null
+  const startDate = new Date(start)
+  const endDate = end ? new Date(end) : null
 
   if (!endDate) return `Starts ${format(startDate, 'MMM d')}`
   return `${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d')}`

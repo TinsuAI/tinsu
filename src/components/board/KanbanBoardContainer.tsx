@@ -8,6 +8,7 @@ import { DevStoryConfirmDialog } from '../dialogs/DevStoryConfirmDialog'
 import { BasicTaskConfirmDialog } from '../dialogs/BasicTaskConfirmDialog'
 import { GitErrorDialog } from '../dialogs/GitErrorDialog'
 import { useUIStore, useTerminalStore, useTaskWorkspaceStore } from '@renderer/stores'
+import { useProjectStore } from '@renderer/stores/project.store'
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 import { useBranchStatus } from '@renderer/hooks/useBranchStatus'
@@ -22,9 +23,8 @@ import type { Task, TaskStatus } from '@shared/types/task.types'
 import type { GitRecoverableError } from '@shared/types/git-error.types'
 
 export function KanbanBoardContainer() {
-  // Resolve active project ID — projectStore has projectPath, not projectId.
-  // Pass "" as fallback; backend returns all tasks when project_id is empty.
-  const activeProjectId = ''
+  // Resolve active project ID from store; fallback to '' so backend returns all tasks.
+  const activeProjectId = useProjectStore((state) => state.activeProjectId) ?? ''
 
   const { data: tasks, isLoading, isError, error } = useListTasks(activeProjectId)
   const { data: epics } = useListEpics(activeProjectId)
