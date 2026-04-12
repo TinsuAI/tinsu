@@ -329,15 +329,7 @@ pub async fn send_chat_message(
         tracing::warn!("send_chat_message: failed to emit event: {}", e);
     }
 
-    Ok(ChatMessageModel {
-        id: msg_model.id,
-        session_id: msg_model.session_id,
-        role: msg_model.role,
-        content: msg_model.content,
-        tool_name: msg_model.tool_name,
-        tool_input: msg_model.tool_input,
-        created_at: msg_model.created_at,
-    })
+    Ok(msg_model)
 }
 
 /// Update a chat session's status.

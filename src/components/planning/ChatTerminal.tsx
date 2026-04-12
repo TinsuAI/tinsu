@@ -43,7 +43,9 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
         const decoder = new TextDecoder()
         const channel = new Channel<number[]>()
         channel.onmessage = (data) => {
-          termRef.current?.write(decoder.decode(new Uint8Array(data)))
+          if (!cancelled) {
+            termRef.current?.write(decoder.decode(new Uint8Array(data)))
+          }
         }
 
         const result = await commands.attachChatTerminal(
@@ -91,16 +93,22 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   useEffect(() => {
     if (!processId) return
     let unlisten: (() => void) | undefined
+    let isMounted = true
 
     listen<{ process_id: string; exit_code: number }>('pty:exit', (event) => {
       if (event.payload.process_id !== processId) return
       setIsAttached(false)
       termRef.current?.write('\r\n\x1b[90m[Session ended]\x1b[0m\r\n')
     }).then((fn) => {
-      unlisten = fn
+      if (isMounted) {
+        unlisten = fn
+      } else {
+        fn()
+      }
     })
 
     return () => {
+      isMounted = false
       unlisten?.()
     }
   }, [processId])
