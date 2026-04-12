@@ -1,6 +1,6 @@
 # Story T1.1: Initialize Tauri v2 and Migrate React Frontend
 
-Status: review
+Status: done
 
 **🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.**
 
@@ -482,6 +482,13 @@ claude-sonnet-4-6
 - `tsconfig.node.json`
 - `drizzle.config.ts`
 
+### Review Findings
+
+- [x] [Review][Patch] Leftover `electron.vite.config.*.mjs` artifact not deleted [/electron.vite.config.1774463062965.mjs] — **auto-fixed**: deleted stale build artifact (Task 3 requires all Electron files removed)
+- [x] [Review][Defer] useFileWatcher missing cleanup on early return when window.api is null [src/hooks/useFileWatcher.ts:50] — deferred, harmless in T1.1 (links:[] means mutations never complete); fix in T1.3 when real IPC is wired
+- [x] [Review][Defer] Monaco editor stub has minimal implementation [src/__mocks__/monaco-editor.ts] — deferred, pre-existing; tests already mock @monaco-editor/react separately, stub only resolves vitest ESM resolution
+
 ### Change Log
 
 - 2026-04-12: DEV 1 (claude-sonnet-4-6) implemented full story. Migrated from Electron + Node.js to Tauri v2 + Vite. All tasks complete.
+- 2026-04-12: DEV 2 (claude-sonnet-4-6) code review complete. 1 auto-fix applied (deleted stale electron.vite.config.*.mjs artifact), 2 deferred, 13 dismissed as noise/intentional stubs.

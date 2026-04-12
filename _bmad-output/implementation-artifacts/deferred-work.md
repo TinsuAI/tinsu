@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of t1-1-initialize-tauri-v2-project-with-react-frontend (2026-04-12)
+
+- **useFileWatcher missing cleanup on early return** — When `window.api` is null (all of T1.1), the early return on line 50 skips registering the cleanup function, so `stopWatchingMutation.mutate()` won't fire on unmount. Harmless in T1.1 (tRPC links:[] means mutations never complete). Fix when real IPC is wired in T1.3.
+- **Monaco editor stub minimal implementation** — `src/__mocks__/monaco-editor.ts` exports stub editor with only `defineTheme`, `setTheme`, `MouseTargetType`. Components using @monaco-editor/react already mock that package separately in tests; this stub only resolves vitest ESM resolution errors. Revisit if new tests import monaco-editor directly.
+
 ## Deferred from: code review of mobile-1-1-initialize-kmp-project-with-jetbrains-wizard (2026-04-07)
 
 - **Release `isMinifyEnabled=false`, no signing config** — Enable R8 shrinking and add signing config before Play Store submission; not needed for development scaffold
