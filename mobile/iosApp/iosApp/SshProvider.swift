@@ -7,7 +7,7 @@ import Shared
 // MARK: - KotlinByteArray → Data helper
 
 private extension KotlinByteArray {
-    func toData() -> Data {
+    func toData() -> Data { 
         let count = Int(size)
         var bytes = [UInt8](repeating: 0, count: count)
         for i in 0..<count {

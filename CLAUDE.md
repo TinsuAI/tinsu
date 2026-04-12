@@ -4,3 +4,4 @@ When creating any story involving React components, UI styling, or visual elemen
 - run (npm run rebuild:electron) after each db changes
 - whenever update schema, update  migration in db/index.ts
 - When PM agent run correct course session Update sprint-status.yaml to reflect approved epic changes
+- when doing codebase exploring, use model Haiku

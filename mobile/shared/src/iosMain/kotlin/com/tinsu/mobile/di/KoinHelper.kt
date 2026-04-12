@@ -1,6 +1,7 @@
 package com.tinsu.mobile.di
 
 import com.tinsu.mobile.connection.ConnectionManager
+import com.tinsu.mobile.connection.ConnectionRepository
 import com.tinsu.mobile.connection.SshSessionProvider
 import com.tinsu.mobile.project.ProjectViewModel
 import com.tinsu.mobile.security.Ed25519KeyProvider
@@ -48,4 +49,9 @@ fun getProjectViewModel(): ProjectViewModel {
 @Throws(Exception::class)
 fun getConnectionManager(): ConnectionManager {
     return KoinPlatform.getKoin().get<ConnectionManager>()
+}
+
+@Throws(Exception::class)
+fun getConnectionRepository(): ConnectionRepository {
+    return KoinPlatform.getKoin().get<ConnectionRepository>()
 }

@@ -7,7 +7,7 @@
     <application
         android:name=".TinsuApplication"
         android:allowBackup="true"
-        android:label="TinSu Mobile"
+        android:label="Tinsu"
         android:supportsRtl="true"
         android:theme="@style/Theme.TinsuMobile">
         <activity
