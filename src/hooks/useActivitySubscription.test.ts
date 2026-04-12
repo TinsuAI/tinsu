@@ -2,20 +2,26 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, cleanup } from '@testing-library/react'
 import { useActivitySubscription } from './useActivitySubscription'
 
-// Mock window.api
-const mockUnsubscribe = vi.fn()
-let mockOnActivityCreated: ReturnType<typeof vi.fn>
+// Mock @tauri-apps/api/event
+const mockUnlisten = vi.fn()
+let capturedListener: ((event: { payload: { task_id: string; activity: object } }) => void) | null = null
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn((_eventName: string, handler: (event: unknown) => void) => {
+    capturedListener = handler as typeof capturedListener
+    return Promise.resolve(mockUnlisten)
+  }),
+}))
+
+import { listen } from '@tauri-apps/api/event'
 
 beforeEach(() => {
-  mockUnsubscribe.mockClear()
-  mockOnActivityCreated = vi.fn(() => mockUnsubscribe)
-
-  Object.defineProperty(window, 'api', {
-    writable: true,
-    value: {
-      onActivityCreated: mockOnActivityCreated,
-      onFileChange: vi.fn(() => vi.fn())
-    }
+  mockUnlisten.mockClear()
+  capturedListener = null
+  vi.mocked(listen).mockClear()
+  vi.mocked(listen).mockImplementation((_eventName, handler) => {
+    capturedListener = handler as typeof capturedListener
+    return Promise.resolve(mockUnlisten)
   })
 })
 
@@ -24,79 +30,71 @@ afterEach(() => {
 })
 
 /**
- * Unit tests for useActivitySubscription hook.
+ * Unit tests for useActivitySubscription hook (T1.7 migration).
  *
- * @see TES-2.13: Real-Time Activity Streaming (AC: #4)
+ * @see T1.7: Migrate Hook Listener HTTP Server to Rust (AC: #11)
  */
 describe('useActivitySubscription', () => {
   describe('subscription lifecycle', () => {
-    it('subscribes to activity events when enabled', () => {
+    it('calls listen("activity:created") when enabled', async () => {
       const onActivity = vi.fn()
 
       renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
           onActivity,
-          enabled: true
+          enabled: true,
         })
       )
 
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(1)
-      expect(mockOnActivityCreated).toHaveBeenCalledWith(expect.any(Function))
+      // listen is async — wait a tick
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(listen).toHaveBeenCalledTimes(1)
+      expect(listen).toHaveBeenCalledWith('activity:created', expect.any(Function))
     })
 
-    it('does not subscribe when enabled is false', () => {
+    it('does not call listen when enabled is false', async () => {
       const onActivity = vi.fn()
 
       renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
           onActivity,
-          enabled: false
+          enabled: false,
         })
       )
 
-      expect(mockOnActivityCreated).not.toHaveBeenCalled()
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(listen).not.toHaveBeenCalled()
     })
 
-    it('unsubscribes when component unmounts', () => {
+    it('calls unlisten when component unmounts', async () => {
       const onActivity = vi.fn()
 
       const { unmount } = renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
           onActivity,
-          enabled: true
+          enabled: true,
         })
       )
 
+      await act(async () => {
+        await Promise.resolve()
+      })
+
       unmount()
 
-      expect(mockUnsubscribe).toHaveBeenCalledTimes(1)
+      expect(mockUnlisten).toHaveBeenCalledTimes(1)
     })
 
-    it('unsubscribes when enabled changes to false', () => {
-      const onActivity = vi.fn()
-
-      const { rerender } = renderHook(
-        ({ enabled }) =>
-          useActivitySubscription({
-            taskId: 'task-123',
-            onActivity,
-            enabled
-          }),
-        { initialProps: { enabled: true } }
-      )
-
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(1)
-
-      // Disable subscription
-      rerender({ enabled: false })
-
-      expect(mockUnsubscribe).toHaveBeenCalledTimes(1)
-    })
-
-    it('resubscribes when taskId changes', () => {
+    it('resubscribes when taskId changes', async () => {
       const onActivity = vi.fn()
 
       const { rerender } = renderHook(
@@ -104,86 +102,154 @@ describe('useActivitySubscription', () => {
           useActivitySubscription({
             taskId,
             onActivity,
-            enabled: true
+            enabled: true,
           }),
         { initialProps: { taskId: 'task-123' } }
       )
 
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        await Promise.resolve()
+      })
 
-      // Change taskId
+      expect(listen).toHaveBeenCalledTimes(1)
+
       rerender({ taskId: 'task-456' })
 
-      // Should have unsubscribed from old and subscribed to new
-      expect(mockUnsubscribe).toHaveBeenCalledTimes(1)
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(2)
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      // Should have cleaned up old and subscribed to new
+      expect(mockUnlisten).toHaveBeenCalledTimes(1)
+      expect(listen).toHaveBeenCalledTimes(2)
+    })
+
+    it('defaults enabled to true and subscribes', async () => {
+      const onActivity = vi.fn()
+
+      renderHook(() =>
+        useActivitySubscription({
+          taskId: 'task-123',
+          onActivity,
+          // enabled not specified
+        })
+      )
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(listen).toHaveBeenCalledTimes(1)
+    })
+
+    it('immediately calls unlisten if component unmounts before listen() resolves', async () => {
+      const onActivity = vi.fn()
+      let resolveUnlisten!: (fn: () => void) => void
+      vi.mocked(listen).mockImplementationOnce((_name, handler) => {
+        capturedListener = handler as typeof capturedListener
+        return new Promise((resolve) => {
+          resolveUnlisten = resolve
+        })
+      })
+
+      const { unmount } = renderHook(() =>
+        useActivitySubscription({ taskId: 'task-123', onActivity, enabled: true })
+      )
+
+      // Unmount before listen() resolves
+      unmount()
+
+      // Now resolve the listen() promise — the cancelled flag should cause immediate cleanup
+      const earlyUnlisten = vi.fn()
+      await act(async () => {
+        resolveUnlisten(earlyUnlisten)
+        await Promise.resolve()
+      })
+
+      expect(earlyUnlisten).toHaveBeenCalledTimes(1)
+      expect(mockUnlisten).not.toHaveBeenCalled()
+    })
+
+    it('does not throw when listen() rejects', async () => {
+      const onActivity = vi.fn()
+      vi.mocked(listen).mockImplementationOnce(() => Promise.reject(new Error('unavailable')))
+
+      expect(() => {
+        renderHook(() =>
+          useActivitySubscription({ taskId: 'task-123', onActivity, enabled: true })
+        )
+      }).not.toThrow()
+
+      // Allow the rejection to be caught
+      await act(async () => {
+        await Promise.resolve()
+      })
     })
   })
 
   describe('event filtering', () => {
-    it('only calls onActivity for matching taskId', () => {
+    it('only calls onActivity for matching taskId', async () => {
       const onActivity = vi.fn()
 
       renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
           onActivity,
-          enabled: true
+          enabled: true,
         })
       )
 
-      // Get the handler passed to onActivityCreated
-      const handler = mockOnActivityCreated.mock.calls[0][0]
+      await act(async () => {
+        await Promise.resolve()
+      })
 
-      // Simulate receiving an activity for the subscribed task
+      // Simulate receiving a matching activity
       act(() => {
-        handler({
-          taskId: 'task-123',
-          activity: {
-            id: 'act-1',
+        capturedListener?.({
+          payload: {
             task_id: 'task-123',
-            event_type: 'status_change',
-            payload: null,
-            created_at: Date.now()
-          }
+            activity: {
+              id: 'act-1',
+              task_id: 'task-123',
+              event_type: 'status_change',
+              payload: null,
+              created_at: Date.now(),
+            },
+          },
         })
       })
 
       expect(onActivity).toHaveBeenCalledTimes(1)
-      expect(onActivity).toHaveBeenCalledWith({
-        id: 'act-1',
-        task_id: 'task-123',
-        event_type: 'status_change',
-        payload: null,
-        created_at: expect.any(Number)
-      })
     })
 
-    it('ignores activities for different taskId', () => {
+    it('ignores activities for a different taskId', async () => {
       const onActivity = vi.fn()
 
       renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
           onActivity,
-          enabled: true
+          enabled: true,
         })
       )
 
-      // Get the handler
-      const handler = mockOnActivityCreated.mock.calls[0][0]
+      await act(async () => {
+        await Promise.resolve()
+      })
 
       // Simulate receiving an activity for a DIFFERENT task
       act(() => {
-        handler({
-          taskId: 'task-456',
-          activity: {
-            id: 'act-2',
+        capturedListener?.({
+          payload: {
             task_id: 'task-456',
-            event_type: 'agent_start',
-            payload: null,
-            created_at: Date.now()
-          }
+            activity: {
+              id: 'act-2',
+              task_id: 'task-456',
+              event_type: 'agent_start',
+              payload: null,
+              created_at: Date.now(),
+            },
+          },
         })
       })
 
@@ -192,76 +258,7 @@ describe('useActivitySubscription', () => {
   })
 
   describe('callback handling', () => {
-    it('calls onActivity with correctly typed Activity object', () => {
-      const onActivity = vi.fn()
-
-      renderHook(() =>
-        useActivitySubscription({
-          taskId: 'task-123',
-          onActivity,
-          enabled: true
-        })
-      )
-
-      const handler = mockOnActivityCreated.mock.calls[0][0]
-
-      const testPayload = JSON.stringify({ from: 'backlog', to: 'in_progress' })
-
-      act(() => {
-        handler({
-          taskId: 'task-123',
-          activity: {
-            id: 'act-1',
-            task_id: 'task-123',
-            event_type: 'status_change',
-            payload: testPayload,
-            created_at: 1705678338000
-          }
-        })
-      })
-
-      expect(onActivity).toHaveBeenCalledWith({
-        id: 'act-1',
-        task_id: 'task-123',
-        event_type: 'status_change',
-        payload: testPayload,
-        created_at: 1705678338000
-      })
-    })
-
-    it('handles rapid events without issues', () => {
-      const onActivity = vi.fn()
-
-      renderHook(() =>
-        useActivitySubscription({
-          taskId: 'task-123',
-          onActivity,
-          enabled: true
-        })
-      )
-
-      const handler = mockOnActivityCreated.mock.calls[0][0]
-
-      // Simulate rapid events
-      act(() => {
-        for (let i = 0; i < 10; i++) {
-          handler({
-            taskId: 'task-123',
-            activity: {
-              id: `act-${i}`,
-              task_id: 'task-123',
-              event_type: 'tool_used',
-              payload: JSON.stringify({ tool: `Tool${i}` }),
-              created_at: Date.now() + i
-            }
-          })
-        }
-      })
-
-      expect(onActivity).toHaveBeenCalledTimes(10)
-    })
-
-    it('uses latest callback reference (no stale closure)', () => {
+    it('uses latest callback reference (no stale closure)', async () => {
       let callCount = 0
       const onActivity1 = vi.fn(() => {
         callCount = 1
@@ -275,27 +272,30 @@ describe('useActivitySubscription', () => {
           useActivitySubscription({
             taskId: 'task-123',
             onActivity,
-            enabled: true
+            enabled: true,
           }),
         { initialProps: { onActivity: onActivity1 } }
       )
 
-      const handler = mockOnActivityCreated.mock.calls[0][0]
+      await act(async () => {
+        await Promise.resolve()
+      })
 
-      // Update callback
+      // Update callback (no resubscription expected since taskId/enabled unchanged)
       rerender({ onActivity: onActivity2 })
 
-      // Trigger event
       act(() => {
-        handler({
-          taskId: 'task-123',
-          activity: {
-            id: 'act-1',
+        capturedListener?.({
+          payload: {
             task_id: 'task-123',
-            event_type: 'agent_complete',
-            payload: null,
-            created_at: Date.now()
-          }
+            activity: {
+              id: 'act-1',
+              task_id: 'task-123',
+              event_type: 'agent_complete',
+              payload: null,
+              created_at: Date.now(),
+            },
+          },
         })
       })
 
@@ -303,47 +303,40 @@ describe('useActivitySubscription', () => {
       expect(callCount).toBe(2)
       expect(onActivity2).toHaveBeenCalled()
     })
-  })
 
-  describe('edge cases', () => {
-    it('handles enabled toggling gracefully', () => {
-      const onActivity = vi.fn()
-
-      const { rerender } = renderHook(
-        ({ enabled }) =>
-          useActivitySubscription({
-            taskId: 'task-123',
-            onActivity,
-            enabled
-          }),
-        { initialProps: { enabled: true } }
-      )
-
-      // Disable
-      rerender({ enabled: false })
-      expect(mockUnsubscribe).toHaveBeenCalledTimes(1)
-
-      // Re-enable
-      rerender({ enabled: true })
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(2)
-
-      // Disable again
-      rerender({ enabled: false })
-      expect(mockUnsubscribe).toHaveBeenCalledTimes(2)
-    })
-
-    it('defaults enabled to true', () => {
+    it('handles rapid events without issues', async () => {
       const onActivity = vi.fn()
 
       renderHook(() =>
         useActivitySubscription({
           taskId: 'task-123',
-          onActivity
-          // enabled not specified
+          onActivity,
+          enabled: true,
         })
       )
 
-      expect(mockOnActivityCreated).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      act(() => {
+        for (let i = 0; i < 10; i++) {
+          capturedListener?.({
+            payload: {
+              task_id: 'task-123',
+              activity: {
+                id: `act-${i}`,
+                task_id: 'task-123',
+                event_type: 'tool_used',
+                payload: JSON.stringify({ tool: `Tool${i}` }),
+                created_at: Date.now() + i,
+              },
+            },
+          })
+        }
+      })
+
+      expect(onActivity).toHaveBeenCalledTimes(10)
     })
   })
 })

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
+import { Channel } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { useTerminalStore } from '@renderer/stores'
 import type { XTerminalRef } from '@renderer/components/terminal/XTerminal'
 
@@ -7,7 +9,7 @@ interface UseTerminalOptions {
   /** Ref to the XTerminal component */
   terminalRef: React.RefObject<XTerminalRef | null>
   /** Optional callback when process exits */
-  onExit?: (exitCode: number, signal?: number) => void
+  onExit?: (exitCode: number) => void
 }
 
 interface UseTerminalReturn {
@@ -26,13 +28,12 @@ interface UseTerminalReturn {
 }
 
 /**
- * Hook to connect XTerminal to the PTY service via tRPC.
+ * Hook to connect XTerminal to the PTY service via tauri-specta commands.
  *
  * Handles:
- * - Spawning PTY processes
+ * - Spawning PTY processes via Tauri Channel for output streaming
  * - Writing user input to PTY
- * - Subscribing to PTY output and writing to xterm
- * - Subscribing to PTY exit events
+ * - Listening to PTY exit events via Tauri Event
  * - Resizing PTY on terminal resize
  * - Cleanup on unmount
  */
@@ -51,122 +52,115 @@ export function useTerminal({ terminalRef, onExit }: UseTerminalOptions): UseTer
     [terminalRef]
   )
 
-  // tRPC mutations with error handling
-  const spawnMutation = trpc.pty.spawn.useMutation({
-    onError: (error) => {
-      writeError(`Failed to spawn process: ${error.message}`)
-    }
-  })
-  const writeMutation = trpc.pty.write.useMutation({
-    onError: (error) => {
-      writeError(`Failed to write to process: ${error.message}`)
-    }
-  })
-  const killMutation = trpc.pty.kill.useMutation({
-    onError: (error) => {
-      writeError(`Failed to kill process: ${error.message}`)
-    }
-  })
-  const resizeMutation = trpc.pty.resize.useMutation({
-    onError: (error) => {
-      // Resize errors are less critical, log but don't show to user
-      console.warn('[Terminal] Resize error:', error.message)
-    }
-  })
+  // Listen to PTY exit events for the active process
+  useEffect(() => {
+    if (!activeProcessId) return
+    let unlisten: (() => void) | undefined
 
-  // Subscribe to output when we have an active process
-  trpc.pty.onOutput.useSubscription(
-    { processId: activeProcessId ?? '' },
-    {
-      enabled: !!activeProcessId,
-      onData: (event) => {
-        terminalRef.current?.write(event.data)
-      }
-    }
-  )
+    listen<{ process_id: string; task_id?: string; exit_code: number }>('pty:exit', (event) => {
+      if (event.payload.process_id !== activeProcessId) return
+      terminalRef.current?.write(
+        `\r\n\x1b[90m[Process exited with code ${event.payload.exit_code}]\x1b[0m\r\n`
+      )
+      setActiveProcess(null)
+      onExit?.(event.payload.exit_code)
+    }).then((fn) => {
+      unlisten = fn
+    })
 
-  // Subscribe to exit events
-  trpc.pty.onExit.useSubscription(
-    { processId: activeProcessId ?? '' },
-    {
-      enabled: !!activeProcessId,
-      onData: (event) => {
-        // Display exit message in terminal
-        terminalRef.current?.write(
-          `\r\n\x1b[90m[Process exited with code ${event.exitCode}${event.signal ? `, signal ${event.signal}` : ''}]\x1b[0m\r\n`
-        )
-        setActiveProcess(null)
-        onExit?.(event.exitCode, event.signal)
-      }
+    return () => {
+      unlisten?.()
     }
-  )
+  }, [activeProcessId, terminalRef, setActiveProcess, onExit])
 
   // Spawn a new terminal process
   const spawn = useCallback(
     async (options?: { command?: string; args?: string[]; cwd?: string }): Promise<string> => {
       // Kill existing process if any
       if (activeProcessId) {
-        killMutation.mutate({ processId: activeProcessId })
+        commands.killPty(activeProcessId).catch((e) =>
+          console.warn('[useTerminal] Kill existing process error:', e)
+        )
         setActiveProcess(null)
       }
 
       // Get current terminal dimensions
       const dimensions = terminalRef.current?.getDimensions()
 
-      const processId = await spawnMutation.mutateAsync({
-        command: options?.command,
-        args: options?.args ?? [],
-        cwd: options?.cwd,
-        cols: dimensions?.cols,
-        rows: dimensions?.rows
-      })
+      // Create Tauri Channel for PTY output streaming
+      const decoder = new TextDecoder()
+      const channel = new Channel<number[]>()
+      channel.onmessage = (data) => {
+        terminalRef.current?.write(decoder.decode(new Uint8Array(data)))
+      }
 
+      const result = await commands.spawnPty(
+        options?.command ?? null,
+        options?.args ?? [],
+        options?.cwd ?? null,
+        dimensions?.cols ?? null,
+        dimensions?.rows ?? null,
+        channel
+      )
+
+      if (result.status === 'error') {
+        const errMsg = JSON.stringify(result.error)
+        writeError(`Failed to spawn process: ${errMsg}`)
+        throw new Error(errMsg)
+      }
+
+      const processId = result.data
       setActiveProcess(processId)
       return processId
     },
-    [activeProcessId, spawnMutation, killMutation, setActiveProcess, terminalRef]
+    [activeProcessId, setActiveProcess, terminalRef, writeError]
   )
 
   // Write data to the terminal
   const write = useCallback(
     (data: string) => {
       if (!activeProcessId) return
-      writeMutation.mutate({ processId: activeProcessId, data })
+      commands.writePty(activeProcessId, data).catch((e) =>
+        writeError(`Failed to write to process: ${e}`)
+      )
     },
-    [activeProcessId, writeMutation]
+    [activeProcessId, writeError]
   )
 
   // Kill the current process
   const kill = useCallback(() => {
     if (!activeProcessId) return
-    killMutation.mutate({ processId: activeProcessId })
+    commands.killPty(activeProcessId).catch((e) =>
+      writeError(`Failed to kill process: ${e}`)
+    )
     setActiveProcess(null)
-  }, [activeProcessId, killMutation, setActiveProcess])
+  }, [activeProcessId, setActiveProcess, writeError])
 
   // Resize the terminal
   const resize = useCallback(
     (cols: number, rows: number) => {
       if (!activeProcessId) return
 
-      // Avoid sending redundant resize calls
       const last = lastDimensionsRef.current
       if (last && last.cols === cols && last.rows === rows) return
 
       lastDimensionsRef.current = { cols, rows }
-      resizeMutation.mutate({ processId: activeProcessId, cols, rows })
+      commands.resizePty(activeProcessId, cols, rows).catch((e) =>
+        console.warn('[Terminal] Resize error:', e)
+      )
     },
-    [activeProcessId, resizeMutation]
+    [activeProcessId]
   )
 
-  // Cleanup on unmount - kill process using ref to get current value
+  // Cleanup on unmount — kill process using ref to get current value
   useEffect(() => {
     return () => {
       const currentProcessId = activeProcessIdRef.current
       if (currentProcessId) {
-        killMutation.mutate({ processId: currentProcessId })
+        commands.killPty(currentProcessId).catch(() => {})
       }
     }
-    // Only run on unmount - using ref avoids stale closure issue
+    // Only run on unmount — using ref avoids stale closure issue
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

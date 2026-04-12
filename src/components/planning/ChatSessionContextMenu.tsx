@@ -21,7 +21,7 @@ export interface ChatSessionListItem {
   created_at: Date | string | number
   updated_at: Date | string | number
   last_message_at: Date | string | number | null
-  lastMessagePreview: string | null
+  last_message_preview: string | null
   skip_permissions: boolean | number | null
   /** CTM-2.3: Live tmux/PTY session status for real-time badges */
   liveStatus?: 'thinking' | 'idle' | 'completed' | 'exited' | 'unknown'

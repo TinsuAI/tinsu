@@ -9,3 +9,4 @@ export {
   usePlanningWorkspaceStore,
   type PlanningPhase
 } from './planning-workspace.store'
+export { useProjectStore } from './project.store'

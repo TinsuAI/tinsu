@@ -1,91 +1,66 @@
 import { useCallback } from 'react'
-import { trpc } from '@renderer/lib/trpc'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { commands } from '@renderer/lib/rspc'
 import { toast } from 'sonner'
 
 /**
- * Hook for rejecting a task with feedback (Story 7.4).
+ * Hook for rejecting a task with feedback (T1.8).
  *
- * Handles the "Reject" action in the 60-Second Velocity Loop:
- * 1. Calls rejectWithFeedback to store feedback and move task back to in_progress
- * 2. Shows success toast on successful rejection
- * 3. Shows error toast on failure
- * 4. Invalidates task queries on success
- *
- * @example
- * ```tsx
- * function ReviewActions({ taskId, storyNumber }) {
- *   const { reject, isPending } = useRejectionMutation({ taskId, storyNumber })
- *
- *   return (
- *     <Button onClick={() => reject('Please fix the validation logic')}>
- *       {isPending ? 'Rejecting...' : 'Reject'}
- *     </Button>
- *   )
- * }
- * ```
+ * Migrated from tRPC to Tauri commands. Calls commands.rejectTask(taskId, feedback)
+ * which stores the feedback and moves the task back to in_progress.
+ * The worktree is NOT modified — the agent continues in the same branch.
  */
 export interface UseRejectionMutationOptions {
-  /** The task ID to reject */
   taskId: string
-  /** The story number for the toast message (e.g., "7.4") */
   storyNumber?: string | null
-  /** Callback when rejection succeeds */
+  projectId?: string
   onSuccess?: () => void
-  /** Callback when an error occurs */
   onError?: (error: Error) => void
 }
 
 export function useRejectionMutation(options: UseRejectionMutationOptions) {
-  const { taskId, storyNumber, onSuccess, onError } = options
+  const { taskId, storyNumber, projectId = '', onSuccess, onError } = options
 
-  const utils = trpc.useUtils()
+  const queryClient = useQueryClient()
 
-  const rejectMutation = trpc.tasks.rejectWithFeedback.useMutation({
+  const mutation = useMutation({
+    mutationFn: async (feedback: string | null) => {
+      const r = await commands.rejectTask(taskId, feedback ?? '')
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
     onSuccess: () => {
-      // Story 7.4 AC 2: Show success notification
       const storyLabel = storyNumber ? `Story ${storyNumber}` : 'Task'
       toast.success(`${storyLabel} rejected, returning to In Progress`, {
         description: 'Feedback saved for next attempt'
       })
 
-      // Story 7.4 Task 2.5: Invalidate task queries to refresh UI
-      utils.tasks.getById.invalidate({ id: taskId })
-      utils.tasks.getAllWithEpics.invalidate()
-      utils.tasks.getAll.invalidate()
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ['tasks', 'list', projectId] })
+      }
 
-      // Call success callback for dialog close/navigation
       onSuccess?.()
     },
-    onError: (error) => {
-      // Story 7.4 Task 2.4: Handle errors
+    onError: (error: Error) => {
       toast.error('Rejection failed', {
         description: error.message
       })
-      onError?.(new Error(error.message))
+      onError?.(error)
     }
   })
 
-  // Story 7.4 Task 2.2: Reject function that calls rejectWithFeedback mutation
   const reject = useCallback(
     (feedback: string | null) => {
-      rejectMutation.mutate({
-        id: taskId,
-        feedback
-      })
+      mutation.mutate(feedback)
     },
-    [taskId, rejectMutation]
+    [mutation]
   )
 
   return {
-    /** Trigger the rejection action with optional feedback */
     reject,
-    /** Whether the rejection mutation is in progress */
-    isPending: rejectMutation.isPending,
-    /** Whether the mutation succeeded */
-    isSuccess: rejectMutation.isSuccess,
-    /** Whether the mutation failed */
-    isError: rejectMutation.isError,
-    /** The error if mutation failed */
-    error: rejectMutation.error
+    isPending: mutation.isPending,
+    isSuccess: mutation.isSuccess,
+    isError: mutation.isError,
+    error: mutation.error
   }
 }

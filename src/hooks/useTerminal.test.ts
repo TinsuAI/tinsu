@@ -3,52 +3,55 @@ import { renderHook, act } from '@testing-library/react'
 import { useTerminal } from './useTerminal'
 import { useTerminalStore } from '@renderer/stores/terminal.store'
 
-// Mock tRPC
-const mockSpawnMutate = vi.fn()
-const mockSpawnMutateAsync = vi.fn()
-const mockWriteMutate = vi.fn()
-const mockKillMutate = vi.fn()
-const mockResizeMutate = vi.fn()
+// ─── Mock tauri-specta commands ───────────────────────────────────────────
+// vi.mock is hoisted, so we define fns inside the factory.
 
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    pty: {
-      spawn: {
-        useMutation: (options?: { onError?: (error: Error) => void }) => ({
-          mutate: mockSpawnMutate,
-          mutateAsync: mockSpawnMutateAsync,
-          onError: options?.onError
-        })
-      },
-      write: {
-        useMutation: (options?: { onError?: (error: Error) => void }) => ({
-          mutate: mockWriteMutate,
-          onError: options?.onError
-        })
-      },
-      kill: {
-        useMutation: (options?: { onError?: (error: Error) => void }) => ({
-          mutate: mockKillMutate,
-          onError: options?.onError
-        })
-      },
-      resize: {
-        useMutation: (options?: { onError?: (error: Error) => void }) => ({
-          mutate: mockResizeMutate,
-          onError: options?.onError
-        })
-      },
-      onOutput: {
-        useSubscription: vi.fn()
-      },
-      onExit: {
-        useSubscription: vi.fn()
+vi.mock('@renderer/lib/rspc', () => {
+  const spawnPty = vi.fn(async () => ({ status: 'ok' as const, data: 'test-process-id' }))
+  const writePty = vi.fn(async () => ({ status: 'ok' as const, data: null }))
+  const killPty = vi.fn(async () => ({ status: 'ok' as const, data: null }))
+  const resizePty = vi.fn(async () => ({ status: 'ok' as const, data: null }))
+  return {
+    commands: { spawnPty, writePty, killPty, resizePty },
+  }
+})
+
+// ─── Mock Tauri Channel ───────────────────────────────────────────────────
+
+vi.mock('@tauri-apps/api/core', () => {
+  function Channel(this: { onmessage: null | ((data: unknown) => void) }) {
+    this.onmessage = null
+  }
+  return { Channel: vi.fn().mockImplementation(Channel) }
+})
+
+// ─── Mock Tauri listen ────────────────────────────────────────────────────
+
+const eventListeners: Record<string, Array<(event: { payload: unknown }) => void>> = {}
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(async (eventName: string, handler: (event: { payload: unknown }) => void) => {
+    if (!eventListeners[eventName]) {
+      eventListeners[eventName] = []
+    }
+    eventListeners[eventName].push(handler)
+    return () => {
+      const idx = eventListeners[eventName]?.indexOf(handler)
+      if (idx != null && idx >= 0) {
+        eventListeners[eventName].splice(idx, 1)
       }
     }
-  }
+  }),
 }))
 
 describe('useTerminal', () => {
+  let commands: {
+    spawnPty: ReturnType<typeof vi.fn>
+    writePty: ReturnType<typeof vi.fn>
+    killPty: ReturnType<typeof vi.fn>
+    resizePty: ReturnType<typeof vi.fn>
+  }
+
   const mockTerminalRef = {
     current: {
       write: vi.fn(),
@@ -56,21 +59,30 @@ describe('useTerminal', () => {
       focus: vi.fn(),
       getDimensions: vi.fn(() => ({ cols: 80, rows: 24 })),
       fit: vi.fn(),
-      // TES-1.6: Added serialize/getScrollPosition/scrollToLine for buffer persistence
       serialize: vi.fn(() => ''),
       getScrollPosition: vi.fn(() => 0),
-      scrollToLine: vi.fn()
-    }
+      scrollToLine: vi.fn(),
+    },
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    Object.keys(eventListeners).forEach((k) => {
+      eventListeners[k] = []
+    })
     useTerminalStore.setState({
       isExpanded: true,
       height: 300,
-      activeProcessId: null
+      activeProcessId: null,
     })
-    mockSpawnMutateAsync.mockResolvedValue('test-process-id')
+
+    const mod = await import('@renderer/lib/rspc')
+    commands = mod.commands as typeof commands
+
+    commands.spawnPty.mockResolvedValue({ status: 'ok', data: 'test-process-id' })
+    commands.killPty.mockResolvedValue({ status: 'ok', data: null })
+    commands.writePty.mockResolvedValue({ status: 'ok', data: null })
+    commands.resizePty.mockResolvedValue({ status: 'ok', data: null })
   })
 
   it('should return isRunning as false when no active process', () => {
@@ -94,7 +106,7 @@ describe('useTerminal', () => {
   })
 
   describe('spawn', () => {
-    it('should call spawn mutation and set active process', async () => {
+    it('should call spawnPty and set active process', async () => {
       const { result } = renderHook(() =>
         useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
       )
@@ -103,13 +115,14 @@ describe('useTerminal', () => {
         await result.current.spawn()
       })
 
-      expect(mockSpawnMutateAsync).toHaveBeenCalledWith({
-        command: undefined, // Server decides default shell based on platform
-        args: [],
-        cwd: undefined,
-        cols: 80,
-        rows: 24
-      })
+      expect(commands.spawnPty).toHaveBeenCalledWith(
+        null,           // command
+        [],             // args
+        null,           // cwd
+        80,             // cols
+        24,             // rows
+        expect.anything() // Channel
+      )
     })
 
     it('should spawn with custom command and args', async () => {
@@ -121,17 +134,18 @@ describe('useTerminal', () => {
         await result.current.spawn({
           command: 'node',
           args: ['--version'],
-          cwd: '/tmp'
+          cwd: '/tmp',
         })
       })
 
-      expect(mockSpawnMutateAsync).toHaveBeenCalledWith({
-        command: 'node',
-        args: ['--version'],
-        cwd: '/tmp',
-        cols: 80,
-        rows: 24
-      })
+      expect(commands.spawnPty).toHaveBeenCalledWith(
+        'node',
+        ['--version'],
+        '/tmp',
+        80,
+        24,
+        expect.anything()
+      )
     })
 
     it('should kill existing process before spawning new one', async () => {
@@ -145,12 +159,25 @@ describe('useTerminal', () => {
         await result.current.spawn()
       })
 
-      expect(mockKillMutate).toHaveBeenCalledWith({ processId: 'old-process-id' })
+      expect(commands.killPty).toHaveBeenCalledWith('old-process-id')
+    })
+
+    it('should set activeProcess after spawn', async () => {
+      const { result } = renderHook(() =>
+        useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
+      )
+
+      await act(async () => {
+        await result.current.spawn()
+      })
+
+      expect(result.current.isRunning).toBe(true)
+      expect(result.current.processId).toBe('test-process-id')
     })
   })
 
   describe('write', () => {
-    it('should call write mutation when process is active', () => {
+    it('should call writePty when process is active', () => {
       useTerminalStore.setState({ activeProcessId: 'test-process-id' })
 
       const { result } = renderHook(() =>
@@ -161,13 +188,10 @@ describe('useTerminal', () => {
         result.current.write('test input')
       })
 
-      expect(mockWriteMutate).toHaveBeenCalledWith({
-        processId: 'test-process-id',
-        data: 'test input'
-      })
+      expect(commands.writePty).toHaveBeenCalledWith('test-process-id', 'test input')
     })
 
-    it('should not call write mutation when no process is active', () => {
+    it('should not call writePty when no process is active', () => {
       const { result } = renderHook(() =>
         useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
       )
@@ -176,12 +200,12 @@ describe('useTerminal', () => {
         result.current.write('test input')
       })
 
-      expect(mockWriteMutate).not.toHaveBeenCalled()
+      expect(commands.writePty).not.toHaveBeenCalled()
     })
   })
 
   describe('kill', () => {
-    it('should call kill mutation when process is active', () => {
+    it('should call killPty when process is active', () => {
       useTerminalStore.setState({ activeProcessId: 'test-process-id' })
 
       const { result } = renderHook(() =>
@@ -192,10 +216,10 @@ describe('useTerminal', () => {
         result.current.kill()
       })
 
-      expect(mockKillMutate).toHaveBeenCalledWith({ processId: 'test-process-id' })
+      expect(commands.killPty).toHaveBeenCalledWith('test-process-id')
     })
 
-    it('should not call kill mutation when no process is active', () => {
+    it('should not call killPty when no process is active', () => {
       const { result } = renderHook(() =>
         useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
       )
@@ -204,12 +228,12 @@ describe('useTerminal', () => {
         result.current.kill()
       })
 
-      expect(mockKillMutate).not.toHaveBeenCalled()
+      expect(commands.killPty).not.toHaveBeenCalled()
     })
   })
 
   describe('resize', () => {
-    it('should call resize mutation when process is active', () => {
+    it('should call resizePty when process is active', () => {
       useTerminalStore.setState({ activeProcessId: 'test-process-id' })
 
       const { result } = renderHook(() =>
@@ -220,14 +244,10 @@ describe('useTerminal', () => {
         result.current.resize(120, 40)
       })
 
-      expect(mockResizeMutate).toHaveBeenCalledWith({
-        processId: 'test-process-id',
-        cols: 120,
-        rows: 40
-      })
+      expect(commands.resizePty).toHaveBeenCalledWith('test-process-id', 120, 40)
     })
 
-    it('should not call resize mutation when no process is active', () => {
+    it('should not call resizePty when no process is active', () => {
       const { result } = renderHook(() =>
         useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
       )
@@ -236,7 +256,7 @@ describe('useTerminal', () => {
         result.current.resize(120, 40)
       })
 
-      expect(mockResizeMutate).not.toHaveBeenCalled()
+      expect(commands.resizePty).not.toHaveBeenCalled()
     })
 
     it('should debounce redundant resize calls', () => {
@@ -252,8 +272,7 @@ describe('useTerminal', () => {
         result.current.resize(120, 40) // Same dimensions
       })
 
-      // Should only be called once due to debounce
-      expect(mockResizeMutate).toHaveBeenCalledTimes(1)
+      expect(commands.resizePty).toHaveBeenCalledTimes(1)
     })
 
     it('should call resize for different dimensions', () => {
@@ -268,7 +287,7 @@ describe('useTerminal', () => {
         result.current.resize(100, 30) // Different dimensions
       })
 
-      expect(mockResizeMutate).toHaveBeenCalledTimes(2)
+      expect(commands.resizePty).toHaveBeenCalledTimes(2)
     })
   })
 
@@ -282,17 +301,57 @@ describe('useTerminal', () => {
 
       unmount()
 
-      expect(mockKillMutate).toHaveBeenCalledWith({ processId: 'test-process-id' })
+      expect(commands.killPty).toHaveBeenCalledWith('test-process-id')
     })
 
-    it('should not call kill on unmount if no active process', () => {
+    it('should not call killPty on unmount if no active process', () => {
       const { unmount } = renderHook(() =>
         useTerminal({ terminalRef: mockTerminalRef, onExit: vi.fn() })
       )
 
       unmount()
 
-      expect(mockKillMutate).not.toHaveBeenCalled()
+      expect(commands.killPty).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('PTY exit via Tauri Event', () => {
+    it('clears active process when pty:exit fires for active process', async () => {
+      useTerminalStore.setState({ activeProcessId: 'test-process-id' })
+      const onExit = vi.fn()
+
+      const { result } = renderHook(() =>
+        useTerminal({ terminalRef: mockTerminalRef, onExit })
+      )
+
+      expect(result.current.isRunning).toBe(true)
+
+      act(() => {
+        eventListeners['pty:exit']?.forEach((h) =>
+          h({ payload: { process_id: 'test-process-id', exit_code: 0 } })
+        )
+      })
+
+      expect(result.current.isRunning).toBe(false)
+      expect(onExit).toHaveBeenCalledWith(0)
+    })
+
+    it('ignores pty:exit events for other processes', () => {
+      useTerminalStore.setState({ activeProcessId: 'test-process-id' })
+      const onExit = vi.fn()
+
+      const { result } = renderHook(() =>
+        useTerminal({ terminalRef: mockTerminalRef, onExit })
+      )
+
+      act(() => {
+        eventListeners['pty:exit']?.forEach((h) =>
+          h({ payload: { process_id: 'other-process-id', exit_code: 0 } })
+        )
+      })
+
+      expect(result.current.isRunning).toBe(true)
+      expect(onExit).not.toHaveBeenCalled()
     })
   })
 })

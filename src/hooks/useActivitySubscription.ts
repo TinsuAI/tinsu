@@ -1,16 +1,17 @@
 /**
- * useActivitySubscription Hook - TES-2.13
+ * useActivitySubscription Hook - T1.7
  *
  * Subscribes to real-time activity events for a specific task.
- * Uses Electron IPC events (via preload API) for communication
- * since trpc-electron doesn't support native tRPC subscriptions.
+ * Uses Tauri Events (listen) for cross-thread event delivery.
  *
- * @see TES-2.13: Real-Time Activity Streaming (AC: #4)
- * @see Architecture: activity streaming via Electron IPC
+ * @see T1.7: Migrate Hook Listener HTTP Server to Rust (AC: #11)
+ * @see Architecture: activity streaming via Tauri Events
  */
 
-import { useEffect, useRef, useCallback } from 'react'
-import type { Activity, ActivityEventPayload } from '@shared/types/activity.types'
+import { useEffect, useRef } from 'react'
+import { listen } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@tauri-apps/api/event'
+import type { Activity } from '@shared/types/activity.types'
 
 /**
  * Options for the activity subscription hook.
@@ -27,8 +28,8 @@ export interface UseActivitySubscriptionOptions {
 /**
  * Hook to subscribe to real-time activity events for a task.
  *
- * Uses Electron IPC events to receive activities as they're created
- * by the ActivityLogService. The subscription is automatically
+ * Uses Tauri Events to receive activities as they're created
+ * by the ActivityLogService in Rust. The subscription is automatically
  * cleaned up on unmount or when enabled becomes false.
  *
  * @example
@@ -59,51 +60,27 @@ export function useActivitySubscription({
   const callbackRef = useRef(onActivity)
   callbackRef.current = onActivity
 
-  // Store unsubscribe function for cleanup
-  const unsubscribeRef = useRef<(() => void) | null>(null)
-
-  // Memoized handler to filter events by taskId
-  const handleActivityEvent = useCallback(
-    (event: ActivityEventPayload) => {
-      // Only process events for our taskId
-      if (event.taskId !== taskId) {
-        return
-      }
-
-      // Convert to Activity type expected by components
-      const activity: Activity = {
-        id: event.activity.id,
-        task_id: event.activity.task_id,
-        event_type: event.activity.event_type,
-        payload: event.activity.payload,
-        created_at: event.activity.created_at
-      }
-
-      callbackRef.current(activity)
-    },
-    [taskId]
-  )
-
   useEffect(() => {
-    if (!enabled) {
-      // Clean up existing subscription if disabled
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current()
-        unsubscribeRef.current = null
-      }
-      return
-    }
+    if (!enabled) return
 
-    // Subscribe to activity events (no-op in Tauri until T1.3 IPC is wired)
-    if (!window.api) return
-    unsubscribeRef.current = window.api.onActivityCreated(handleActivityEvent)
+    let cancelled = false
+    let unlisten: UnlistenFn | undefined
 
-    // Cleanup on unmount or when dependencies change
+    listen<{ task_id: string; activity: Activity }>('activity:created', (event) => {
+      if (event.payload.task_id !== taskId) return
+      callbackRef.current(event.payload.activity)
+    })
+      .then((fn) => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+      .catch(() => {
+        // listen() rejected — Tauri event system unavailable
+      })
+
     return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current()
-        unsubscribeRef.current = null
-      }
+      cancelled = true
+      unlisten?.()
     }
-  }, [enabled, handleActivityEvent])
+  }, [enabled, taskId])
 }

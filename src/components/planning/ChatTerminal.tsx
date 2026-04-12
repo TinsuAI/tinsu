@@ -1,6 +1,8 @@
 /**
  * ChatTerminal - Full-height terminal panel for a chat session's tmux session.
  *
+ * T1.9: Migrated from tRPC subscriptions to Tauri Channel + listen events.
+ *
  * Spawns a separate PTY to `tmux attach` the chat session's tmux,
  * giving the user full read/write terminal access. Auto-detaches on close/unmount.
  * Designed to fill its parent container (used as a dedicated panel column).
@@ -9,7 +11,9 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
+import { Channel } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { XTerminal, type XTerminalRef } from '../terminal/XTerminal'
 
 interface ChatTerminalProps {
@@ -23,74 +27,104 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   const [isAttached, setIsAttached] = useState(false)
   const processIdRef = useRef<string | null>(null)
 
-  const attachMutation = trpc.chatSession.attachTerminal.useMutation()
-  const detachMutation = trpc.chatSession.detachTerminal.useMutation()
-  const writeMutation = trpc.pty.write.useMutation()
-  const resizeMutation = trpc.pty.resize.useMutation()
-
-  // Attach on mount
+  // Keep cleanup ref in sync with state
   useEffect(() => {
-    const dims = termRef.current?.getDimensions()
-    attachMutation.mutate(
-      { sessionId, cols: dims?.cols, rows: dims?.rows },
-      {
-        onSuccess: (result) => {
-          if (result.attached && result.processId) {
-            setProcessId(result.processId)
-            processIdRef.current = result.processId
-            setIsAttached(true)
-          }
+    processIdRef.current = processId
+  }, [processId])
+
+  // Attach on mount — uses Tauri Channel for PTY output streaming
+  useEffect(() => {
+    let cancelled = false
+
+    async function attach() {
+      try {
+        const dims = termRef.current?.getDimensions()
+
+        const decoder = new TextDecoder()
+        const channel = new Channel<number[]>()
+        channel.onmessage = (data) => {
+          termRef.current?.write(decoder.decode(new Uint8Array(data)))
         }
+
+        const result = await commands.attachChatTerminal(
+          sessionId,
+          dims?.cols ?? null,
+          dims?.rows ?? null,
+          channel
+        )
+
+        if (result.status === 'error') {
+          console.warn('[ChatTerminal] attach error:', result.error)
+          return
+        }
+
+        if (cancelled) {
+          if (result.data.process_id) {
+            commands.detachChatTerminal(result.data.process_id).catch(() => {})
+          }
+          return
+        }
+
+        if (result.data.attached && result.data.process_id) {
+          setProcessId(result.data.process_id)
+          processIdRef.current = result.data.process_id
+          setIsAttached(true)
+        }
+      } catch (err) {
+        console.warn('[ChatTerminal] attach exception:', err)
       }
-    )
+    }
+
+    attach()
 
     return () => {
+      cancelled = true
       if (processIdRef.current) {
-        detachMutation.mutate({ processId: processIdRef.current })
+        commands.detachChatTerminal(processIdRef.current).catch(() => {})
+        processIdRef.current = null
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
-  // Subscribe to PTY output
-  trpc.pty.onOutput.useSubscription(
-    { processId: processId ?? '' },
-    {
-      enabled: !!processId,
-      onData: (event) => {
-        termRef.current?.write(event.data)
-      }
-    }
-  )
+  // Listen to pty:exit Tauri Event
+  useEffect(() => {
+    if (!processId) return
+    let unlisten: (() => void) | undefined
 
-  // Subscribe to PTY exit
-  trpc.pty.onExit.useSubscription(
-    { processId: processId ?? '' },
-    {
-      enabled: !!processId,
-      onData: () => {
-        setIsAttached(false)
-        termRef.current?.write('\r\n\x1b[90m[Session ended]\x1b[0m\r\n')
-      }
+    listen<{ process_id: string; exit_code: number }>('pty:exit', (event) => {
+      if (event.payload.process_id !== processId) return
+      setIsAttached(false)
+      termRef.current?.write('\r\n\x1b[90m[Session ended]\x1b[0m\r\n')
+    }).then((fn) => {
+      unlisten = fn
+    })
+
+    return () => {
+      unlisten?.()
     }
-  )
+  }, [processId])
 
   const handleData = useCallback(
     (data: string) => {
       if (processIdRef.current) {
-        writeMutation.mutate({ processId: processIdRef.current, data })
+        commands.writePty(processIdRef.current, data).catch((e) =>
+          console.warn('[ChatTerminal] write error:', e)
+        )
       }
     },
-    [writeMutation]
+    []
   )
 
   const handleResize = useCallback(
     (cols: number, rows: number) => {
       if (processIdRef.current) {
-        resizeMutation.mutate({ processId: processIdRef.current, cols, rows })
+        commands.resizePty(processIdRef.current, cols, rows).catch((e) =>
+          console.warn('[ChatTerminal] resize error:', e)
+        )
       }
     },
-    [resizeMutation]
+    []
   )
 
   return (

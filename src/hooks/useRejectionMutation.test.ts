@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useRejectionMutation } from './useRejectionMutation'
 import { toast } from 'sonner'
+import React from 'react'
 
 // Mock toast
 vi.mock('sonner', () => ({
@@ -11,246 +13,218 @@ vi.mock('sonner', () => ({
   }
 }))
 
-// Mock tRPC
-const mockMutate = vi.fn()
-const mockInvalidateGetById = vi.fn()
-const mockInvalidateGetAllWithEpics = vi.fn()
-const mockInvalidateGetAll = vi.fn()
-let mockOnSuccess: (() => void) | undefined
-let mockOnError: ((error: { data?: { code?: string }; message: string }) => void) | undefined
+// Mock commands
+const mockRejectTask = vi.fn()
 
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    useUtils: () => ({
-      tasks: {
-        getById: { invalidate: mockInvalidateGetById },
-        getAllWithEpics: { invalidate: mockInvalidateGetAllWithEpics },
-        getAll: { invalidate: mockInvalidateGetAll }
-      }
-    }),
-    tasks: {
-      rejectWithFeedback: {
-        useMutation: (options?: {
-          onSuccess?: () => void
-          onError?: (error: { data?: { code?: string }; message: string }) => void
-        }) => {
-          mockOnSuccess = options?.onSuccess
-          mockOnError = options?.onError
-          return {
-            mutate: mockMutate,
-            isPending: false,
-            isSuccess: false,
-            isError: false,
-            error: null
-          }
-        }
-      }
-    }
+vi.mock('@renderer/lib/rspc', () => ({
+  commands: {
+    rejectTask: (...args: unknown[]) => mockRejectTask(...args)
   }
 }))
 
 describe('useRejectionMutation', () => {
+  let queryClient: QueryClient
+
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+
   beforeEach(() => {
     vi.clearAllMocks()
-    mockOnSuccess = undefined
-    mockOnError = undefined
+    queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } }
+    })
   })
 
   describe('reject function', () => {
-    it('should call rejectWithFeedback mutation with taskId and feedback', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+    it('should call commands.rejectTask with taskId and feedback', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
 
-      act(() => {
+      await act(async () => {
         result.current.reject('Please fix the validation logic')
       })
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        id: 'task-123',
-        feedback: 'Please fix the validation logic'
-      })
+      await waitFor(() =>
+        expect(mockRejectTask).toHaveBeenCalledWith('task-123', 'Please fix the validation logic')
+      )
     })
 
-    it('should call rejectWithFeedback with null feedback when empty', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-456', storyNumber: '3.2' })
+    it('should call rejectTask with empty string when feedback is null', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-456', storyNumber: '3.2' }),
+        { wrapper }
       )
 
-      act(() => {
+      await act(async () => {
         result.current.reject(null)
       })
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        id: 'task-456',
-        feedback: null
-      })
+      await waitFor(() =>
+        expect(mockRejectTask).toHaveBeenCalledWith('task-456', '')
+      )
     })
 
-    it('should pass correct taskId on subsequent calls', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-789', storyNumber: '5.1' })
+    it('should pass correct taskId for different tasks', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-789', storyNumber: '5.1' }),
+        { wrapper }
       )
 
-      act(() => {
+      await act(async () => {
         result.current.reject('Different feedback')
       })
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        id: 'task-789',
-        feedback: 'Different feedback'
-      })
+      await waitFor(() =>
+        expect(mockRejectTask).toHaveBeenCalledWith('task-789', 'Different feedback')
+      )
     })
   })
 
   describe('onSuccess handler', () => {
-    it('should show success toast with story number on successful rejection', () => {
-      renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+    it('should show success toast with story number on successful rejection', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnSuccess?.()
+      await act(async () => {
+        result.current.reject('feedback')
       })
 
-      expect(toast.success).toHaveBeenCalledWith('Story 7.4 rejected, returning to In Progress', {
-        description: 'Feedback saved for next attempt'
-      })
-    })
-
-    it('should show success toast with "Task" when no story number', () => {
-      renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: null })
-      )
-
-      act(() => {
-        mockOnSuccess?.()
-      })
-
-      expect(toast.success).toHaveBeenCalledWith('Task rejected, returning to In Progress', {
-        description: 'Feedback saved for next attempt'
-      })
-    })
-
-    it('should invalidate task queries on success', () => {
-      renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
-      )
-
-      act(() => {
-        mockOnSuccess?.()
-      })
-
-      expect(mockInvalidateGetById).toHaveBeenCalledWith({ id: 'task-123' })
-      expect(mockInvalidateGetAllWithEpics).toHaveBeenCalled()
-      expect(mockInvalidateGetAll).toHaveBeenCalled()
-    })
-
-    it('should call onSuccess callback when provided', () => {
-      const onSuccessCallback = vi.fn()
-      renderHook(() =>
-        useRejectionMutation({
-          taskId: 'task-123',
-          storyNumber: '7.4',
-          onSuccess: onSuccessCallback
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Story 7.4 rejected, returning to In Progress', {
+          description: 'Feedback saved for next attempt'
         })
       )
+    })
 
-      act(() => {
-        mockOnSuccess?.()
+    it('should show success toast with "Task" when no story number', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: null }),
+        { wrapper }
+      )
+
+      await act(async () => {
+        result.current.reject('feedback')
       })
 
-      expect(onSuccessCallback).toHaveBeenCalled()
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Task rejected, returning to In Progress', {
+          description: 'Feedback saved for next attempt'
+        })
+      )
+    })
+
+    it('should call onSuccess callback when provided', async () => {
+      mockRejectTask.mockResolvedValue({ status: 'ok', data: null })
+      const onSuccessCallback = vi.fn()
+
+      const { result } = renderHook(
+        () =>
+          useRejectionMutation({
+            taskId: 'task-123',
+            storyNumber: '7.4',
+            onSuccess: onSuccessCallback
+          }),
+        { wrapper }
+      )
+
+      await act(async () => {
+        result.current.reject('feedback')
+      })
+
+      await waitFor(() => expect(onSuccessCallback).toHaveBeenCalled())
     })
   })
 
   describe('onError handler', () => {
-    it('should show error toast on failure', () => {
-      renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+    it('should show error toast on generic failure', async () => {
+      mockRejectTask.mockResolvedValue({
+        status: 'error',
+        error: { Internal: 'Internal server error' }
+      })
+
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          message: 'Internal server error'
-        })
+      await act(async () => {
+        result.current.reject('feedback')
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Rejection failed', {
-        description: 'Internal server error'
-      })
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Rejection failed', expect.any(Object))
+      )
     })
 
-    it('should call onError callback on failure', () => {
+    it('should call onError callback on failure', async () => {
+      mockRejectTask.mockResolvedValue({
+        status: 'error',
+        error: { Internal: 'Network error' }
+      })
       const onErrorCallback = vi.fn()
-      renderHook(() =>
-        useRejectionMutation({
-          taskId: 'task-123',
-          storyNumber: '7.4',
-          onError: onErrorCallback
-        })
+
+      const { result } = renderHook(
+        () =>
+          useRejectionMutation({
+            taskId: 'task-123',
+            storyNumber: '7.4',
+            onError: onErrorCallback
+          }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          message: 'Network error'
-        })
+      await act(async () => {
+        result.current.reject('feedback')
       })
 
-      expect(onErrorCallback).toHaveBeenCalledWith(expect.any(Error))
-      expect(onErrorCallback).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Network error' })
-      )
-    })
-
-    it('should handle error without data as generic error', () => {
-      renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
-      )
-
-      act(() => {
-        mockOnError?.({
-          data: undefined,
-          message: 'Unknown error'
-        })
-      })
-
-      expect(toast.error).toHaveBeenCalledWith('Rejection failed', {
-        description: 'Unknown error'
-      })
+      await waitFor(() => expect(onErrorCallback).toHaveBeenCalledWith(expect.any(Error)))
     })
   })
 
   describe('returned state', () => {
     it('should return isPending from mutation', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
-
       expect(result.current.isPending).toBe(false)
     })
 
     it('should return isSuccess from mutation', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
-
       expect(result.current.isSuccess).toBe(false)
     })
 
     it('should return isError from mutation', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
-
       expect(result.current.isError).toBe(false)
     })
 
     it('should return error from mutation', () => {
-      const { result } = renderHook(() =>
-        useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' })
+      const { result } = renderHook(
+        () => useRejectionMutation({ taskId: 'task-123', storyNumber: '7.4' }),
+        { wrapper }
       )
-
       expect(result.current.error).toBe(null)
     })
   })

@@ -16,7 +16,8 @@
 import { useState, useCallback } from 'react'
 import { Plus, MoreVertical, MessageSquare, Activity, Circle, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { trpc } from '@renderer/lib/trpc'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { commands } from '@renderer/lib/rspc'
 import { AGENT_PERSONA_CONFIG } from '@renderer/constants/planning-workspace'
 import { ChatSessionContextMenu, type ChatSessionListItem } from './ChatSessionContextMenu'
 
@@ -183,24 +184,38 @@ export function BackgroundSessionSummary({
 }
 
 export function ChatSessionList({ projectId, onSelectSession, onNewChat, selectedSessionId }: ChatSessionListProps) {
+  const queryClient = useQueryClient()
+
   // CTM-2.3: Poll every 2 seconds for real-time status badge updates (was 5000ms)
-  const { data: sessions = [] } = trpc.chatSession.listWithPreview.useQuery(
-    { projectId },
-    { refetchInterval: 2000 }
-  )
-
-  const trpcUtils = trpc.useUtils()
-
-  const updateStatus = trpc.chatSession.updateStatus.useMutation({
-    onSuccess: () => {
-      trpcUtils.chatSession.listWithPreview.invalidate({ projectId })
-    }
+  const { data: sessions = [] } = useQuery({
+    queryKey: ['chat-sessions-preview', projectId],
+    queryFn: async () => {
+      const r = await commands.listChatSessionsWithPreview(projectId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!projectId,
+    refetchInterval: 2000,
   })
 
-  const deleteSession = trpc.chatSession.deleteSession.useMutation({
+  const updateStatus = useMutation({
+    mutationFn: async ({ sessionId, status }: { sessionId: string; status: string }) => {
+      const r = await commands.updateSessionStatus(sessionId, status)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
     onSuccess: () => {
-      trpcUtils.chatSession.listWithPreview.invalidate({ projectId })
-    }
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions-preview', projectId] })
+    },
+  })
+
+  const deleteSession = useMutation({
+    mutationFn: async ({ sessionId }: { sessionId: string }) => {
+      const r = await commands.deleteChatSession(sessionId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions-preview', projectId] })
+    },
   })
 
   // Track which session's context menu is open
@@ -219,6 +234,23 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
     },
     [deleteSession]
   )
+
+  // Adapt ChatSessionPreview to ChatSessionListItem shape.
+  // T1.10 will populate liveStatus from tmux state; for now we preserve it if present (e.g. from tests).
+  type SessionWithLiveStatus = (typeof sessions)[0] & { liveStatus?: ChatSessionListItem['liveStatus'] }
+  const sessionItems: ChatSessionListItem[] = (sessions as SessionWithLiveStatus[]).map((s) => ({
+    id: s.id,
+    session_uuid: s.session_uuid,
+    agent_persona: s.agent_persona ?? 'bmad:bmm:agents:pm',
+    workflow_key: s.workflow_key,
+    status: s.status,
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    last_message_at: s.last_message_at,
+    last_message_preview: s.last_message_preview,
+    skip_permissions: s.skip_permissions,
+    liveStatus: s.liveStatus,
+  }))
 
   return (
     <div className="flex h-full flex-col" data-testid="chat-session-list">
@@ -242,13 +274,13 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
 
       {/* CTM-2.3: Background session summary strip */}
       <BackgroundSessionSummary
-        sessions={sessions as Array<ChatSessionListItem>}
+        sessions={sessionItems}
         selectedSessionId={selectedSessionId}
       />
 
       {/* Session list */}
       <div className="flex-1 overflow-y-auto">
-        {sessions.length === 0 ? (
+        {sessionItems.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center gap-3 px-6 py-12"
             data-testid="session-list-empty"
@@ -262,19 +294,19 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
           </div>
         ) : (
           <div className="space-y-px p-1.5" data-testid="session-cards-container">
-            {sessions.map((session) => {
+            {sessionItems.map((session) => {
               const persona = AGENT_PERSONA_CONFIG[session.agent_persona]
               const isCompleted = session.status === 'completed'
-              const preview = session.lastMessagePreview
-                ? session.lastMessagePreview.length > 60
-                  ? session.lastMessagePreview.slice(0, 60) + '\u2026'
-                  : session.lastMessagePreview
+              const preview = session.last_message_preview
+                ? session.last_message_preview.length > 60
+                  ? session.last_message_preview.slice(0, 60) + '\u2026'
+                  : session.last_message_preview
                 : null
 
               const timestamp = session.last_message_at ?? session.updated_at
 
               // CTM-2.3: Use liveStatus for badge display
-              const liveStatus = (session as ChatSessionListItem).liveStatus
+              const liveStatus = session.liveStatus
 
               return (
                 <div
@@ -290,7 +322,7 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
                   {/* Clickable card body */}
                   <button
                     type="button"
-                    onClick={() => onSelectSession(session as ChatSessionListItem)}
+                    onClick={() => onSelectSession(session)}
                     className="w-full px-3 py-2.5 text-left"
                     data-testid={`session-card-button-${session.id}`}
                   >
@@ -368,7 +400,7 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
 
                     {/* Context menu */}
                     <ChatSessionContextMenu
-                      session={session as ChatSessionListItem}
+                      session={session}
                       onComplete={() => handleComplete(session.id)}
                       onDelete={() => handleDelete(session.id)}
                       isOpen={openMenuId === session.id}

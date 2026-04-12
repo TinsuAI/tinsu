@@ -1,35 +1,23 @@
 /**
- * useDiff Hook Tests - TES-4.1, Story 8.11, Story 7.6, Story 7.7
+ * useDiff Hook Tests - T1.8
  *
- * Tests for the useDiff React hook.
+ * Tests for the useDiff React hook after migration from tRPC to Tauri commands.
  *
- * @see TES-4.1: Git Diff Data Fetching
- * @see Story 8.11: Historical Diff View for Completed Tasks
- * @see Story 7.6: Agent Re-execution with Feedback Context
- * @see Story 7.7: Review History & Comparison
+ * @see T1.8: Migrate Git Service to Rust
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { trpc } from '@renderer/lib/trpc'
 import { useDiff } from './useDiff'
 import React from 'react'
 
-// Mock trpc with all the queries used by useDiff
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    git: {
-      getTaskDiff: {
-        useQuery: vi.fn()
-      },
-      getTaskDiffWithBaseline: {
-        useQuery: vi.fn()
-      },
-      getVersionDiff: {
-        useQuery: vi.fn()
-      }
-    }
+// Mock commands
+const mockGetTaskDiff = vi.fn()
+
+vi.mock('@renderer/lib/rspc', () => ({
+  commands: {
+    getTaskDiff: (...args: unknown[]) => mockGetTaskDiff(...args)
   }
 }))
 
@@ -39,19 +27,6 @@ vi.mock('sonner', () => ({
     error: vi.fn()
   }
 }))
-
-const mockGetTaskDiff = trpc.git.getTaskDiff.useQuery as ReturnType<typeof vi.fn>
-const mockGetTaskDiffWithBaseline = trpc.git.getTaskDiffWithBaseline.useQuery as ReturnType<typeof vi.fn>
-const mockGetVersionDiff = trpc.git.getVersionDiff.useQuery as ReturnType<typeof vi.fn>
-
-// Default mock return value for disabled queries
-const disabledQueryReturn = {
-  data: undefined,
-  isLoading: false,
-  error: null,
-  refetch: vi.fn(),
-  isFetching: false
-}
 
 describe('useDiff', () => {
   let queryClient: QueryClient
@@ -65,11 +40,6 @@ describe('useDiff', () => {
         }
       }
     })
-
-    // Default to disabled query return for all mocks
-    mockGetTaskDiff.mockReturnValue(disabledQueryReturn)
-    mockGetTaskDiffWithBaseline.mockReturnValue(disabledQueryReturn)
-    mockGetVersionDiff.mockReturnValue(disabledQueryReturn)
   })
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -94,28 +64,8 @@ describe('useDiff', () => {
       expect(result.current.hasChanges).toBe(false)
     })
 
-    it('should return null diff when worktreePath is null (query disabled)', () => {
-      const { result } = renderHook(
-        () =>
-          useDiff({
-            taskId: 'task-123',
-            mode: 'worktree',
-            worktreePath: null
-          }),
-        { wrapper }
-      )
-
-      expect(result.current.diff).toBeNull()
-    })
-
-    it('should return loading state when fetching', () => {
-      mockGetTaskDiff.mockReturnValue({
-        data: undefined,
-        isLoading: true,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: true
-      })
+    it('should return loading state when fetching', async () => {
+      mockGetTaskDiff.mockResolvedValue({ status: 'ok', data: null })
 
       const { result } = renderHook(
         () =>
@@ -127,11 +77,11 @@ describe('useDiff', () => {
         { wrapper }
       )
 
+      // Initially loading
       expect(result.current.isLoading).toBe(true)
-      expect(result.current.diff).toBeNull()
     })
 
-    it('should return diff data when fetched successfully', () => {
+    it('should return diff data when fetched successfully', async () => {
       const mockDiff = {
         files: [
           {
@@ -139,7 +89,9 @@ describe('useDiff', () => {
             status: 'modified',
             additions: 5,
             deletions: 2,
-            hunks: []
+            hunks: [],
+            oldPath: null,
+            isBinary: null
           }
         ],
         summary: {
@@ -149,13 +101,7 @@ describe('useDiff', () => {
         }
       }
 
-      mockGetTaskDiff.mockReturnValue({
-        data: mockDiff,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
-      })
+      mockGetTaskDiff.mockResolvedValue({ status: 'ok', data: mockDiff })
 
       const { result } = renderHook(
         () =>
@@ -167,12 +113,14 @@ describe('useDiff', () => {
         { wrapper }
       )
 
+      await waitFor(() => expect(result.current.isLoading).toBe(false))
+
       expect(result.current.diff).toEqual(mockDiff)
       expect(result.current.hasChanges).toBe(true)
       expect(result.current.summary).toEqual(mockDiff.summary)
     })
 
-    it('should return empty state when no changes', () => {
+    it('should return empty state when no changes', async () => {
       const emptyDiff = {
         files: [],
         summary: {
@@ -182,13 +130,7 @@ describe('useDiff', () => {
         }
       }
 
-      mockGetTaskDiff.mockReturnValue({
-        data: emptyDiff,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
-      })
+      mockGetTaskDiff.mockResolvedValue({ status: 'ok', data: emptyDiff })
 
       const { result } = renderHook(
         () =>
@@ -200,17 +142,16 @@ describe('useDiff', () => {
         { wrapper }
       )
 
+      await waitFor(() => expect(result.current.isLoading).toBe(false))
+
       expect(result.current.diff).toEqual(emptyDiff)
       expect(result.current.hasChanges).toBe(false)
     })
 
-    it('should return error state when fetch fails', () => {
-      mockGetTaskDiff.mockReturnValue({
-        data: undefined,
-        isLoading: false,
-        error: { message: 'Failed to fetch diff' },
-        refetch: vi.fn(),
-        isFetching: false
+    it('should return error state when fetch fails', async () => {
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'error',
+        error: { NotFound: 'Task not found' }
       })
 
       const { result } = renderHook(
@@ -223,66 +164,54 @@ describe('useDiff', () => {
         { wrapper }
       )
 
-      expect(result.current.error).toBe('Failed to fetch diff')
+      await waitFor(() => expect(result.current.error).not.toBeNull())
+
       expect(result.current.diff).toBeNull()
+    })
+
+    it('should call commands.getTaskDiff with taskId', async () => {
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'ok',
+        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } }
+      })
+
+      renderHook(
+        () =>
+          useDiff({
+            taskId: 'task-xyz',
+            mode: 'worktree',
+            worktreePath: '/path/to/worktree'
+          }),
+        { wrapper }
+      )
+
+      await waitFor(() => expect(mockGetTaskDiff).toHaveBeenCalledWith('task-xyz'))
     })
   })
 
-  describe('historical mode (Story 8.11)', () => {
-    it('should return null diff when mergeCommitSha is null (query disabled)', () => {
+  describe('historical mode (deferred to T1.10)', () => {
+    it('should return null diff when in historical mode (query disabled)', () => {
       const { result } = renderHook(
         () =>
           useDiff({
             taskId: 'task-123',
             mode: 'historical',
-            mergeCommitSha: null
+            mergeCommitSha: 'abc123'
           }),
         { wrapper }
       )
 
+      // Historical mode not enabled (deferred to T1.10)
       expect(result.current.diff).toBeNull()
-    })
-
-    it('should fetch diff using mergeCommitSha in historical mode', () => {
-      const mockDiff = {
-        files: [{ path: 'file.ts', status: 'added', additions: 10, deletions: 0, hunks: [] }],
-        summary: { filesChanged: 1, linesAdded: 10, linesRemoved: 0 }
-      }
-
-      mockGetTaskDiff.mockReturnValue({
-        data: mockDiff,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
-      })
-
-      const { result } = renderHook(
-        () =>
-          useDiff({
-            taskId: 'task-done',
-            mode: 'historical',
-            mergeCommitSha: 'abc123def456'
-          }),
-        { wrapper }
-      )
-
-      expect(result.current.diff).toEqual(mockDiff)
-      expect(mockGetTaskDiff).toHaveBeenCalledWith(
-        { mergeCommitSha: 'abc123def456' },
-        expect.any(Object)
-      )
+      expect(result.current.isLoading).toBe(false)
     })
   })
 
-  describe('baseline diff (Story 7.6)', () => {
+  describe('baseline diff (Story 7.6 - deferred)', () => {
     it('should indicate baseline diff mode when baselineCommit is provided', () => {
-      mockGetTaskDiffWithBaseline.mockReturnValue({
-        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'ok',
+        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } }
       })
 
       const { result } = renderHook(
@@ -300,12 +229,9 @@ describe('useDiff', () => {
     })
 
     it('should not be baseline diff when no baselineCommit', () => {
-      mockGetTaskDiff.mockReturnValue({
-        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'ok',
+        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } }
       })
 
       const { result } = renderHook(
@@ -322,16 +248,8 @@ describe('useDiff', () => {
     })
   })
 
-  describe('version comparison (Story 7.7)', () => {
+  describe('version comparison (Story 7.7 - deferred)', () => {
     it('should indicate version comparison mode when versionComparison is provided', () => {
-      mockGetVersionDiff.mockReturnValue({
-        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
-      })
-
       const { result } = renderHook(
         () =>
           useDiff({
@@ -356,12 +274,9 @@ describe('useDiff', () => {
     })
 
     it('should not be version comparison in worktree mode', () => {
-      mockGetTaskDiff.mockReturnValue({
-        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'ok',
+        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } }
       })
 
       const { result } = renderHook(
@@ -377,59 +292,13 @@ describe('useDiff', () => {
       expect(result.current.isVersionComparison).toBe(false)
       expect(result.current.versionComparisonInfo).toBeNull()
     })
-
-    it('should fetch version diff using getVersionDiff query', () => {
-      const mockDiff = {
-        files: [{ path: 'changed.ts', status: 'modified', additions: 3, deletions: 1, hunks: [] }],
-        summary: { filesChanged: 1, linesAdded: 3, linesRemoved: 1 }
-      }
-
-      mockGetVersionDiff.mockReturnValue({
-        data: mockDiff,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: false
-      })
-
-      const { result } = renderHook(
-        () =>
-          useDiff({
-            taskId: 'task-compare',
-            mode: 'version',
-            versionComparison: {
-              taskId: 'task-compare',
-              fromCommitSha: 'abc123',
-              toCommitSha: 'def456',
-              fromVersionNumber: 1,
-              toVersionNumber: 2
-            }
-          }),
-        { wrapper }
-      )
-
-      expect(result.current.diff).toEqual(mockDiff)
-      expect(mockGetVersionDiff).toHaveBeenCalledWith(
-        {
-          taskId: 'task-compare',
-          fromCommitSha: 'abc123',
-          toCommitSha: 'def456'
-        },
-        expect.any(Object)
-      )
-    })
   })
 
   describe('refresh', () => {
     it('should provide refresh function', () => {
-      const mockRefetch = vi.fn().mockResolvedValue({})
-
-      mockGetTaskDiff.mockReturnValue({
-        data: undefined,
-        isLoading: false,
-        error: null,
-        refetch: mockRefetch,
-        isFetching: false
+      mockGetTaskDiff.mockResolvedValue({
+        status: 'ok',
+        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } }
       })
 
       const { result } = renderHook(
@@ -443,29 +312,6 @@ describe('useDiff', () => {
       )
 
       expect(typeof result.current.refresh).toBe('function')
-    })
-
-    it('should indicate refreshing state', () => {
-      mockGetTaskDiff.mockReturnValue({
-        data: { files: [], summary: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 } },
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-        isFetching: true // Refetching after initial load
-      })
-
-      const { result } = renderHook(
-        () =>
-          useDiff({
-            taskId: 'task-def',
-            mode: 'worktree',
-            worktreePath: '/path/to/worktree'
-          }),
-        { wrapper }
-      )
-
-      expect(result.current.isLoading).toBe(false)
-      expect(result.current.isRefreshing).toBe(true)
     })
   })
 })

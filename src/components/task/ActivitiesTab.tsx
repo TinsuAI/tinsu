@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { AlertCircle, RefreshCw, ChevronUp } from 'lucide-react'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@renderer/components/ui/button'
 import { ActivityItem } from './ActivityItem'
 import type { Activity } from '@shared/types/activity.types'
@@ -136,23 +137,37 @@ export function ActivitiesTab({ taskId }: ActivitiesTabProps): React.ReactNode {
   const isFiltering = !selectedFilters.includes('all') && selectedFilters.length > 0
 
   // Initial data fetch (no polling - replaced by subscription)
-  // @see TES-2.13: AC #4 - Subscription replaces polling
+  // @see T1.7: AC #12 - Migrated from tRPC to tauri-specta commands
   const {
     data: initialActivities,
     isLoading,
     error,
     refetch
-  } = trpc.activity.listActivities.useQuery(
-    { taskId, limit: 100, eventTypes },
-    {
-      // TES-2.13: No refetchInterval - subscription handles real-time updates
-    }
-  )
+  } = useQuery({
+    queryKey: ['activities', taskId, eventTypes],
+    queryFn: async () => {
+      const result = await commands.listActivitiesForTask(
+        taskId,
+        100,
+        null,
+        eventTypes ?? null
+      )
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return result.data as Activity[]
+    },
+    enabled: !!taskId,
+  })
 
-  // Initialize activities from query (and when filter changes)
+  // Initialize activities from query (and when filter changes).
+  // Merges with existing local state so subscription events that arrived before
+  // the query resolved are not overwritten (they will be deduped by ID).
   useEffect(() => {
     if (initialActivities) {
-      setActivities(initialActivities as Activity[])
+      setActivities((prev) => {
+        const dbActivities = initialActivities as Activity[]
+        const subscriptionOnly = prev.filter((a) => !dbActivities.some((db) => db.id === a.id))
+        return [...subscriptionOnly, ...dbActivities]
+      })
       // Clear animation state on initial load / filter change
       setNewActivityIds(new Set())
       setNewEventCount(0)

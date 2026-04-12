@@ -10,6 +10,10 @@ pub enum AppError {
     Internal(String),
     #[error("Database error: {0}")]
     Database(String),
+    #[error("Merge conflict: {0}")]
+    GitConflict(String),
+    #[error("Git operation failed: {0}")]
+    GitOperation(String),
 }
 
 impl From<sea_orm::DbErr> for AppError {

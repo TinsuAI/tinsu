@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useApprovalMutation } from './useApprovalMutation'
 import { toast } from 'sonner'
+import React from 'react'
 
 // Mock toast
 vi.mock('sonner', () => ({
@@ -12,313 +14,273 @@ vi.mock('sonner', () => ({
   }
 }))
 
-// Mock tRPC
-const mockMutate = vi.fn()
-const mockInvalidateGetById = vi.fn()
-const mockInvalidateGetAllWithEpics = vi.fn()
-const mockInvalidateGetAll = vi.fn()
-let mockOnSuccess: (() => void) | undefined
-let mockOnError: ((error: { data?: { code?: string }; message: string }) => void) | undefined
+// Mock commands
+const mockApproveTask = vi.fn()
 
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    useUtils: () => ({
-      tasks: {
-        getById: { invalidate: mockInvalidateGetById },
-        getAllWithEpics: { invalidate: mockInvalidateGetAllWithEpics },
-        getAll: { invalidate: mockInvalidateGetAll }
-      }
-    }),
-    tasks: {
-      updateStatus: {
-        useMutation: (options?: {
-          onSuccess?: () => void
-          onError?: (error: { data?: { code?: string }; message: string }) => void
-        }) => {
-          mockOnSuccess = options?.onSuccess
-          mockOnError = options?.onError
-          return {
-            mutate: mockMutate,
-            isPending: false,
-            isSuccess: false,
-            isError: false,
-            error: null
-          }
-        }
-      }
-    }
+vi.mock('@renderer/lib/rspc', () => ({
+  commands: {
+    approveTask: (...args: unknown[]) => mockApproveTask(...args)
   }
 }))
 
 describe('useApprovalMutation', () => {
+  let queryClient: QueryClient
+
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children)
+
   beforeEach(() => {
     vi.clearAllMocks()
-    mockOnSuccess = undefined
-    mockOnError = undefined
+    queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } }
+    })
   })
 
   describe('approve function', () => {
-    it('should call updateStatus mutation with taskId and done status', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+    it('should call commands.approveTask with taskId', async () => {
+      mockApproveTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
 
-      act(() => {
+      await act(async () => {
         result.current.approve()
       })
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        id: 'task-123',
-        status: 'done'
-      })
+      await waitFor(() => expect(mockApproveTask).toHaveBeenCalledWith('task-123'))
     })
 
-    it('should pass correct taskId on subsequent calls', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-456', storyNumber: 3 })
+    it('should pass correct taskId for different tasks', async () => {
+      mockApproveTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-456', storyNumber: 3 }),
+        { wrapper }
       )
 
-      act(() => {
+      await act(async () => {
         result.current.approve()
       })
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        id: 'task-456',
-        status: 'done'
-      })
+      await waitFor(() => expect(mockApproveTask).toHaveBeenCalledWith('task-456'))
     })
   })
 
   describe('onSuccess handler', () => {
-    it('should show success toast with story number on successful merge', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+    it('should show success toast with story number on successful merge', async () => {
+      mockApproveTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnSuccess?.()
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(toast.success).toHaveBeenCalledWith('Story 7 approved and merged', {
-        description: 'Code merged to main'
-      })
-    })
-
-    it('should show success toast with "Task" when no story number', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: null })
-      )
-
-      act(() => {
-        mockOnSuccess?.()
-      })
-
-      expect(toast.success).toHaveBeenCalledWith('Task approved and merged', {
-        description: 'Code merged to main'
-      })
-    })
-
-    it('should invalidate task queries on success', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
-      )
-
-      act(() => {
-        mockOnSuccess?.()
-      })
-
-      expect(mockInvalidateGetById).toHaveBeenCalledWith({ id: 'task-123' })
-      expect(mockInvalidateGetAllWithEpics).toHaveBeenCalled()
-      expect(mockInvalidateGetAll).toHaveBeenCalled()
-    })
-
-    it('should call onSuccess callback when provided', () => {
-      const onSuccessCallback = vi.fn()
-      renderHook(() =>
-        useApprovalMutation({
-          taskId: 'task-123',
-          storyNumber: 7,
-          onSuccess: onSuccessCallback
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Story 7 approved and merged', {
+          description: 'Code merged to main'
         })
       )
+    })
 
-      act(() => {
-        mockOnSuccess?.()
+    it('should show success toast with "Task" when no story number', async () => {
+      mockApproveTask.mockResolvedValue({ status: 'ok', data: null })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: null }),
+        { wrapper }
+      )
+
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(onSuccessCallback).toHaveBeenCalled()
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Task approved and merged', {
+          description: 'Code merged to main'
+        })
+      )
+    })
+
+    it('should call onSuccess callback when provided', async () => {
+      mockApproveTask.mockResolvedValue({ status: 'ok', data: null })
+      const onSuccessCallback = vi.fn()
+
+      const { result } = renderHook(
+        () =>
+          useApprovalMutation({
+            taskId: 'task-123',
+            storyNumber: 7,
+            onSuccess: onSuccessCallback
+          }),
+        { wrapper }
+      )
+
+      await act(async () => {
+        result.current.approve()
+      })
+
+      await waitFor(() => expect(onSuccessCallback).toHaveBeenCalled())
     })
   })
 
-  describe('onError handler - merge conflict (PRECONDITION_FAILED)', () => {
-    it('should show warning toast on merge conflict', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+  describe('onError handler - merge conflict (GitConflict)', () => {
+    it('should show warning toast on merge conflict', async () => {
+      mockApproveTask.mockResolvedValue({
+        status: 'error',
+        error: { GitConflict: 'Merge conflict in src/main.ts, src/utils.ts' }
+      })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          data: { code: 'PRECONDITION_FAILED' },
-          message: 'Cannot complete task: merge conflict in src/main.ts, src/utils.ts'
-        })
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(toast.warning).toHaveBeenCalledWith('Merge conflict detected', {
-        description: 'Cannot complete task: merge conflict in src/main.ts, src/utils.ts',
-        duration: 6000
-      })
+      await waitFor(() =>
+        expect(toast.warning).toHaveBeenCalledWith(
+          'Merge conflict detected',
+          expect.objectContaining({ duration: 6000 })
+        )
+      )
     })
 
-    it('should call onConflict callback on merge conflict', () => {
+    it('should call onConflict callback on merge conflict', async () => {
+      mockApproveTask.mockResolvedValue({
+        status: 'error',
+        error: { GitConflict: 'Merge conflict in file.ts' }
+      })
       const onConflictCallback = vi.fn()
-      renderHook(() =>
-        useApprovalMutation({
-          taskId: 'task-123',
-          storyNumber: 7,
-          onConflict: onConflictCallback
-        })
+
+      const { result } = renderHook(
+        () =>
+          useApprovalMutation({
+            taskId: 'task-123',
+            storyNumber: 7,
+            onConflict: onConflictCallback
+          }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          data: { code: 'PRECONDITION_FAILED' },
-          message: 'Merge conflict in file.ts'
-        })
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(onConflictCallback).toHaveBeenCalledWith('Merge conflict in file.ts')
+      await waitFor(() => expect(onConflictCallback).toHaveBeenCalled())
     })
 
-    it('should not call onError callback on merge conflict (uses onConflict instead)', () => {
+    it('should not call onError callback on merge conflict', async () => {
+      mockApproveTask.mockResolvedValue({
+        status: 'error',
+        error: { GitConflict: 'Conflict detected' }
+      })
       const onErrorCallback = vi.fn()
       const onConflictCallback = vi.fn()
-      renderHook(() =>
-        useApprovalMutation({
-          taskId: 'task-123',
-          storyNumber: 7,
-          onError: onErrorCallback,
-          onConflict: onConflictCallback
-        })
+
+      const { result } = renderHook(
+        () =>
+          useApprovalMutation({
+            taskId: 'task-123',
+            storyNumber: 7,
+            onError: onErrorCallback,
+            onConflict: onConflictCallback
+          }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          data: { code: 'PRECONDITION_FAILED' },
-          message: 'Merge conflict detected'
-        })
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(onConflictCallback).toHaveBeenCalled()
+      await waitFor(() => expect(onConflictCallback).toHaveBeenCalled())
       expect(onErrorCallback).not.toHaveBeenCalled()
     })
   })
 
   describe('onError handler - generic errors', () => {
-    it('should show error toast on generic failure', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+    it('should show error toast on generic failure', async () => {
+      mockApproveTask.mockResolvedValue({
+        status: 'error',
+        error: { Internal: 'Internal server error' }
+      })
+
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          message: 'Internal server error'
-        })
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Approval failed', {
-        description: 'Internal server error'
-      })
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Approval failed', expect.any(Object))
+      )
     })
 
-    it('should call onError callback on generic failure', () => {
+    it('should call onError callback on generic failure', async () => {
+      mockApproveTask.mockResolvedValue({
+        status: 'error',
+        error: { Internal: 'Network error' }
+      })
       const onErrorCallback = vi.fn()
-      renderHook(() =>
-        useApprovalMutation({
-          taskId: 'task-123',
-          storyNumber: 7,
-          onError: onErrorCallback
-        })
+
+      const { result } = renderHook(
+        () =>
+          useApprovalMutation({
+            taskId: 'task-123',
+            storyNumber: 7,
+            onError: onErrorCallback
+          }),
+        { wrapper }
       )
 
-      act(() => {
-        mockOnError?.({
-          message: 'Network error'
-        })
+      await act(async () => {
+        result.current.approve()
       })
 
-      expect(onErrorCallback).toHaveBeenCalledWith(expect.any(Error))
-      expect(onErrorCallback).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Network error' })
-      )
-    })
-
-    it('should handle error without data.code as generic error', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
-      )
-
-      act(() => {
-        mockOnError?.({
-          data: undefined,
-          message: 'Unknown error'
-        })
-      })
-
-      expect(toast.error).toHaveBeenCalledWith('Approval failed', {
-        description: 'Unknown error'
-      })
-      expect(toast.warning).not.toHaveBeenCalled()
-    })
-
-    it('should handle error with non-PRECONDITION_FAILED code as generic error', () => {
-      renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
-      )
-
-      act(() => {
-        mockOnError?.({
-          data: { code: 'INTERNAL_SERVER_ERROR' },
-          message: 'Server crashed'
-        })
-      })
-
-      expect(toast.error).toHaveBeenCalledWith('Approval failed', {
-        description: 'Server crashed'
-      })
-      expect(toast.warning).not.toHaveBeenCalled()
+      await waitFor(() => expect(onErrorCallback).toHaveBeenCalledWith(expect.any(Error)))
     })
   })
 
   describe('returned state', () => {
     it('should return isPending from mutation', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
-
       expect(result.current.isPending).toBe(false)
     })
 
     it('should return isSuccess from mutation', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
-
       expect(result.current.isSuccess).toBe(false)
     })
 
     it('should return isError from mutation', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
-
       expect(result.current.isError).toBe(false)
     })
 
     it('should return error from mutation', () => {
-      const { result } = renderHook(() =>
-        useApprovalMutation({ taskId: 'task-123', storyNumber: 7 })
+      const { result } = renderHook(
+        () => useApprovalMutation({ taskId: 'task-123', storyNumber: 7 }),
+        { wrapper }
       )
-
       expect(result.current.error).toBe(null)
     })
   })

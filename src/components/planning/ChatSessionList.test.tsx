@@ -55,34 +55,30 @@ vi.mock('@renderer/constants/planning-workspace', () => {
   }
 })
 
-// Mock tRPC
+// Mock react-query (replaces tRPC)
 const mockListWithPreviewQuery = vi.fn()
 const mockUpdateStatusMutation = vi.fn()
 const mockDeleteSessionMutation = vi.fn()
 const mockInvalidate = vi.fn()
 
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    chatSession: {
-      listWithPreview: {
-        useQuery: (...args: unknown[]) => mockListWithPreviewQuery(...args)
-      },
-      updateStatus: {
-        useMutation: (...args: unknown[]) => mockUpdateStatusMutation(...args)
-      },
-      deleteSession: {
-        useMutation: (...args: unknown[]) => mockDeleteSessionMutation(...args)
-      }
+let _mutationIdx = 0
+const MUTATION_ORDER = [
+  () => mockUpdateStatusMutation(),
+  () => mockDeleteSessionMutation(),
+]
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({ invalidateQueries: mockInvalidate }),
+    useQuery: (options: { queryKey: unknown[] }) => mockListWithPreviewQuery(options),
+    useMutation: (_options: unknown) => {
+      const idx = _mutationIdx++
+      return MUTATION_ORDER[idx] ? MUTATION_ORDER[idx]() : { mutate: vi.fn(), isPending: false }
     },
-    useUtils: () => ({
-      chatSession: {
-        listWithPreview: {
-          invalidate: mockInvalidate
-        }
-      }
-    })
   }
-}))
+})
 
 const mockSessions = [
   {
@@ -91,11 +87,11 @@ const mockSessions = [
     agent_persona: 'bmad:bmm:agents:pm',
     workflow_key: null,
     status: 'active',
-    created_at: new Date('2026-03-22T10:00:00Z'),
-    updated_at: new Date('2026-03-22T12:00:00Z'),
-    last_message_at: new Date('2026-03-22T12:00:00Z'),
-    lastMessagePreview: 'Tell me about the product roadmap',
-    skip_permissions: true,
+    created_at: 1742641200,
+    updated_at: 1742648400,
+    last_message_at: 1742648400,
+    last_message_preview: 'Tell me about the product roadmap',
+    skip_permissions: 1,
     liveStatus: 'idle' as const
   },
   {
@@ -104,11 +100,11 @@ const mockSessions = [
     agent_persona: 'bmad:bmm:agents:architect',
     workflow_key: 'architecture',
     status: 'completed',
-    created_at: new Date('2026-03-21T08:00:00Z'),
-    updated_at: new Date('2026-03-21T09:00:00Z'),
-    last_message_at: new Date('2026-03-21T09:00:00Z'),
-    lastMessagePreview: 'The architecture is well structured',
-    skip_permissions: false,
+    created_at: 1742544000,
+    updated_at: 1742547600,
+    last_message_at: 1742547600,
+    last_message_preview: 'The architecture is well structured',
+    skip_permissions: 0,
     liveStatus: 'completed' as const
   },
   {
@@ -117,11 +113,11 @@ const mockSessions = [
     agent_persona: 'bmad:bmm:agents:pm',
     workflow_key: 'create-prd',
     status: 'paused',
-    created_at: new Date('2026-03-20T14:00:00Z'),
-    updated_at: new Date('2026-03-20T15:00:00Z'),
-    last_message_at: new Date('2026-03-20T15:00:00Z'),
-    lastMessagePreview: null,
-    skip_permissions: true,
+    created_at: 1742479200,
+    updated_at: 1742482800,
+    last_message_at: 1742482800,
+    last_message_preview: null,
+    skip_permissions: 1,
     liveStatus: 'thinking' as const
   }
 ]
@@ -132,6 +128,7 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    _mutationIdx = 0
 
     mockListWithPreviewQuery.mockReturnValue({
       data: mockSessions
@@ -368,10 +365,12 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
       />
     )
 
-    // Verify the query was called with refetchInterval: 2000
+    // Verify the query was called with refetchInterval: 2000 in options object
     expect(mockListWithPreviewQuery).toHaveBeenCalledWith(
-      { projectId: 'project-1' },
-      { refetchInterval: 2000 }
+      expect.objectContaining({
+        queryKey: ['chat-sessions-preview', 'project-1'],
+        refetchInterval: 2000
+      })
     )
   })
 })
@@ -382,6 +381,7 @@ describe('ChatSessionList Live Status Badges (CTM-2.3, AC: 1, 3)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    _mutationIdx = 0
 
     mockUpdateStatusMutation.mockReturnValue({
       mutate: vi.fn()

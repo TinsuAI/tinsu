@@ -20,8 +20,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert, Terminal } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
-import { trpc } from '@renderer/lib/trpc'
-import { usePlanningWorkspaceStore } from '@renderer/stores'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { commands } from '@renderer/lib/rspc'
+import { useProjectStore, usePlanningWorkspaceStore } from '@renderer/stores'
 import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
 import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 import { ChatMessageArea } from './ChatMessageArea'
@@ -45,8 +46,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const setSelectedWorkflow = usePlanningWorkspaceStore((s) => s.setSelectedWorkflow)
   const setActivePhase = usePlanningWorkspaceStore((s) => s.setActivePhase)
   const setActiveChatSessionId = usePlanningWorkspaceStore((s) => s.setActiveChatSessionId)
-  const { data: project } = trpc.project.getCurrent.useQuery()
-  const projectId = project?.id ?? ''
+  const projectId = useProjectStore((s) => s.activeProjectId) ?? ''
 
   // Story 10.6: View mode — 'list' or 'chat' (AC: 1, 4)
   const [view, setView] = useState<'list' | 'chat'>('list')
@@ -88,15 +88,34 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const queryClient = useQueryClient()
+
   // Story 10.6 AC: 1 — Check if sessions exist to decide initial view.
   // If no sessions exist, go directly to 'chat' view to avoid empty list.
   // CTM-2.1: Query sessions for both list view and persona-switch session lookup.
   // Removed view === 'list' restriction — sessionsForCheck is needed in chat view
   // to find existing sessions when switching personas (AC: 1, 2).
-  const { data: sessionsForCheck } = trpc.chatSession.listWithPreview.useQuery(
-    { projectId },
-    { enabled: !!projectId }
-  )
+  const { data: sessionsForCheck } = useQuery({
+    queryKey: ['chat-sessions-preview', projectId],
+    queryFn: async () => {
+      const r = await commands.listChatSessionsWithPreview(projectId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      // Adapt to ChatSessionListItem shape
+      return r.data.map((s) => ({
+        id: s.id,
+        session_uuid: s.session_uuid,
+        agent_persona: s.agent_persona ?? 'bmad:bmm:agents:pm',
+        workflow_key: s.workflow_key,
+        status: s.status,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        last_message_at: s.last_message_at,
+        last_message_preview: s.last_message_preview,
+        skip_permissions: s.skip_permissions,
+      })) as ChatSessionListItem[]
+    },
+    enabled: !!projectId,
+  })
 
   useEffect(() => {
     if (
@@ -138,11 +157,15 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   }, [targetChatSessionId, sessionsForCheck, clearTargetChatSession])
 
   // Chat-centric layout: Look up session bound to selected workflow key
-  const { data: workflowSession, isLoading: isWorkflowSessionLoading } =
-    trpc.chatSession.getByWorkflowKey.useQuery(
-      { projectId, workflowKey: selectedWorkflowKey ?? '' },
-      { enabled: !!projectId && !!selectedWorkflowKey }
-    )
+  const { data: workflowSession, isLoading: isWorkflowSessionLoading } = useQuery({
+    queryKey: ['chat-session-workflow', projectId, selectedWorkflowKey],
+    queryFn: async () => {
+      const r = await commands.getChatSessionByWorkflowKey(projectId, selectedWorkflowKey!)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!projectId && !!selectedWorkflowKey,
+  })
 
   // Flag to suppress persona-switch effect when session binding sets the persona
   // (workflow step click, session list click, or target navigation)
@@ -161,8 +184,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       // Resume existing workflow session — suppress persona effect
       isSessionBindingRef.current = true
       setSessionId(workflowSession.id)
-      setSelectedPersona(workflowSession.agent_persona as ChatPersonaKey)
-      sessionPersonaRef.current = workflowSession.agent_persona as ChatPersonaKey
+      setSelectedPersona((workflowSession.agent_persona ?? 'bmad:bmm:agents:pm') as ChatPersonaKey)
+      sessionPersonaRef.current = (workflowSession.agent_persona ?? 'bmad:bmm:agents:pm') as ChatPersonaKey
       setIsAgentThinking(false)
       setCurrentToolActivity(null)
       prevMessageCountRef.current = 0
@@ -220,31 +243,19 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   }, [selectedPersona, sessionsForCheck])
 
   // Fetch messages when a session is active
-  const { data: messages = [] } = trpc.chatSession.getMessages.useQuery(
-    { sessionId: sessionId! },
-    { enabled: !!sessionId, refetchInterval: 2000 }
-  )
+  const { data: messages = [] } = useQuery({
+    queryKey: ['chat-messages', sessionId],
+    queryFn: async () => {
+      const r = await commands.getChatMessages(sessionId!, null, null)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!sessionId,
+    refetchInterval: 2000,
+  })
 
-  // Fetch attachments for user messages in this session
-  const userMessageIds = useMemo(
-    () => messages.filter((m) => m.role === 'user').map((m) => m.id),
-    [messages]
-  )
-
-  const { data: attachments = [] } = trpc.chatSession.getMessageAttachments.useQuery(
-    { messageIds: userMessageIds },
-    { enabled: userMessageIds.length > 0 }
-  )
-
-  const attachmentsByMessageId = useMemo(() => {
-    const map: Record<string, ChatMessageAttachment[]> = {}
-    for (const att of attachments) {
-      ;(map[att.message_id] ??= []).push(att as unknown as ChatMessageAttachment)
-    }
-    return map
-  }, [attachments])
-
-  const trpcUtils = trpc.useUtils()
+  // T1.9: Attachment fetching stubbed — will be implemented in T1.10
+  const attachmentsByMessageId = useMemo<Record<string, ChatMessageAttachment[]>>(() => ({}), [])
 
   // Track when new messages arrive to update thinking indicator and tool activity
   useEffect(() => {
@@ -302,44 +313,68 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   }, [messages, isAgentThinking])
 
   // Mutations
-  const createSession = trpc.chatSession.create.useMutation()
-  const sendChatMessage = trpc.chatSession.sendChatMessage.useMutation({
+  const createSession = useMutation({
+    mutationFn: async ({ agentPersona, projectId: pid, workflowKey }: { agentPersona: string; projectId: string; workflowKey?: string }) => {
+      const r = await commands.createChatSession(pid, agentPersona, workflowKey ?? null)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+  })
+  const sendChatMessage = useMutation({
+    mutationFn: async ({ sessionId: sid, content }: { sessionId: string; content: string; attachments?: unknown[] }) => {
+      const r = await commands.sendChatMessage(sid, content)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    onSuccess: () => {
+      if (sessionId) queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] })
+    },
+  })
+  // T1.9: Attachment mutations stubbed — will be implemented in T1.10
+  const saveAttachment = useMutation({
+    mutationFn: async (_vars: { sessionId: string; fileName: string; mimeType: string; base64Data: string }) =>
+      ({ filePath: '', fileName: _vars.fileName, fileSize: 0 }),
+  })
+  const pickAttachmentFiles = useMutation({
+    mutationFn: async () => [] as string[],
+  })
+  const copyFilesToAttachments = useMutation({
+    mutationFn: async (_vars: { sessionId: string; filePaths: string[] }) =>
+      [] as Array<{ filePath: string; fileName: string; mimeType: string; fileSize: number }>,
+  })
+  const deleteMessage = useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; sessionId: string }) => {
+      const r = await commands.deleteChatMessage(messageId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
+    onSuccess: () => {
+      if (sessionId) queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] })
+    },
+  })
+  const clearSessionMessages = useMutation({
+    mutationFn: async ({ sessionId: sid }: { sessionId: string }) => {
+      const r = await commands.clearSessionMessages(sid)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
     onSuccess: () => {
       if (sessionId) {
-        trpcUtils.chatSession.getMessages.invalidate({ sessionId })
-        trpcUtils.chatSession.getMessageAttachments.invalidate()
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] })
+        queryClient.invalidateQueries({ queryKey: ['chat-sessions-preview', projectId] })
       }
-    }
+    },
   })
-  const saveAttachment = trpc.chatSession.saveAttachment.useMutation()
-  const pickAttachmentFiles = trpc.chatSession.pickAttachmentFiles.useMutation()
-  const copyFilesToAttachments = trpc.chatSession.copyFilesToAttachments.useMutation()
-  const deleteMessage = trpc.chatSession.deleteMessage.useMutation({
+  const updateSkipPermissions = useMutation({
+    mutationFn: async ({ sessionId: sid, skipPermissions: sp }: { sessionId: string; skipPermissions: boolean }) => {
+      const r = await commands.updateSkipPermissions(sid, sp)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+    },
     onSuccess: () => {
-      if (sessionId) {
-        trpcUtils.chatSession.getMessages.invalidate({ sessionId })
-        trpcUtils.chatSession.getMessageAttachments.invalidate()
-      }
-    }
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions-preview', projectId] })
+    },
   })
-  const clearSessionMessages = trpc.chatSession.clearSessionMessages.useMutation({
-    onSuccess: () => {
-      if (sessionId) {
-        trpcUtils.chatSession.getMessages.invalidate({ sessionId })
-        trpcUtils.chatSession.getMessageAttachments.invalidate()
-        trpcUtils.chatSession.listWithPreview.invalidate()
-      }
-    }
-  })
-  const updateSkipPermissions = trpc.chatSession.updateSkipPermissions.useMutation({
-    onSuccess: () => {
-      trpcUtils.chatSession.listWithPreview.invalidate()
-    }
-  })
-  const resolvePermissionMutation = trpc.chatSession.resolvePermission.useMutation({
-    onSuccess: () => {
-      if (sessionId) trpcUtils.chatSession.getMessages.invalidate({ sessionId })
-    }
+  // T1.9: resolvePermission stubbed — will be implemented in T1.10
+  const resolvePermissionMutation = useMutation({
+    mutationFn: async (_vars: { requestId: string; decision: 'allow' | 'deny' }) => {},
   })
 
   // Track skip_permissions for the active session
@@ -352,7 +387,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   // Sync skip_permissions from workflow session or session list selection
   useEffect(() => {
     if (workflowSession) {
-      setSkipPermissions(workflowSession.skip_permissions as unknown as boolean)
+      setSkipPermissions(Boolean(workflowSession.skip_permissions))
     }
   }, [workflowSession])
 

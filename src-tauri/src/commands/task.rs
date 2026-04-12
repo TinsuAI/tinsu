@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::State;
 
-use crate::db::entities::task;
+use crate::db::entities::{project, task};
 use crate::error::AppError;
+use crate::services::git_service::GitService;
 
 const DEFAULT_TASK_STATUS: &str = "backlog";
 const DEFAULT_TASK_TYPE: &str = "basic";
@@ -153,14 +154,67 @@ pub async fn update_task_status(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", input.id)))?;
 
+    // When transitioning to in_progress or create_story, create a git worktree (non-fatal)
+    let (worktree_path_update, branch_name_update) =
+        if (input.status == "in_progress" || input.status == "create_story")
+            && existing.worktree_path.is_none()
+        {
+            match project::Entity::find_by_id(&existing.project_id)
+                .one(db.inner())
+                .await
+            {
+                Ok(Some(proj)) => {
+                    let git = GitService;
+                    match git
+                        .create_worktree(&proj.path, &existing.id, &existing.title)
+                        .await
+                    {
+                        Ok((wt, branch)) => (Some(wt), Some(branch)),
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to create worktree for task {}: {}",
+                                existing.id,
+                                e
+                            );
+                            (None, None)
+                        }
+                    }
+                }
+                Ok(None) => {
+                    tracing::warn!(
+                        "Project {} not found; skipping worktree creation for task {}",
+                        existing.project_id,
+                        existing.id
+                    );
+                    (None, None)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "DB error fetching project for task {}: {}",
+                        existing.id,
+                        e
+                    );
+                    (None, None)
+                }
+            }
+        } else {
+            (None, None)
+        };
+
     let now = now_unix_secs();
-    let updated = task::ActiveModel {
+    let mut active = task::ActiveModel {
         id: Set(existing.id),
         status: Set(input.status),
         updated_at: Set(now),
         ..Default::default()
     };
-    Ok(updated.update(db.inner()).await?)
+    if let Some(wt) = worktree_path_update {
+        active.worktree_path = Set(Some(wt));
+    }
+    if let Some(bn) = branch_name_update {
+        active.branch_name = Set(Some(bn));
+    }
+    Ok(active.update(db.inner()).await?)
 }
 
 /// Reorders tasks within a column by setting their sort_order to the given index positions.
