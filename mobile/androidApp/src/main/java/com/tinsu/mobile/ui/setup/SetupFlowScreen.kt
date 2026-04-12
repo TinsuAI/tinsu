@@ -124,7 +124,7 @@ private fun StepContainer(
             Text(
                 text = "Step ${stepIndex + 1} of $totalSteps",
                 style = MaterialTheme.typography.labelMedium.copy(
-                    fontFamily = FontFamily(JetBrainsMono)
+                    fontFamily = JetBrainsMono
                 ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

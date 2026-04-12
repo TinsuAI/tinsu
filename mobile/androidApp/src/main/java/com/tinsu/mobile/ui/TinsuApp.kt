@@ -40,6 +40,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.tinsu.mobile.setup.SetupDetector
@@ -105,7 +106,7 @@ fun TinsuApp() {
             }
             composable(
                 route = Routes.PROJECT_DISCOVERY,
-                arguments = listOf(androidx.navigation.NavArgument("connectionId") { type = androidx.navigation.NavType.StringType })
+                arguments = listOf(navArgument("connectionId") { type = androidx.navigation.NavType.StringType })
             ) {
                 ProjectDiscoveryScreen(
                     onProjectSelected = { /* TODO: navigate to project dashboard in future story */ }

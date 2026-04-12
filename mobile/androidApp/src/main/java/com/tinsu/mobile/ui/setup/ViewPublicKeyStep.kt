@@ -62,7 +62,7 @@ fun ViewPublicKeyStep(
                 Text(
                     text = publicKey.ifEmpty { "No key generated yet." },
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily(JetBrainsMono)
+                        fontFamily = JetBrainsMono
                     ),
                     color = if (publicKey.isNotEmpty()) {
                         MaterialTheme.colorScheme.onSurface

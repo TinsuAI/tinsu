@@ -89,7 +89,7 @@ fun GenerateKeyStep(
                     Text(
                         text = keyAlias,
                         style = MaterialTheme.typography.labelMedium.copy(
-                            fontFamily = FontFamily(JetBrainsMono)
+                            fontFamily = JetBrainsMono
                         ),
                         color = MaterialTheme.colorScheme.primary
                     )

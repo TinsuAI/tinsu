@@ -1,9 +1,9 @@
 package com.tinsu.mobile.ui.connection
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rewind
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,9 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.tinsu.mobile.connection.ConnectionEvent
+import com.tinsu.mobile.ui.theme.tinsuColors
 
 /**
  * Compact connection status bar component.
@@ -66,7 +66,7 @@ fun ConnectionStatusBar(
         animationSpec = if (connectionState is ConnectionEvent.Reconnecting) {
             infiniteRepeatable(
                 animation = tween(durationMillis = 1000),
-                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                repeatMode = RepeatMode.Reverse
             )
         } else {
             tween(durationMillis = 200)
