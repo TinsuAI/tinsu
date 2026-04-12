@@ -1,3742 +1,991 @@
 ---
 stepsCompleted: [1, 2, 3, 4]
+status: complete
+completedAt: '2026-04-12'
 inputDocuments:
   - _bmad-output/planning-artifacts/prd.md
+  - _bmad-output/planning-artifacts/prd-task-execution-sandbox.md
   - _bmad-output/planning-artifacts/architecture.md
   - _bmad-output/planning-artifacts/ux-design-specification.md
-completedDate: 2026-01-04
-totalEpics: 9
-totalStories: 93
-deferredEpics: [4]
-lastUpdated: 2026-03-22
-addedEpics:
-  - epic: 10
-    name: "Agent Planning Chat"
-    date: 2026-03-22
-    stories: 7
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-12.md
 ---
 
 # TinSu - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for TinSu, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
+This document provides the complete epic and story breakdown for TinSu's Tauri v2 migration, decomposing the requirements from the PRD, TES PRD, UX Design Specification, Architecture, and Sprint Change Proposal into implementable stories organized across 4 phased Tauri epics.
 
 ## Requirements Inventory
 
 ### Functional Requirements
 
-FR1: Founder can view a Kanban board with four columns (Backlog, In Progress, Review, Done)
-FR2: Founder can drag tasks between columns to change their status
-FR3: Founder can create new tasks (stories) with title, description, and acceptance criteria
-FR4: Founder can organize tasks into a Sprint/Epic/Story hierarchy
-FR5: Founder can view task velocity metrics (tasks completed per week)
-FR6: Founder can filter and view tasks by sprint, epic, or status
-FR7: Founder can start agent execution by moving a task to In Progress
-FR8: System spawns Claude Code CLI with story context automatically loaded
-FR9: Founder can view real-time terminal output from the agent in an embedded view
-FR10: System automatically moves task to Review when agent completes execution
-FR11: Founder can add context notes to a story that the agent will receive on execution
-FR12: System detects when an agent has stalled (no progress for configurable threshold)
-FR13: Founder can see visual indicator when agent is stalled (yellow status)
-FR14: Founder can pause a running agent mid-execution
-FR15: Founder can resume a paused agent with preserved context
-FR16: Founder can view agent reasoning logs to understand decisions
-FR17: Founder can view a diff of all changes made by the agent
-FR18: Founder can approve changes, which triggers merge and task completion
-FR19: Founder can reject changes with feedback, returning task to In Progress
-FR20: Founder can request changes with inline comments, returning task to agent
-FR21: System re-executes agent with rejection feedback as additional context
-FR22: System creates a git worktree for each task moved to In Progress
-FR23: System creates a branch following naming convention (tinsu/story-{id}-{slug})
-FR24: Agent executes within isolated worktree to prevent conflicts
-FR25: System merges worktree branch to main on task approval
-FR26: System deletes worktree after successful merge
-FR27: System detects merge conflicts and surfaces them to founder for resolution
-FR28: Founder can select methodology (BMAD Method or TaskMaster) per project
-FR29: Founder can configure project settings via YAML file
-FR30: System reads story definitions from markdown/YAML files
-FR31: Founder can initialize TinSu in an existing git repository
-FR32: System persists task state, status, and timestamps in SQLite database
-FR33: System stores agent run history (start time, duration, token usage, exit status)
-FR34: System maintains searchable index of agent logs
-FR35: System preserves human-readable project config in version-controlled YAML
+**Board & Task Management (FR1-FR6):**
+- FR1: Founder can view a Kanban board with five columns (Backlog, Create Story, In Progress, Review, Done)
+- FR2: Founder can drag tasks between columns to change their status
+- FR3: Founder can create new tasks (stories) with title, description, and acceptance criteria
+- FR4: Founder can organize tasks into a Sprint/Epic/Story hierarchy
+- FR5: Founder can view task velocity metrics (tasks completed per week)
+- FR6: Founder can filter and view tasks by sprint, epic, or status
+
+**Agent Execution (FR7-FR11):**
+- FR7: Founder can start agent execution by moving a task to In Progress
+- FR8: System spawns Claude Code CLI with story context automatically loaded
+- FR9: Founder can view real-time terminal output from the agent in an embedded view
+- FR10: System automatically moves task to Review when agent completes execution
+- FR11: Founder can add context notes to a story that the agent will receive on execution
+
+**Agent Monitoring & Control (FR12-FR16):**
+- FR12: System detects when an agent has stalled (no progress for configurable threshold)
+- FR13: Founder can see visual indicator when agent is stalled (yellow status)
+- FR14: Founder can pause a running agent mid-execution
+- FR15: Founder can resume a paused agent with preserved context
+- FR16: Founder can view agent reasoning logs to understand decisions
+
+**Review & Approval (FR17-FR21):**
+- FR17: Founder can view a diff of all changes made by the agent
+- FR18: Founder can approve changes, which triggers merge and task completion
+- FR19: Founder can reject changes with feedback, returning task to In Progress
+- FR20: Founder can request changes with inline comments, returning task to agent
+- FR21: System re-executes agent with rejection feedback as additional context
+
+**Git & Version Control (FR22-FR27):**
+- FR22: System creates a git worktree for each task moved to In Progress
+- FR23: System creates a branch following naming convention (tinsu/story-{id}-{slug})
+- FR24: Agent executes within isolated worktree to prevent conflicts
+- FR25: System merges worktree branch to main on task approval
+- FR26: System deletes worktree after successful merge
+- FR27: System detects merge conflicts and surfaces them to founder for resolution
+
+**Project Configuration (FR28-FR31):**
+- FR28: Founder can select methodology (BMAD Method or TaskMaster) per project
+- FR29: Founder can configure project settings via YAML file
+- FR30: System reads story definitions from markdown/YAML files
+- FR31: Founder can initialize TinSu in an existing git repository
+
+**Data Persistence (FR32-FR35):**
+- FR32: System persists task state, status, and timestamps in SQLite database
+- FR33: System stores agent run history (start time, duration, token usage, exit status)
+- FR34: System maintains searchable index of agent logs
+- FR35: System preserves human-readable project config in version-controlled YAML
+
+**Planning Workspace (FR36-FR38):**
+- FR36: Founder can open a Planning Workspace with BMAD workflow steps displayed in a sidebar
+- FR37: Founder can select an agent persona (PM, Architect, UX Designer, Dev, QA, or custom) for each chat session
+- FR38: Founder can send messages to an agent and receive responses in a chat interface with message bubbles
+
+**Planning Chat Session Management (FR39-FR43):**
+- FR39: System creates a persistent, isolated terminal session for each new chat conversation
+- FR40: System provides a bidirectional communication channel for sending messages to and receiving output from agent sessions
+- FR41: System launches the agent process with unique session identity and persona context pre-loaded
+- FR42: System routes agent lifecycle events (completion, tool use, permission requests, notifications) to the correct chat session without cross-session leakage
+- FR43: System persists assistant responses and tool activity for retrieval and display in the chat interface
+
+**Concurrent Agent Support (FR44-FR47):**
+- FR44: Founder can run multiple chat sessions simultaneously across different agent personas, each in an independent persistent session
+- FR45: Founder can switch between active chat sessions without interrupting background agent work
+- FR46: System displays a session list with live status indicators (thinking, idle, completed, exited) reflecting the agent session state
+- FR47: Founder can view and resume any previous chat session from the session list
+
+**Multi-Project Session Scoping (FR48-FR50):**
+- FR48: Chat sessions are scoped to a project — each session records its project_id and only appears in that project's session list
+- FR49: Founder can run concurrent chat sessions across different projects without cross-project interference
+- FR50: System confines each agent session's file operations to the target project directory, ensuring project isolation
+
+**Planning Chat Persistence (FR51-FR53):**
+- FR51: Chat sessions persist across app restarts — founder can resume conversations without context loss
+- FR52: System validates chat session health on startup, marking unavailable sessions for re-creation on next message
+- FR53: System monitors agent session health and updates session status within 2 seconds of a session becoming unavailable
+
+**TES: Terminal Session Management (TES FR1-FR9):**
+- TES FR1: User can view a dedicated terminal session for each task
+- TES FR2: User can navigate away from a task and return to find the terminal session still active
+- TES FR3: User can type commands directly into a task's terminal
+- TES FR4: User can scroll through the complete terminal history (scrollback)
+- TES FR5: System can create a new terminal session when a task moves to In Progress
+- TES FR6: System can send commands to a task's terminal without user being attached
+- TES FR7: System can detect when a terminal session ends or becomes unresponsive
+- TES FR8: User can view terminal sessions that survive app restart
+- TES FR9: User can view terminal sessions that survive system reboot
+
+**TES: Activity Logging (TES FR10-FR20):**
+- TES FR10: System can capture status change events for each task
+- TES FR11: System can capture agent start events when Claude Code begins work
+- TES FR12: System can capture agent complete events when Claude Code finishes responding
+- TES FR13: System can capture tool usage events (file edits, bash commands, git operations)
+- TES FR14: System can capture user command events when user types in terminal
+- TES FR15: System can capture automation trigger events when workflows auto-execute
+- TES FR16: System can capture error events when agents or hooks fail
+- TES FR17: User can view the activity log for a specific task
+- TES FR18: User can filter the activity log by event type
+- TES FR19: User can see activity events in real-time as they occur
+- TES FR20: User can see timestamps for each activity event
+
+**TES: Task Detail View (TES FR21-FR25):**
+- TES FR21: User can view task details in a full-screen 3-column workspace with resizable columns (Content, Terminal+Activities, Diff) optimized for editing, monitoring, and code review
+- TES FR22: User can resize column widths via drag handles, with preferences persisted to localStorage
+- TES FR23: User can view task description and acceptance criteria in Content tab
+- TES FR24: User can switch between different tasks while preserving each task's state
+- TES FR25: User can have multiple tasks open simultaneously (10+ concurrent)
+
+**TES: Diff Viewer (TES FR26-FR29):**
+- TES FR26: User can view git diff of changes made by the agent
+- TES FR27: User can see which files were added, modified, or deleted
+- TES FR28: User can view side-by-side or unified diff format
+- TES FR29: User can see the scope of changes at a glance (file count, line count)
+
+**TES: Workflow Automation (TES FR30-FR38):**
+- TES FR30: System can differentiate between Story tasks and Basic tasks
+- TES FR31: System can auto-execute dev-story command when Story task moves to In Progress
+- TES FR32: System can auto-move Story task to Review when dev-story completes
+- TES FR33: System can auto-execute code-review command when Story task enters Review
+- TES FR34: System can auto-execute Claude Code with task description when Basic task moves to In Progress
+- TES FR35: System can notify user when code-review is complete and ready for review
+- TES FR36: User can manually trigger code-review via button (fallback)
+- TES FR37: User can manually trigger any workflow command via button
+- TES FR38: System can track current workflow phase for each task (dev-story, code-review, user-feedback)
+
+**TES: Scrollback Persistence (TES FR39-FR44):**
+- TES FR39: System can backup terminal scrollback to filesystem
+- TES FR40: System can restore terminal scrollback from backup when session is recreated
+- TES FR41: System can backup scrollback on status change
+- TES FR42: System can backup scrollback periodically (every 5 minutes while active)
+- TES FR43: System can backup scrollback on app shutdown
+- TES FR44: User can view scrollback even after system reboot
+
+**TES: Session-Task Mapping (TES FR45-FR47):**
+- TES FR45: System can associate Claude Code session ID with task ID
+- TES FR46: System can route hook events to correct task based on session ID
+- TES FR47: System can rebuild session-task mapping from existing terminal sessions on app restart
 
 ### NonFunctional Requirements
 
-NFR1: Kanban board interactions (drag, click, navigation) complete in <100ms
-NFR2: Board loads with full task list in <1 second
-NFR3: UI remains responsive (non-blocking) during agent execution
-NFR4: Agent terminal output streams to UI with <500ms latency
-NFR5: Terminal view handles high-frequency output without dropping frames
-NFR6: SQLite queries for task list views complete in <200ms
-NFR7: Task state changes persist immediately (no visible delay)
-NFR8: Agent stall detection triggers within configured threshold (default: 5 minutes of no output)
-NFR9: Pause/Resume commands execute within 1 second
-NFR10: System recovers gracefully from Claude Code CLI crashes without data loss
-NFR11: No task data is lost if application is force-quit during agent execution
-NFR12: Worktree creation/deletion succeeds or fails cleanly (no partial states)
-NFR13: Merge conflicts are detected before corrupting main branch
-NFR14: Git operations provide clear error messages on failure
-NFR15: SQLite database maintains ACID properties
-NFR16: Application can recover from unexpected shutdown without database corruption
-NFR17: System detects if Claude Code CLI is not installed and provides clear error
-NFR18: Context injection works with story files up to 50KB
-NFR19: PTY integration works on macOS and Linux
-NFR20: System detects if git is not initialized and provides clear error
-NFR21: Worktree operations work with repositories up to 10GB
-NFR22: Branch operations complete within 5 seconds for typical repositories
-NFR23: System handles story files with special characters in filenames
-NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
+**Performance (NFR1-NFR7):**
+- NFR1: Kanban board interactions (drag, click, navigation) complete in <100ms
+- NFR2: Board loads with full task list in <1 second
+- NFR3: UI main thread event loop latency remains below 50ms during agent execution
+- NFR4: Agent terminal output streams to UI with <500ms latency
+- NFR5: Terminal view renders agent output at up to 1000 lines/second with no more than 5% frame loss
+- NFR6: SQLite queries for task list views complete in <200ms
+- NFR7: Task state changes persist immediately (no visible delay)
+
+**Reliability (NFR8-NFR16):**
+- NFR8: Agent stall detection triggers within configured threshold (default: 5 minutes of no output)
+- NFR9: Pause/Resume commands execute within 1 second
+- NFR10: System recovers gracefully from Claude Code CLI crashes without data loss
+- NFR11: No task data is lost if application is force-quit during agent execution
+- NFR12: Worktree creation/deletion succeeds or fails cleanly (no partial states)
+- NFR13: Merge conflicts are detected before corrupting main branch
+- NFR14: Git operations provide clear error messages on failure
+- NFR15: SQLite database maintains ACID properties
+- NFR16: Application can recover from unexpected shutdown without database corruption
+
+**Integration (NFR17-NFR24):**
+- NFR17: System detects if Claude Code CLI is not installed and provides clear error
+- NFR18: Context injection works with story files up to 50KB
+- NFR19: PTY integration works on macOS and Linux
+- NFR20: System detects if git is not initialized and provides clear error
+- NFR21: Worktree operations work with repositories up to 10GB
+- NFR22: Branch operations complete within 5 seconds for typical repositories
+- NFR23: System handles story files with special characters in filenames
+- NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
+
+**Planning Chat (NFR25-NFR32):**
+- NFR25: System supports at least 5 concurrent chat tmux sessions without degradation
+- NFR26: Switching between chat sessions completes in <500ms
+- NFR27: Background chat sessions experience zero message loss and no added processing latency >1 second
+- NFR28: Chat tmux sessions survive app restart with zero context loss
+- NFR29: Startup validation of chat tmux sessions completes in <5 seconds for up to 20 sessions
+- NFR30: Hook events from concurrent chat sessions are routed to the correct session with 100% accuracy
+- NFR31: Chat tmux session creation completes in <15 seconds
+- NFR32: Stale session detection updates UI status within one polling interval (2 seconds)
+
+**TES Performance:**
+- TES NFR-P1: Activity log event latency <1 second
+- TES NFR-P2: Activity log filter/search <1 second
+- TES NFR-P3: Terminal streaming latency <500ms
+- TES NFR-P4: Terminal scrollback load <2 seconds
+- TES NFR-P5: Automation trigger latency <5 seconds
+- TES NFR-P6: Tab switching <200ms
+- TES NFR-P7: Concurrent task support 10+ tasks
+- TES NFR-P8: UI responsiveness — no jank during background terminal activity
+
+**TES Reliability:**
+- TES NFR-R1: Terminal persistence (app restart) 100%
+- TES NFR-R2: Terminal persistence (system reboot) 100%
+- TES NFR-R3: Activity log integrity — zero event loss
+- TES NFR-R4: Automation success rate 99%+
+- TES NFR-R5: Hook event delivery 99%+
+- TES NFR-R6: Scrollback backup success 100%
+- TES NFR-R7: Session-task mapping integrity 100%
+- TES NFR-R8: Graceful degradation if tmux unavailable
 
 ### Additional Requirements
 
-**From Architecture (Starter Template - CRITICAL for Epic 1 Story 1):**
+**From Architecture — Starter Template:**
+- Architecture specifies `create-tauri-app` React+TS with migration overlay (Option B: add Tauri to existing project)
+- First story (T1.1) should initialize Tauri in the existing project and validate React frontend renders in Tauri's webview
 
-- Initialize project using electron-vite with React + TypeScript template
-- Command: `npm create @quick-start/electron@latest tinsu -- --template react-ts`
-- This provides: TypeScript, Vite, React, electron-builder
+**From Architecture — Technology Stack:**
+- Tauri v2.10.3 runtime with Rust + tokio async backend
+- SeaORM + SQLite replacing Drizzle + better-sqlite3 (port all 17 tables faithfully)
+- rspc for type-safe IPC replacing tRPC (router-based, React Query integration)
+- Tauri Channels for PTY streaming (high throughput, byte-level)
+- Tauri Events for activity/status/hook notifications (multi-listener, fire-and-forget)
+- portable-pty 0.9.0 for cross-platform PTY
+- axum 0.8.8 for Claude Code hook listener HTTP server
+- `tracing` crate for structured logging (replaces console.log)
+- `keyring` crate for OS keychain SSH key storage (Phase 2)
+- russh 0.54.6 for async SSH client (Phase 2)
 
-**From Architecture (Technology Stack - EXPLICIT VERSIONS as of January 2026):**
+**From Architecture — Frontend Migration:**
+- Flatten `src/renderer/src/` to `src/` (standard Vite structure)
+- Delete `src/main/` (replaced by `src-tauri/src/`)
+- Delete `src/preload/` (replaced by rspc + Tauri invoke)
+- Migrate tRPC hooks to rspc hooks (find-and-replace pattern)
+- Migrate tRPC subscriptions to Tauri Event listeners
 
-| Category            | Package               | Version      | Notes                          |
-| ------------------- | --------------------- | ------------ | ------------------------------ |
-| **Core Framework**  | electron              | ^39.2.7      | Chromium M142, Node.js 22      |
-|                     | electron-vite         | ^5.0.0       | Latest stable                  |
-|                     | react                 | ^19.2.3      | Activity API, useEffectEvent   |
-|                     | react-dom             | ^19.2.3      |                                |
-|                     | typescript            | ^5.9.3       | v6/v7 coming 2026              |
-|                     | vite                  | ^7.3.0       | ESM-only, Node 20.19+ required |
-| **Data Layer**      | drizzle-orm           | 1.0.0-beta.2 | Use beta tag                   |
-|                     | better-sqlite3        | ^12.5.0      | Sync API for Electron          |
-|                     | @trpc/server          | ^11.8.1      |                                |
-|                     | @trpc/client          | ^11.8.1      |                                |
-|                     | trpc-electron         | latest       | mat-sz fork for tRPC v11       |
-|                     | zod                   | ^4.3.5       | v4 with Codecs API             |
-| **UI Layer**        | tailwindcss           | ^4.1.18      | New Vite plugin setup          |
-|                     | @tailwindcss/vite     | ^4.1.18      | Required for Vite 7            |
-|                     | shadcn/ui             | CLI-based    | Copy-paste, no version lock    |
-|                     | @dnd-kit/core         | ^6.3.1       | Stable                         |
-|                     | @dnd-kit/sortable     | ^9.0.0       | For Kanban columns             |
-|                     | zustand               | ^5.0.9       | v5 major                       |
-|                     | @tanstack/react-query | ^5.90.16     | Via tRPC integration           |
-| **Terminal & Diff** | @xterm/xterm          | ^6.0.0       | New scoped package name        |
-|                     | node-pty              | ^1.1.0       | Microsoft maintained           |
-|                     | monaco-editor         | ^0.55.1      | ESM preferred                  |
-|                     | @monaco-editor/react  | ^4.7.0       | React wrapper                  |
-| **Build**           | electron-builder      | ^26.4.0      | Dec 2025 release               |
+**From Architecture — Implementation Sequence:**
+1. Initialize Tauri v2, validate React renders in webview
+2. Set up SeaORM with SQLite, port 17-table schema
+3. Set up rspc router, register Tauri commands
+4. Migrate frontend hooks from tRPC to rspc
+5. Implement Rust services (task, sprint, epic CRUD)
+6. Implement PTY service with portable-pty + Tauri Channels
+7. Implement tmux service, hook listener (axum)
+8. Implement git service
+9. Implement chat CLI service
+10. Feature parity validation (Phase 1 gate)
 
-**From Architecture (Project Structure):**
+**From Sprint Change Proposal — Phase Structure:**
+- Phase 1: Tauri Desktop Foundation (8-10 weeks) — 10 stories
+- Phase 2: Remote Project Support via SSH (4-6 weeks) — 8 stories
+- Phase 3: Mobile Targets (4-6 weeks) — 8 stories
+- Phase 4: CI/CD and Build Pipeline (2-3 weeks) — 4 stories
+- Phase gates at end of each phase for validation
 
-- src/main/ - Electron main process (tRPC routers, services, db)
-- src/preload/ - contextBridge IPC (type-safe window.api)
-- src/renderer/ - React application (components, hooks, stores)
-- src/shared/ - Shared types between main/renderer
-- data/tinsu.db - SQLite database file (gitignored)
+### UX Design Requirements
 
-**From Architecture (Naming Conventions):**
-
-- Database: snake_case tables (tasks, agent_runs), snake_case columns (created_at)
-- tRPC: camelCase procedures (getTask, createTask, updateStatus)
-- React: PascalCase components (TaskCard, KanbanBoard), use prefix hooks (useTask)
-- TypeScript: PascalCase types (Task, AgentRun), no I prefix
-
-**From Architecture (Service Boundaries):**
-
-- PtyService: node-pty wrapper for spawn/kill/pause/resume
-- GitService: Git CLI wrapper for worktree/branch/merge operations
-- StallDetectorService: Output monitoring with timeout detection
-- ContextBuilderService: Story/arch context assembly for agent prompts
-
-**From UX Design (Interaction Patterns):**
-
-- Keyboard-first navigation: A to approve, R to reject, arrow keys to navigate board
-- 60-Second Velocity Loop: Review → Approve → Commit → Next → Go
-- Drag to start agent execution (no confirmation modal)
-- Approve triggers git merge automatically (no extra confirmation)
-
-**From UX Design (Layout Specifications):**
-
-- Dark theme with "Calm Command" palette (background #0a0a0b, card #18181b)
-- Terminal dock at bottom 30-40% height, collapsible to 80px
-- Review panel 400px slide-over from right edge
-- 4 equal-width Kanban columns with 12px card gap, 16px column padding
-
-**From UX Design (Status System):**
-
-- AgentStatusBadge variants: Idle (gray), Running (green), Stalled (yellow), Review (purple), Done (green check), Error (red)
-- Status colors: --status-running #22c55e, --status-stalled #f59e0b, --status-review #8b5cf6
-
-**From UX Design (Accessibility):**
-
-- WCAG 2.1 Level AA compliance required
-- Visible 2px focus rings on interactive elements
-- Color + icon for status (not color alone)
-- Support prefers-reduced-motion for animations
-- Responsive: Desktop 1024px+, Tablet 768-1023px, Mobile 320-767px
+- UX-DR1: Implement "Calm Command" dark color system with 8 base tokens (`--background` #0a0a0b, `--card` #18181b, `--card-hover` #27272a, `--border` #27272a, `--primary` #3b82f6, `--primary-hover` #2563eb, `--text` #fafafa, `--text-muted` #a1a1aa) + 4 status tokens (`--status-running` #22c55e, `--status-stalled` #f59e0b, `--status-review` #8b5cf6, `--status-done` #6b7280) + 3 semantic tokens (`--success` #22c55e, `--warning` #f59e0b, `--destructive` #ef4444) as CSS variables
+- UX-DR2: Implement typography system with Inter/system font for UI and JetBrains Mono for terminal/code, 6-level type scale (h1 24px/600, h2 18px/600, h3 14px/500, body 14px/400, small 12px/400, mono 13px/400)
+- UX-DR3: Implement 4px grid spacing system with 5 space tokens (xs 4px, sm 8px, md 16px, lg 24px, xl 32px)
+- UX-DR4: Implement AgentStatusBadge component with 6 variants (Idle/gray/circle, Running/green/spinner, Stalled/yellow/warning, Review/purple/eye, Done/green/check, Error/red/X) using icon + color (not color alone)
+- UX-DR5: Implement keyboard-first navigation with shortcuts: A (approve), R (reject), Enter (open), Escape (close), Space (pause/resume), arrows (navigate), ? (show shortcuts)
+- UX-DR6: Implement WCAG AA accessibility: 2px focus rings on all interactive elements, ARIA roles (application/listbox/option/log/dialog), live regions for toasts (polite) and status (assertive), `prefers-reduced-motion` support, color independence (icon + color)
+- UX-DR7: Implement responsive layout: desktop 1024px+ (5-column board + docked terminal), tablet 768-1023px (2-column swipe), mobile 320-767px (single card + bottom action bar)
+- UX-DR8: Implement 3-column task workspace: Content ~30%, Terminal+Activities ~25%, Diff ~45%, with resizable drag handles, 150px minimum column width, vertical split in center column (Terminal 60%/Activities 40%)
+- UX-DR9: Implement activity log with real-time streaming, 7 event types (status_change, agent_start, agent_complete, tool_used, user_command, automation_trigger, error) with distinct icons/colors, chip-style multi-select filter toggles
+- UX-DR10: Implement diff viewer with Monaco Editor diff component, collapsible file tree with change indicators (Modified/yellow, Added/green, Deleted/red, Renamed/blue), unified/split view toggle, summary bar (file count, lines added/removed)
+- UX-DR11: Implement task-type visual differentiation: Story tasks get "Story" badge + `--status-review` bg + workflow indicator + "Auto" icon; Basic tasks get "Task" badge + `--text-muted` bg + no workflow indicator
+- UX-DR12: Implement workflow phase indicators: Initializing (gray pulse), dev-story (green pulse), Awaiting Review (purple), code-review (purple pulse), Ready for User (purple solid check)
+- UX-DR13: Implement toast notification system: 4 types (Success/green/3s, Error/red/5s sticky, Warning/yellow/4s, Info/blue/3s), bottom-right position, stack up to 3, <60 chars
+- UX-DR14: Implement slide-over review panel: 400px from right edge, overlay on board, ESC to close, focus trap, keyboard shortcuts A/R
+- UX-DR15: Implement z-index hierarchy: Base 0 (board), Dropdown 50 (menus), Dock 100 (terminal), Overlay 200 (sheet), Modal 300 (dialogs), Toast 400 (notifications), Command 500 (palette)
 
 ### FR Coverage Map
 
-| FR   | Epic   | Description                          |
-| ---- | ------ | ------------------------------------ |
-| FR1  | Epic 2 | Kanban board with 4 columns          |
-| FR2  | Epic 2 | Drag tasks between columns           |
-| FR3  | Epic 2 | Create new tasks                     |
-| FR4  | Epic 2 | Sprint/Epic/Story hierarchy          |
-| FR5  | Epic 2 | Task velocity metrics                |
-| FR6  | Epic 2 | Filter by sprint/epic/status         |
-| FR7  | Epic 5 | Start agent on drag to In Progress   |
-| FR8  | Epic 5 | Spawn Claude Code CLI with context   |
-| FR9  | Epic 5 | Real-time terminal output            |
-| FR10 | Epic 5 | Auto-move to Review on completion    |
-| FR11 | Epic 5 | Add context notes for agent          |
-| FR12 | Epic 6 | Stall detection                      |
-| FR13 | Epic 6 | Visual stall indicator               |
-| FR14 | Epic 6 | Pause agent                          |
-| FR15 | Epic 6 | Resume agent                         |
-| FR16 | Epic 6 | View reasoning logs                  |
-| FR17 | Epic 7 | Diff view of changes                 |
-| FR18 | Epic 7 | Approve → merge + Done               |
-| FR19 | Epic 7 | Reject with feedback                 |
-| FR20 | Epic 7 | Request changes with comments        |
-| FR21 | Epic 7 | Agent re-executes with feedback      |
-| FR22 | Epic 8 | Create worktree per task             |
-| FR23 | Epic 8 | Branch naming convention             |
-| FR24 | Epic 8 | Agent works in isolated worktree     |
-| FR25 | Epic 8 | Merge on approve                     |
-| FR26 | Epic 8 | Delete worktree after merge          |
-| FR27 | Epic 8 | Detect merge conflicts               |
-| FR28 | Epic 3 | Select methodology (BMAD/TaskMaster) |
-| FR29 | Epic 3 | Configure via YAML                   |
-| FR30 | Epic 3 | Read story definitions from files    |
-| FR31 | Epic 1 | Initialize in existing git repo      |
-| FR32 | Epic 1 | Persist task state in SQLite         |
-| FR33 | Epic 1 | Store agent run history              |
-| FR34 | Epic 1 | Searchable agent logs                |
-| FR35 | Epic 1 | Version-controlled YAML config       |
+**Epic 1: Desktop Foundation & React Migration**
+- FR1-FR6: Board & Task Management
+- FR7-FR11: Agent Execution
+- FR12-FR16: Agent Monitoring & Control
+- FR17-FR21: Review & Approval
+- FR22-FR27: Git & Version Control
+- FR28-FR31: Project Configuration
+- FR32-FR35: Data Persistence
+- FR36-FR38: Planning Workspace
+- FR39-FR43: Planning Chat Session Management
+- FR44-FR47: Concurrent Agent Support
+- FR48-FR50: Multi-Project Session Scoping
+- FR51-FR53: Planning Chat Persistence
+- FR61: Cross-platform codebase (Tauri v2 init)
+- TES FR1-FR9: Terminal Session Management
+- TES FR10-FR20: Activity Logging
+- TES FR21-FR25: Task Detail View
+- TES FR26-FR29: Diff Viewer
+- TES FR30-FR38: Workflow Automation
+- TES FR39-FR44: Scrollback Persistence
+- TES FR45-FR47: Session-Task Mapping
+- NFR1-NFR32, NFR37, TES NFRs
+- UX-DR1-DR15
 
-**Coverage:** 35/35 FRs mapped
+**Epic 2: Remote Project Support via SSH**
+- FR54: SSH connection profile management
+- FR55: SSH key generation + OS keychain storage
+- FR56: Remote project discovery
+- FR57: Remote tmux session attachment
+- FR58: Remote file operations (SFTP)
+- FR59: Remote hook event forwarding
+- FR60: Local/remote project switcher
+- NFR33-NFR36
 
----
+**Epic 3: Mobile Targets — Android & iOS**
+- Mobile adaptations of FR1-FR60 (responsive UI, touch interactions)
+- UX-DR7 mobile breakpoint (320-767px)
+- NFR38-NFR39
+
+**Epic 4: CI/CD and Build Pipeline**
+- FR61: Cross-platform build automation
+- NFR37: Binary size validation
+- Desktop, Android, iOS build pipelines + auto-update
 
 ## Epic List
 
-### Epic 1: Project Foundation & Development Environment
+### Epic 1: Desktop Foundation & React Migration
+Founder can use TinSu on desktop via Tauri v2 with full feature parity — Kanban board with drag-and-drop, AI agent execution via tmux/PTY, review workflow with diff view, planning workspace with concurrent chat sessions, activity logging, workflow automation, and all existing capabilities work identically to the Electron version. This epic delivers the complete Rust backend rewrite (SeaORM, rspc, portable-pty, axum) while preserving the entire React frontend.
+**FRs covered:** FR1-FR53, FR61 (init), TES FR1-FR47
+**NFRs:** NFR1-NFR32, NFR37, all TES NFRs
+**UX-DRs:** UX-DR1-DR15
+**Stories:** 10
 
-Initialize the Electron application with the full technology stack, database schema, and core infrastructure.
-**FRs covered:** FR31, FR32, FR33, FR34, FR35
+### Epic 2: Remote Project Support via SSH
+Founder can connect to a remote machine via SSH and manage projects remotely — add/test SSH connections, generate and securely store SSH keys, discover projects on remote machines, attach to remote tmux sessions for agent execution, read/write remote files, receive forwarded hook events, and seamlessly switch between local and remote projects using a unified project switcher.
+**FRs covered:** FR54-FR60
+**NFRs:** NFR33-NFR36
+**Stories:** 8
 
-### Epic 2: Kanban Board & Task Management
+### Epic 3: Mobile Targets — Android & iOS
+Founder can use TinSu on Android and iOS to review tasks, approve/reject changes, monitor agents, and manage remote projects via SSH — with responsive mobile layout, touch-optimized Kanban interactions, mobile SSH connection flow, mobile terminal view, and mobile review/approval workflow. Enables intervention from anywhere.
+**FRs covered:** Mobile adaptations of FR1-FR60
+**NFRs:** NFR38-NFR39
+**UX-DRs:** UX-DR7 (mobile breakpoint)
+**Stories:** 8
 
-Deliver the visual Kanban interface with drag-and-drop, task hierarchy, filtering, and velocity metrics.
-**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6
+### Epic 4: CI/CD and Build Pipeline
+Automated builds and distribution for all 5 platforms — GitHub Actions workflows for desktop builds (macOS .dmg, Linux .AppImage/.deb, Windows .msi), Android builds (.apk/.aab), iOS builds (.ipa), and desktop auto-update mechanism. Enables professional distribution and continuous integration testing.
+**FRs covered:** FR61 (build automation)
+**NFRs:** NFR37 (binary size)
+**Stories:** 4
 
-### Epic 3: BMAD Planning Workflow
-
-Run complete BMAD planning inside TinSu. Planning phases as Kanban cards with guided sequencing. Spawn BMAD agents, detect artifacts, import stories, bidirectional sync.
-**FRs covered:** FR28, FR29, FR30
-
-### Epic 4: TaskMaster Integration ⏸️ DEFERRED
-
-Enable TaskMaster tasks.json sync and deterministic execution state management.
-**FRs covered:** TaskMaster-specific requirements
-**Status:** Deferred to future sprint — MVP focuses on BMAD Method only
-
-### Epic 5: Story Implementation Workflow
-
-Full BMAD implementation workflow: Sprint Planning → SM Draft → DEV Implement → DEV Review (different model) → Human Review → Retrospective. Multi-agent orchestration, 5x retry loop, or basic Claude Code fallback.
-**FRs covered:** FR7, FR8, FR9, FR10, FR11
-
-### Epic 6: Agent Monitoring & Control
-
-Detect agent stalls, provide visual indicators, and enable Pause/Resume intervention with reasoning log visibility.
-**FRs covered:** FR12, FR13, FR14, FR15, FR16
-
-### Epic 7: Review & Approval Workflow
-
-Deliver the Manager-in-the-Loop experience with approve/reject actions and feedback loop re-execution.
-**FRs covered:** FR17, FR18, FR19, FR20, FR21
-**Note (2026-01-21):** Stories 7-1, 7-2, 7-8, 7-9 superseded by TES epics (diff viewer, workspace, keyboard nav, notifications)
-
-### Epic 8: Git Integration & Version Control
-
-Manage git worktrees for task isolation (by task type), branch naming, merge on approve, conflict detection, and historical diff viewing.
-**FRs covered:** FR22, FR23, FR24, FR25, FR26, FR27
-**Note (2026-01-21):** Updated 8-1, 8-2, 8-5; Added 8-11 for historical diff view
-
-### Epic 9: BMAD Planning Workspace
-
-A dedicated planning workspace that guides founders through BMAD's Analysis → Planning → Solutioning phases with artifact management, guided workflow execution, and intelligent next-step recommendations.
-**FRs covered:** New planning-workspace-specific FRs (additive to FR28-FR30)
-**Dependencies:** Epic 3 (planning infrastructure), TES Epic 4 (Monaco diff viewer)
-**Note (2026-03-21):** Added via sprint change proposal based on deep research synthesis (ChatGPT + Gemini reports)
-
----
-
-## Epic 1: Project Foundation & Development Environment
-
-**Goal:** Founder has a running Electron application with the complete technology stack, database persistence, tRPC IPC, and UI foundation configured — ready for feature development. Founder can initialize TinSu in any existing git repository.
-
-**FRs covered:** FR31, FR32, FR33, FR34, FR35
-**Dependencies:** None (this is the foundation)
-
-### Story 1.1: Initialize Electron Project with electron-vite
-
-As a developer,
-I want to initialize the TinSu project using the electron-vite React TypeScript template,
-So that I have a working Electron development environment with hot reload and proper build tooling.
-
-**Acceptance Criteria:**
-
-**Given** an empty project directory
-**When** I run `npm create @quick-start/electron@latest tinsu -- --template react-ts`
-**Then** the project scaffolds with src/main, src/preload, src/renderer directories
-**And** running `npm run dev` launches the Electron app with hot reload
-**And** the package.json includes electron ^39.2.7, electron-vite ^5.0.0, react ^19.2.3, typescript ^5.9.3
-
-**Given** the project is initialized
-**When** I run `npm run build`
-**Then** the application builds successfully for the current platform
-**And** no TypeScript errors are present
-
----
-
-### Story 1.2: Configure Tailwind CSS 4 and shadcn/ui
-
-As a developer,
-I want Tailwind CSS 4 and shadcn/ui configured with the dark theme,
-So that I can build consistent, accessible UI components using the design system.
-
-**Acceptance Criteria:**
-
-**Given** the electron-vite project from Story 1.1
-**When** I install tailwindcss ^4.1.18 and @tailwindcss/vite ^4.1.18
-**Then** Tailwind processes CSS in the renderer process
-**And** utility classes like `bg-zinc-900` render correctly
-
-**Given** Tailwind is configured
-**When** I run `npx shadcn@latest init`
-**Then** shadcn/ui initializes with the "zinc" base color and dark mode
-**And** I can add components via `npx shadcn@latest add button`
-
-**Given** the dark theme is configured
-**When** the app loads
-**Then** the background color is #0a0a0b (--background from Calm Command palette)
-**And** the CSS variable --card is set to #18181b
-
----
-
-### Story 1.3: Set Up SQLite Database with Drizzle ORM
-
-As a developer,
-I want SQLite database connectivity with Drizzle ORM in the main process,
-So that task and agent data can be persisted locally with type-safe queries.
-
-**Acceptance Criteria:**
-
-**Given** the project from Story 1.2
-**When** I install drizzle-orm@beta, better-sqlite3 ^12.5.0, and drizzle-kit
-**Then** the packages install without errors
-**And** better-sqlite3 native bindings compile for Electron
-
-**Given** Drizzle is installed
-**When** I create a database connection in src/main/db/index.ts
-**Then** the database file is created at data/tinsu.db on first run
-**And** the data/ directory is gitignored
-
-**Given** the database connection exists
-**When** I run `npx drizzle-kit generate`
-**Then** migration SQL files are generated in drizzle/ directory
-**And** `npx drizzle-kit migrate` applies migrations successfully
-
-**Given** the database is configured
-**When** the app starts after a crash or force-quit
-**Then** the SQLite database maintains ACID properties (NFR15)
-**And** no data corruption occurs (NFR16)
-
----
-
-### Story 1.4: Create Core Database Schema for Tasks and Agent Runs
-
-As a developer,
-I want the core database schema for tasks and agent_runs tables,
-So that task state and agent execution history can be persisted (FR32, FR33).
-
-**Acceptance Criteria:**
-
-**Given** Drizzle ORM is configured from Story 1.3
-**When** I define the tasks table schema
-**Then** the table includes: id (text PK), title (text), description (text), status (text), epic_id (text nullable), sprint_id (text nullable), created_at (integer), updated_at (integer)
-**And** snake_case naming convention is used per architecture
-
-**Given** the tasks table exists
-**When** I define the agent_runs table schema
-**Then** the table includes: id (text PK), task_id (text FK), start_time (integer), end_time (integer nullable), duration_ms (integer nullable), token_usage (integer nullable), exit_status (text nullable), log_path (text nullable)
-**And** a foreign key relationship links agent_runs to tasks
-
-**Given** both schemas are defined
-**When** I run migrations
-**Then** both tables are created in tinsu.db
-**And** I can insert and query records using Drizzle's type-safe API
-
-**Given** records exist in the database
-**When** I query task list views
-**Then** queries complete in <200ms (NFR6)
-
----
-
-### Story 1.5: Implement tRPC IPC Layer
-
-As a developer,
-I want type-safe IPC communication between main and renderer using tRPC,
-So that the UI can call main process functions with full TypeScript inference.
-
-**Acceptance Criteria:**
-
-**Given** the database is set up from Story 1.4
-**When** I install @trpc/server ^11.8.1, @trpc/client ^11.8.1, trpc-electron, and zod ^4.3.5
-**Then** the packages install without errors
-
-**Given** tRPC packages are installed
-**When** I create a tRPC router in src/main/trpc/router.ts
-**Then** I can define procedures like `tasks.getAll`, `tasks.create`, `tasks.updateStatus`
-**And** procedures use Zod schemas for input validation
-
-**Given** the router is defined
-**When** I expose it via trpc-electron in the main process
-**Then** the renderer can import the router type
-**And** calling `trpc.tasks.getAll.query()` returns typed task data
-
-**Given** the tRPC layer is complete
-**When** I make IPC calls from the renderer
-**Then** TypeScript provides full autocomplete for procedure names and parameters
-**And** runtime validation errors are thrown for invalid inputs
-
----
-
-### Story 1.6: Build App Shell Layout with Dark Theme
-
-As a founder,
-I want to see the basic app shell with header, sidebar placeholder, and main content area,
-So that I know the application is running and ready for feature development.
-
-**Acceptance Criteria:**
-
-**Given** tRPC is working from Story 1.5
-**When** I create the AppShell component in src/renderer/components/
-**Then** it renders a header bar at the top (48px height)
-**And** a sidebar placeholder on the left (240px width, collapsible)
-**And** a main content area filling the remaining space
-
-**Given** the AppShell exists
-**When** the app loads
-**Then** the dark theme from Story 1.2 is applied
-**And** the header shows "TinSu" as the app title
-**And** the main area displays "Ready for development" placeholder text
-
-**Given** the layout is rendered
-**When** I resize the window
-**Then** the layout responds appropriately (min-width: 1024px for desktop)
-**And** the main content area adjusts to fill available space
-
-**Given** the app is running
-**When** I use keyboard navigation
-**Then** focus rings are visible (2px) on interactive elements
-**And** the app meets WCAG 2.1 AA contrast requirements
-
----
-
-### Story 1.7: Add Project Configuration System
-
-As a founder,
-I want project configuration stored in a human-readable YAML file,
-So that settings are version-controlled and editable outside the app (FR35).
-
-**Acceptance Criteria:**
-
-**Given** the app shell from Story 1.6
-**When** I create a ConfigService in src/main/services/
-**Then** it reads from .tinsu/config.yaml in the project root
-**And** it creates a default config file if none exists
-
-**Given** the ConfigService exists
-**When** I define the config schema
-**Then** it includes: projectName (string), methodology (enum: 'bmad' | 'taskmaster'), createdAt (ISO date), version (string)
-**And** the schema is validated with Zod on load
-
-**Given** a config file exists
-**When** I expose config via tRPC procedure `config.get`
-**Then** the renderer can read the current configuration
-**And** `config.update` allows updating specific fields
-
-**Given** the config file is in .tinsu/
-**When** I commit the project to git
-**Then** the .tinsu/config.yaml is tracked in version control
-**And** .tinsu/data/ (database) is gitignored
-
-**Given** the config file has invalid YAML syntax
-**When** the app attempts to load it
-**Then** a clear error message is displayed (NFR24)
-**And** the app does not crash
-
----
-
-### Story 1.8: Initialize TinSu in Existing Git Repository
-
-As a founder,
-I want to initialize TinSu in my existing git repository,
-So that I can use TinSu to manage development on an active project (FR31).
-
-**Acceptance Criteria:**
-
-**Given** I open TinSu without a project loaded
-**When** I click "Open Existing Project" or use File → Open
-**Then** a file picker opens to select a directory
-**And** only directories containing a .git folder are valid selections
-
-**Given** I select a valid git repository
-**When** TinSu initializes
-**Then** a .tinsu/ folder is created in the project root
-**And** .tinsu/config.yaml is created with detected project name
-**And** .tinsu/data/ is added to .gitignore if not already present
-
-**Given** the repository has no .git folder
-**When** I try to select it
-**Then** an error message explains "TinSu requires a git repository"
-**And** the selection is rejected
-
-**Given** the repository already has .tinsu/ folder
-**When** I open the project
-**Then** TinSu loads the existing configuration
-**And** no duplicate initialization occurs
-
-**Given** I successfully initialize a project
-**When** the app loads
-**Then** the project name appears in the header
-**And** the Kanban board is ready (empty or with imported tasks)
-
----
-
-### Story 1.9: PTY Service for Process Management
-
-As a developer,
-I want a PTY service that wraps node-pty for process management,
-So that both planning agents and story execution can spawn and control CLI processes.
-
-**Acceptance Criteria:**
-
-**Given** the main process
-**When** I create a PtyService instance
-**Then** it can spawn a new PTY process with a given command and args
-**And** it returns a process ID for tracking
-
-**Given** a running PTY process
-**When** I call write(processId, data)
-**Then** the data is sent to the process stdin
-**And** special characters are handled correctly
-
-**Given** a running PTY process
-**When** I call kill(processId)
-**Then** the process receives SIGTERM
-**And** the process ID is cleaned up after exit
-
-**Given** a running PTY process
-**When** the process emits output
-**Then** the PtyService emits an 'output' event with processId and data
-**And** output events fire within 100ms of process output
-
-**Given** PTY operations on macOS or Linux
-**When** I spawn a process
-**Then** it works correctly on both platforms (NFR19)
-**And** shell environment variables are inherited
-
-**Given** a process that crashes
-**When** the crash occurs
-**Then** the PtyService emits an 'exit' event with code and signal
-**And** no zombie processes remain
-
----
-
-### Story 1.10: Terminal Dock Component
-
-As a founder,
-I want an embedded terminal dock at the bottom of the app,
-So that I can see real-time output from agents during planning and execution.
-
-**Acceptance Criteria:**
-
-**Given** the app shell layout
-**When** the terminal dock is rendered
-**Then** it appears at the bottom of the screen
-**And** it occupies 30-40% of viewport height by default
-
-**Given** the terminal dock
-**When** I click the collapse button
-**Then** it collapses to 80px height showing only the header
-**And** I can expand it again by clicking
-
-**Given** the terminal is expanded
-**When** I drag the resize handle
-**Then** I can adjust the height between 80px and 60% of viewport
-**And** the height preference persists across sessions
-
-**Given** the terminal component
-**When** it initializes with xterm.js
-**Then** it uses the dark theme (background #0a0a0b)
-**And** font is monospace, 14px, with proper line height
-
-**Given** output is streaming to the terminal
-**When** high-frequency output occurs
-**Then** the terminal handles it without dropping frames (NFR5)
-**And** scrollback buffer is limited to 10,000 lines
-
-**Given** the terminal has content
-**When** I select text
-**Then** I can copy it to clipboard
-**And** right-click shows a context menu with Copy option
-
-**Given** accessibility requirements
-**When** I use keyboard navigation
-**Then** I can focus the terminal with Tab
-**And** the terminal announces its role to screen readers
-
----
-
-## Epic 2: Kanban Board & Task Management
-
-**Goal:** Founder can see all tasks on a visual 4-column Kanban board, drag tasks between columns, create new tasks with details, organize by Sprint/Epic/Story hierarchy, view velocity metrics, and filter the view.
-
-**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6
-**Dependencies:** Epic 1 (requires database and UI foundation)
-
-### Story 2.1: Render Kanban Board with 4 Columns
-
-As a founder,
-I want to see a Kanban board with four columns (Backlog, In Progress, Review, Done),
-So that I can visualize the status of all my tasks at a glance (FR1).
-
-**Acceptance Criteria:**
-
-**Given** the app shell from Epic 1
-**When** I navigate to the main board view
-**Then** I see four columns: "Backlog", "In Progress", "Review", "Done"
-**And** columns have equal width with 16px padding
-**And** column headers display the column name and task count
-
-**Given** the board is rendered
-**When** I view the layout
-**Then** columns are arranged left-to-right in status order
-**And** the board fills the main content area
-**And** columns scroll vertically if content overflows
-
-**Given** the board uses the dark theme
-**When** I view the columns
-**Then** column backgrounds use the card color (#18181b)
-**And** column headers have subtle borders for separation
-
----
-
-### Story 2.2: Display Task Cards in Columns
-
-As a founder,
-I want to see task cards displayed in their appropriate columns based on status,
-So that I can see what work is in each stage (FR1).
-
-**Acceptance Criteria:**
-
-**Given** tasks exist in the database
-**When** the board loads
-**Then** each task appears as a card in its corresponding status column
-**And** cards display the task title prominently
-**And** cards show a truncated description (max 2 lines)
-
-**Given** a task card is rendered
-**When** I view the card
-**Then** it displays an AgentStatusBadge (Idle, Running, etc.) based on agent state
-**And** the card shows the epic name if assigned
-**And** cards have 12px gap between them
-
-**Given** the board has many tasks
-**When** the board loads
-**Then** the full task list loads in <1 second (NFR2)
-**And** cards render without layout shift
-
-**Given** I use keyboard navigation
-**When** I press arrow keys on the board
-**Then** focus moves between cards
-**And** focused cards show a visible 2px focus ring
-
----
-
-### Story 2.3: Implement Drag-and-Drop Between Columns
-
-As a founder,
-I want to drag task cards between columns to change their status,
-So that I can quickly update task progress (FR2).
-
-**Acceptance Criteria:**
-
-**Given** @dnd-kit/core and @dnd-kit/sortable are installed
-**When** I drag a task card
-**Then** the card follows my cursor with a subtle shadow
-**And** the source column shows a placeholder
-**And** valid drop zones highlight on hover
-
-**Given** I am dragging a card
-**When** I drop it in a different column
-**Then** the task status updates to match the column
-**And** the database persists the change immediately (NFR7)
-**And** the card animates smoothly to its new position
-
-**Given** I am dragging a card
-**When** I drop it in the same column at a different position
-**Then** the card reorders within the column
-**And** the sort order is persisted
-
-**Given** drag-and-drop is active
-**When** I perform any drag operation
-**Then** the interaction completes in <100ms (NFR1)
-**And** no UI jank or frame drops occur
-
-**Given** accessibility requirements
-**When** I use keyboard to move a card
-**Then** I can use Space to pick up, arrows to move, Space to drop
-**And** screen readers announce the drag state
-
----
-
-### Story 2.4: Create New Task Dialog
-
-As a founder,
-I want to create new tasks with title, description, and acceptance criteria,
-So that I can add work items to my board (FR3).
-
-**Acceptance Criteria:**
-
-**Given** I am viewing the board
-**When** I click the "+" button in a column header or press "N"
-**Then** a modal dialog opens for creating a new task
-**And** the dialog is focused and traps keyboard focus
-
-**Given** the create task dialog is open
-**When** I view the form
-**Then** I see fields for: Title (required), Description (optional), Acceptance Criteria (optional, markdown)
-**And** the form pre-selects the column I clicked "+" in as the initial status
-
-**Given** I fill out the task form
-**When** I click "Create" or press Cmd/Ctrl+Enter
-**Then** the task is created in the database
-**And** the new card appears in the appropriate column
-**And** the dialog closes
-
-**Given** the title field is empty
-**When** I try to submit
-**Then** validation prevents submission
-**And** the title field shows an error message
-
-**Given** I want to cancel
-**When** I press Escape or click outside the dialog
-**Then** the dialog closes without saving
-**And** no task is created
-
----
-
-### Story 2.5: Add Sprint/Epic/Story Hierarchy
-
-As a founder,
-I want to organize tasks into a Sprint/Epic/Story hierarchy,
-So that I can group related work and plan releases (FR4).
-
-**Acceptance Criteria:**
-
-**Given** the database schema from Epic 1
-**When** I extend the schema
-**Then** I add an `epics` table with: id, title, description, created_at
-**And** I add a `sprints` table with: id, name, start_date, end_date, is_active
-**And** tasks have foreign keys to epic_id and sprint_id (nullable)
-
-**Given** epics and sprints exist
-**When** I create or edit a task
-**Then** I can assign it to an epic from a dropdown
-**And** I can assign it to a sprint from a dropdown
-**And** both are optional
-
-**Given** a task is assigned to an epic
-**When** I view the task card
-**Then** the epic name appears as a colored badge on the card
-**And** each epic has a consistent color
-
-**Given** sprints exist
-**When** I view the sidebar
-**Then** I see a list of sprints with their date ranges
-**And** the active sprint is highlighted
-**And** I can click a sprint to filter the board
-
----
-
-<!-- ### Story 2.5.1: Create and Edit Sprint
-
-As a founder,
-I want to create and edit sprints with name and date range,
-So that I can organize my work into time-boxed iterations.
-
-**Acceptance Criteria:**
-
-**Given** I am viewing the sidebar
-**When** I click the "+" button in the Sprints section
-**Then** a modal dialog opens for creating a new sprint
-**And** the dialog shows fields for: Name (required), Start Date, End Date
-**And** dates default to a 2-week range starting from today (or after the last sprint)
-
-**Given** the create sprint dialog is open
-**When** I fill in the name and dates and click "Create"
-**Then** the sprint is created in the database
-**And** the new sprint appears in the sidebar sprint list
-**And** the dialog closes
-
-**Given** I want to edit an existing sprint
-**When** I right-click a sprint in the sidebar or click its edit icon
-**Then** an edit dialog opens with current values pre-filled
-**And** I can modify name, start date, and end date
-
-**Given** I edit sprint dates
-**When** I set end date before start date
-**Then** validation prevents saving
-**And** an error message explains the issue
-
-**Given** I save sprint changes
-**When** the update completes
-**Then** the sidebar reflects the updated sprint info immediately
-**And** any filtered views update to match
-
----
-
-### Story 2.5.2: Sprint List and Selection UI
-
-As a founder,
-I want to see all sprints in the sidebar and filter the board by sprint,
-So that I can focus on work for a specific iteration.
-
-**Acceptance Criteria:**
-
-**Given** sprints exist in the database
-**When** I view the sidebar
-**Then** I see a "Sprints" section with all sprints listed
-**And** sprints are grouped: Active (if any), Upcoming, Completed
-**And** each sprint shows its name and task count
-
-**Given** the sprint list is displayed
-**When** I view an active sprint
-**Then** it has a distinct visual indicator (e.g., green dot or "Active" badge)
-**And** it appears at the top of the list
-
-**Given** I click on a sprint in the sidebar
-**When** the selection applies
-**Then** the Kanban board filters to show only tasks in that sprint
-**And** the selected sprint is highlighted in the sidebar
-**And** the board header shows "Sprint: [name]" filter indicator
-
-**Given** I want to see all tasks
-**When** I click "All Tasks" or clear the sprint filter
-**Then** the board shows tasks from all sprints (and unassigned)
-**And** no sprint is highlighted in the sidebar
-
-**Given** a sprint has no tasks assigned
-**When** I view it in the sidebar
-**Then** it shows "(0 tasks)" count
-**And** selecting it shows empty columns with "No tasks in this sprint" placeholder
-
----
-
-### Story 2.5.3: Sprint Lifecycle and Deletion
-
-As a founder,
-I want to start, close, and delete sprints,
-So that I can manage the sprint lifecycle and clean up completed iterations.
-
-**Acceptance Criteria:**
-
-**Given** a sprint exists that is not active
-**When** I click "Start Sprint" from its context menu
-**Then** the sprint is marked as active
-**And** any previously active sprint is automatically deactivated
-**And** the sidebar updates to show the new active sprint
-
-**Given** a sprint is active
-**When** I click "Close Sprint" from its context menu
-**Then** a dialog appears asking how to handle incomplete tasks
-**And** options are: "Move to Backlog", "Move to [next sprint]", or "Keep in closed sprint"
-
-**Given** I choose to move incomplete tasks when closing
-**When** the close action completes
-**Then** tasks with status != "done" are moved to the selected destination
-**And** the sprint is marked as closed/completed
-**And** it moves to the "Completed" section in sidebar
-
-**Given** I want to delete a sprint
-**When** I click "Delete" from its context menu
-**Then** a confirmation dialog shows: "Delete [Sprint Name]? X tasks will be unassigned."
-**And** I can confirm or cancel
-
-**Given** I confirm sprint deletion
-**When** the delete completes
-**Then** the sprint is removed from the database
-**And** all tasks previously in that sprint have their sprint_id set to null
-**And** the sidebar updates immediately
-
-**Given** the active sprint is deleted
-**When** deletion completes
-**Then** no sprint is marked as active
-**And** the board shows all tasks (no sprint filter) -->
-
----
-
-### Story 2.6: Implement Task Filtering
-
-As a founder,
-I want to filter tasks by sprint, epic, or status,
-So that I can focus on specific subsets of work (FR6).
-
-**Acceptance Criteria:**
-
-**Given** I am viewing the board
-**When** I click the filter button in the header
-**Then** a filter panel appears with options for: Sprint, Epic, Status
-**And** each filter shows available options as checkboxes
-
-**Given** filters are available
-**When** I select a sprint filter
-**Then** only tasks in that sprint are displayed
-**And** the filter state is reflected in the UI (badge showing active filters)
-
-**Given** I select an epic filter
-**When** I view the board
-**Then** only tasks belonging to that epic are shown
-**And** I can select multiple epics (OR logic)
-
-**Given** I select a status filter
-**When** I view the board
-**Then** columns without matching tasks show "No tasks" placeholder
-**And** the task count in column headers updates
-
-**Given** multiple filters are active
-**When** I view results
-**Then** filters combine with AND logic (sprint AND epic)
-**And** I can clear all filters with one click
-
-**Given** I apply filters
-**When** I refresh the page
-**Then** filter state is preserved in URL query params
-**And** I can share filtered views via URL
-
----
-
-### Story 2.7: Add Velocity Metrics Widget
-
-As a founder,
-I want to view task velocity metrics showing tasks completed per week,
-So that I can track my team's throughput over time (FR5).
-
-**Acceptance Criteria:**
-
-**Given** tasks have been completed (moved to Done with timestamps)
-**When** I view the velocity widget in the sidebar or header
-**Then** I see tasks completed in the current week
-**And** I see a mini chart showing the last 4 weeks trend
-
-**Given** velocity data exists
-**When** I hover over the chart
-**Then** I see the exact count for each week
-**And** the tooltip shows the week date range
-
-**Given** I want more detail
-**When** I click the velocity widget
-**Then** a detailed view expands showing:
-
-- Tasks completed by day (bar chart)
-- Average velocity (tasks/week)
-- Comparison to previous period
-
-**Given** no tasks have been completed yet
-**When** I view the velocity widget
-**Then** it shows "No data yet" with helpful text
-**And** the chart area shows a placeholder
-
-**Given** the velocity calculation
-**When** computing "completed this week"
-**Then** it uses the task's updated_at timestamp when status changed to "done"
-**And** weeks start on Monday (ISO week)
-
----
-
-## Epic 3: BMAD Planning Workflow
-
-**Goal:** Founder can run the complete BMAD planning workflow inside TinSu. Planning phases appear as task cards on the Kanban board with guided sequencing. TinSu spawns the correct BMAD agent for each phase, detects created artifacts, and imports stories to the board. Artifacts sync bidirectionally with the Kanban.
-
-**FRs covered:** FR28, FR29, FR30
-**Dependencies:** Epic 1 (database, PTY, terminal), Epic 2 (Kanban board)
-
-### Story 3.1: Planning Task Type & Database Schema
-
-As a developer,
-I want a task_type field to distinguish planning tasks from story tasks,
-So that TinSu can handle them differently in the UI and execution.
-
-**Acceptance Criteria:**
-
-**Given** the tasks table schema
-**When** I add the task_type field
-**Then** it is an enum: 'planning' | 'story'
-**And** existing tasks default to 'story'
-
-**Given** a planning task
-**When** I query for it
-**Then** it includes: phase_number (1-5), phase_name, bmad_agent, bmad_workflow
-**And** these fields are null for story tasks
-
-**Given** the database schema
-**When** I define the planning phases
-**Then** the phases are: 1=Product Brief, 2=PRD, 3=Architecture, 4=UX Design, 5=Epics & Stories
-**And** each phase maps to a specific BMAD agent and workflow path
-
-**Given** migrations run
-**When** the schema updates
-**Then** existing data is preserved
-**And** new fields have appropriate defaults
-
----
-
-### Story 3.1.5: Multi-Project Database Support
-
-As a founder,
-I want tasks, epics, and sprints scoped to individual projects,
-So that I can work on multiple projects without data mixing between them.
-
-**Acceptance Criteria:**
-
-**Given** a new database migration
-**When** applied
-**Then** a `projects` table exists with columns: id (TEXT PK), path (TEXT UNIQUE), name (TEXT), created_at (INTEGER), last_opened_at (INTEGER)
-**And** indexes exist on `path` and `last_opened_at`
-
-**Given** existing tables (tasks, epics, sprints)
-**When** migration is applied
-**Then** each has a `project_id` column (TEXT) with foreign key to projects(id) ON DELETE CASCADE
-**And** indexes exist on each `project_id` column
-
-**Given** I open a project directory for the first time
-**When** the project loads via `ProjectService.openProject(path)`
-**Then** a new record is created in `projects` table with the path and name
-**And** the project's `id` is stored in app state as `currentProjectId`
-
-**Given** I open a previously opened project
-**When** the project loads
-**Then** the existing project record is found by `path` and `last_opened_at` is updated
-
-**Given** I create a task in Project A
-**When** I open Project B
-**Then** Project A's tasks do not appear on Project B's board
-
-**Given** any tRPC procedure that queries tasks, epics, or sprints
-**When** the procedure executes
-**Then** it receives `project_id` from tRPC context and filters by that ID
-
-**Given** I call `ProjectService.openProject()` with an invalid path
-**When** the path does not exist
-**Then** an error is thrown and no project record is created
-
-**Given** no project has been opened (currentProjectId is null)
-**When** a tRPC query for tasks/epics/sprints is executed
-**Then** the query returns an empty array and create operations throw "No project open"
-
-**Priority:** High (Blocks Story 3.2)
-**Depends On:** Story 3.1
-**Full Spec:** `_bmad-output/implementation-artifacts/3-1-5-multi-project-database-support.md`
-
----
-
-### Story 3.2: Initialize Planning Tasks on New Project
-
-As a founder,
-I want TinSu to create the 5 BMAD planning phase cards when I start a new project,
-So that I have a guided path through the planning workflow.
-
-**Acceptance Criteria:**
-
-**Given** I initialize a new project with TinSu
-**When** the project is created
-**Then** 5 planning tasks are created in the Backlog column
-**And** they are ordered: Product Brief (1), PRD (2), Architecture (3), UX Design (4), Epics & Stories (5)
-
-**Given** the planning tasks are created
-**When** I view the Kanban board
-**Then** all 5 cards appear in Backlog in sequence
-**And** the first card (Product Brief) is visually highlighted as "Start Here"
-
-**Given** an existing project with BMAD artifacts
-**When** I open it in TinSu for the first time
-**Then** TinSu detects which phases are complete (artifacts exist)
-**And** completed phases are created in Done column
-**And** remaining phases are in Backlog
-
-**Given** the project config
-**When** planning tasks are initialized
-**Then** the initialization state is persisted in .tinsu/config.yaml
-**And** re-opening the project does not duplicate planning tasks
-
-**Depends On:** Story 3.1.5 (Multi-Project Database Support)
-
----
-
-### Story 3.3: Planning Task Card UI
-
-As a founder,
-I want planning task cards to look distinct from story cards,
-So that I can easily identify planning work vs implementation work.
-
-**Acceptance Criteria:**
-
-**Given** a planning task card
-**When** it renders on the board
-**Then** it shows a phase badge "📋 1/5" (or 2/5, 3/5, etc.)
-**And** the badge uses a distinct color (e.g., blue) from story cards
-
-**Given** a planning task card
-**When** I view its content
-**Then** it shows the phase name prominently (e.g., "Product Brief")
-**And** it shows a brief description of what this phase produces
-
-**Given** a planning task in Backlog
-**When** it is the recommended next step
-**Then** it has a subtle glow or border indicating "suggested"
-**And** a tooltip explains why it's recommended
-
-**Given** a completed planning task (in Done)
-**When** I view the card
-**Then** it shows a checkmark and the artifact file path
-**And** clicking the card opens the artifact file
-
-**Given** accessibility requirements
-**When** screen readers encounter planning cards
-**Then** they announce "Planning phase 1 of 5: Product Brief"
-**And** the card role is properly identified
-
----
-
-### Story 3.4: BMAD Agent Launcher
-
-As a founder,
-I want TinSu to spawn the correct BMAD agent when I drag a planning task to In Progress,
-So that I can create planning artifacts without leaving TinSu.
-
-**Acceptance Criteria:**
-
-**Given** I drag "Product Brief" to In Progress
-**When** the drop completes
-**Then** TinSu spawns Claude Code CLI with the Analyst agent
-**And** the terminal dock expands to show output
-**And** the working directory is the project root
-
-**Given** I drag "PRD" to In Progress
-**When** the drop completes
-**Then** TinSu spawns Claude Code CLI with the PM agent and PRD workflow
-**And** the context includes the Product Brief if it exists
-
-**Given** I drag "Architecture" to In Progress
-**When** the drop completes
-**Then** TinSu spawns Claude Code CLI with the Architect agent
-**And** the context includes PRD and Product Brief
-
-**Given** I drag "UX Design" to In Progress
-**When** the drop completes
-**Then** TinSu spawns Claude Code CLI with the UX Designer agent
-**And** the context includes PRD and Architecture
-
-**Given** I drag "Epics & Stories" to In Progress
-**When** the drop completes
-**Then** TinSu spawns Claude Code CLI with the PM agent and epics workflow
-**And** the context includes PRD, Architecture, and UX Design
-
-**Given** Claude Code CLI is not installed
-**When** I try to start a planning phase
-**Then** TinSu shows a clear error message (NFR17)
-**And** provides instructions to install Claude Code
-
----
-
-### Story 3.5: Artifact Detection on Phase Completion
-
-As a founder,
-I want TinSu to automatically detect artifacts when a planning phase completes,
-So that I don't have to manually link files.
-
-**Acceptance Criteria:**
-
-**Given** the Product Brief agent exits successfully
-**When** TinSu scans for new files
-**Then** it detects product-brief\*.md in \_bmad-output/planning-artifacts/
-**And** links the file to the planning task
-
-**Given** the PRD agent exits successfully
-**When** TinSu scans for new files
-**Then** it detects prd.md in \_bmad-output/planning-artifacts/
-**And** links the file to the planning task
-
-**Given** the Architecture agent exits successfully
-**When** TinSu scans for new files
-**Then** it detects architecture.md in \_bmad-output/planning-artifacts/
-**And** links the file to the planning task
-
-**Given** the UX Design agent exits successfully
-**When** TinSu scans for new files
-**Then** it detects ux-design\*.md in \_bmad-output/planning-artifacts/
-**And** links the file to the planning task
-
-**Given** an artifact is detected
-**When** the link is created
-**Then** the planning task auto-moves to Review column
-**And** the founder can verify the artifact before marking Done
-
-**Given** no artifact is detected after agent exit
-**When** TinSu scans
-**Then** it shows a warning "Expected artifact not found"
-**And** the task stays in In Progress for retry
-
----
-
-### Story 3.6: Next Phase Suggestion with Skip Warning
-
-As a founder,
-I want TinSu to suggest the next planning phase and warn me if I skip,
-So that I follow the recommended workflow but retain flexibility.
-
-**Acceptance Criteria:**
-
-**Given** Product Brief is Done
-**When** I view the board
-**Then** the PRD card is highlighted as "Recommended Next"
-**And** other phases show their sequence number but no highlight
-
-**Given** phases 1-3 are Done
-**When** I view the board
-**Then** UX Design (phase 4) is highlighted as "Recommended Next"
-
-**Given** I try to start Architecture (phase 3) before PRD (phase 2)
-**When** I drag it to In Progress
-**Then** a warning modal appears: "PRD is recommended before Architecture. The Architect agent works best with a completed PRD. Continue anyway?"
-**And** I can choose "Continue" or "Cancel"
-
-**Given** I choose "Continue" on the skip warning
-**When** the modal closes
-**Then** the phase starts normally
-**And** the warning is logged but not blocking
-
-**Given** I want to see the recommended order
-**When** I hover over a planning card
-**Then** a tooltip shows: "Phase 3 of 5 • Depends on: PRD • Produces: architecture.md"
-
----
-
-### Story 3.7: Story Import After Epics Phase
-
-As a founder,
-I want stories from epics.md to appear as task cards after the Epics & Stories phase completes,
-So that I can start implementation immediately.
-
-**Acceptance Criteria:**
-
-**Given** the Epics & Stories phase completes
-**When** TinSu detects epics.md
-**Then** it parses the file to extract all epics and stories
-**And** each story becomes a task card in Backlog
-
-**Given** stories are imported
-**When** I view the Kanban board
-**Then** story cards show their epic badge (e.g., "Epic 1")
-**And** story cards show their number (e.g., "1.3")
-**And** cards are ordered by epic then story number
-
-**Given** an epic has 7 stories
-**When** they are imported
-**Then** all 7 appear with correct parent epic reference
-**And** the epic itself is created in the epics table
-
-**Given** stories are imported
-**When** I view a story card
-**Then** it shows the story title and truncated description
-**And** clicking opens a detail panel with full acceptance criteria
-
-**Given** the import completes
-**When** I check the planning phase card
-**Then** it shows "Imported X stories from Y epics"
-**And** the planning phase moves to Done
-
----
-
-### Story 3.8: BMAD Artifact Scanner & Parser
-
-As a founder,
-I want TinSu to scan and parse existing BMAD artifacts,
-So that I can open a project mid-planning and continue where I left off.
-
-**Acceptance Criteria:**
-
-**Given** a project with \_bmad-output/planning-artifacts/ folder
-**When** TinSu opens the project
-**Then** it scans for: product-brief*.md, prd.md, architecture.md, ux-design*.md, epics.md
-**And** detected artifacts are indexed in the database
-
-**Given** a markdown file with YAML frontmatter
-**When** the parser processes it
-**Then** it extracts frontmatter fields (stepsCompleted, inputDocuments, etc.)
-**And** it extracts the document body as structured sections
-
-**Given** epics.md exists
-**When** the parser processes it
-**Then** it extracts all epics with goals
-**And** it extracts all stories with acceptance criteria in Given/When/Then format
-**And** story numbers (e.g., "1.3") are parsed correctly
-
-**Given** a file with invalid YAML frontmatter
-**When** the parser attempts to process it
-**Then** a clear error message identifies the issue (NFR24)
-**And** the file is skipped but scanning continues
-
-**Given** a file larger than 50KB
-**When** the parser processes it
-**Then** it succeeds but logs a warning about size (NFR18)
-**And** context injection may truncate this file later
-
----
-
-### Story 3.9: Bidirectional Sync Between Kanban and Detail Story Files
-
-As a founder,
-I want changes in the Kanban board and detail story files to stay synchronized,
-So that I can edit in either place without conflicts.
-
-**Note:** Story 3.7 imports stories with `file_path` (path to detail file in `implementation-artifacts/`) and `full_content` (full story content). This story syncs with those detail files, NOT the epics.md summary.
-
-**Acceptance Criteria:**
-
-**Given** I move a story task to a different column
-**When** the status changes
-**Then** the corresponding detail story file (at task.file_path) is updated with the new status in frontmatter
-**And** the `Status:` field changes to match (e.g., "in-progress", "review", "done")
-**And** the file write completes within 1 second
-
-**Given** I edit a detail story file externally (e.g., in VS Code)
-**When** I return to TinSu
-**Then** it detects file changes via file watcher on the task's `file_path`
-**And** a notification appears: "Story file changed. Sync now?"
-
-**Given** I click "Sync now"
-**When** sync runs
-**Then** updated content (acceptance criteria, tasks, dev notes) is reflected in task.full_content
-**And** status changes in the file are reflected on the Kanban board
-**And** the task detail panel shows the updated content
-
-**Given** both Kanban and file changed the same story
-**When** conflict is detected
-**Then** TinSu shows a diff view
-**And** I choose which version to keep
-
-**Given** sync is in progress
-**When** I try to edit a task
-**Then** editing is blocked with "Syncing..." indicator
-**And** editing resumes after sync completes
-
-**Given** a story task has no `file_path` (manually created task)
-**When** I try to sync
-**Then** the sync is skipped for that task
-**And** no error occurs
-
----
-
-### Story 3.10: Link Artifacts to Tasks
-
-As a founder,
-I want each task linked to its relevant BMAD artifacts,
-So that context injection knows which documents apply.
-
-**Acceptance Criteria:**
-
-**Given** a story task is imported from epics.md
-**When** it is created
-**Then** it automatically links to: PRD, Architecture, UX Design (if they exist)
-**And** it stores a reference to its section in epics.md
-
-**Given** the database schema
-**When** I define artifact linking
-**Then** a task_artifacts table stores: task_id, artifact_type, artifact_path, section_ref
-
-**Given** a task has linked artifacts
-**When** I view the task detail panel
-**Then** I see a list of linked artifacts with file icons
-**And** clicking opens the file in the system editor
-
-**Given** I want to customize links
-**When** I edit a task
-**Then** I can add or remove artifact links
-**And** changes persist to the database
-
-**Given** an artifact file is deleted
-**When** I view a task that referenced it
-**Then** the link shows as "missing" with a warning icon
-**And** context injection skips the missing file gracefully
-
----
-
-### Story 3.11: Context Builder Service
-
-As a founder,
-I want the Context Builder Service to assemble relevant context for agent execution,
-So that agents have the full picture when implementing stories.
-
-**Acceptance Criteria:**
-
-**Given** a story task is about to execute
-**When** the Context Builder Service is invoked
-**Then** it assembles: story title, description, acceptance criteria
-**And** it includes: PRD summary (goals, constraints, user personas)
-**And** it includes: Architecture summary (tech stack, patterns, conventions)
-**And** it includes: UX Design summary (if available)
-
-**Given** the assembled context
-**When** it exceeds 50KB total
-**Then** the service truncates less critical sections (UX first, then PRD details)
-**And** story acceptance criteria are NEVER truncated
-**And** a warning is logged about truncation
-
-**Given** the Context Builder output
-**When** I inspect it
-**Then** sections are clearly delineated: ## Story, ## PRD, ## Architecture
-**And** the format is compatible with Claude Code CLI
-
-**Given** the story has custom context notes (FR11)
-**When** context is assembled
-**Then** notes appear in a ## Human Guidance section
-**And** they are clearly marked as founder-provided
-
-**Given** a planning task (not a story task)
-**When** Context Builder is invoked
-**Then** it includes artifacts from prior phases
-**And** it does NOT include story-specific content
-
----
-
-### Story 3.12: Re-run Planning Phase (Brownfield Refinement)
-
-As a founder,
-I want to re-run a planning phase to refine artifacts mid-sprint,
-So that I can update my PRD or Architecture as I learn more.
-
-**Acceptance Criteria:**
-
-**Given** a planning phase is in Done
-**When** I drag it back to In Progress
-**Then** a confirmation appears: "Re-run Architecture phase? This will update architecture.md."
-**And** I can choose "Re-run" or "Cancel"
-
-**Given** I confirm re-run
-**When** the agent spawns
-**Then** the existing artifact is passed as context
-**And** the agent can update or extend it
-
-**Given** the re-run completes
-**When** TinSu detects the updated artifact
-**Then** the task moves back to Review
-**And** I can verify changes before marking Done again
-
-**Given** I have story tasks that depend on the artifact
-**When** the artifact is updated
-**Then** those stories automatically get the updated context on next execution
-**And** no manual re-linking is required
-
-**Given** I want to create a new story mid-sprint
-**When** I click "+" in a column
-**Then** I can create a BMAD-formatted story
-**And** I choose: append to epics.md OR create separate file
-**And** the new story appears on the board immediately
-
----
-
-## Epic 4: TaskMaster Integration
-
-**Goal:** Founder can initialize TinSu in an existing git repository with TaskMaster artifacts, sync tasks.json with the Kanban board, and leverage deterministic execution state management.
-
-**FRs covered:** FR31 + Research requirements
-**Dependencies:** Epic 1 (database), Epic 2 (Kanban), Epic 3 (methodology selection)
-
-**Key Components:**
-
-- Project initialization in existing git repo
-- TaskMaster tasks.json detection and import
-- Bi-directional sync: tasks.json ↔ Kanban board
-- Dependency graph visualization
-- Execution state management (pending → in_progress → done)
-
-<!-- Stories will be added in Step 3 -->
-
----
-
-## Epic 5: Task Execution Workflow
-
-**Goal:** Founder can execute tasks using two distinct paths based on task type:
-
-1. **Story Tasks (BMAD Method):** Create Story column generates full story file via `/bmad:bmm:workflows:create-story` → User reviews → In Progress executes via `/bmad:bmm:workflows:dev-story` → Automated code review → Human Review
-
-2. **Basic Tasks (Direct Execution):** Skip Create Story → In Progress executes directly with task description → Human Review
-
-Multi-agent orchestration with configurable models, automated code review loop (max 5 retries), and epic retrospectives.
-
-**FRs covered:** FR7, FR8, FR9, FR10, FR11
-**Dependencies:** Epic 1 (PTY, terminal), Epic 2 (Kanban with 5 columns), Epic 3 (context injection)
-
-### Story 5.1: Agent Model Configuration
-
-As a founder,
-I want to configure the AI model settings for task execution,
-So that I can optimize cost/performance for different agent roles.
-
-**Acceptance Criteria:**
-
-**Given** the project settings panel
-**When** I view agent configuration
-**Then** I see model selection for:
-  - Dev Agent model (used for /dev-story and Basic Task execution)
-  - Review Agent model (used for automated code review)
-**And** settings persist in .tinsu/config.yaml
-
-**Given** I configure models
-**When** I select different models for Dev and Review agents
-**Then** a tooltip explains: "Use powerful model for Dev, faster model for Review"
-**And** I can select from available Claude models (Opus, Sonnet, etc.)
-
-**Given** the dual-mode execution system
-**When** I view settings
-**Then** I understand that:
-  - Story Tasks automatically use BMAD workflows
-  - Basic Tasks automatically use direct Claude Code execution
-  - Model settings apply to both modes
-
-**Given** I save model settings
-**When** a task starts execution
-**Then** the configured models are used for that execution
-**And** in-progress tasks continue with their original model settings
-
----
-
-### Story 5.2: [REMOVED - Not needed for MVP]
-
-> **Note:** Sprint planning can be done manually by dragging stories into sprints,
-> or by using BMAD's `/sprint-planning` workflow directly in Claude Code.
-> Automated SM agent sprint planning is not required for MVP.
-
----
-
-### Story 5.2b: Add "Create Story" Column to Kanban Board
-
-As a founder,
-I want a "Create Story" column between Backlog and In Progress,
-So that Story Tasks have a dedicated phase for full story file generation before development.
-
-**Acceptance Criteria:**
-
-**Given** the existing 4-column Kanban board
-**When** Epic 5 is implemented
-**Then** a new "Create Story" column appears between "Backlog" and "In Progress"
-**And** the board now has 5 columns: Backlog → Create Story → In Progress → Review → Done
-
-**Given** the "Create Story" column header
-**When** I view it
-**Then** it displays the column name and task count
-**And** a tooltip explains: "Story Tasks generate full story files here before development"
-**And** an optional icon distinguishes it from other columns
-
-**Given** the 5-column layout
-**When** I view the board on desktop (1024px+)
-**Then** all 5 columns fit with equal width and 16px padding
-**And** horizontal scrolling is available if viewport is narrower
-
-**Given** the database schema
-**When** the column is added
-**Then** task status enum includes: 'backlog', 'create_story', 'in_progress', 'review', 'done'
-**And** existing tasks remain in their current status (no migration issues)
-
----
-
-### Story 5.2c: Task Type and Story File Status Handling
-
-As a founder,
-I want tasks classified by type (Story/Basic) and Story Tasks to show their story file status,
-So that I know which tasks need story creation and which are ready for development.
-
-**Acceptance Criteria:**
-
-**TASK TYPE ASSIGNMENT:**
-
-**Given** a task is imported from epics.md (via Epic 3 story sync)
-**When** the import completes
-**Then** the task is marked as type: "story_task"
-**And** story_file_status is set to: "summary_only"
-**And** a visual indicator shows it's a Story Task without full story
-
-**Given** I create a task manually on the Kanban board
-**When** I save the new task
-**Then** the task is marked as type: "basic_task"
-**And** story_file_status is null (not applicable)
-**And** a visual indicator shows it's a Basic Task
-
-**STORY FILE STATUS (Story Tasks only):**
-
-**Given** a Story Task with story_file_status: "summary_only"
-**When** I view the card
-**Then** it shows an indicator: "Summary Only" or similar icon
-**And** a tooltip explains: "Needs full story creation before development"
-
-**Given** a Story Task completes the Create Story workflow
-**When** the story file is saved to `implementation-artifacts/`
-**Then** story_file_status updates to: "story_ready"
-**And** the card shows: "Story Ready" indicator
-**And** a link to the story file appears on the card
-
-**Given** a Story Task with story_file_status: "story_ready"
-**When** I view the card in Create Story column
-**Then** it shows the story file path
-**And** I can click to preview/review the story content
-
-**DRAG BEHAVIOR:**
-
-**Given** a Story Task with status "summary_only"
-**When** I try to drag it to "In Progress"
-**Then** TinSu warns: "Story file required. Move to 'Create Story' first."
-**And** the drag is prevented
-
-**Given** a Story Task with status "story_ready"
-**When** I drag it to "In Progress"
-**Then** the drag succeeds
-**And** `/bmad:bmm:workflows:dev-story` executes with the story file
-
-**Given** a Basic Task
-**When** I view valid drag targets
-**Then** "Create Story" is not a valid destination (grayed out)
-**And** can drag directly from Backlog to In Progress
-
-**SCHEMA:**
-
-**Given** the tasks database table
-**When** Epic 5 is implemented
-**Then** columns added:
-  - `task_type`: enum ('story_task', 'basic_task'), default 'basic_task'
-  - `story_file_status`: enum ('summary_only', 'story_ready') | null
-  - `story_file_path`: string | null (path to implementation-artifacts file)
-**And** existing tasks default to 'basic_task' (safe migration)
-
----
-
-### Story 5.3: Story Task Execution Path (BMAD Workflow)
-
-As a founder,
-I want Story Tasks to go through a "Create Story" phase before development,
-So that full story content is generated and reviewed before implementation begins.
-
-**Acceptance Criteria:**
-
-**Given** a Story Task (imported from epics.md or created via BMAD workflow)
-**When** I drag it to the "Create Story" column
-**Then** TinSu prompts: "Create full story file using /bmad:bmm:workflows:create-story?"
-**And** on confirmation, Claude Code spawns with the create-story workflow
-**And** the terminal dock expands
-
-**Given** create-story workflow completes
-**When** the full story file is saved to `implementation-artifacts/`
-**Then** the task card shows "Story Ready" status
-**And** a link to the story file appears on the card
-**And** I can review the full story content before proceeding
-
-**Given** a Story Task in "Create Story" with full story file
-**When** I drag it to "In Progress"
-**Then** TinSu executes `/bmad:bmm:workflows:dev-story` with the story file
-**And** the BMAD workflow steps display: "DEV → Review"
-
-**Given** a Story Task without a story file
-**When** I try to drag it directly to "In Progress" (skipping Create Story)
-**Then** TinSu warns: "Story file required. Move to 'Create Story' first to generate it."
-
-**Given** a task is already In Progress
-**When** I try to drag another task to In Progress
-**Then** TinSu warns: "Another task is running. Queue this task?"
-**And** I can choose "Queue", "Cancel", or "Run in parallel" (if supported)
-
----
-
-### Story 5.3b: Basic Task Execution Path (Direct Execution)
-
-As a founder,
-I want Basic Tasks to execute directly when moved to In Progress,
-So that manually-created tasks run without BMAD workflow overhead.
-
-**Acceptance Criteria:**
-
-**Given** a Basic Task (manually created on kanban board)
-**When** I drag it to "In Progress"
-**Then** Claude Code spawns directly with the task description/prompt
-**And** no BMAD workflow commands are used
-**And** the terminal dock expands
-
-**Given** a Basic Task
-**When** I view the Kanban board
-**Then** the "Create Story" column is visually skipped/grayed for Basic Tasks
-**Or** drag path goes directly from Backlog to In Progress
-
-**Given** a Basic Task execution completes
-**When** Claude Code exits successfully
-**Then** the task moves to "Review" column
-**And** standard review workflow applies
-
-**Given** a Basic Task
-**When** I try to drag it to "Create Story" column
-**Then** TinSu shows info: "Basic Tasks execute directly. Drag to In Progress instead."
-
----
-
-### Story 5.4: [REMOVED - Merged into Story 5.3]
-
-> **Note:** Story file creation is now handled by the "Create Story" column workflow (Story 5.3). When a Story Task moves to "Create Story", the `/bmad:bmm:workflows:create-story` command generates the full story file. This eliminates the need for a separate SM draft step inside "In Progress".
-
----
-
-### Story 5.5: DEV Agent: Implement Story
-
-As a founder,
-I want the Scrum Master agent to draft detailed story files before development,
-So that the Dev agent has clear requirements to implement.
-
-**Acceptance Criteria:**
-
-**Given** a story is moved to In Progress (BMAD mode)
-**When** the story lacks detailed acceptance criteria
-**Then** the SM agent spawns first
-**And** it creates/updates the story file with detailed AC in Given/When/Then format
-
-**Given** the SM agent is running
-**When** I view the progress indicator
-**Then** it shows "Step 1/3: SM Drafting Story"
-**And** the terminal shows SM agent output
-
-**Given** the story already has detailed AC
-**When** execution starts
-**Then** SM draft step is skipped
-**And** workflow proceeds directly to DEV agent
-
-**Given** the SM agent completes
-**When** the story file is updated
-**Then** the updated content syncs to the task in TinSu
-**And** workflow automatically proceeds to DEV agent
-
-**Given** the SM agent fails
-**When** an error occurs
-**Then** the task shows error status
-**And** I can retry or edit the story manually
-
----
-
-### Story 5.5: DEV Agent: Implement Story
-
-As a founder,
-I want the Dev agent to implement the story with full context injection,
-So that code is written according to requirements and architecture (FR8).
-
-**Acceptance Criteria:**
-
-**Given** SM draft completes (or is skipped)
-**When** DEV agent spawns
-**Then** Context Builder provides: story AC, PRD summary, architecture, UX design
-**And** the agent works in the git worktree (if Epic 8 complete) or project root
-
-**Given** the DEV agent is running
-**When** I view the progress indicator
-**Then** it shows "Step 2/3: DEV Implementing"
-**And** the terminal streams real-time output (FR9)
-
-**Given** the configured dev model
-**When** the agent spawns
-**Then** it uses the model selected in settings (e.g., Claude Opus)
-
-**Given** the story has context notes (FR11)
-**When** DEV agent runs
-**Then** notes are included in the ## Human Guidance section of context
-
-**Given** DEV agent completes successfully
-**When** exit code is 0
-**Then** workflow automatically proceeds to code review
-**And** the terminal shows transition message
-
----
-
-### Story 5.6: DEV Agent: Automated Code Review
-
-As a founder,
-I want an automated code review by a different model,
-So that code quality is checked before human review.
-
-**Acceptance Criteria:**
-
-**Given** DEV implementation completes
-**When** code review starts
-**Then** a second DEV agent spawns with the configured review model
-**And** progress shows "Step 3/3: Code Review"
-
-**Given** the review agent
-**When** it analyzes the changes
-**Then** it has access to: the diff, story AC, architecture patterns
-**And** it evaluates: correctness, style, security, test coverage
-
-**Given** code review passes
-**When** the review agent approves
-**Then** the task auto-moves to Review column (FR10)
-**And** terminal shows "✓ Code review passed"
-
-**Given** code review fails
-**When** the review agent finds issues
-**Then** issues are captured as structured feedback
-**And** workflow loops back to DEV agent with feedback
-
-**Given** the review model setting
-**When** review runs
-**Then** it uses the configured review model (e.g., Claude Sonnet)
-**And** this can differ from the dev model
-
----
-
-### Story 5.7: Code Review Retry Loop
-
-As a founder,
-I want failed code reviews to automatically retry up to 5 times,
-So that minor issues are fixed without my intervention.
-
-**Acceptance Criteria:**
-
-**Given** code review fails
-**When** retry count is < 5
-**Then** DEV agent re-runs with review feedback as additional context
-**And** progress shows "DEV Implementing (Retry 2/5)"
-
-**Given** retry is in progress
-**When** DEV agent makes changes
-**Then** the new diff is passed to review agent
-**And** the cycle continues
-
-**Given** code review fails 5 times
-**When** the limit is reached
-**Then** TinSu escalates to human review
-**And** task moves to Review with warning: "Auto-review failed after 5 attempts"
-**And** all review feedback is attached for human inspection
-
-**Given** a retry is in progress
-**When** I want to intervene
-**Then** I can click "Stop & Review" to halt the loop
-**And** current state moves to Review column
-
-**Given** retry history
-**When** I view task details
-**Then** I see all retry attempts with their feedback
-**And** I can understand why reviews failed
-
----
-
-### Story 5.8: Real-time Output Streaming
-
-As a founder,
-I want to see real-time terminal output from all agents,
-So that I can monitor progress and understand agent reasoning (FR9).
-
-**Acceptance Criteria:**
-
-**Given** any agent is running (SM, DEV, or Review)
-**When** output is produced
-**Then** it streams to the terminal dock within 500ms (NFR4)
-**And** the terminal handles high-frequency output without drops (NFR5)
-
-**Given** multiple agents run in sequence
-**When** one agent completes and another starts
-**Then** the terminal shows a clear separator: "═══ DEV Agent Starting ═══"
-**And** output continues in the same terminal
-
-**Given** the terminal has scrollback
-**When** I scroll up during execution
-**Then** new output doesn't force scroll to bottom
-**And** I can click "Jump to latest" to resume auto-scroll
-
-**Given** I want to copy output
-**When** I select text in the terminal
-**Then** I can copy to clipboard
-**And** ANSI colors are preserved or stripped based on preference
-
----
-
-### Story 5.9: Multi-Agent Progress Indicator
-
-As a founder,
-I want a visual progress indicator showing the current workflow step,
-So that I know where I am in the SM → DEV → Review pipeline.
-
-**Acceptance Criteria:**
-
-**Given** BMAD workflow is running
-**When** I view the task card or header
-**Then** I see a stepper: [SM] → [DEV] → [Review]
-**And** the current step is highlighted
-**And** completed steps show checkmarks
-
-**Given** a retry is in progress
-**When** I view the stepper
-**Then** DEV step shows "Retry 2/5"
-**And** the Review step pulses to indicate pending
-
-**Given** workflow completes
-**When** task moves to Review column
-**Then** all steps show checkmarks
-**And** the stepper collapses to a summary: "Ready for human review"
-
-**Given** an error occurs
-**When** a step fails
-**Then** that step shows an error icon
-**And** tooltip explains the failure
-
-**Given** Basic Claude Code mode
-**When** execution runs
-**Then** no multi-step indicator is shown
-**And** just a simple "Running..." status appears
-
----
-
-### Story 5.10: Auto-transition to Human Review
-
-As a founder,
-I want the task to automatically move to Review when code review passes,
-So that I'm notified work is ready for my approval (FR10).
-
-**Acceptance Criteria:**
-
-**Given** code review passes
-**When** the review agent exits successfully
-**Then** the task moves to Review column
-**And** the card shows "Awaiting human review" status
-
-**Given** task moves to Review
-**When** I have notifications enabled
-**Then** a notification appears: "Story X.Y ready for review"
-**And** clicking the notification focuses that card
-
-**Given** Basic Claude Code mode
-**When** the agent exits with code 0
-**Then** task moves directly to Review
-**And** no code review step occurred
-
-**Given** agent exits with error
-**When** exit code is non-zero
-**Then** task stays in In Progress with error status
-**And** I can view logs and retry
-
----
-
-### Story 5.11: Context Notes for Stories
-
-As a founder,
-I want to add context notes to a story that the agent will receive,
-So that I can provide human guidance for complex implementations (FR11).
-
-**Acceptance Criteria:**
-
-**Given** I view a story task detail
-**When** I see the "Context Notes" field
-**Then** I can add/edit markdown notes
-**And** notes are saved to the task in database
-
-**Given** context notes exist
-**When** any agent runs for this story
-**Then** notes appear in the ## Human Guidance section of assembled context
-**And** notes are clearly marked as founder-provided
-
-**Given** I edit notes while agent is running
-**When** I save changes
-**Then** current execution continues with old notes
-**And** next execution uses updated notes
-
-**Given** I want to add notes quickly
-**When** I right-click a task card
-**Then** "Add Context Note" option appears
-**And** a quick-edit popover opens
-
----
-
-### Story 5.12: Agent Run History
-
-As a founder,
-I want to see the history of all agent runs for a story,
-So that I can track execution patterns and debug issues (FR33).
-
-**Acceptance Criteria:**
-
-**Given** an agent runs for a story
-**When** it completes (success or failure)
-**Then** a record is created: agent_type, model, start_time, end_time, duration_ms, exit_status, token_usage (if available)
-
-**Given** multiple runs exist for a story
-**When** I view task detail
-**Then** I see a "Run History" section
-**And** runs are listed chronologically with expandable details
-
-**Given** a run has retry attempts
-**When** I view history
-**Then** each retry is logged as a separate entry
-**And** linked to the same execution session
-
-**Given** I want to debug a failure
-**When** I click a run entry
-**Then** I can view the full terminal log for that run
-**And** logs are searchable (FR34)
-
-**Given** the agent_runs table
-**When** I query run history
-**Then** queries complete in <200ms (NFR6)
-
----
-
-### Story 5.13: SM Agent: Epic Retrospective
-
-As a founder,
-I want the Scrum Master agent to run a retrospective when all stories in an epic are done,
-So that learnings are captured for future sprints.
-
-**Acceptance Criteria:**
-
-**Given** all stories in an epic are in Done
-**When** the last story completes
-**Then** TinSu prompts: "All stories in Epic X complete. Run retrospective?"
-**And** I can choose "Run Retrospective" or "Skip"
-
-**Given** I choose "Run Retrospective"
-**When** the SM agent spawns
-**Then** it analyzes: completed stories, time taken, retry counts, review feedback
-**And** produces a retrospective summary document
-
-**Given** retrospective completes
-**When** the document is generated
-**Then** it's saved to \_bmad-output/retrospectives/epic-{id}-retro.md
-**And** the epic is marked as "Retrospective Complete"
-
-**Given** I skip retrospective
-**When** I proceed
-**Then** the epic is marked "Done (no retro)"
-**And** I can run retrospective later manually
-
-**Given** I want to run retrospective early
-**When** some stories remain
-**Then** I can manually trigger retrospective from epic context menu
-**And** it analyzes completed stories only
-
----
-
-### Story 5.14: [REMOVED - Covered by Story 5.3b]
-
-> **Note:** Basic Task execution is now handled by Story 5.3b (Basic Task Execution Path).
-> The execution mode is determined automatically by task type:
-> - Story Tasks → BMAD workflow (Story 5.3)
-> - Basic Tasks → Direct execution (Story 5.3b)
->
-> There is no project-level "mode" setting – both modes are always available.
-
----
-
-## Epic 6: Agent Monitoring & Control
-
-**Goal:** Founder can monitor running agents for stalls, see visual indicators when intervention is needed, pause agents mid-execution, resume with preserved context, and view reasoning logs to understand agent decisions.
-
-**FRs covered:** FR12, FR13, FR14, FR15, FR16
-**Dependencies:** Epic 5 (requires agent execution)
-
-### Story 6.1: Stall Detector Service
-
-As a founder,
-I want the system to detect when an agent has stalled,
-So that I'm alerted when progress has stopped (FR12).
-
-**Acceptance Criteria:**
-
-**Given** an agent is running
-**When** no terminal output occurs for the configured threshold (default: 5 minutes)
-**Then** the agent is marked as "stalled"
-**And** the stall event is logged with timestamp
-
-**Given** the stall threshold
-**When** I view project settings
-**Then** I can configure the timeout (1-30 minutes)
-**And** the default is 5 minutes (NFR8)
-
-**Given** an agent is stalled
-**When** new output arrives
-**Then** the stall status clears automatically
-**And** the agent returns to "running" status
-
-**Given** the Stall Detector Service
-**When** monitoring multiple agents (if parallel execution)
-**Then** each agent is tracked independently
-**And** stall detection triggers within the configured threshold (NFR8)
-
-**Given** the agent is in a code review retry loop
-**When** waiting between retries
-**Then** the brief pause is not counted as a stall
-**And** a grace period applies during transitions
-
----
-
-### Story 6.2: Visual Stall Indicator
-
-As a founder,
-I want to see a visual indicator when an agent is stalled,
-So that I know intervention may be needed (FR13).
-
-**Acceptance Criteria:**
-
-**Given** an agent is detected as stalled
-**When** I view the Kanban board
-**Then** the task card shows a yellow "Stalled" status badge
-**And** the badge pulses gently to draw attention
-
-**Given** the stalled status
-**When** I view the AgentStatusBadge
-**Then** it uses the --status-stalled color (#f59e0b)
-**And** an icon (⚠️ or clock) accompanies the color (not color alone)
-
-**Given** a stalled agent
-**When** I hover over the status badge
-**Then** a tooltip shows: "No output for X minutes. Consider pausing or checking."
-**And** the tooltip includes action suggestions
-
-**Given** a stalled agent
-**When** I view the terminal dock header
-**Then** it also shows the stalled indicator
-**And** the header background subtly changes to amber
-
-**Given** accessibility requirements
-**When** the stall indicator appears
-**Then** screen readers announce "Agent stalled, no output for X minutes"
-**And** the status change is not communicated by color alone
-
----
-
-### Story 6.3: Pause Running Agent
-
-As a founder,
-I want to pause a running agent mid-execution,
-So that I can intervene or investigate without losing progress (FR14).
-
-**Acceptance Criteria:**
-
-**Given** an agent is running
-**When** I click the "Pause" button in the terminal dock
-**Then** SIGSTOP is sent to the PTY process
-**And** the agent suspends immediately
-
-**Given** an agent is paused
-**When** I view the task card
-**Then** it shows a "Paused" status badge (gray with pause icon)
-**And** the terminal output shows "⏸ Agent paused by user"
-
-**Given** pause is requested
-**When** the command executes
-**Then** it completes within 1 second (NFR9)
-**And** the process state is preserved
-
-**Given** an agent is paused
-**When** I view the terminal
-**Then** I can still scroll and read previous output
-**And** I can copy text from the terminal
-
-**Given** keyboard shortcuts
-**When** I press Cmd/Ctrl+P with terminal focused
-**Then** the pause action triggers
-**And** the shortcut is shown in the button tooltip
-
----
-
-### Story 6.4: Resume Paused Agent
-
-As a founder,
-I want to resume a paused agent with preserved context,
-So that execution continues from where it stopped (FR15).
-
-**Acceptance Criteria:**
-
-**Given** an agent is paused
-**When** I click the "Resume" button
-**Then** SIGCONT is sent to the PTY process
-**And** the agent continues execution
-
-**Given** resume is requested
-**When** the command executes
-**Then** it completes within 1 second (NFR9)
-**And** the agent context is fully preserved
-
-**Given** an agent resumes
-**When** I view the terminal
-**Then** output shows "▶ Agent resumed"
-**And** new output continues streaming
-
-**Given** an agent resumes
-**When** I view the task card
-**Then** status returns to "Running" (green badge)
-**And** any stall timer resets
-
-**Given** keyboard shortcuts
-**When** I press Cmd/Ctrl+P with a paused agent
-**Then** the resume action triggers (same shortcut toggles)
-
-**Given** an agent was paused for a long time
-**When** I resume it
-**Then** execution continues normally
-**And** any API connections are re-established if needed
-
----
-
-### Story 6.5: Pause/Resume During Multi-Agent Workflow
-
-As a founder,
-I want pause/resume to work correctly during the BMAD multi-agent workflow,
-So that I can intervene at any step.
-
-**Acceptance Criteria:**
-
-**Given** the SM agent is running (step 1)
-**When** I pause
-**Then** only the current agent (SM) is paused
-**And** the workflow does not advance to DEV
-
-**Given** the DEV agent is running (step 2)
-**When** I pause
-**Then** the DEV agent pauses
-**And** no code review starts
-
-**Given** a paused agent in the workflow
-**When** I resume
-**Then** that specific step continues
-**And** workflow proceeds normally after completion
-
-**Given** I pause during a code review retry
-**When** I view status
-**Then** the retry count is preserved
-**And** resume continues the retry loop
-
-**Given** I want to abort the workflow entirely
-**When** I click "Stop" (not pause)
-**Then** the agent is killed
-**And** task returns to Backlog with "Stopped" status
-
----
-
-### Story 6.6: Reasoning Log Capture
-
-As a founder,
-I want agent reasoning logs captured and stored,
-So that I can understand how the agent made decisions (FR16).
-
-**Acceptance Criteria:**
-
-**Given** an agent is running
-**When** it produces output
-**Then** all output is captured to a log file
-**And** the log path is stored in agent_runs table
-
-**Given** Claude Code outputs reasoning (thinking blocks, tool calls)
-**When** captured in logs
-**Then** reasoning sections are tagged/identified
-**And** tool calls are logged with inputs and outputs
-
-**Given** a completed agent run
-**When** I view the log file
-**Then** it includes: full terminal output, timestamps, agent type, model used
-**And** the file is stored in .tinsu/logs/{task-id}/{run-id}.log
-
-**Given** log storage
-**When** logs accumulate
-**Then** old logs are retained for at least 30 days
-**And** a cleanup setting allows configuration
-
-**Given** log files exist
-**When** I search across logs (FR34)
-**Then** I can search by keyword across all logs
-**And** results show file, line, and context
-
----
-
-### Story 6.7: Reasoning Log Viewer
-
-As a founder,
-I want to view agent reasoning logs in a readable format,
-So that I can understand agent decisions without parsing raw output (FR16).
-
-**Acceptance Criteria:**
-
-**Given** a task with agent run history
-**When** I click "View Logs" on a run entry
-**Then** a log viewer panel opens
-**And** the log is displayed with syntax highlighting
-
-**Given** the log viewer
-**When** I view reasoning content
-**Then** thinking blocks are collapsible/expandable
-**And** tool calls are formatted as structured blocks
-
-**Given** a long log
-**When** I search within it
-**Then** Cmd/Ctrl+F opens search
-**And** matches are highlighted with navigation
-
-**Given** the log viewer
-**When** I want to share or debug
-**Then** I can copy the entire log
-**And** I can export to a file
-
-**Given** the log contains errors
-**When** I view it
-**Then** error sections are highlighted in red
-**And** I can jump to errors via a quick-nav
-
----
-
-### Story 6.8: Agent Health Dashboard
-
-As a founder,
-I want a quick overview of all agent activity and health,
-So that I can monitor multiple stories and spot issues.
-
-**Acceptance Criteria:**
-
-**Given** agents are running (or recently ran)
-**When** I view the dashboard widget in the sidebar
-**Then** I see: active agents count, stalled count, completed today
-**And** clicking expands to show details
-
-**Given** the dashboard
-**When** an agent is stalled
-**Then** the stalled count highlights in yellow
-**And** I can click to jump to that task
-
-**Given** multiple stories in progress
-**When** I view the dashboard
-**Then** each is listed with: story name, current step, duration
-**And** status badges show running/stalled/paused
-
-**Given** no agents are running
-**When** I view the dashboard
-**Then** it shows "No active agents"
-**And** displays recent completions (last 24h)
-
-**Given** I want quick actions
-**When** I hover over an agent in the dashboard
-**Then** I see Pause/Resume/View buttons
-**And** clicking performs the action without navigating away
-
----
-
-## Epic 7: Review & Approval Workflow
-
-**Goal:** Founder can review all changes made by an agent in a diff view, approve changes (triggering merge and Done), reject with feedback (returning to In Progress), request changes with inline comments, and have the agent re-execute with feedback context — the Manager-in-the-Loop pattern.
-
-**FRs covered:** FR17, FR18, FR19, FR20, FR21
-**Dependencies:** Epic 5 (requires agent completion), Epic 8 (requires git worktree)
-
-**Course Correction (2026-01-21):** The following stories are SUPERSEDED by TES (Task Execution Sandbox) implementation:
-- Story 7-1 (Review Panel Slide-over) → TES 3-1/3-2 implemented full-screen 3-column workspace
-- Story 7-2 (Monaco Diff Viewer) → TES 4-1 through 4-6 implemented complete diff viewer
-- Story 7-8 (Keyboard Navigation) → TES 3-11 covers keyboard navigation
-- Story 7-9 (Review Notifications) → TES 5-7 covers notifications
-
-### Story 7.1: Review Panel Slide-over ⚠️ SUPERSEDED
-
-> **Superseded by:** TES 3-1/3-2 (Full-screen 3-column task workspace)
-
-As a founder,
-I want a slide-over panel to review agent work,
-So that I can see changes without leaving the Kanban board.
-
-**Acceptance Criteria:**
-
-**Given** a task is in the Review column
-**When** I click the task card or press Enter
-**Then** a 400px slide-over panel opens from the right
-**And** the Kanban board remains visible (dimmed)
-
-**Given** the review panel is open
-**When** I view it
-**Then** I see: story title, acceptance criteria summary, diff view, action buttons
-**And** the layout follows the UX specification
-
-**Given** the review panel
-**When** I press Escape or click outside
-**Then** the panel closes
-**And** no changes are made to task status
-
-**Given** multiple tasks in Review
-**When** I close one panel and click another task
-**Then** the panel updates to show the new task
-**And** I can navigate between review tasks with arrow keys
-
-**Given** accessibility requirements
-**When** the panel opens
-**Then** focus moves to the panel
-**And** Tab cycles through panel elements only (focus trap)
-
 ---
-
-### Story 7.2: Monaco Diff Viewer Integration ⚠️ SUPERSEDED
-
-> **Superseded by:** TES 4-1 through 4-6 (Git Diff Viewer epic)
-
-As a founder,
-I want to see all changes in a VS Code-quality diff view,
-So that I can review exactly what the agent modified (FR17).
 
-**Acceptance Criteria:**
-
-**Given** a task in Review
-**When** the diff viewer loads
-**Then** it shows all file changes made by the agent
-**And** Monaco editor renders with syntax highlighting
-
-**Given** the diff viewer
-**When** I view changes
-**Then** additions are highlighted in green
-**And** deletions are highlighted in red
-**And** unchanged context lines are shown for reference
-
-**Given** multiple files were changed
-**When** I view the diff
-**Then** I see a file tree/list on the left
-**And** clicking a file shows its diff in the main view
-**And** file tree shows +/- line counts per file
-
-**Given** the diff view
-**When** I navigate
-**Then** I can jump between changes with keyboard (N/P for next/prev)
-**And** line numbers from both old and new versions are shown
-
-**Given** the dark theme
-**When** Monaco renders
-**Then** it uses colors consistent with TinSu's "Calm Command" palette
-**And** the diff colors have sufficient contrast
-
-**Given** a large diff
-**When** loading
-**Then** the diff loads progressively
-**And** I can scroll through smoothly without lag
+## Epic 1: Desktop Foundation & React Migration
 
----
+Founder can use TinSu on desktop via Tauri v2 with full feature parity — Kanban board with drag-and-drop, AI agent execution via tmux/PTY, review workflow with diff view, planning workspace with concurrent chat sessions, activity logging, workflow automation, and all existing capabilities work identically to the Electron version.
 
-### Story 7.3: Approve Changes Action
+### Story T1.1: Initialize Tauri v2 and Migrate React Frontend
 
 As a founder,
-I want to approve changes with a single action,
-So that the merge happens automatically and the task completes (FR18).
+I want TinSu to launch as a Tauri desktop application with my existing React UI visible,
+So that I can verify the migration foundation works before backend services are built.
 
 **Acceptance Criteria:**
 
-**Given** I'm reviewing a task
-**When** I click "Approve" or press "A"
-**Then** the git worktree branch merges to main (Epic 8)
-**And** the task moves to Done column
-
-**Given** approval is triggered
-**When** the merge succeeds
-**Then** the worktree is cleaned up
-**And** a success notification shows: "Story X.Y approved and merged"
-
-**Given** approval is triggered
-**When** a merge conflict occurs
-**Then** the merge is aborted
-**And** a warning shows: "Merge conflict detected"
-**And** task stays in Review for conflict resolution
-
-**Given** the 60-Second Velocity Loop (UX spec)
-**When** I approve
-**Then** no confirmation dialog appears (per UX spec: direct action)
-**And** the next Review task auto-focuses if available
-
-**Given** keyboard-first navigation
-**When** "A" is pressed in review panel
-**Then** approve action triggers
-**And** the shortcut is shown in the button
+**Given** the existing React project with 50+ components, hooks, stores, and shadcn/ui
+**When** I run `npm run tauri dev`
+**Then** a native Tauri window opens displaying the React frontend with HMR working
+**And** the `src-tauri/` directory is created with Cargo.toml, tauri.conf.json, and capabilities
+**And** the frontend directory is flattened from `src/renderer/src/` to `src/`
+**And** `src/main/` (Node.js backend) and `src/preload/` are removed
+**And** all existing React components render without errors in the Tauri webview
+**And** Tailwind CSS, shadcn/ui, and all web-based libraries (xterm.js, Monaco, @dnd-kit) load correctly
+**And** `npm run tauri build` produces a desktop binary under 30MB (NFR37)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 7.4: Reject Changes with Feedback
+### Story T1.2: Rust SQLite Database with SeaORM Schema
 
 As a founder,
-I want to reject changes with written feedback,
-So that the agent can retry with my guidance (FR19).
+I want all my project data (tasks, sprints, epics, agent runs, sessions) persisted in a Rust-managed SQLite database,
+So that the Tauri app has the same data layer as the Electron version without Node.js.
 
 **Acceptance Criteria:**
 
-**Given** I'm reviewing a task
-**When** I click "Reject" or press "R"
-**Then** a feedback modal opens
-**And** I can type rejection reason in a text area
-
-**Given** the feedback modal
-**When** I type feedback and submit
-**Then** the task moves back to In Progress
-**And** the agent re-executes with feedback as context (FR21)
-
-**Given** rejection feedback
-**When** stored
-**Then** it's saved to the task as "rejection_feedback"
-**And** linked to the specific agent run that was rejected
-
-**Given** the agent re-runs after rejection
-**When** context is assembled
-**Then** a ## Previous Attempt Feedback section is included
-**And** the feedback is clearly marked as human-provided
-
-**Given** I reject without feedback
-**When** I leave the text area empty
-**Then** a warning shows: "Feedback helps the agent improve. Continue anyway?"
-**And** I can proceed or add feedback
+**Given** the existing 17-table Drizzle schema
+**When** the Tauri app starts for the first time
+**Then** SeaORM creates all 17 tables with identical column names, types, and foreign keys
+**And** sea-orm-migration runs automatically on startup
+**And** entity definitions exist for: project, sprint, epic, task, agent_run, task_activity, task_session, chat_session, chat_message, chat_message_attachment, app_settings, log_entry (and remaining tables)
+**And** the database file is created at `data/tinsu.db`
+**And** SQLite queries for task list views complete in <200ms (NFR6)
+**And** the database maintains ACID properties (NFR15)
+**And** `cargo test` validates schema creation and basic CRUD for all entities
 
----
-
-### Story 7.5: Request Changes with Inline Comments
+### Story T1.3: Type-Safe IPC with rspc Router
 
 As a founder,
-I want to add inline comments on specific lines,
-So that the agent knows exactly what to fix (FR20).
+I want the React frontend to communicate with the Rust backend through type-safe procedures,
+So that I get the same developer experience as tRPC with automatic TypeScript type generation.
 
 **Acceptance Criteria:**
 
-**Given** I'm viewing a diff
-**When** I click the gutter next to a line
-**Then** a comment input appears inline
-**And** I can type my comment
-
-**Given** I add an inline comment
-**When** I submit it
-**Then** the comment is anchored to that file:line
-**And** a comment indicator shows on that line
-
-**Given** multiple inline comments
-**When** I view the diff
-**Then** all comments are visible with indicators
-**And** I can expand/collapse comment threads
-
-**Given** I've added inline comments
-**When** I click "Request Changes"
-**Then** all comments are collected as structured feedback
-**And** task moves back to In Progress
-**And** agent re-runs with inline feedback in context
-
-**Given** inline comments in context
-**When** the agent receives them
-**Then** they appear as: "File: path/to/file.ts, Line 42: [comment]"
-**And** the agent can locate and address each comment
-
----
+**Given** SeaORM entities from T1.2 and the existing React frontend
+**When** the rspc router is initialized in `src-tauri/src/lib.rs`
+**Then** the root router merges sub-routers for: task, agent, review, git, config, activity, sprint, chat
+**And** `@rspc/tauri` bridges rspc to Tauri invoke
+**And** `@rspc/react` provides TanStack Query hooks in the frontend
+**And** Specta auto-generates TypeScript types matching Rust structs
+**And** `src/lib/rspc.ts` replaces `src/lib/trpc.ts` as the client setup
+**And** AppError enum with variants (NotFound, BadRequest, Internal, Database) is defined with `thiserror` + `specta::Type`
+**And** at least one query (`getTask`) and one mutation (`createTask`) work end-to-end as proof of the IPC pipeline
+**And** `cargo test` validates router initialization and procedure registration
 
-### Story 7.6: Agent Re-execution with Feedback Context
+### Story T1.4: Task CRUD and Kanban Board Operations
 
 As a founder,
-I want the agent to automatically re-run with my feedback,
-So that it can address my concerns without manual re-configuration (FR21).
+I want to create, view, drag, and manage tasks on my Kanban board powered by the Rust backend,
+So that the core Kanban workflow works in the Tauri app.
 
 **Acceptance Criteria:**
 
-**Given** a task is rejected or changes requested
-**When** it returns to In Progress
-**Then** the BMAD workflow restarts from DEV agent (not SM)
-**And** previous context plus feedback is passed
-
-**Given** the feedback is in context
-**When** DEV agent runs
-**Then** Context Builder includes: original story, architecture, PLUS rejection feedback
-**And** feedback is in a prominent ## Revision Required section
-
-**Given** inline comments exist
-**When** context is assembled
-**Then** comments are formatted as a structured list
-**And** grouped by file for clarity
-
-**Given** multiple rejection cycles
-**When** feedback accumulates
-**Then** only the most recent feedback is included (avoid bloat)
-**And** previous attempts are summarized briefly
-
-**Given** re-execution completes
-**When** code review passes
-**Then** task returns to Review for human inspection
-**And** diff shows changes since last human review
+**Given** rspc router and SeaORM from T1.2-T1.3
+**When** I open the Kanban board
+**Then** all 5 columns render (Backlog, Create Story, In Progress, Review, Done) (FR1)
+**And** I can drag tasks between columns with <100ms response (FR2, NFR1)
+**And** I can create new tasks with title, description, and acceptance criteria (FR3)
+**And** task state changes persist immediately to SQLite (NFR7)
+**And** the board loads with full task list in <1 second (NFR2)
+**And** existing tRPC hooks for task operations are migrated to rspc hooks
+**And** task status badge shows correct state (Idle, Running, Stalled, Review, Done) (UX-DR4)
+**And** task-type visual differentiation works (Story vs Basic badges) (UX-DR11, TES FR30)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 7.7: Review History & Comparison
+### Story T1.5: Project, Sprint, and Epic Management
 
 As a founder,
-I want to compare the current version with previous review attempts,
-So that I can see what changed after my feedback.
+I want to organize tasks into sprints and epics, configure project settings, and manage the full hierarchy,
+So that I can structure my work using BMAD Method or TaskMaster methodology.
 
 **Acceptance Criteria:**
-
-**Given** a task has been rejected and re-submitted
-**When** I view it in Review
-**Then** I see a version selector: "v1, v2, v3..."
-**And** I can compare any two versions
-
-**Given** I select two versions
-**When** the diff loads
-**Then** it shows changes between those specific versions
-**And** I can see what the agent modified based on my feedback
-
-**Given** the review panel
-**When** multiple versions exist
-**Then** a timeline shows: "v1 → Rejected → v2 → Changes Requested → v3"
-**And** clicking a version shows that snapshot
-
-**Given** I want to see all my feedback
-**When** I click "Feedback History"
-**Then** I see all rejection/comment feedback chronologically
-**And** each entry links to the version it addressed
-
----
 
-### Story 7.8: Keyboard-First Review Navigation ⚠️ SUPERSEDED
+**Given** task CRUD from T1.4
+**When** I use the sidebar and project management features
+**Then** I can organize tasks into a Sprint/Epic/Story hierarchy (FR4)
+**And** I can view task velocity metrics (tasks completed per week) (FR5)
+**And** I can filter and view tasks by sprint, epic, or status (FR6)
+**And** I can select methodology (BMAD Method or TaskMaster) per project (FR28)
+**And** I can configure project settings via YAML file (FR29)
+**And** the system reads story definitions from markdown/YAML files (FR30)
+**And** I can initialize TinSu in an existing git repository (FR31)
+**And** project config is preserved in version-controlled YAML (FR35)
+**And** sprint/epic rspc procedures replace tRPC equivalents
 
-> **Superseded by:** TES 3-11 (Keyboard Navigation in task workspace)
+### Story T1.6: PTY and tmux Terminal Services in Rust
 
 As a founder,
-I want to navigate and act on reviews entirely with keyboard,
-So that I can maintain the 60-second velocity loop (UX spec).
+I want to see real-time terminal output from AI agents in an embedded terminal view powered by Rust PTY,
+So that I can watch agents work and interact with them directly.
 
 **Acceptance Criteria:**
 
-**Given** a task in Review column is focused
-**When** I press Enter
-**Then** the review panel opens
-**And** focus moves to the diff viewer
-
-**Given** the review panel is open
-**When** I use keyboard shortcuts
-**Then** A = Approve, R = Reject, C = Request Changes
-**And** N/P = Next/Previous file in diff
-**And** J/K = Next/Previous change within file
-
-**Given** I approve a task
-**When** it completes
-**Then** focus moves to the next task in Review
-**And** pressing Enter opens that review immediately
-
-**Given** no more tasks in Review
-**When** the last one is approved
-**Then** focus returns to the board
-**And** a toast shows "All reviews complete"
-
-**Given** I want to see shortcuts
-**When** I press "?" in review panel
-**Then** a shortcuts overlay appears
-**And** lists all available keyboard actions
+**Given** the Tauri app with task management from T1.4-T1.5
+**When** a task moves to In Progress
+**Then** the system creates a tmux session (`tinsu-task-{id}`) (TES FR5)
+**And** portable-pty spawns and attaches to the tmux session
+**And** terminal output streams to xterm.js via Tauri Channels with <500ms latency (NFR4)
+**And** the user can type commands directly into the terminal (TES FR3)
+**And** terminal sessions survive navigation between tasks (TES FR2)
+**And** terminal sessions survive app restart (TES FR8)
+**And** scrollback is backed up to filesystem periodically and on status change (TES FR39-FR43)
+**And** scrollback restores after system reboot (TES FR9, TES FR44)
+**And** the system detects when a terminal session ends or becomes unresponsive (TES FR7)
+**And** the 3-column task workspace renders (Content, Terminal+Activities, Diff) with resizable columns (TES FR21-FR22, UX-DR8)
+**And** Story tasks auto-execute dev-story command on In Progress (TES FR31)
+**And** Basic tasks auto-execute Claude Code with description on In Progress (TES FR34)
+**And** Pause/Resume commands execute within 1 second (NFR9, FR14-FR15)
+**And** stall detection triggers after configurable threshold (FR12-FR13, NFR8)
+**And** the system supports 10+ concurrent task terminals (TES NFR-P7)
 
----
-
-### Story 7.9: Review Notifications ⚠️ SUPERSEDED
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-> **Superseded by:** TES 5-7 (Code-Review Complete Notification)
+### Story T1.7: Hook Listener and Activity Logging
 
 As a founder,
-I want to be notified when tasks need my review,
-So that I don't miss completed agent work.
-
-**Acceptance Criteria:**
-
-**Given** a task moves to Review column
-**When** the transition occurs
-**Then** a notification appears: "Story X.Y ready for review"
-**And** clicking the notification opens that task's review panel
-
-**Given** multiple tasks complete in sequence
-**When** notifications queue up
-**Then** they stack (max 3 visible)
-**And** "X more" link shows additional
-
-**Given** notification settings
-**When** I configure them
-**Then** I can enable/disable: in-app, system notifications
-**And** I can set a notification sound
-
-**Given** I'm actively reviewing
-**When** new tasks arrive in Review
-**Then** a subtle badge appears on the Review column header
-**And** no disruptive notification interrupts my flow
-
-**Given** I've been away
-**When** I return to TinSu
-**Then** I see a summary: "3 tasks awaiting review"
-**And** clicking jumps to the Review column
-
----
-
-## Epic 8: Git Integration & Version Control
-
-**Goal:** Founder's code changes are safely isolated in git worktrees per task, branches follow naming convention, merge to main happens automatically on approval, worktrees are cleaned up, and merge conflicts are detected and surfaced.
-
-**FRs covered:** FR22, FR23, FR24, FR25, FR26, FR27
-**Dependencies:** Epic 1 (foundation), Epic 2 (task management)
-
-### Story 8.1: Git Service Foundation
-
-As a developer,
-I want a Git Service that wraps git CLI operations,
-So that all git interactions go through a consistent, error-handled interface.
+I want Claude Code hook events (completion, tool use, errors) to be captured and displayed as a real-time activity log,
+So that I can debug agent behavior and see a complete audit trail for each task.
 
 **Acceptance Criteria:**
 
-**Given** the main process
-**When** I create a GitService instance
-**Then** it can execute git commands via child_process
-**And** all outputs are captured and parsed
-
-**Given** the GitService
-**When** I call any git operation
-**Then** errors are caught and returned with clear messages (NFR14)
-**And** the error includes the git command that failed
-
-**Given** git is not installed
-**When** GitService initializes
-**Then** it detects the missing dependency
-**And** throws a clear error: "Git not found. Please install git." (NFR20)
-
-**Given** the project is not a git repository
-**When** GitService operations are called
-**Then** it detects the missing .git folder
-**And** returns error: "Not a git repository" (NFR20)
-
-**Given** repository size considerations
-**When** operations run
-**Then** they complete within reasonable time for repos up to 10GB (NFR21)
-**And** branch operations complete within 5 seconds (NFR22)
-
-**Given** GitService initializes for a project
-**When** the .tinsu/ folder exists
-**Then** `.tinsu/worktrees/` is added to .gitignore if not already present
-**And** this happens before any worktree operations
+**Given** tmux/PTY services from T1.6
+**When** Claude Code hooks fire during agent execution
+**Then** axum HTTP server receives hook POST events on localhost (TES FR46)
+**And** events are routed to the correct task based on session-task mapping (TES FR45-FR46)
+**And** all 7 event types are captured: status_change, agent_start, agent_complete, tool_used, user_command, automation_trigger, error (TES FR10-FR16)
+**And** events are stored in task_activities table with append-only integrity (TES NFR-R3)
+**And** the activity log streams events in real-time via Tauri Events (TES FR19)
+**And** the activity log UI shows filterable events with chip-style toggles (TES FR17-FR18, UX-DR9)
+**And** timestamps display for each event (TES FR20)
+**And** hook events from concurrent sessions route with 100% accuracy (NFR30)
+**And** Story tasks auto-move to Review when dev-story completes (TES FR32)
+**And** Story tasks auto-trigger code-review on Review entry (TES FR33)
+**And** user is notified when code-review is complete (TES FR35)
+**And** manual trigger buttons work as fallback (TES FR36-FR37, UX-DR12)
+**And** session-task mapping rebuilds on app restart (TES FR47)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 8.2: Create Worktree on Task Start
+### Story T1.8: Git Service — Worktrees, Branches, and Review
 
 As a founder,
-I want a git worktree created when I move a task to In Progress,
-So that agent work is isolated from the main branch (FR22).
+I want each task to execute in an isolated git worktree with automatic merge on approval,
+So that multiple agents can work in parallel without conflicts, and I can review and approve changes safely.
 
 **Acceptance Criteria:**
 
-**Given** a Story Task is dragged to "Create Story" column
-**When** the drop completes
-**Then** GitService creates a new worktree
-**And** the worktree is located at .tinsu/worktrees/{task-id}/
-**And** the agent executes in this worktree for story creation
-
-**Given** a Basic Task is dragged to "In Progress" column
-**When** the drop completes
-**Then** GitService creates a new worktree
-**And** the worktree is located at .tinsu/worktrees/{task-id}/
-**And** the agent executes in this worktree for direct execution
-
-**Given** a Story Task with existing worktree is dragged from "Create Story" to "In Progress"
-**When** the drop completes
-**Then** the existing worktree is reused
-**And** no new worktree is created
-
-**Given** worktree creation
-**When** it runs
-**Then** it uses `git worktree add` command
-**And** the worktree is based on the current HEAD of main
-
-**Given** worktree creation succeeds
-**When** I check the filesystem
-**Then** the worktree directory contains a full working copy
-**And** the task record stores the worktree path
-
-**Given** worktree creation fails
-**When** an error occurs (e.g., disk full)
-**Then** the task stays in previous column
-**And** a clear error message is shown
-**And** no partial worktree is left behind (NFR12)
+**Given** task execution via tmux/PTY from T1.6
+**When** a task moves to In Progress
+**Then** the system creates a git worktree with branch `tinsu/story-{id}-{slug}` (FR22-FR23)
+**And** the agent executes within the isolated worktree (FR24)
+**And** I can view a diff of all changes via Monaco Editor in the Diff tab (FR17, TES FR26-FR29, UX-DR10)
+**And** the diff viewer shows file tree with change indicators (Modified/Added/Deleted/Renamed)
+**And** I can approve changes, which merges the worktree branch to main (FR18, FR25)
+**And** I can reject changes with feedback, returning the task to In Progress (FR19-FR21)
+**And** the system deletes the worktree after successful merge (FR26)
+**And** merge conflicts are detected and surfaced to the founder (FR27, NFR13)
+**And** worktree creation/deletion succeeds or fails cleanly — no partial states (NFR12)
+**And** the review panel slides over from right (400px) with A/R keyboard shortcuts (UX-DR14)
+**And** git operations provide clear error messages on failure (NFR14)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 8.3: Branch Naming Convention
+### Story T1.9: Planning Workspace and Chat Services
 
 As a founder,
-I want branches to follow a consistent naming convention,
-So that I can identify which branch belongs to which story (FR23).
+I want to collaborate with AI agents (PM, Architect, UX Designer, Dev) through concurrent chat sessions in a Planning Workspace,
+So that I can plan features with specialized agents without leaving TinSu.
 
 **Acceptance Criteria:**
 
-**Given** a worktree is created for a story
-**When** the branch is named
-**Then** it follows pattern: tinsu/story-{task-id}-{slug}
-**And** slug is derived from story title (lowercase, hyphens)
-
-**Given** a story title "Add User Authentication"
-**When** branch is created
-**Then** branch name is: tinsu/story-abc123-add-user-authentication
-**And** slug is truncated to max 50 characters
-
-**Given** a story title with special characters
-**When** slug is generated
-**Then** special characters are removed or replaced
-**And** the branch name is valid for git (NFR23)
-
-**Given** a branch with this name already exists
-**When** worktree creation attempts
-**Then** a suffix is added: tinsu/story-{id}-{slug}-2
-**And** uniqueness is guaranteed
-
-**Given** I view the task in TinSu
-**When** a branch exists
-**Then** the branch name is displayed in task details
-**And** I can copy it to clipboard
+**Given** tmux/PTY and hook services from T1.6-T1.7
+**When** I open the Planning Workspace
+**Then** BMAD workflow steps display in a sidebar (FR36)
+**And** I can select an agent persona for each chat session (FR37)
+**And** I can send messages and receive responses in a chat interface (FR38)
+**And** each chat creates a persistent tmux session (`tinsu-chat-{sessionId}`) (FR39)
+**And** bidirectional communication works via PTY I/O channel (FR40)
+**And** the agent launches with unique session identity and persona context (FR41)
+**And** lifecycle events route to the correct session without leakage (FR42)
+**And** assistant responses and tool activity persist for display (FR43)
+**And** I can run 5+ concurrent chat sessions without degradation (FR44, NFR25)
+**And** switching between sessions completes in <500ms (FR45, NFR26)
+**And** the session list shows live status indicators (thinking, idle, completed, exited) (FR46)
+**And** I can resume previous sessions (FR47)
+**And** sessions are scoped to projects (FR48-FR50)
+**And** sessions persist across app restart (FR51, NFR28)
+**And** session health is validated on startup (FR52, NFR29)
+**And** stale sessions update UI status within 2 seconds (FR53, NFR32)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 8.4: Agent Executes in Worktree
+### Story T1.10: Feature Parity Validation (Phase 1 Gate)
 
 As a founder,
-I want the agent to execute within the isolated worktree,
-So that changes don't affect main until approved (FR24).
+I want to verify that the Tauri desktop app matches the Electron app feature-for-feature,
+So that I can confidently retire the Electron version and proceed to Phase 2.
 
 **Acceptance Criteria:**
 
-**Given** an agent is spawned for a story
-**When** PTY process is created
-**Then** the working directory is set to the worktree path
-**And** the agent sees only that worktree's files
-
-**Given** the agent makes changes
-**When** files are modified
-**Then** changes are only in the worktree
-**And** main branch remains unaffected
-
-**Given** the agent runs git commands
-**When** it commits
-**Then** commits go to the worktree's branch
-**And** main branch history is unchanged
-
-**Given** the worktree path
-**When** Context Builder assembles context
-**Then** it uses worktree path for any file references
-**And** relative paths work correctly
-
-**Given** multiple tasks running in parallel (future)
-**When** each has its own worktree
-**Then** they are fully isolated
-**And** no file conflicts occur between agents
+**Given** all T1.1-T1.9 stories are complete
+**When** I run the Tauri desktop app through a full workflow
+**Then** the Kanban board with drag-and-drop works identically to Electron (FR1-FR6)
+**And** agent execution with terminal streaming works (FR7-FR11)
+**And** stall detection, pause/resume work (FR12-FR16)
+**And** review with diff view and approve/reject works (FR17-FR21)
+**And** git worktrees with merge on approve work (FR22-FR27)
+**And** project configuration and methodology selection work (FR28-FR31)
+**And** data persistence in SQLite works (FR32-FR35)
+**And** planning workspace with concurrent chat sessions works (FR36-FR53)
+**And** activity logging with all 7 event types works (TES FR10-FR20)
+**And** task workspace with 3-column layout works (TES FR21-FR25)
+**And** workflow automation (Story/Basic task types) works (TES FR30-FR38)
+**And** scrollback persistence across restart/reboot works (TES FR39-FR47)
+**And** all existing React frontend tests pass in Tauri webview
+**And** all Rust backend services have `cargo test` coverage
+**And** desktop binary is under 30MB (NFR37)
+**And** keyboard shortcuts work (A/R/Enter/Escape/Space/arrows/?) (UX-DR5)
+**And** WCAG AA accessibility is maintained (UX-DR6)
 
 ---
-
-### Story 8.5: Merge Worktree on Approval
-
-As a founder,
-I want the worktree branch to merge to main when I approve,
-So that completed work is integrated automatically (FR25).
-
-**Acceptance Criteria:**
 
-**Given** I approve a task in Review
-**When** the approval action triggers
-**Then** GitService merges the worktree branch to main
-**And** a merge commit is created
-
-**Given** the merge succeeds
-**When** it completes
-**Then** main branch contains all changes from the worktree
-**And** the merge is a fast-forward if possible, otherwise merge commit
-**And** the resulting commit SHA is saved to the task record (merge_commit_sha)
-**And** the original branch name is saved to the task record (branch_name)
-
-**Given** the merge
-**When** commit message is generated
-**Then** it includes: "Merge story {id}: {title}"
-**And** references the TinSu task ID
-
-**Given** main has advanced since worktree creation
-**When** merge is attempted
-**Then** GitService first rebases or merges main into worktree
-**And** then merges worktree to main
-
-**Given** the merge completes
-**When** I check git log
-**Then** the story branch commits are in main history
-**And** attribution is preserved
-
-**Given** a task has merge_commit_sha stored
-**When** I view the task detail (even after Done)
-**Then** I can view the historical diff for that commit
-**And** the diff shows exactly what this task changed
-
-**Schema Addition (tasks table):**
-- `merge_commit_sha`: TEXT nullable
-- `branch_name`: TEXT nullable
+## Epic 2: Remote Project Support via SSH
 
----
+Founder can connect to a remote machine via SSH and manage projects remotely — add/test SSH connections, generate and securely store SSH keys, discover projects on remote machines, attach to remote tmux sessions for agent execution, read/write remote files, receive forwarded hook events, and seamlessly switch between local and remote projects.
 
-### Story 8.6: Delete Worktree After Merge
+### Story T2.1: SSH Client and Key Management
 
 As a founder,
-I want worktrees cleaned up after successful merge,
-So that disk space is reclaimed and clutter is avoided (FR26).
+I want to generate SSH key pairs and store them securely in my OS keychain,
+So that I can authenticate with remote machines without managing key files manually.
 
 **Acceptance Criteria:**
-
-**Given** a merge completes successfully
-**When** cleanup runs
-**Then** `git worktree remove` is called
-**And** the worktree directory is deleted
-
-**Given** worktree removal
-**When** it succeeds
-**Then** the branch is also deleted (if merged)
-**And** the task record clears the worktree path
-
-**Given** worktree removal fails
-**When** an error occurs
-**Then** a warning is logged
-**And** task still moves to Done (cleanup is best-effort)
-
-**Given** I want to keep a worktree
-**When** I enable "preserve worktrees" in settings
-**Then** cleanup is skipped
-**And** worktrees remain for inspection
-
-**Given** orphaned worktrees exist
-**When** I run cleanup from settings
-**Then** TinSu lists worktrees without active tasks
-**And** I can delete them manually
 
----
+**Given** the Tauri desktop app from Epic 1
+**When** I access SSH key management settings
+**Then** the system can generate Ed25519 SSH key pairs via `russh-keys` (FR55)
+**And** private keys are stored in the OS keychain via `keyring` crate (macOS Keychain, Linux Secret Service, Windows Credential Manager)
+**And** public keys are displayed for copying to remote `authorized_keys`
+**And** I can view, export, and delete stored SSH keys
+**And** key generation completes in <2 seconds
+**And** `cargo test` validates key generation, storage, and retrieval
 
-### Story 8.7: Merge Conflict Detection
+### Story T2.2: SSH Connection Management UI
 
 As a founder,
-I want merge conflicts detected before corrupting main,
-So that I can resolve them safely (FR27, NFR13).
+I want to add, test, edit, and remove SSH connection profiles,
+So that I can manage my remote machines from within TinSu.
 
 **Acceptance Criteria:**
 
-**Given** a merge is attempted
-**When** conflicts exist
-**Then** the merge is aborted (not committed)
-**And** main branch remains unchanged (NFR13)
-
-**Given** conflicts are detected
-**When** GitService reports them
-**Then** it returns: list of conflicting files, conflict markers
-**And** the task shows "Conflict" status
-
-**Given** conflicts exist
-**When** I view the task in Review
-**Then** a warning banner shows: "Merge conflict in X files"
-**And** conflicting files are listed
-
-**Given** the conflict detection
-**When** it runs
-**Then** it uses `git merge --no-commit --no-ff` to test
-**And** aborts immediately if conflicts found
+**Given** SSH key management from T2.1
+**When** I open connection management
+**Then** I can add a new SSH connection profile with host, port, user, and authentication method (FR54)
+**And** I can select from stored SSH keys or use password authentication
+**And** I can test a connection to verify it works before saving (FR54)
+**And** the test displays success with server fingerprint or a clear error message on failure
+**And** I can edit existing connection profiles
+**And** I can remove connection profiles
+**And** connection establishment completes in <5 seconds on low-latency networks (NFR33)
+**And** connections auto-reconnect within 10 seconds after transient network interruption (NFR35)
+**And** connection profiles persist in the database
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 8.8: Conflict Resolution UI
+### Story T2.3: Remote Project Discovery and Selection
 
 As a founder,
-I want to resolve merge conflicts within TinSu,
-So that I don't have to switch to command line.
+I want to discover and select projects on a remote machine,
+So that I can manage remote codebases without manually entering paths.
 
 **Acceptance Criteria:**
 
-**Given** a task has merge conflicts
-**When** I click "Resolve Conflicts"
-**Then** a conflict resolution view opens
-**And** I see each conflicting file listed
-
-**Given** a conflicting file
-**When** I click to view it
-**Then** Monaco shows the conflict markers (<<<, ===, >>>)
-**And** I can edit to resolve
-
-**Given** I'm resolving a conflict
-**When** I choose a side
-**Then** I can click "Accept Incoming" or "Accept Current" or edit manually
-**And** conflict markers are removed
-
-**Given** all conflicts are resolved
-**When** I click "Complete Merge"
-**Then** the merge commits successfully
-**And** task proceeds to Done
-
-**Given** I can't resolve in TinSu
-**When** I click "Open in Editor"
-**Then** the worktree opens in system default editor
-**And** I can resolve externally and return
+**Given** a working SSH connection from T2.2
+**When** I connect to a remote machine
+**Then** the system enumerates directories on the remote machine to find git repositories (FR56)
+**And** discovered projects show repository name, path, and last modified date
+**And** I can select a project to manage remotely
+**And** the selected project is saved as a remote project profile
+**And** I can manually enter a path if auto-discovery misses a project
+**And** discovery handles permission errors gracefully (skips inaccessible directories)
 
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 8.9: Branch Status Indicators
+### Story T2.4: Remote tmux Session Attachment
 
 As a founder,
-I want to see branch status on task cards,
-So that I know the git state at a glance.
+I want to attach to tmux sessions on a remote machine over SSH,
+So that I can execute and monitor AI agents on remote projects just like local ones.
 
 **Acceptance Criteria:**
-
-**Given** a task with an active worktree
-**When** I view the card
-**Then** a branch icon shows with the branch name (truncated)
-**And** hovering shows full branch name
-
-**Given** a task's branch is behind main
-**When** I view the card
-**Then** a warning shows: "X commits behind main"
-**And** tooltip suggests rebasing
-
-**Given** a task's branch has uncommitted changes
-**When** the agent finishes
-**Then** changes are auto-committed with message: "WIP: Agent changes"
-**And** the card shows commit count
-
-**Given** the task is in Done
-**When** branch was merged
-**Then** the branch indicator shows a checkmark
-**And** "Merged" status is displayed
 
----
+**Given** a remote project selected from T2.3
+**When** a remote task moves to In Progress
+**Then** the system creates a tmux session on the remote machine via SSH exec channel (FR57)
+**And** the local app attaches to the remote tmux session via SSH tunnel
+**And** terminal output streams to the local xterm.js with <500ms latency plus SSH overhead
+**And** I can type commands into the remote terminal
+**And** remote tmux sessions persist independently of the SSH connection
+**And** reconnecting to a dropped SSH session reattaches to the existing tmux session
+**And** the system detects when a remote tmux session ends or becomes unresponsive
 
-### Story 8.10: Git Operations Error Recovery
+### Story T2.5: Remote File Operations
 
 As a founder,
-I want clear error messages and recovery options for git failures,
-So that I can fix issues without losing work.
+I want to read and write project files on a remote machine (story files, diffs, logs),
+So that I can review agent changes and manage artifacts without SSH-ing manually.
 
 **Acceptance Criteria:**
-
-**Given** any git operation fails
-**When** the error occurs
-**Then** TinSu shows a clear message explaining what failed (NFR14)
-**And** suggests recovery steps
-
-**Given** worktree creation fails
-**When** the error is shown
-**Then** I can retry or proceed without worktree (dev mode)
-**And** the choice is logged
-
-**Given** merge fails (not due to conflicts)
-**When** the error occurs
-**Then** the worktree is preserved
-**And** I can manually inspect and retry
-
-**Given** the app crashes during git operation
-**When** I restart TinSu
-**Then** it detects incomplete operations
-**And** offers to clean up or resume
-
-**Given** I want to debug
-**When** git errors occur
-**Then** full command and output are logged
-**And** I can view detailed logs in settings
 
----
+**Given** remote project access from T2.3-T2.4
+**When** I view a remote task's diff, content, or artifacts
+**Then** the system reads remote files via SFTP (FR58)
+**And** the diff viewer shows remote git changes identically to local diffs
+**And** story files and acceptance criteria load from the remote filesystem
+**And** agent logs and transcripts are accessible from the remote machine
+**And** remote file operations complete in <3 seconds for files up to 1MB (NFR34)
+**And** large files show a loading indicator
+**And** file operation errors display clear messages (permission denied, file not found)
 
-### Story 8.11: Historical Diff View for Completed Tasks
+### Story T2.6: Remote Hook Event Forwarding
 
 As a founder,
-I want to view the git diff for completed tasks,
-So that I can review what changes a task made even after it's done.
+I want Claude Code hook events from a remote machine to reach my local TinSu app,
+So that activity logging, automation triggers, and status updates work for remote projects.
 
 **Acceptance Criteria:**
-
-**Given** a task in Done status with merge_commit_sha stored
-**When** I open the task detail view
-**Then** the Diff section displays the historical diff for that commit
-**And** the diff shows all files changed by that task
-
-**Given** a completed task's diff is displayed
-**When** I view it
-**Then** it uses the same Monaco diff viewer as in-progress tasks (TES 4-4)
-**And** file tree, summary bar, and unified/split toggle work identically
-
-**Given** a task in Done status
-**When** merge_commit_sha is null (legacy task or worktree skipped)
-**Then** the Diff section shows "No diff available for this task"
-**And** a tooltip explains why
-
-**Given** I want to see the exact commit
-**When** I view the diff header
-**Then** the commit SHA is displayed (truncated, copyable)
-**And** the original branch name is shown for reference
-
-**Given** I want to compare with current main
-**When** I click "Compare with current"
-**Then** a diff shows changes between task's commit and current HEAD
-**And** this helps identify if the task's changes were later modified
-
-**Dependencies:** Story 8-5, TES Epic 4
-
----
-
-## Epic 9: BMAD Planning Workspace
-
-**Goal:** Founder has a dedicated planning workspace that guides them through BMAD's Analysis → Planning → Solutioning phases with artifact management, guided workflow execution, intelligent next-step recommendations, and implementation readiness visualization.
-
-**User Outcome:** "I can see exactly where I am in planning, what artifacts exist, what's next, and whether I'm ready for implementation."
 
-**FRs covered:** New planning-workspace-specific FRs (additive to FR28-FR30)
-**Dependencies:** Epic 3 (planning task types, agent launcher, artifact detection, story import), TES Epic 4 (Monaco diff viewer)
-**Note (2026-03-21):** Added via sprint change proposal based on deep research synthesis from ChatGPT and Gemini reports on BMAD planning workflow UI
+**Given** remote tmux sessions from T2.4
+**When** Claude Code hooks fire on the remote machine
+**Then** the system forwards hook events to the local app via SSH port forwarding (FR59)
+**And** the local axum hook listener receives forwarded events identically to local events
+**And** remote hook events add <500ms latency to local event processing (NFR36)
+**And** activity logging works for remote tasks (all 7 event types)
+**And** workflow automation triggers work for remote Story tasks (auto code-review)
+**And** session-task mapping works across the SSH boundary
+**And** port forwarding reconnects automatically after SSH reconnection
 
-### Story 9.1: Planning Workspace Route & Navigation
-**Task ID:** `9-1-planning-workspace-route-and-navigation`
+### Story T2.7: Local/Remote Project Switcher
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want a dedicated planning workspace accessible from the main navigation,
-So that I can focus on BMAD planning phases in a purpose-built environment.
+I want to switch between local and remote projects using a unified project switcher in the UI,
+So that managing remote projects feels as natural as local ones.
 
 **Acceptance Criteria:**
-
-**Given** I am on the Kanban board
-**When** I click the "Planning" button in the sidebar navigation
-**Then** I navigate to a full-screen planning workspace route (/planning)
-**And** the workspace displays 3 phase tabs: Analysis, Planning, Solutioning
-
-**Given** I am in the planning workspace
-**When** I select a phase tab (e.g., "Planning")
-**Then** the left sidebar shows the workflows available for that phase
-**And** each workflow entry shows: name, purpose, and expected output filename
-
-**Given** I am in the planning workspace
-**When** I view the center area
-**Then** it shows the active workflow content or the phase progress dashboard
 
-**Given** the workspace header
-**When** I view it
-**Then** it shows the project name and active agent indicator (if running)
+**Given** local projects from Epic 1 and remote projects from T2.3
+**When** I use the project switcher in the header
+**Then** both local and remote projects appear in a unified list (FR60)
+**And** remote projects show a connection status indicator (connected/disconnected/connecting)
+**And** switching to a remote project establishes the SSH connection if not already connected
+**And** the Kanban board, task workspace, and planning workspace all work for the selected project
+**And** switching between local and remote projects preserves each project's state
+**And** if a remote connection drops, the UI shows a clear disconnected state with reconnect option
 
-**Given** I click a planning task card on the Kanban board
-**When** the card is a planning-type task
-**Then** I navigate to the planning workspace with the relevant phase tab selected
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-**Given** I am in the planning workspace
-**When** I press Escape or click "Board" in navigation
-**Then** I return to the Kanban board
+### Story T2.8: Remote Feature Parity Validation (Phase 2 Gate)
 
-**References:** ChatGPT report (Phase navigation), Gemini report (vertical stepper)
-
----
-
-### Story 9.2: Phase Progress Dashboard
-**Task ID:** `9-2-phase-progress-dashboard`
-
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want to see progress across all BMAD planning phases at a glance,
-So that I know what's been completed, what's in progress, and what's missing.
+I want to verify that remote project management works end-to-end,
+So that I can confidently use TinSu to manage projects on any machine.
 
 **Acceptance Criteria:**
-
-**Given** I open the planning workspace
-**When** the dashboard loads
-**Then** it shows all 3 phases with their artifact completion status
-**And** each phase shows: workflows available, artifacts produced, status badges
-
-**Given** an artifact exists in `_bmad-output/planning-artifacts/`
-**When** the dashboard renders
-**Then** the artifact shows a status badge: "Draft" (exists but not reviewed), "Approved" (manually marked), or the appropriate state
-
-**Given** an artifact is missing
-**When** the dashboard renders
-**Then** the workflow shows a "Missing" tag with a dimmed appearance
 
-**Given** a "Project Health" panel
-**When** I view it
-**Then** it shows a checklist: Product Brief, PRD, UX Spec (optional), Architecture, Epics & Stories, Readiness Gate
-**And** each item shows a checkmark (exists) or "Missing" tag
+**Given** all T2.1-T2.7 stories are complete
+**When** I connect to a remote machine and manage a project
+**Then** SSH key generation and OS keychain storage work (FR55)
+**And** SSH connection profiles can be added, tested, edited, and removed (FR54)
+**And** remote projects are discovered and selectable (FR56)
+**And** remote tmux sessions attach and stream terminal output (FR57)
+**And** remote file operations work for diffs, stories, and logs (FR58)
+**And** remote hook events forward correctly with activity logging (FR59)
+**And** the project switcher seamlessly switches between local and remote (FR60)
+**And** the full task lifecycle works remotely: create → execute → review → approve → done
+**And** SSH auto-reconnect recovers gracefully from network interruptions
+**And** all SSH NFRs are met (NFR33-NFR36)
 
-**Given** a new project with no artifacts
-**When** I view the dashboard
-**Then** it shows: "No artifacts yet. Start with brainstorming or create a product brief."
-**And** a prominent "Start Planning" button is visible
-
-**Given** artifacts are created or modified on disk
-**When** I return to the dashboard
-**Then** the status reflects the current filesystem state
-
-**References:** ChatGPT report (Project health panel), Gemini report (progress ring)
-
 ---
-
-### Story 9.3: Artifact Viewer with Status Lifecycle
-**Task ID:** `9-3-artifact-viewer-with-status-lifecycle`
-
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
-As a founder,
-I want to view planning artifacts (PRD, architecture, etc.) inside TinSu with section navigation,
-So that I can review what BMAD agents produced without leaving the app.
-
-**Acceptance Criteria:**
-
-**Given** I click on an artifact in the planning workspace
-**When** the artifact viewer opens
-**Then** it renders the markdown content with proper formatting (headings, tables, code blocks)
-**And** a section outline appears on the left for quick navigation
-
-**Given** the artifact viewer is showing a document
-**When** I click a heading in the section outline
-**Then** the viewer scrolls to that section
-
-**Given** the artifact has a status
-**When** I view the artifact header
-**Then** it shows a status badge: Draft, In Review, or Approved
-**And** I can transition the status via a dropdown action
 
-**Given** a completed planning task card is clicked on the Kanban board
-**When** the task has a linked artifact
-**Then** the artifact viewer opens showing that artifact
+## Epic 3: Mobile Targets — Android & iOS
 
-**Given** the artifact viewer
-**When** I view the metadata bar
-**Then** it shows: file path, last modified timestamp, word count, which workflow produced it
-
-**Given** the artifact is displayed
-**When** I view it
-**Then** it is read-only (editing happens via BMAD agents in terminal)
-**And** a "Edit with Agent" button links to the relevant planning task
-
-**References:** ChatGPT report (Artefact editor + preview), Gemini report (Artifact Forge)
-
----
+Founder can use TinSu on Android and iOS to review tasks, approve/reject changes, monitor agents, and manage remote projects via SSH — with responsive mobile layout, touch-optimized interactions, and intervention from anywhere.
 
-### Story 9.4: "What Next?" Recommender Engine
-**Task ID:** `9-4-what-next-recommender-engine`
+### Story T3.1: Add Android and iOS Build Targets
 
 As a founder,
-I want TinSu to tell me what BMAD planning step I should do next,
-So that I follow the recommended workflow without memorizing the method.
+I want the Tauri project configured for Android and iOS builds,
+So that I can develop and test TinSu on mobile devices.
 
 **Acceptance Criteria:**
 
-**Given** I am in the planning workspace
-**When** the "What Next?" panel renders
-**Then** it scans `_bmad-output/planning-artifacts/` for existing artifacts
-**And** determines which workflows have been completed based on artifact presence
-
-**Given** the scan is complete
-**When** the panel displays
-**Then** it shows a prominent "Next Recommended Step" card with:
-- Workflow name (e.g., "Create PRD")
-- Why it's recommended (e.g., "Product Brief is complete. PRD defines requirements before solutioning.")
-- What it produces (e.g., "prd.md")
-- A "Start" button that navigates to the relevant planning task
-
-**Given** the BMAD phase ordering
-**When** determining the next step
-**Then** it respects: Product Brief → PRD → Architecture → UX Design (optional) → Epics & Stories → Readiness Gate
-**And** UX Design is shown as "optional" with context
-
-**Given** all planning artifacts exist
-**When** the panel renders
-**Then** it recommends "Run Implementation Readiness Check" as the final step
-
-**Given** artifacts are created or modified on disk
-**When** the workspace is visible
-**Then** the recommendation updates in real-time via filesystem watching
-
-**References:** ChatGPT report (BMad-Help-like recommender), Gemini report (progress gating)
+**Given** the Tauri desktop app from Epic 1
+**When** I run `npm run tauri android init` and `npm run tauri ios init`
+**Then** Android build targets are configured with appropriate Gradle settings
+**And** iOS build targets are configured with appropriate Xcode project settings
+**And** `npm run tauri android dev` launches the app in an Android emulator or connected device
+**And** `npm run tauri ios dev` launches the app in an iOS simulator or connected device
+**And** the React frontend renders in mobile webviews (Android WebView, WKWebView)
+**And** the Rust backend compiles for ARM targets (aarch64-linux-android, aarch64-apple-ios)
+**And** mobile app launches in <3 seconds on 2022+ devices (NFR38)
 
----
-
-### Story 9.5: Guided Workflow Run Tracker
-**Task ID:** `9-5-guided-workflow-run-tracker`
+### Story T3.2: Responsive Layout and Mobile Navigation
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want to see the status and history of BMAD workflow executions,
-So that I can track what agents have done and what they produced.
+I want TinSu's UI to adapt to mobile screen sizes with appropriate navigation,
+So that I can use the app effectively on phones and tablets.
 
 **Acceptance Criteria:**
-
-**Given** a BMAD agent is running (spawned by Epic 3's agent launcher)
-**When** I view the planning workspace
-**Then** a "Run" panel shows: which workflow is running, which agent is active, input artifacts used, run status
-
-**Given** run statuses
-**When** displayed
-**Then** they are one of: Running (animated), Needs Input (yellow), Succeeded (green), Failed (red), Cancelled (gray)
-
-**Given** a workflow run completes
-**When** the run tracker updates
-**Then** it shows output files produced with links to the artifact viewer
-**And** the run is recorded in the `workflow_runs` database table
-
-**Given** the "Recent Runs" section
-**When** I view it
-**Then** it shows a table with columns: Workflow, Phase, Status, Started, Duration
-**And** clicking a run shows its details (inputs, outputs, status)
-
-**Given** the run tracker
-**When** I want to view the agent's terminal
-**Then** a "View Terminal" link navigates to the task detail workspace (connecting to Epic 3 + TES)
 
-**Given** the database schema
-**When** a workflow_runs table is created
-**Then** it has columns: id, project_id, workflow_key, phase, status, started_at, finished_at, input_artifacts (JSON), output_artifacts (JSON), agent_name
+**Given** the app running on a mobile device
+**When** the viewport is 320-767px (mobile breakpoint)
+**Then** the Kanban board shows a single column with swipe navigation between columns (UX-DR7)
+**And** a bottom tab navigation replaces the desktop sidebar
+**And** the task workspace shows one panel at a time with swipe between Content/Terminal/Activities/Diff
+**And** all touch targets are at least 44x44px
+**And** text is legible without zooming (14px minimum body text)
+**When** the viewport is 768-1023px (tablet breakpoint)
+**Then** the Kanban board shows 2 columns with horizontal swipe for more
+**And** the task workspace shows a 2-column layout
+**And** the React frontend renders identically across desktop and mobile webviews (NFR39)
 
-**References:** ChatGPT report (WorkflowRun entity, Run/preview modal), Gemini report (run logging)
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
----
-
-### Story 9.6: Readiness Gate Results Panel
-**Task ID:** `9-6-readiness-gate-results-panel`
+### Story T3.3: Touch-Optimized Kanban Interactions
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want to see the results of the implementation readiness check in a clear visual format,
-So that I know whether my planning artifacts are ready for implementation.
+I want to drag tasks, tap to open, and swipe between columns on mobile,
+So that the core Kanban workflow is natural on touch devices.
 
 **Acceptance Criteria:**
-
-**Given** the readiness gate has been run
-**When** I view the results panel
-**Then** it shows a large status badge: PASS (green), CONCERNS (yellow), or FAIL (red)
-
-**Given** the gate result is CONCERNS or FAIL
-**When** I view the issues list
-**Then** each issue shows: severity (Critical/Major/Minor), description, and a link to the affected artifact section
-**And** clicking an issue link opens the artifact viewer scrolled to that section
-
-**Given** the gate result
-**When** I want to re-check
-**Then** a "Re-run Gate" button starts the readiness check workflow
-**And** the previous result is preserved for comparison
-
-**Given** a gate decision
-**When** it is recorded
-**Then** it persists: decision (PASS/CONCERNS/FAIL), rationale text, timestamp, and list of issues
-**And** historical gate results are viewable
-
-**Given** all planning is complete and gate passes
-**When** I view the results panel
-**Then** a prominent "Approve for Implementation" action is available
-**And** activating it marks all planning artifacts as "Approved" and signals readiness
 
-**Given** accessibility requirements
-**When** the status badge renders
-**Then** it uses color + icon + text (not color alone) for the PASS/CONCERNS/FAIL indicator
+**Given** the responsive layout from T3.2
+**When** I interact with the Kanban board on a touch device
+**Then** I can long-press a task card to start dragging
+**And** I can drop the card on a visible column or swipe to reveal adjacent columns while dragging
+**And** I can tap a card to open the task detail view
+**And** I can swipe left/right on the board to navigate between columns
+**And** drag-and-drop feels smooth at 60fps with no jank
+**And** haptic feedback fires on drag start and drop (if supported by device)
 
-**References:** ChatGPT report (GateDecision entity), Gemini report (Implementation Launchpad)
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
----
-
-### Story 9.7: Artifact Version Diff View
-**Task ID:** `9-7-artifact-version-diff-view`
+### Story T3.4: Mobile SSH Connection Flow
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want to compare versions of a planning artifact when it's been regenerated or updated,
-So that I can see what changed and make informed approval decisions.
+I want to connect to remote machines from my phone,
+So that I can manage remote projects while away from my desk.
 
 **Acceptance Criteria:**
-
-**Given** an artifact has been updated (file content changed)
-**When** I open the artifact viewer
-**Then** a "Compare Versions" button is available
-
-**Given** I click "Compare Versions"
-**When** the diff view opens
-**Then** it uses the Monaco diff viewer component (from TES Epic 4)
-**And** shows side-by-side or unified diff format (toggle available)
-
-**Given** the diff is displayed
-**When** I review it
-**Then** changes are highlighted with section-aware context (heading names visible)
-**And** additions, deletions, and modifications are color-coded
-
-**Given** version history
-**When** I access it from the artifact viewer
-**Then** I can see a list of versions with timestamps
-**And** select any two versions to compare
-
-**Given** Git is available
-**When** computing versions
-**Then** the system uses `git log` for the artifact file to derive version history
-**And** `git diff` for computing differences
 
-**References:** ChatGPT report (ArtefactVersion entity, diff features), TES Epic 4 (Monaco diff infrastructure)
+**Given** SSH capabilities from Epic 2 and mobile app from T3.1
+**When** I use SSH features on mobile
+**Then** I can add/edit/test SSH connection profiles with a mobile-friendly form
+**And** I can select from stored SSH keys (synced from desktop or generated on device)
+**And** connection status shows clearly in the mobile project switcher
+**And** SSH connection handles mobile network transitions (WiFi → cellular) gracefully
+**And** the app reconnects automatically when network becomes available again
 
----
-
-### Story 9.8: Agent Persona Indicator
-**Task ID:** `9-8-agent-persona-indicator`
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+### Story T3.5: Mobile Terminal View
 
 As a founder,
-I want to see which BMAD agent persona is currently active,
-So that I know "who" is working on my planning artifacts.
+I want to view agent terminal output on my phone,
+So that I can monitor what agents are doing from anywhere.
 
 **Acceptance Criteria:**
-
-**Given** a BMAD agent is running in a planning workflow
-**When** I view the planning workspace header
-**Then** it shows the active agent: name and a distinct color badge
-**And** the agent mapping is: Analyst (blue), PM (green), Architect (orange), UX Designer (purple)
-
-**Given** the agent indicator
-**When** I view it
-**Then** it shows: agent name (e.g., "Analyst"), the workflow being executed (e.g., "Creating Product Brief")
 
-**Given** workflows transition between agents
-**When** the active agent changes (e.g., PRD → Architecture)
-**Then** the indicator updates to show the new agent
+**Given** remote tmux sessions from Epic 2 and mobile layout from T3.2
+**When** I open a task's terminal on mobile
+**Then** xterm.js renders in a full-screen mobile view with readable monospace font (12px minimum)
+**And** I can scroll through terminal output with touch gestures
+**And** I can type commands via the device keyboard
+**And** terminal streaming works over SSH with acceptable latency on mobile networks
+**And** the terminal view shows status bar (Running/Paused/Stalled/Complete) at the top
+**And** Pause/Resume buttons are thumb-accessible at the bottom of the screen
 
-**Given** no agent is running
-**When** I view the workspace header
-**Then** the indicator shows "No agent active" in a muted style
-
-**Given** the agent indicator is also shown on planning task cards (from Story 3.3)
-**When** I view a card in In Progress
-**Then** the card shows the agent badge matching the workspace header
-
-**References:** Gemini report (active agent avatars + persona colors)
-
----
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story 9.9: Planning Workspace Keyboard Navigation
-**Task ID:** `9-9-planning-workspace-keyboard-navigation`
+### Story T3.6: Mobile Review and Approval Flow
 
 As a founder,
-I want keyboard shortcuts for the planning workspace,
-So that I can navigate efficiently without using the mouse.
+I want to review diffs and approve/reject tasks from my phone,
+So that I can unblock agent work without needing my laptop.
 
 **Acceptance Criteria:**
 
-**Given** I am in the planning workspace
-**When** I press keyboard shortcuts
-**Then** the following work:
-- `1` / `2` / `3`: Jump to Analysis / Planning / Solutioning tab
-- `N`: Focus "What Next?" panel
-- `R`: Open Recent Runs
-- `G`: Open Readiness Gate results
-- `Escape`: Return to Kanban board
-
-**Given** tab navigation
-**When** I press Tab / Shift+Tab
-**Then** focus cycles through: phase tabs → workflow list → center content → action buttons
-
-**Given** accessibility requirements
-**When** the workspace renders
-**Then** ARIA roles are set: tablist for phase tabs, region for artifact list, status for announcements
-**And** screen readers announce phase transitions and artifact status changes
-
-**Given** existing TinSu keyboard patterns
-**When** shortcuts are defined
-**Then** they are consistent with task workspace shortcuts (no conflicts)
-**And** a help overlay (?) shows available shortcuts
-
-**References:** ChatGPT report (accessibility section), existing TinSu keyboard patterns
+**Given** the mobile layout from T3.2 and git service from Epic 1
+**When** a task is in Review and I open it on mobile
+**Then** the diff viewer shows changes in a mobile-optimized unified view
+**And** file tree is collapsible with touch-friendly expand/collapse
+**And** I can approve with a prominent green "Approve" button at the bottom
+**And** I can reject with a "Reject" button that opens a feedback text input
+**And** approval triggers merge and task completion (same as desktop)
+**And** rejection sends feedback to the agent (same as desktop)
+**And** a bottom action bar provides Approve/Reject/Pause controls (UX-DR7 mobile specification)
 
----
-
-## Epic 10: Agent Planning Chat
-
-**Goal:** Founder can have persistent, conversational planning sessions with BMAD agents directly in the TinSu Planning Workspace, with messages displayed in a clean chat bubble UI powered by interactive Claude Code CLI sessions.
-
-**User Outcome:** "I can chat with my PM, Architect, or UX Designer agent right inside TinSu — pick up conversations where I left off — and artifacts they produce flow into my planning workspace automatically."
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-**FRs covered:** FR-CHAT1 through FR-CHAT16
-**NFRs addressed:** NFR-CHAT1 through NFR-CHAT5
-**Dependencies:** Epic 9 (Planning Workspace — complete ✅)
-**Note (2026-03-22):** Added via PM session. Uses Claude Code CLI interactive sessions with hook-based event pipeline (Option A: no streaming, messages delivered on Stop hook). No git worktrees needed for planning agents.
+### Story T3.7: Mobile Chat with Planning Agents
 
-### Story 10.1: Chat Session Schema & Hook Endpoint
-**Task ID:** `10-1-chat-session-schema-and-hook-endpoint`
-
 As a founder,
-I want TinSu to have the infrastructure to manage chat sessions and receive events from Claude Code,
-So that future chat features have a reliable foundation for session tracking and event delivery.
+I want to chat with planning agents (PM, Architect, etc.) from my phone,
+So that I can continue planning work during commutes or away from my desk.
 
 **Acceptance Criteria:**
-
-**Given** the application starts
-**When** the database initializes
-**Then** a `chat_sessions` table exists with columns: id, session_uuid, agent_persona, workflow_phase, project_id, status (active/paused/completed), created_at, updated_at, last_message_at
-**And** a `chat_messages` table exists with columns: id, session_id (FK), role (user/assistant/tool), content, tool_name (nullable), tool_input (nullable), created_at
-
-**Given** the application starts
-**When** the main process initializes
-**Then** a local HTTP endpoint is listening to receive Claude Code hook events
-**And** the endpoint accepts POST requests with JSON payloads matching Claude Code hook event schemas
-
-**Given** a hook event is received at the HTTP endpoint
-**When** the event type is `Stop` with `last_assistant_message`
-**Then** the message is stored in the `chat_messages` table linked to the correct session
-**And** the session's `last_message_at` is updated
 
-**Given** a hook event is received
-**When** the event type is `PostToolUse`
-**Then** the tool activity is stored in `chat_messages` with role "tool", tool_name, and tool_input
+**Given** planning workspace from Epic 1 and mobile layout from T3.2
+**When** I open the Planning Workspace on mobile
+**Then** the chat interface displays in a full-screen mobile view
+**And** the session list is accessible via a slide-out panel or top selector
+**And** I can send messages using the device keyboard with a send button
+**And** chat messages render with proper formatting in mobile width
+**And** I can switch between agent sessions without losing context
+**And** session status indicators (thinking, idle, completed) are visible
 
-**Given** the tRPC layer
-**When** chat session procedures are available
-**Then** `chatSession.create`, `chatSession.list`, `chatSession.getMessages`, `chatSession.updateStatus` procedures exist and work correctly
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
----
-
-### Story 10.2: Chat Panel UI & Message Bubbles
-**Task ID:** `10-2-chat-panel-ui-and-message-bubbles`
+### Story T3.8: Mobile Platform Validation (Phase 3 Gate)
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want a chat panel in the Planning Workspace with a clean message bubble interface,
-So that I can see planning conversations in an easy-to-read chat format.
+I want to verify that TinSu works correctly on Android and iOS,
+So that I can use mobile as my intervention and monitoring device.
 
 **Acceptance Criteria:**
 
-**Given** I am in the Planning Workspace
-**When** I click a "Chat" button or tab
-**Then** a chat panel opens alongside the existing workspace views
-**And** it does not replace any existing Planning Workspace functionality
-
-**Given** the chat panel is open
-**When** I view it
-**Then** I see: an agent persona selector at the top, a message area in the center, and an input box with send button at the bottom
-
-**Given** the chat panel has messages
-**When** I view the message area
-**Then** user messages appear as right-aligned bubbles with a distinct background color
-**And** agent messages appear as left-aligned bubbles with a different background color
-**And** each bubble shows the sender label and timestamp
-
-**Given** an agent message contains markdown
-**When** the bubble renders
-**Then** headings, lists, code blocks, tables, bold, and italic render correctly inside the bubble
-**And** code blocks have syntax highlighting
-
-**Given** I select an agent persona (PM, Architect, UX Designer, Analyst)
-**When** I make the selection
-**Then** the persona indicator updates with the agent's name, icon, and color (matching Epic 9 Story 9.8 color scheme)
-
-**Given** I type a message and press Enter or click Send
-**When** the message is submitted
-**Then** it appears immediately as a user bubble in the message area
-**And** the input box clears
-
-**Given** the chat panel has many messages
-**When** I scroll up
-**Then** I can view the full conversation history
-**And** new messages auto-scroll to the bottom unless I've scrolled up
+**Given** all T3.1-T3.7 stories are complete
+**When** I use TinSu on Android and iOS devices
+**Then** the app launches in <3 seconds on 2022+ devices (NFR38)
+**And** responsive layout works correctly at mobile and tablet breakpoints
+**And** touch Kanban interactions (drag, tap, swipe) work smoothly
+**And** SSH connection and remote project management work on mobile
+**And** terminal viewing and command input work on mobile
+**And** review and approval flow works on mobile (diff view, approve/reject)
+**And** planning chat works on mobile
+**And** the app handles network transitions (WiFi ↔ cellular) gracefully
+**And** React frontend renders identically to desktop (NFR39)
+**And** all critical user journeys complete successfully on both platforms
 
 ---
-
-### Story 10.3: Claude Code CLI Chat Session Spawning
-**Task ID:** `10-3-claude-code-cli-chat-session-spawning`
-
-As a founder,
-I want my chat messages to be sent to an interactive Claude Code CLI session and get agent responses back,
-So that I can actually have a working conversation with an agent through the chat UI.
-
-**Acceptance Criteria:**
 
-**Given** I send a message in the chat panel with no active CLI session
-**When** the message is submitted
-**Then** TinSu spawns an interactive `claude` process via node-pty with a unique `--session-id` UUID
-**And** the session UUID is stored in the `chat_sessions` table
-**And** my message is sent to the CLI session's stdin
-
-**Given** an active CLI session exists for the current chat
-**When** I send a follow-up message
-**Then** the message is sent to the existing PTY session's stdin (no new process spawned)
-
-**Given** a message is sent to the CLI session
-**When** Claude Code finishes responding
-**Then** the `Stop` hook fires and delivers `last_assistant_message` to the hook endpoint
-**And** the message is stored in `chat_messages` and appears as an agent bubble in the chat UI
-
-**Given** the agent is processing a message
-**When** the response has not yet arrived
-**Then** a "thinking..." or typing indicator is visible in the chat panel
-
-**Given** the Claude Code CLI session crashes or exits unexpectedly
-**When** I send a new message
-**Then** TinSu spawns a new CLI process with `--resume` using the stored session UUID
-**And** the conversation continues seamlessly
-
-**Given** I close the chat panel
-**When** the CLI session is active
-**Then** the session continues running in the background (not terminated)
+## Epic 4: CI/CD and Build Pipeline
 
----
+Automated builds and distribution for all 5 platforms — GitHub Actions workflows for desktop, Android, and iOS builds with desktop auto-update mechanism.
 
-### Story 10.4: BMAD Agent Persona Context Injection
-**Task ID:** `10-4-bmad-agent-persona-context-injection`
+### Story T4.1: Desktop Build Pipeline
 
 As a founder,
-I want the CLI session to behave as the selected BMAD agent persona,
-So that I get expert planning guidance from the right specialist (PM for PRDs, Architect for architecture, etc.).
+I want automated GitHub Actions workflows that build TinSu for macOS, Linux, and Windows,
+So that I can distribute desktop builds without manual compilation on each platform.
 
 **Acceptance Criteria:**
-
-**Given** I select the PM persona and start a chat
-**When** the CLI session is spawned
-**Then** the first message sent to stdin includes the PM agent persona instructions loaded from `_bmad/bmm/agents/pm.md`
-**And** the agent responds in character as the PM
-
-**Given** I select the Architect persona
-**When** the CLI session starts
-**Then** the persona context from `_bmad/bmm/agents/architect.md` is injected
-**And** the agent responds with architecture expertise
-
-**Given** I select the UX Designer persona
-**When** the CLI session starts
-**Then** the persona context from `_bmad/bmm/agents/ux-designer.md` is injected
-
-**Given** I select the Analyst persona
-**When** the CLI session starts
-**Then** the persona context from `_bmad/bmm/agents/analyst.md` is injected
-
-**Given** any persona is selected
-**When** the context is injected
-**Then** the injection also includes the project's `_bmad/bmm/config.yaml` values (user_name, project_name, output paths)
-**And** the agent is instructed to produce artifacts in the correct `_bmad-output/planning-artifacts/` directory
-
-**Given** a persona chat session already exists for a persona
-**When** I switch to a different persona
-**Then** a new separate CLI session is spawned for the new persona
-**And** the previous session remains accessible for resuming later
-
----
 
-### Story 10.5: Tool Activity & Working Indicators
-**Task ID:** `10-5-tool-activity-and-working-indicators`
+**Given** the Tauri desktop app from Epic 1
+**When** I push to the release branch or create a GitHub release
+**Then** GitHub Actions builds macOS .dmg (Intel + Apple Silicon universal binary)
+**And** GitHub Actions builds Linux .AppImage and .deb
+**And** GitHub Actions builds Windows .msi
+**And** all binaries are under 30MB (NFR37)
+**And** build artifacts are attached to the GitHub release
+**And** CI runs `cargo test` and `npm run test` before building
+**And** CI runs `cargo clippy` and ESLint for code quality checks
+**And** builds complete within 30 minutes
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+### Story T4.2: Android Build Pipeline
 
 As a founder,
-I want to see what the agent is doing while it works (reading files, searching, writing),
-So that I'm not staring at a blank screen and I understand the agent's process.
+I want automated builds for Android,
+So that I can distribute APK/AAB files for testing and eventual Play Store release.
 
 **Acceptance Criteria:**
 
-**Given** the agent is processing my message
-**When** a `PreToolUse` hook event is received
-**Then** the chat UI shows a contextual indicator: "Reading {file_path}...", "Searching for {pattern}...", "Writing {file_path}...", etc.
-**And** the indicator replaces the generic "thinking..." indicator
-
-**Given** the agent has completed a tool call
-**When** a `PostToolUse` hook event is received
-**Then** a collapsible tool activity card appears between message bubbles
-**And** the card shows: tool name icon, brief description (e.g., "Read architecture.md"), and is collapsed by default
-
-**Given** a tool activity card exists
-**When** I click to expand it
-**Then** I see the tool input details (file path, search pattern, etc.)
-**And** a truncated preview of the tool response (first 10 lines or 500 chars)
-
-**Given** multiple tool calls happen in sequence before the agent responds
-**When** the tool activity is displayed
-**Then** consecutive tool cards are grouped together as "Agent performed N actions"
-**And** I can expand the group to see individual tool cards
-
-**Given** the agent encounters a `Notification` hook event
-**When** the notification type is `permission_prompt`
-**Then** the chat UI displays a system message: "Agent needs permission to proceed"
-**And** the founder can see what permission is being requested
+**Given** Android build targets from T3.1
+**When** the Android build pipeline runs
+**Then** GitHub Actions builds Android .apk (debug) and .aab (release)
+**And** the pipeline handles Android signing with securely stored keystore
+**And** the APK size is reasonable for a Tauri app (<50MB)
+**And** build artifacts are attached to the GitHub release
+**And** CI runs tests before building
 
----
-
-### Story 10.6: Session Persistence & Resume
-**Task ID:** `10-6-session-persistence-and-resume`
+### Story T4.3: iOS Build Pipeline
 
-🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
-
 As a founder,
-I want to see my previous chat sessions and resume any conversation where I left off,
-So that I can pick up planning work across days without losing context.
+I want automated builds for iOS,
+So that I can distribute IPA files for TestFlight and eventual App Store release.
 
 **Acceptance Criteria:**
 
-**Given** I open the chat panel in the Planning Workspace
-**When** previous chat sessions exist for this project
-**Then** I see a session list showing: agent persona icon/name, last message preview, last active timestamp, and status (active/completed)
-**And** sessions are sorted by most recently active
-
-**Given** I click on a previous session in the list
-**When** the session loads
-**Then** all previous messages are displayed in the chat area (loaded from `chat_messages` table)
-**And** the correct agent persona is pre-selected
-
-**Given** I send a message in a resumed session
-**When** no CLI process is running for that session
-**Then** TinSu spawns a new `claude` process with `--resume {session_uuid}`
-**And** Claude Code restores its internal conversation context
-**And** the conversation continues naturally
-
-**Given** I want to start a fresh conversation
-**When** I click "New Chat" button
-**Then** the agent persona selector is shown
-**And** selecting a persona begins a new session with a new UUID
-
-**Given** a chat session has been inactive for 30+ minutes
-**When** I view the session list
-**Then** the session shows as "Paused" status
-**And** the underlying CLI process has been gracefully terminated to free resources
-
-**Given** I want to clean up old sessions
-**When** I right-click or use the menu on a session
-**Then** I can mark it as "Completed" (archived) or "Delete" (removes from list)
-**And** completed sessions remain viewable but are dimmed in the list
-
----
+**Given** iOS build targets from T3.1
+**When** the iOS build pipeline runs
+**Then** GitHub Actions (macOS runner) builds iOS .ipa
+**And** the pipeline handles iOS code signing with securely stored certificates and provisioning profiles
+**And** the build is compatible with TestFlight distribution
+**And** build artifacts are attached to the GitHub release
+**And** CI runs tests before building
 
-### Story 10.7: Artifact Detection & Planning Workspace Integration
-**Task ID:** `10-7-artifact-detection-and-planning-workspace-integration`
+### Story T4.4: Desktop Auto-Update
 
 As a founder,
-I want artifacts produced during a chat session to automatically appear in the Planning Workspace,
-So that PRDs, architecture docs, and other outputs flow seamlessly into my existing planning views.
+I want TinSu to check for updates and install them automatically on desktop,
+So that I always run the latest version without manual downloads.
 
 **Acceptance Criteria:**
 
-**Given** the agent creates or updates a file in `_bmad-output/planning-artifacts/` during a chat session
-**When** the `PostToolUse` hook fires for a Write or Edit tool
-**Then** the system detects the artifact and triggers the existing artifact scanning service (from Epic 9)
-**And** the artifact appears in the Phase Progress Dashboard and Artifact Viewer
-
-**Given** an artifact is produced during chat
-**When** I view the artifact in the Planning Workspace artifact viewer
-**Then** the artifact metadata shows which chat session produced it
-**And** a "View Chat" link navigates back to the originating chat session
-
-**Given** I am in an active chat session
-**When** the agent produces an artifact
-**Then** a system message appears in the chat: "Artifact created: {filename}"
-**And** the message includes a clickable link to open the artifact in the Artifact Viewer
-
-**Given** the "What Next?" recommender (Story 9.4) runs
-**When** artifacts produced by chat sessions are detected
-**Then** the recommender accounts for these artifacts the same as any other planning artifacts
-**And** recommendations update accordingly
+**Given** desktop builds from T4.1
+**When** a new version is published as a GitHub release
+**Then** the running TinSu desktop app detects the update via Tauri's built-in updater
+**And** a notification appears informing the user of the available update
+**And** the user can accept and the update downloads and installs automatically
+**And** the app restarts with the new version after update
+**And** update checks happen on app launch and periodically (every 24 hours)
+**And** the updater verifies signatures to prevent tampered updates
+**And** if the update fails, the current version continues working without corruption

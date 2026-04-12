@@ -1,32 +1,19 @@
 ---
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
+lastStep: 8
+status: 'complete'
+completedAt: '2026-04-12'
 inputDocuments:
-  - _bmad-output/planning-artifacts/product-brief-TinSu-2026-01-02.md
   - _bmad-output/planning-artifacts/prd.md
   - _bmad-output/planning-artifacts/prd-task-execution-sandbox.md
-  - docs/research.md
-  - docs/bmad-taskmaster-integration.md
-  - _bmad-output/planning-artifacts/handoff-chat-tmux-migration.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-12.md
+  - _bmad-output/planning-artifacts/ux-design-specification.md
+  - _bmad-output/planning-artifacts/project-context.md
+  - _bmad-output/planning-artifacts/product-brief-TinSu-2026-01-02.md
 workflowType: 'architecture'
 project_name: 'TinSu'
-user_name: 'Tinxu'
-date: '2026-01-03'
-status: 'complete'
-completedAt: '2026-01-03'
-lastStep: 8
-addenda:
-  - name: 'Sprint Management Feature'
-    date: '2026-01-13'
-    status: 'ready'
-lastUpdated: '2026-03-26'
-featureExtensions:
-  - name: 'Task Execution Sandbox'
-    prd: 'prd-task-execution-sandbox.md'
-    addedAt: '2026-01-12'
-  - name: 'Chat Session tmux Migration'
-    prd: 'prd.md (FR36-FR53, NFR25-NFR32)'
-    handoff: 'handoff-chat-tmux-migration.md'
-    addedAt: '2026-03-26'
+user_name: 'Tinsu'
+date: '2026-04-12'
 ---
 
 # Architecture Decision Document
@@ -38,114 +25,173 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 ### Requirements Overview
 
 **Functional Requirements:**
-The PRD defines 35 functional requirements across 6 capability areas:
+The PRD defines 53 functional requirements across 10 capability areas, plus 47 FRs from the Task Execution Sandbox feature extension (100 total FRs):
 
 - **Board & Task Management (FR1-FR6):** Kanban interface with drag-and-drop, Sprint/Epic/Story hierarchy, task velocity metrics
-- **Agent Execution (FR7-FR11):** Claude Code CLI integration, automatic context loading, real-time terminal view, auto-transition to Review
+- **Agent Execution (FR7-FR11):** Claude Code CLI integration via tmux, automatic context loading, real-time terminal view
 - **Agent Monitoring & Control (FR12-FR16):** Stall detection, Pause/Resume, reasoning log visibility
-- **Review & Approval (FR17-FR21):** Diff view, Approve/Reject/Request Changes, feedback loop re-execution
+- **Review & Approval (FR17-FR21):** Diff view via Monaco Editor, Approve/Reject/Request Changes, feedback loop
 - **Git & Version Control (FR22-FR27):** Worktree per task, branch naming convention, merge on approve, conflict detection
 - **Project Configuration (FR28-FR31):** Methodology selection (BMAD/TaskMaster), YAML config, story file reading
 - **Data Persistence (FR32-FR35):** SQLite for state, agent run history, searchable logs, version-controlled config
+- **Planning Workspace (FR36-FR43):** Multi-agent chat sessions with BMAD workflow sidebar, persistent tmux-backed sessions, bidirectional communication
+- **Concurrent Agent Support (FR44-FR47):** Multiple simultaneous sessions, background execution, live status indicators
+- **Multi-Project & Persistence (FR48-FR53):** Project-scoped sessions, cross-project concurrency, session health monitoring
+
+**Task Execution Sandbox FRs (TES FR1-FR47):** Per-task terminal management, activity logging (7 event types), 3-column task workspace, diff viewer, workflow automation (Story vs Basic tasks), scrollback persistence, session-task mapping
 
 **Non-Functional Requirements:**
+32 NFRs from the main PRD + TES NFRs that drive architectural decisions:
 
-- **Performance:** <100ms UI interactions, <1s board load, <500ms terminal streaming, non-blocking execution
-- **Reliability:** 5-minute stall detection, 1-second pause/resume, crash recovery without data loss, ACID SQLite
-- **Integration:** PTY on macOS/Linux, 50KB context injection, 10GB repo support, clean error messages
+- **Performance:** <100ms UI interactions, <500ms terminal streaming, <1s board load, <200ms tab switching
+- **Reliability:** 5-minute stall detection, crash recovery without data loss, ACID SQLite, 100% terminal persistence across restart/reboot
+- **Concurrency:** 5+ simultaneous chat sessions, 10+ concurrent task terminals
+- **Session Management:** <15s session creation, <2s stale detection, 100% hook routing accuracy, zero background message loss
+- **Integration:** tmux required on host, Claude Code hooks system, PTY on macOS/Linux
 
 **Scale & Complexity:**
 
-- Primary domain: Full-stack desktop application (Web UI + local backend)
-- Complexity level: Medium
-- Estimated architectural components: 8-10 major subsystems
+- Primary domain: Full-stack cross-platform application (Rust backend + React frontend + SSH networking)
+- Complexity level: High
+- Estimated architectural components: 12-15 major subsystems (increased from 8-10 due to SSH layer + platform abstraction)
 
 ### Technical Constraints & Dependencies
 
-1. **Claude Code CLI Prerequisite:** Must be installed separately; app detects and reports if missing
-2. **Git Repository Required:** Project directory must be git-initialized
-3. **Platform Support:** macOS and Linux (PTY integration); Windows deferred
-4. **Local-First:** No cloud dependency for core functionality
-5. **Single-User:** No authentication, RBAC, or multi-device sync for MVP
+1. **Tauri v2 Runtime:** WebView-based (WKWebView on macOS/iOS, WebView2 on Windows, WebKitGTK on Linux, Android WebView) — replaces Electron's Chromium. Minor rendering differences possible.
+2. **Rust Backend:** All services rewritten in Rust. Async runtime (tokio) for I/O. No Node.js in the final app.
+3. **Claude Code CLI Prerequisite:** Must be installed separately on the machine where agents run (local or remote)
+4. **tmux Prerequisite:** Required on the execution host — locally on desktop, remotely on the SSH target for mobile
+5. **Git Repository Required:** Project directory must be git-initialized (same as before)
+6. **Platform Support:** macOS, Linux, Windows (desktop); Android, iOS (mobile) — Windows added vs. Electron MVP
+7. **Local-First + Remote:** Desktop operates locally (existing behavior). Mobile and remote-desktop connect via SSH to a machine with Claude Code + tmux.
+8. **Single-User:** No authentication, RBAC, or multi-device sync for MVP (unchanged)
 
 ### Cross-Cutting Concerns Identified
 
-1. **Process Lifecycle Management:** Spawning, monitoring, pausing, resuming, and cleaning up Claude Code subprocesses
-2. **State Synchronization:** Keeping task state (SQLite), UI state, agent execution state, and Git branch state consistent
-3. **Error Recovery:** Handling crashes, force-quits, merge conflicts, and agent failures gracefully
-4. **Context Injection:** Dynamically loading story definitions, architecture specs, and project context into agent prompts
-5. **Event-Driven Updates:** Real-time UI updates from PTY output and agent state changes
+1. **Type-Safe IPC Across Language Boundary:** tRPC provided end-to-end TypeScript type safety. Tauri invoke commands cross a Rust↔TypeScript boundary. Must find equivalent type safety (TauRPC, rspc, or codegen approach) to prevent regression in developer experience and AI agent consistency.
+
+2. **Local vs Remote Execution Duality:** Every service that touches filesystem, tmux, git, or Claude Code must support two modes:
+   - **Local mode (desktop):** Direct access to tmux, git, filesystem — same as current Electron app
+   - **Remote mode (mobile + remote desktop):** SSH tunnel to remote machine; commands executed via SSH exec/shell channels
+
+3. **Platform-Specific Capabilities:**
+   - Desktop: Full local execution + optional remote
+   - Mobile: Remote-only (no local tmux/git/Claude Code)
+   - This means the architecture must cleanly separate "where is the execution host?" from "what is the UI doing?"
+
+4. **Async Rust Runtime:** Node.js's event loop is replaced by tokio. All I/O (database, filesystem, SSH, process spawning) is async. Services must be designed for Rust's ownership model and async patterns.
+
+5. **State Synchronization:** Keeping task state (SQLite), UI state (React), agent execution state (tmux), and Git branch state consistent — same fundamental challenge as Electron, but now across the Rust↔JS invoke boundary.
+
+6. **Session Persistence Model:** tmux sessions (both task and chat) survive app restarts. On desktop this works natively. On mobile/remote, session persistence depends on the remote machine's uptime — the app must handle reconnection gracefully.
 
 ## Starter Template Evaluation
 
 ### Primary Technology Domain
 
-Desktop Application (Electron) based on project requirements:
+Cross-platform application (Tauri v2 + React) based on project requirements:
 
-- Local-first architecture with no cloud dependency
-- PTY integration for Claude Code CLI orchestration
-- Real-time terminal streaming to embedded UI
-- SQLite persistence for task state
-- Git worktree management
+- Cross-platform targets: macOS, Linux, Windows, Android, iOS
+- Rust backend replacing Node.js services
+- Existing React frontend preserved from Electron app
+- SSH networking for remote project support
+- Local SQLite persistence
 
 ### Starter Options Considered
 
-| Starter                    | Build Tool | Pros                                         | Cons                          |
-| -------------------------- | ---------- | -------------------------------------------- | ----------------------------- |
-| electron-vite              | Vite 5     | Fastest HMR, latest v5.0, active maintenance | Need to add app-specific deps |
-| Electron React Boilerplate | Webpack 5  | Battle-tested, 23k stars                     | Slower dev experience         |
-| Electron Forge + Vite      | Vite       | Official tooling                             | Vite support experimental     |
+| Starter | Build Tool | Pros | Cons |
+|---------|-----------|------|------|
+| `create-tauri-app --template react-ts` | Vite 6 | Official Tauri template, React + TS, minimal and clean | Bare-bones — all Rust services from scratch |
+| Custom scaffolding (migrate existing) | Vite (existing) | Preserves all existing React code, keeps `package.json` deps | Requires manual `src-tauri/` setup, more initial work |
+| Tauri + Drizzle + SQLite starter | Vite | Proven pattern for Tauri + SQLite | Uses Drizzle via proxy (JS ORM → Rust SQL), adds complexity |
 
-### Selected Starter: electron-vite (React + TypeScript)
+### Selected Starter: `create-tauri-app` (React + TypeScript) with migration overlay
 
 **Rationale for Selection:**
 
-- Latest version (5.0) released December 2025 with isolated build improvements
-- Vite provides sub-second HMR for rapid iteration
-- Official React + TypeScript template with proper IPC structure
-- Proven compatibility with node-pty ecosystem (used by electerm, xpty)
-- electron-builder included for distribution packaging
+- The official `create-tauri-app --template react-ts` provides the correct Tauri v2 project structure (`src-tauri/` with Cargo.toml, tauri.conf.json, capabilities)
+- Since we have an existing React frontend with 50+ components, hooks, stores, and shadcn/ui setup, we'll use the starter as a reference and add `src-tauri/` to the existing project
+- This is the approach recommended by Tauri's own docs for integrating into existing projects
 
-**Initialization Command:**
+**Initialization Approach:**
 
 ```bash
-npm create @quick-start/electron@latest tinsu -- --template react-ts
+# Option A: Scaffold fresh, then migrate React code into it
+npm create tauri-app@latest tinsu -- --template react-ts
+
+# Option B (recommended): Add Tauri to existing React project
+cd tinsu
+npm install @tauri-apps/cli@latest @tauri-apps/api@latest
+npm run tauri init
 ```
+
+Option B is recommended because it preserves the existing React app, Vite config, and all frontend dependencies without having to manually copy them.
 
 **Architectural Decisions Provided by Starter:**
 
 **Language & Runtime:**
 
-- TypeScript 5.x with strict mode
-- Node.js for main process
-- Chromium for renderer process
+- TypeScript 5.x for frontend (preserved from existing)
+- Rust (stable) for backend via `src-tauri/`
+- Tauri v2.10.3 runtime (latest stable, March 2026)
 
 **Build Tooling:**
 
-- Vite 5.x for both main and renderer
-- electron-builder for packaging
-- ESBuild for fast transpilation
+- Vite 6.x for frontend (existing, compatible with Tauri)
+- Cargo for Rust backend compilation
+- Tauri CLI for dev server, bundling, and mobile builds
+- Tauri bundler v2.8.1 for distribution packaging
 
 **Project Structure:**
 
 ```
 tinsu/
-├── src/
-│   ├── main/           # Electron main process
-│   ├── preload/        # Preload scripts (IPC bridge)
-│   └── renderer/       # React application
-├── electron.vite.config.ts
-└── package.json
+├── src/                    # React frontend (preserved from Electron)
+│   ├── components/
+│   ├── hooks/
+│   ├── stores/
+│   ├── lib/
+│   └── ...
+├── src-tauri/              # NEW: Rust backend (replaces src/main/)
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   ├── capabilities/       # Tauri v2 permission system
+│   ├── src/
+│   │   ├── main.rs         # Tauri entry point
+│   │   ├── lib.rs          # Command registrations
+│   │   ├── commands/       # Tauri invoke handlers (replaces tRPC routers)
+│   │   ├── services/       # Business logic (PTY, Git, SSH, tmux)
+│   │   ├── db/             # SQLite schema + migrations
+│   │   └── models/         # Rust data structures
+│   └── icons/
+├── package.json
+├── vite.config.ts
+└── tsconfig.json
 ```
 
 **Development Experience:**
 
-- Hot Module Replacement (HMR) for React components
-- Source maps for debugging
-- TypeScript type checking
-- ESLint + Prettier integration
+- `npm run tauri dev` — starts Vite dev server + Tauri window with HMR
+- `npm run tauri build` — production build for current platform
+- `npm run tauri android dev` / `npm run tauri ios dev` — mobile development
+- Hot Module Replacement for React components (Vite)
+- Rust recompilation on save (Tauri CLI watches `src-tauri/`)
 
-**Note:** Project initialization using this command should be the first implementation story.
+**Key Rust Dependencies (verified versions, April 2026):**
+
+| Crate | Version | Purpose |
+|-------|---------|---------|
+| `tauri` | 2.10.3 | Core framework |
+| `taurpc` | 0.5.2 | Type-safe IPC (Rust↔TypeScript) |
+| `sqlx` | latest | Async SQLite with compile-time checked queries |
+| `portable-pty` | 0.9.0 | Cross-platform PTY (wezterm project) |
+| `russh` | 0.54.6 | SSH client library (async, tokio-based) |
+| `axum` | 0.8.8 | HTTP server for Claude Code hook listener |
+| `tokio` | latest | Async runtime |
+| `serde` / `serde_json` | latest | Serialization for IPC and config |
+| `specta` | 2.0.0-rc.22 | TypeScript type generation (used by TauRPC) |
+
+**Note:** The first implementation story (T1.1) should initialize Tauri in the existing project and validate the React frontend renders in Tauri's webview.
 
 ## Core Architectural Decisions
 
@@ -153,137 +199,188 @@ tinsu/
 
 **Critical Decisions (Block Implementation):**
 
-- Data persistence layer (Drizzle + SQLite)
-- IPC communication pattern (tRPC)
-- UI component foundation (shadcn/ui + Tailwind)
+- Data persistence layer (SeaORM + SQLite)
+- IPC communication pattern (rspc)
+- Real-time streaming (Tauri Channels + Tauri Events)
+- Frontend migration approach (rspc hooks, flatten directory)
 
 **Important Decisions (Shape Architecture):**
 
-- State management strategy (TanStack Query + Zustand)
-- Drag-and-drop implementation (@dnd-kit)
-- Code diff visualization (Monaco Editor)
+- SSH key management (OS keychain)
+- Logging strategy (tracing crate)
+- Testing strategy (cargo test + Vitest)
 
 **Deferred Decisions (Post-MVP):**
 
-- Auto-update strategy (electron-updater)
-- Crash reporting (Sentry integration)
-- Analytics/telemetry
+- E2E testing (Tauri WebDriver support)
+- CI/CD pipeline (Phase 4)
+- Auto-update strategy
+- Crash reporting
 
 ### Data Architecture
 
-| Decision       | Choice                    | Version      | Rationale                                                       |
-| -------------- | ------------------------- | ------------ | --------------------------------------------------------------- |
-| **Database**   | SQLite via better-sqlite3 | latest       | Synchronous API ideal for Electron main process, local-first    |
-| **ORM**        | Drizzle ORM               | 1.0.0-beta.2 | Type-safe, lightweight, excellent DX with better-sqlite3 driver |
-| **Migrations** | Drizzle Kit               | 1.0.0-beta.2 | Schema introspection <1s, automatic migration generation        |
+| Decision | Choice | Version | Rationale |
+|----------|--------|---------|-----------|
+| **Database** | SQLite via SeaORM | SeaORM latest | ORM pattern familiar from Drizzle, entity generation, async-native |
+| **ORM** | SeaORM | latest | ActiveRecord pattern maps to Drizzle's schema model, query builder, relationship handling |
+| **Migrations** | sea-orm-migration | latest | Rust-based migrations compiled into binary, auto-run on startup |
 
 **Schema Strategy:**
 
-- Tasks table: id, title, description, status, sprint_id, epic_id, timestamps
-- Agent runs table: task_id, started_at, ended_at, token_usage, exit_status
-- Logs table: run_id, timestamp, level, message (indexed for search)
+- Port all 17 existing tables faithfully (same snake_case names, same column types)
+- SeaORM entities generated to match existing Drizzle schema exactly
+- No schema changes in Phase 1 — faithful port only
+- New tables (SSH connections, remote projects) added in Phase 2
+- One-time data export/import path for Electron→Tauri transition
 
 ### Authentication & Security
 
-| Decision              | Choice                  | Rationale                               |
-| --------------------- | ----------------------- | --------------------------------------- |
-| **Authentication**    | None (MVP)              | Single-user local app, no auth required |
-| **IPC Security**      | contextBridge isolation | Renderer has no direct Node.js access   |
-| **Process Isolation** | Sandbox enabled         | Default Electron security model         |
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Authentication** | None (MVP) | Single-user local app, no auth required |
+| **IPC Security** | Tauri v2 capabilities | Webview only accesses explicitly permitted commands |
+| **Process Isolation** | Webview sandbox (default) | No direct Rust/OS access from frontend |
+| **File Access** | Scoped via `fs` plugin permissions | Only project directories, not full filesystem |
+| **SSH Key Storage** | OS keychain via `keyring` crate | Platform-native (macOS Keychain, Linux Secret Service, Windows Credential Manager) |
 
 ### API & Communication Patterns
 
-| Decision             | Choice        | Version | Rationale                                   |
-| -------------------- | ------------- | ------- | ------------------------------------------- |
-| **IPC Pattern**      | tRPC          | 11.6.0  | End-to-end type safety, procedure-based API |
-| **Electron Adapter** | trpc-electron | latest  | Fork maintained for tRPC v11 compatibility  |
-| **Validation**       | Zod           | latest  | Runtime validation for procedure inputs     |
+| Decision | Choice | Version | Rationale |
+|----------|--------|---------|-----------|
+| **IPC Pattern** | rspc | latest | Router-based like tRPC, minimal frontend migration, built-in React Query integration |
+| **Tauri Adapter** | `@rspc/tauri` | latest | Bridges rspc router to Tauri invoke |
+| **React Integration** | `@rspc/react` | latest | TanStack Query hooks nearly identical to tRPC hooks |
+| **Validation** | rspc built-in (Specta types) | latest | Type generation replaces Zod runtime validation |
 
 **IPC Architecture:**
 
 ```
-Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRPC Router)
-                                                      │
-                                                      ├── taskRouter
-                                                      ├── agentRouter
-                                                      ├── gitRouter
-                                                      └── configRouter
+Frontend (React) ──rspc Client──► Tauri IPC ──► Rust (rspc Router)
+                                                    │
+                                                    ├── task procedures
+                                                    ├── agent procedures
+                                                    ├── git procedures
+                                                    ├── config procedures
+                                                    ├── activity procedures
+                                                    ├── sprint procedures
+                                                    └── chat procedures
 ```
+
+**Real-Time Streaming Architecture:**
+
+| Data Type | Primitive | Rationale |
+|-----------|-----------|-----------|
+| **PTY terminal output** | Tauri Channels | High throughput, single-consumer, byte-level streaming |
+| **Activity log events** | Tauri Events | Multi-listener, lower frequency, fire-and-forget |
+| **Session status changes** | Tauri Events | Multi-listener, UI status badges |
+| **Hook notifications** | Tauri Events | Fire-and-forget from axum hook listener to frontend |
+| **All request-response** | rspc queries/mutations | Typed, cached via TanStack Query |
 
 ### Frontend Architecture
 
-| Decision           | Choice         | Version  | Rationale                                                       |
-| ------------------ | -------------- | -------- | --------------------------------------------------------------- |
-| **Server State**   | TanStack Query | via tRPC | Automatic caching, refetching, optimistic updates               |
-| **Local UI State** | Zustand        | latest   | Minimal boilerplate, React-friendly                             |
-| **Components**     | shadcn/ui      | latest   | Tailwind-based, copy-paste ownership, accessible                |
-| **Styling**        | Tailwind CSS   | ^4.1.18  | Utility-first, CSS-first config (no tailwind.config.js)         |
-| **Drag-and-Drop**  | @dnd-kit       | latest   | Modern, accessible, excellent Kanban support                    |
-| **Diff Viewer**    | Monaco Editor  | 4.7.0    | VS Code-quality diffs, syntax highlighting, handles large files |
-| **Terminal**       | xterm.js       | latest   | Industry standard, used by VS Code                              |
+| Decision | Choice | Version | Rationale |
+|----------|--------|---------|-----------|
+| **Server State** | TanStack Query via rspc | via `@rspc/react` | Near-identical API to tRPC hooks, automatic caching |
+| **Local UI State** | Zustand | latest | Unchanged from Electron app |
+| **Components** | shadcn/ui | latest | Unchanged, Tailwind-based |
+| **Styling** | Tailwind CSS | ^4.x | Unchanged, CSS-first config |
+| **Drag-and-Drop** | @dnd-kit | latest | Unchanged |
+| **Diff Viewer** | Monaco Editor | latest | Unchanged |
+| **Terminal** | xterm.js | latest | Unchanged, now backed by Tauri Channels instead of tRPC subscriptions |
 
-**Component Architecture:**
+**Migration Approach:**
 
-- Layout: App shell with sidebar, main content, terminal panel
-- Board: KanbanBoard → KanbanColumn → TaskCard (draggable)
-- Task Detail: TaskPanel with tabs (Details, Terminal, Diff, Logs)
-- Terminal: XTerminal component wrapping xterm.js + node-pty IPC
+- `src/renderer/src/` flattens to `src/` (standard Vite structure)
+- `src/main/` deleted (replaced by `src-tauri/src/`)
+- `src/preload/` deleted (replaced by rspc + Tauri invoke)
+- `src/shared/types/` preserved, updated to match rspc-generated types
+- tRPC hook calls migrated to rspc hooks (find-and-replace pattern)
+- tRPC subscriptions migrated to Tauri Event listeners
 
 ### Infrastructure & Deployment
 
-| Decision        | Choice                                | Rationale                                   |
-| --------------- | ------------------------------------- | ------------------------------------------- |
-| **Packaging**   | electron-builder                      | Included with electron-vite, cross-platform |
-| **Platforms**   | macOS (.dmg), Linux (.AppImage, .deb) | Per PRD, Windows deferred                   |
-| **Auto-Update** | Deferred                              | Not required for MVP dog-fooding            |
-| **Logging**     | electron-log                          | Simple file + console logging               |
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Packaging** | Tauri bundler v2.8.1 | Built-in, cross-platform |
+| **Desktop Platforms** | macOS (.dmg), Linux (.AppImage, .deb), Windows (.msi) | Per PRD + Windows added |
+| **Mobile Platforms** | Android (.apk/.aab), iOS (.ipa) | Phase 3 |
+| **Testing (Rust)** | `cargo test` | Native, no rebuild dance |
+| **Testing (React)** | Vitest + React Testing Library | Same as existing, simplified (no native module issues) |
+| **E2E Testing** | Deferred | Tauri WebDriver support, post-MVP |
+| **Logging** | `tracing` crate | Tokio ecosystem standard, structured spans, async-friendly |
+| **CI/CD** | Deferred to Phase 4 | GitHub Actions + `tauri-action` for desktop, separate mobile pipelines |
 
 ### Decision Impact Analysis
 
 **Implementation Sequence:**
 
-1. Initialize electron-vite project
-2. Add Drizzle + better-sqlite3, create schema
-3. Set up tRPC routers (main process)
-4. Configure tRPC client (renderer)
-5. Build UI shell with shadcn/ui + Tailwind
-6. Implement Kanban board with @dnd-kit
-7. Integrate xterm.js + node-pty for terminal
-8. Add Monaco diff viewer for review panel
+1. Initialize Tauri v2 in existing project, validate React renders in webview
+2. Set up SeaORM with SQLite, port 17-table schema
+3. Set up rspc router, register Tauri commands
+4. Migrate frontend hooks from tRPC to rspc
+5. Implement Rust services (task, sprint, epic CRUD)
+6. Implement PTY service with portable-pty + Tauri Channels
+7. Implement tmux service, hook listener (axum)
+8. Implement git service
+9. Implement chat CLI service
+10. Feature parity validation (Phase 1 gate)
 
 **Cross-Component Dependencies:**
 
-- tRPC routers depend on Drizzle schema
-- Terminal component depends on PTY IPC handlers
-- Diff viewer depends on git worktree state
-- Kanban state syncs with SQLite via tRPC mutations
+- rspc router depends on SeaORM entities (data layer first)
+- Terminal streaming depends on PTY service + Tauri Channels
+- Activity events depend on hook listener (axum) + Tauri Events
+- Frontend migration depends on rspc router being operational
+- Chat/planning depends on tmux service + hook routing
 
 ## Implementation Patterns & Consistency Rules
 
 ### Pattern Categories Defined
 
-**Critical Conflict Points Identified:** 6 areas where AI agents could make incompatible choices without explicit patterns.
+**Critical Conflict Points Identified:** 7 areas where AI agents could make incompatible choices without explicit patterns.
 
 ### Naming Patterns
 
-**Database Naming Conventions:**
+**Database Naming Conventions (unchanged):**
+
 | Element | Convention | Example |
-|---------|------------|---------|
-| Tables | snake*case, plural | `tasks`, `agent_runs`, `sprint_stories` |
+|---------|-----------|---------|
+| Tables | snake_case, plural | `tasks`, `agent_runs`, `sprint_stories` |
 | Columns | snake_case | `created_at`, `task_id`, `exit_status` |
 | Foreign Keys | `{referenced_table}_id` | `sprint_id`, `epic_id` |
-| Indexes | `idx*{table}\_{columns}`|`idx_tasks_status`, `idx_logs_run_id` |
+| Indexes | `idx_{table}_{columns}` | `idx_tasks_status`, `idx_logs_run_id` |
 
-**tRPC Procedure Naming:**
+**SeaORM Entity Naming (new):**
+
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Entity module | snake_case (matches table) | `task.rs`, `agent_run.rs` |
+| Entity struct | PascalCase `Model` | `task::Model`, `agent_run::Model` |
+| ActiveModel | `ActiveModel` | `task::ActiveModel` |
+| Column enum | PascalCase | `task::Column::CreatedAt` |
+
+**rspc Procedure Naming (mirrors existing tRPC):**
+
 | Type | Convention | Example |
-|------|------------|---------|
+|------|-----------|---------|
 | Queries | camelCase, get/list prefix | `getTask`, `listSprintTasks` |
 | Mutations | camelCase, verb prefix | `createTask`, `updateStatus`, `deleteRun` |
-| Subscriptions | camelCase, on prefix | `onAgentOutput`, `onTaskUpdate` |
 
-**React/TypeScript Naming:**
+**Rust Code Naming:**
+
 | Element | Convention | Example |
-|---------|------------|---------|
+|---------|-----------|---------|
+| Modules | snake_case | `task_service.rs`, `pty_service.rs` |
+| Structs | PascalCase | `TaskService`, `PtySession` |
+| Functions | snake_case | `create_session`, `get_task` |
+| Constants | SCREAMING_SNAKE_CASE | `MAX_STALL_TIME`, `IDLE_TIMEOUT_MS` |
+| Traits | PascalCase | `ExecutionHost`, `SessionManager` |
+| Enums | PascalCase variants | `TaskStatus::InProgress` |
+
+**React/TypeScript Naming (unchanged):**
+
+| Element | Convention | Example |
+|---------|-----------|---------|
 | Components | PascalCase | `TaskCard`, `KanbanBoard` |
 | Component files | PascalCase.tsx | `TaskCard.tsx` |
 | Hooks | camelCase, use prefix | `useTask`, `useAgentStatus` |
@@ -292,141 +389,172 @@ Renderer (React) ──tRPC Client──► Preload ──IPC──► Main (tRP
 | Constants | SCREAMING_SNAKE_CASE | `MAX_STALL_TIME`, `DEFAULT_BRANCH_PREFIX` |
 | Utility functions | camelCase | `formatDate`, `parseStoryFile` |
 
-### Structure Patterns
+**Tauri Event Naming (new):**
 
-**Project Organization:**
-
-```
-src/
-├── main/                         # Electron main process (Node.js)
-│   ├── index.ts                  # Main entry, window creation
-│   ├── trpc/
-│   │   ├── routers/
-│   │   │   ├── task.router.ts    # Task CRUD operations
-│   │   │   ├── agent.router.ts   # PTY spawning, control
-│   │   │   ├── git.router.ts     # Worktree, branch, merge
-│   │   │   └── config.router.ts  # Project settings
-│   │   ├── context.ts            # tRPC context (db access)
-│   │   └── index.ts              # Root router, merged
-│   ├── services/
-│   │   ├── pty.service.ts        # node-pty wrapper
-│   │   ├── git.service.ts        # Git/worktree operations
-│   │   └── stall-detector.ts     # Agent monitoring
-│   └── db/
-│       ├── schema.ts             # Drizzle schema definitions
-│       ├── index.ts              # DB connection
-│       └── migrations/           # Generated migrations
-├── preload/
-│   └── index.ts                  # contextBridge, tRPC IPC
-├── renderer/                     # React application
-│   ├── App.tsx                   # Root component
-│   ├── components/
-│   │   ├── board/                # Kanban components
-│   │   │   ├── KanbanBoard.tsx
-│   │   │   ├── KanbanColumn.tsx
-│   │   │   └── TaskCard.tsx
-│   │   ├── task/                 # Task detail components
-│   │   │   ├── TaskPanel.tsx
-│   │   │   ├── TaskDetails.tsx
-│   │   │   └── TaskActions.tsx
-│   │   ├── terminal/             # Terminal components
-│   │   │   ├── TerminalPanel.tsx
-│   │   │   └── TerminalOutput.tsx
-│   │   ├── review/               # Review/diff components
-│   │   │   ├── DiffViewer.tsx
-│   │   │   └── ReviewActions.tsx
-│   │   ├── layout/               # App shell components
-│   │   │   ├── AppShell.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Header.tsx
-│   │   └── ui/                   # shadcn/ui components
-│   ├── hooks/
-│   │   ├── useTask.ts
-│   │   ├── useAgent.ts
-│   │   └── useTerminal.ts
-│   ├── stores/
-│   │   ├── ui.store.ts           # UI state (sidebar, panels)
-│   │   └── terminal.store.ts     # Terminal buffer state
-│   └── lib/
-│       ├── trpc.ts               # tRPC client setup
-│       └── utils.ts              # Shared utilities
-└── shared/                       # Shared between main/renderer
-    └── types/
-        ├── task.types.ts
-        ├── agent.types.ts
-        └── ipc.types.ts
-```
-
-**File Co-location Rules:**
-
-- Components: Related files together (TaskCard.tsx, TaskCard.test.tsx)
-- Tests: Co-located with source files (\*.test.ts pattern)
-- Styles: Tailwind classes inline, no separate CSS files
-
-### Format Patterns
-
-**tRPC Response Format:**
-
-```typescript
-// Direct returns - tRPC handles wrapping
-// DO NOT wrap in { data: ... } or { success: true }
-
-// Query - return data directly
-getTask: t.procedure.input(z.object({ id: z.string() })).query(({ input }) => {
-  return db.query.tasks.findFirst({ where: eq(tasks.id, input.id) })
-})
-
-// Mutation - return affected entity
-updateStatus: t.procedure
-  .input(
-    z.object({
-      id: z.string(),
-      status: z.enum(['backlog', 'in_progress', 'review', 'done'])
-    })
-  )
-  .mutation(({ input }) => {
-    return db.update(tasks).set({ status: input.status }).where(eq(tasks.id, input.id)).returning()
-  })
-```
-
-**Error Format:**
-
-```typescript
-// Use TRPCError with standard codes
-throw new TRPCError({
-  code: 'NOT_FOUND', // or BAD_REQUEST, INTERNAL_SERVER_ERROR, etc.
-  message: 'Task not found',
-  cause: originalError // Optional: chain original error
-})
-
-// Frontend receives: { message, code, data? }
-```
-
-**Date/Time Format:**
-
-- Database: INTEGER (Unix timestamp in seconds)
-- tRPC responses: ISO 8601 string (`2026-01-03T10:30:00Z`)
-- Display: Formatted via `date-fns` in renderer
-
-### Communication Patterns
-
-**IPC Event Naming:**
 | Category | Pattern | Examples |
 |----------|---------|----------|
 | PTY events | `pty:{action}` | `pty:data`, `pty:exit`, `pty:error` |
 | Agent lifecycle | `agent:{state}` | `agent:started`, `agent:stalled`, `agent:complete` |
 | Git operations | `git:{action}` | `git:worktree-created`, `git:merge-conflict` |
 | Task updates | `task:{action}` | `task:status-changed`, `task:logs-updated` |
+| Chat events | `chat:{action}` | `chat:message-received`, `chat:session-exited` |
+| Hook events | `hook:{type}` | `hook:stop`, `hook:tool-use`, `hook:chat-stop` |
 
-**Zustand Store Pattern:**
+### Structure Patterns
+
+**Rust Backend Organization (`src-tauri/src/`):**
+
+```
+src-tauri/src/
+├── main.rs                    # Tauri entry point
+├── lib.rs                     # rspc router setup, command registration
+├── router/
+│   ├── mod.rs                 # Root router, merged
+│   ├── task.rs                # Task CRUD procedures
+│   ├── agent.rs               # PTY spawn, control, monitor
+│   ├── review.rs              # Approve/reject, feedback
+│   ├── git.rs                 # Worktree, branch, merge
+│   ├── config.rs              # Project settings
+│   ├── activity.rs            # Activity CRUD + streaming
+│   ├── sprint.rs              # Sprint management
+│   └── chat.rs                # Chat session management
+├── services/
+│   ├── mod.rs
+│   ├── pty_service.rs         # portable-pty wrapper
+│   ├── git_service.rs         # Git CLI operations
+│   ├── tmux_service.rs        # tmux session lifecycle
+│   ├── hook_listener.rs       # axum HTTP server for hooks
+│   ├── activity_log.rs        # Event logging
+│   ├── automation.rs          # Story/Basic state machine
+│   ├── scrollback_backup.rs   # Terminal persistence
+│   ├── chat_cli.rs            # Chat session management
+│   ├── context_builder.rs     # Story/arch context assembly
+│   └── stall_detector.rs      # Output monitoring
+├── db/
+│   ├── mod.rs                 # SeaORM connection setup
+│   └── entities/
+│       ├── mod.rs
+│       ├── task.rs
+│       ├── sprint.rs
+│       ├── epic.rs
+│       ├── agent_run.rs
+│       ├── task_activity.rs
+│       ├── task_session.rs
+│       ├── chat_session.rs
+│       ├── chat_message.rs
+│       └── ...                # All 17 entities
+├── migration/
+│   ├── mod.rs
+│   └── m20260412_000001_initial_schema.rs
+└── models/
+    ├── mod.rs
+    ├── task_status.rs         # Enums, shared types
+    ├── event_types.rs
+    └── ssh_config.rs
+```
+
+**Frontend Organization (`src/` — flattened from `src/renderer/src/`):**
+
+```
+src/
+├── App.tsx                    # Root component
+├── main.tsx                   # React root, providers
+├── globals.css                # Tailwind base + shadcn vars
+├── components/
+│   ├── board/                 # Kanban components (unchanged)
+│   ├── task/                  # Task detail components (unchanged)
+│   ├── terminal/              # Terminal components (unchanged)
+│   ├── review/                # Review/diff components (unchanged)
+│   ├── layout/                # App shell components (unchanged)
+│   ├── planning/              # Chat/planning components (unchanged)
+│   ├── sprint/                # Sprint management (unchanged)
+│   └── ui/                    # shadcn/ui components (unchanged)
+├── hooks/
+│   ├── useTask.ts             # Migrated from tRPC to rspc
+│   ├── useAgent.ts
+│   ├── useTerminal.ts
+│   └── useGit.ts
+├── stores/
+│   ├── ui.store.ts
+│   └── terminal.store.ts
+└── lib/
+    ├── rspc.ts                # rspc client setup (replaces trpc.ts)
+    ├── utils.ts               # cn(), formatDate, etc.
+    └── constants.ts
+```
+
+**File Co-location Rules:**
+
+- Rust tests: Co-located in same file via `#[cfg(test)] mod tests { ... }`
+- React tests: Co-located with source files (`TaskCard.test.tsx` next to `TaskCard.tsx`)
+- Styles: Tailwind classes inline, no separate CSS files
+
+### Format Patterns
+
+**rspc Response Format:**
+
+```rust
+// Direct returns — rspc handles serialization
+// DO NOT wrap in Result<ApiResponse<T>> or { data: ... }
+
+// Query — return data directly
+.query(|ctx, input: GetTaskInput| async move {
+    let task = ctx.db.find_by_id(input.id).await?;
+    Ok(task)
+})
+
+// Mutation — return affected entity
+.mutation(|ctx, input: UpdateStatusInput| async move {
+    let task = task::ActiveModel {
+        id: Set(input.id),
+        status: Set(input.status),
+        ..Default::default()
+    };
+    Ok(task.update(&ctx.db).await?)
+})
+```
+
+**Rust Error Handling:**
+
+```rust
+// Define app-level error type
+#[derive(Debug, thiserror::Error, specta::Type, serde::Serialize)]
+pub enum AppError {
+    #[error("Not found: {0}")]
+    NotFound(String),
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+    #[error("Internal error: {0}")]
+    Internal(String),
+    #[error("Database error: {0}")]
+    Database(String),
+}
+
+// Convert from SeaORM errors
+impl From<sea_orm::DbErr> for AppError {
+    fn from(err: sea_orm::DbErr) -> Self {
+        AppError::Database(err.to_string())
+    }
+}
+
+// Use in procedures
+.query(|ctx, input| async move {
+    ctx.db.find_by_id(input.id).await?
+        .ok_or(AppError::NotFound("Task not found".into()))
+})
+```
+
+**Date/Time Format (unchanged):**
+
+- Database: INTEGER (Unix timestamp in seconds)
+- rspc responses: ISO 8601 string (`2026-04-12T10:30:00Z`)
+- Display: Formatted via `date-fns` in renderer
+
+**Zustand Store Pattern (unchanged):**
 
 ```typescript
-// Pattern for all stores
 interface TaskStore {
-  // State
   selectedTaskId: string | null
-
-  // Actions (always set prefix for mutations)
   setSelectedTask: (id: string | null) => void
   clearSelection: () => void
 }
@@ -434,34 +562,73 @@ interface TaskStore {
 export const useTaskStore = create<TaskStore>((set) => ({
   selectedTaskId: null,
   setSelectedTask: (id) => set({ selectedTaskId: id }),
-  clearSelection: () => set({ selectedTaskId: null })
+  clearSelection: () => set({ selectedTaskId: null }),
 }))
+```
+
+### Communication Patterns
+
+**Tauri Event Emission (Rust → Frontend):**
+
+```rust
+// Emit from Rust
+app_handle.emit("task:status-changed", TaskStatusPayload {
+    task_id: task.id.clone(),
+    old_status: old.status,
+    new_status: new_status,
+})?;
+
+// Listen in React
+import { listen } from '@tauri-apps/api/event';
+
+useEffect(() => {
+    const unlisten = listen<TaskStatusPayload>('task:status-changed', (event) => {
+        // handle event.payload
+    });
+    return () => { unlisten.then(fn => fn()); };
+}, []);
+```
+
+**Tauri Channel Pattern (PTY streaming):**
+
+```rust
+// Rust side — high-throughput byte stream
+#[tauri::command]
+async fn attach_terminal(task_id: String, channel: Channel<Vec<u8>>) -> Result<(), AppError> {
+    let pty = pty_service.get_or_create(&task_id).await?;
+    tokio::spawn(async move {
+        loop {
+            let data = pty.read().await;
+            if channel.send(data).is_err() { break; }
+        }
+    });
+    Ok(())
+}
 ```
 
 ### Process Patterns
 
 **Error Handling Layers:**
+
 | Layer | Handling Approach |
 |-------|-------------------|
-| **Drizzle/DB** | Catch constraint violations, throw TRPCError |
-| **Services** | Catch external errors (git, pty), throw TRPCError with context |
-| **tRPC Router** | Let TRPCError propagate, add trpc error formatter |
+| **SeaORM/DB** | `?` operator propagates `DbErr`, auto-converted to `AppError::Database` |
+| **Services** | Catch external errors (git, pty, ssh), return `AppError` with context |
+| **rspc Router** | Let `AppError` propagate, rspc serializes to frontend |
 | **React Query** | Use `onError` callback, show toast via shadcn/ui |
-| **React UI** | ErrorBoundary at AppShell level for unexpected errors |
+| **React UI** | `ErrorBoundary` at AppShell level for unexpected errors |
 
-**Loading State Pattern:**
+**Loading State Pattern (unchanged):**
 
 ```typescript
-// Use TanStack Query states directly
-const { data, isLoading, error } = trpc.task.getTask.useQuery({ id });
+const { data, isLoading, error } = rspc.useQuery(['task.getTask', { id }]);
 
-// In components:
 if (isLoading) return <Skeleton />;
 if (error) return <ErrorMessage error={error} />;
 return <TaskDetails task={data} />;
 ```
 
-**Agent Execution State Machine:**
+**Agent Execution State Machine (unchanged):**
 
 ```
 idle → starting → running → (stalled?) → completing → review
@@ -473,29 +640,36 @@ idle → starting → running → (stalled?) → completing → review
 
 **All AI Agents MUST:**
 
-1. Follow naming conventions exactly as documented
+1. Follow naming conventions exactly as documented (Rust snake_case, React PascalCase, DB snake_case)
 2. Place files in the correct directories per structure patterns
-3. Use tRPC procedures for all main↔renderer communication
-4. Throw TRPCError (not generic Error) in routers/services
-5. Use Zustand stores for local UI state, tRPC for server state
-6. Co-locate tests with source files
+3. Use rspc procedures for all frontend↔backend communication
+4. Use `AppError` (not generic `anyhow::Error`) in router procedures
+5. Use Zustand stores for local UI state, rspc for server state
+6. Co-locate tests with source files (Rust: `#[cfg(test)]`, React: `*.test.tsx`)
+7. Use Tauri Events for fire-and-forget notifications, Channels for streams
+8. Never access filesystem/process/network directly from frontend code
 
 **Pattern Verification:**
 
-- ESLint rules enforce naming conventions
+- `cargo clippy` enforces Rust naming and style
+- ESLint + Prettier enforce TypeScript naming and formatting
 - TypeScript strict mode catches type mismatches
-- PR review checklist includes pattern compliance
+- rspc + Specta auto-generated types prevent IPC type drift
 
 ### Anti-Patterns to Avoid
 
-| Anti-Pattern                         | Correct Pattern              |
-| ------------------------------------ | ---------------------------- |
-| `ITask`, `IUser` (I prefix)          | `Task`, `User`               |
-| `user_data.tsx` (snake_case file)    | `UserData.tsx`               |
-| `{ success: true, data: ... }`       | Direct return from tRPC      |
-| `ipcRenderer.send()` direct calls    | Use tRPC procedures          |
-| `useState` for server data           | Use tRPC + TanStack Query    |
-| Tests in separate `__tests__` folder | Co-located `*.test.ts` files |
+| Anti-Pattern | Correct Pattern |
+|-------------|-----------------|
+| `ITask`, `IUser` (I prefix) | `Task`, `User` |
+| `user_data.tsx` (snake_case file) | `UserData.tsx` |
+| `{ success: true, data: ... }` | Direct return from rspc |
+| `invoke('get_task', ...)` raw Tauri calls | Use rspc procedures |
+| `useState` for server data | Use rspc + TanStack Query |
+| `anyhow::Error` in router | `AppError` with specific variants |
+| Tests in separate `__tests__` folder | Co-located `*.test.ts` / `#[cfg(test)]` |
+| `println!` for logging | `tracing::info!`, `tracing::error!` |
+| Separate CSS files | Tailwind classes inline |
+| `unwrap()` in production Rust | `?` operator with proper error types |
 
 ## Project Structure & Boundaries
 
@@ -503,15 +677,11 @@ idle → starting → running → (stalled?) → completing → review
 
 ```
 tinsu/
-├── README.md
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json
-├── tsconfig.node.json
-├── electron.vite.config.ts
-├── electron-builder.yml
-├── components.json                # shadcn/ui config (Tailwind v4 uses CSS-first, no tailwind.config.js)
-├── drizzle.config.ts              # Drizzle Kit config
+├── vite.config.ts
+├── components.json                # shadcn/ui config
 ├── .env.example
 ├── .gitignore
 ├── .eslintrc.cjs
@@ -519,120 +689,178 @@ tinsu/
 │
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                 # Lint, typecheck, test
-│       └── release.yml            # Build & publish releases
+│       ├── ci.yml                 # Lint, typecheck, test (Phase 4)
+│       └── release.yml            # Build & publish (Phase 4)
 │
-├── resources/                     # Electron app resources
-│   └── icon.png
+├── src-tauri/                     # === RUST BACKEND ===
+│   ├── Cargo.toml
+│   ├── Cargo.lock
+│   ├── tauri.conf.json            # Tauri app config (window, bundle, plugins)
+│   ├── capabilities/
+│   │   ├── default.json           # Default webview permissions
+│   │   └── main-window.json       # Main window capabilities
+│   ├── icons/                     # App icons (all platforms)
+│   ├── src/
+│   │   ├── main.rs                # Tauri entry point, app setup
+│   │   ├── lib.rs                 # rspc router init, Tauri command registration
+│   │   ├── error.rs               # AppError enum, From impls
+│   │   │
+│   │   ├── router/                # rspc procedures (replaces tRPC routers)
+│   │   │   ├── mod.rs             # Root router, merged
+│   │   │   ├── task.rs            # FR1-FR6: Board & task CRUD
+│   │   │   ├── agent.rs           # FR7-FR16: PTY spawn, control, monitor
+│   │   │   ├── review.rs          # FR17-FR21: Approve/reject, feedback
+│   │   │   ├── git.rs             # FR22-FR27: Worktree, branch, merge
+│   │   │   ├── config.rs          # FR28-FR31: Project settings
+│   │   │   ├── activity.rs        # TES FR10-FR20: Activity CRUD + streaming
+│   │   │   ├── sprint.rs          # Sprint management
+│   │   │   └── chat.rs            # FR36-FR53: Chat session management
+│   │   │
+│   │   ├── services/              # Business logic
+│   │   │   ├── mod.rs
+│   │   │   ├── pty_service.rs     # portable-pty wrapper, spawn/kill/signal
+│   │   │   ├── git_service.rs     # Git CLI wrapper, worktree ops
+│   │   │   ├── tmux_service.rs    # tmux session lifecycle (task + chat)
+│   │   │   ├── hook_listener.rs   # axum HTTP server for Claude Code hooks
+│   │   │   ├── activity_log.rs    # Event logging + Tauri Event emission
+│   │   │   ├── automation.rs      # Story/Basic task state machine
+│   │   │   ├── scrollback_backup.rs # Filesystem terminal persistence
+│   │   │   ├── chat_cli.rs        # Chat session spawn, I/O, monitoring
+│   │   │   ├── context_builder.rs # Story/arch context assembly
+│   │   │   ├── stall_detector.rs  # Output monitoring, timeout detection
+│   │   │   └── ssh_service.rs     # Phase 2: russh SSH client
+│   │   │
+│   │   ├── db/
+│   │   │   ├── mod.rs             # SeaORM connection setup
+│   │   │   └── entities/          # SeaORM entity definitions
+│   │   │       ├── mod.rs
+│   │   │       ├── project.rs
+│   │   │       ├── sprint.rs
+│   │   │       ├── epic.rs
+│   │   │       ├── task.rs
+│   │   │       ├── agent_run.rs
+│   │   │       ├── task_activity.rs
+│   │   │       ├── task_session.rs
+│   │   │       ├── chat_session.rs
+│   │   │       ├── chat_message.rs
+│   │   │       ├── chat_message_attachment.rs
+│   │   │       ├── app_settings.rs
+│   │   │       ├── log_entry.rs
+│   │   │       └── prelude.rs     # Re-exports for convenience
+│   │   │
+│   │   ├── migration/
+│   │   │   ├── mod.rs
+│   │   │   └── m20260412_000001_initial_schema.rs
+│   │   │
+│   │   └── models/                # Shared Rust types (non-entity)
+│   │       ├── mod.rs
+│   │       ├── task_status.rs     # TaskStatus enum
+│   │       ├── event_types.rs     # ActivityEventType enum
+│   │       ├── agent_state.rs     # AgentState enum
+│   │       └── ssh_config.rs      # Phase 2: SSH connection types
+│   │
+│   └── resources/                 # Hook scripts bundled with app
+│       ├── hooks/
+│       │   ├── task-completion.sh     # Stop hook for tasks
+│       │   ├── log-tool-use.sh        # PostToolUse hook
+│       │   ├── chat-stop.sh           # Stop hook for chat sessions
+│       │   ├── chat-tool-use.sh       # PostToolUse for chat
+│       │   ├── chat-pre-tool-use.sh   # PreToolUse for chat permissions
+│       │   └── chat-status.sh         # Status hook for chat
+│       └── templates/
+│           └── claude-settings.json   # Template .claude/settings.json
 │
-├── src/
-│   ├── main/                      # === ELECTRON MAIN PROCESS ===
-│   │   ├── index.ts               # App entry, window creation, tRPC setup
-│   │   │
-│   │   ├── trpc/
-│   │   │   ├── index.ts           # Root router, createContext
-│   │   │   ├── trpc.ts            # tRPC instance, procedure helpers
-│   │   │   ├── context.ts         # Context type (db, services)
-│   │   │   └── routers/
-│   │   │       ├── task.router.ts       # FR1-FR6: Board & task CRUD
-│   │   │       ├── agent.router.ts      # FR7-FR16: PTY spawn, control, monitor
-│   │   │       ├── review.router.ts     # FR17-FR21: Approve/reject, feedback
-│   │   │       ├── git.router.ts        # FR22-FR27: Worktree, branch, merge
-│   │   │       └── config.router.ts     # FR28-FR31: Project settings
-│   │   │
-│   │   ├── services/
-│   │   │   ├── pty.service.ts           # node-pty wrapper, spawn/kill/signal
-│   │   │   ├── git.service.ts           # Git CLI wrapper, worktree ops
-│   │   │   ├── stall-detector.service.ts # Output monitoring, timeout detection
-│   │   │   ├── context-builder.service.ts # Story/arch context assembly
-│   │   │   └── claude-cli.service.ts     # Claude Code CLI detection
-│   │   │
-│   │   └── db/
-│   │       ├── index.ts                  # better-sqlite3 + Drizzle connection
-│   │       ├── schema.ts                 # FR32-FR35: All table definitions
-│   │       └── migrations/               # Drizzle Kit generated
+├── src/                           # === REACT FRONTEND ===
+│   ├── index.html                 # Vite entry HTML
+│   ├── main.tsx                   # React root, rspc provider, QueryClient
+│   ├── App.tsx                    # Root component, routing
+│   ├── globals.css                # Tailwind base + shadcn CSS variables
 │   │
-│   ├── preload/                   # === PRELOAD SCRIPTS ===
-│   │   ├── index.ts               # contextBridge, exposeInMainWorld
-│   │   └── index.d.ts             # Type declarations for window.api
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── AppShell.tsx           # Main layout container
+│   │   │   ├── Header.tsx             # App header, project selector
+│   │   │   ├── Sidebar.tsx            # Sprint/Epic navigation + sprint list
+│   │   │   └── BottomPanel.tsx        # Collapsible terminal area
+│   │   │
+│   │   ├── board/
+│   │   │   ├── KanbanBoard.tsx        # FR1: 5-column board container
+│   │   │   ├── KanbanColumn.tsx       # FR1: Single column
+│   │   │   ├── TaskCard.tsx           # FR2: Draggable task card
+│   │   │   └── NewTaskButton.tsx      # FR3: Quick task creation
+│   │   │
+│   │   ├── task/
+│   │   │   ├── TaskPanel.tsx          # Task workspace container
+│   │   │   ├── TaskDetails.tsx        # FR4: Task info display
+│   │   │   ├── TaskActions.tsx        # FR7: Start Agent button
+│   │   │   ├── TaskStatusBadge.tsx    # Status indicator
+│   │   │   ├── TaskDetailTabs.tsx     # TES: 3-column workspace
+│   │   │   ├── ActivitiesTab.tsx      # TES: Activity log with filters
+│   │   │   ├── ActivitiesFilter.tsx   # TES: Event type filter chips
+│   │   │   ├── ActivityItem.tsx       # TES: Single activity row
+│   │   │   ├── ContentTab.tsx         # TES: Task description display
+│   │   │   ├── TaskAutomationStatus.tsx # TES: Current phase indicator
+│   │   │   └── ManualTriggerButtons.tsx # TES: Fallback trigger UI
+│   │   │
+│   │   ├── terminal/
+│   │   │   ├── TerminalPanel.tsx      # FR10: Embedded terminal container
+│   │   │   ├── TerminalOutput.tsx     # xterm.js wrapper (Tauri Channel)
+│   │   │   └── TerminalControls.tsx   # FR13-14: Pause/Resume buttons
+│   │   │
+│   │   ├── review/
+│   │   │   ├── DiffViewer.tsx         # FR18: Monaco diff editor
+│   │   │   ├── ReviewActions.tsx      # FR17: Approve/Reject/Changes buttons
+│   │   │   └── FeedbackForm.tsx       # FR20: Request changes input
+│   │   │
+│   │   ├── git/
+│   │   │   ├── ConflictAlert.tsx      # FR26: Merge conflict UI
+│   │   │   └── BranchBadge.tsx        # FR23: Branch indicator
+│   │   │
+│   │   ├── planning/
+│   │   │   ├── PlanningWorkspacePage.tsx # FR36: Planning workspace
+│   │   │   ├── ChatPanel.tsx          # FR38: Chat interface
+│   │   │   ├── ChatSessionList.tsx    # FR46: Session list + live status
+│   │   │   ├── ChatMessage.tsx        # Message bubble component
+│   │   │   └── PersonaSelector.tsx    # FR37: Agent persona dropdown
+│   │   │
+│   │   ├── sprint/
+│   │   │   ├── SprintListItem.tsx     # Sprint in sidebar
+│   │   │   ├── NewSprintButton.tsx
+│   │   │   ├── SprintForm.tsx         # Create/edit sprint dialog
+│   │   │   └── SprintStatusBadge.tsx
+│   │   │
+│   │   └── ui/                        # shadcn/ui components
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dialog.tsx
+│   │       ├── tabs.tsx
+│   │       ├── toast.tsx
+│   │       ├── skeleton.tsx
+│   │       └── ...
 │   │
-│   ├── renderer/                  # === REACT APPLICATION ===
-│   │   ├── index.html             # Vite entry HTML
-│   │   ├── main.tsx               # React root, providers
-│   │   ├── App.tsx                # Root component, routing
-│   │   ├── globals.css            # Tailwind base + shadcn vars
-│   │   │
-│   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── AppShell.tsx         # Main layout container
-│   │   │   │   ├── Header.tsx           # App header, project selector
-│   │   │   │   ├── Sidebar.tsx          # Sprint/Epic navigation
-│   │   │   │   └── BottomPanel.tsx      # Collapsible terminal area
-│   │   │   │
-│   │   │   ├── board/
-│   │   │   │   ├── KanbanBoard.tsx      # FR1: 5-column board container
-│   │   │   │   ├── KanbanColumn.tsx     # FR1: Single column (Backlog/In Progress/Review/Done)
-│   │   │   │   ├── TaskCard.tsx         # FR2: Draggable task card
-│   │   │   │   └── NewTaskButton.tsx    # FR3: Quick task creation
-│   │   │   │
-│   │   │   ├── task/
-│   │   │   │   ├── TaskPanel.tsx        # Side panel container
-│   │   │   │   ├── TaskDetails.tsx      # FR4: Task info display
-│   │   │   │   ├── TaskActions.tsx      # FR7: Start Agent button
-│   │   │   │   └── TaskStatusBadge.tsx  # Status indicator
-│   │   │   │
-│   │   │   ├── terminal/
-│   │   │   │   ├── TerminalPanel.tsx    # FR10: Embedded terminal container
-│   │   │   │   ├── TerminalOutput.tsx   # xterm.js wrapper component
-│   │   │   │   └── TerminalControls.tsx # FR13-14: Pause/Resume buttons
-│   │   │   │
-│   │   │   ├── review/
-│   │   │   │   ├── DiffViewer.tsx       # FR18: Monaco diff editor
-│   │   │   │   ├── ReviewActions.tsx    # FR17: Approve/Reject/Changes buttons
-│   │   │   │   └── FeedbackForm.tsx     # FR20: Request changes input
-│   │   │   │
-│   │   │   ├── git/
-│   │   │   │   ├── ConflictAlert.tsx    # FR26: Merge conflict UI
-│   │   │   │   └── BranchBadge.tsx      # FR23: Branch indicator
-│   │   │   │
-│   │   │   └── ui/                      # shadcn/ui components
-│   │   │       ├── button.tsx
-│   │   │       ├── card.tsx
-│   │   │       ├── dialog.tsx
-│   │   │       ├── tabs.tsx
-│   │   │       ├── toast.tsx
-│   │   │       ├── skeleton.tsx
-│   │   │       └── ... (other shadcn components)
-│   │   │
-│   │   ├── hooks/
-│   │   │   ├── useTask.ts               # Task query/mutation helpers
-│   │   │   ├── useAgent.ts              # Agent control hooks
-│   │   │   ├── useTerminal.ts           # Terminal instance management
-│   │   │   └── useGit.ts                # Git operation hooks
-│   │   │
-│   │   ├── stores/
-│   │   │   ├── ui.store.ts              # Sidebar, panel visibility
-│   │   │   └── terminal.store.ts        # Terminal buffer, history
-│   │   │
-│   │   └── lib/
-│   │       ├── trpc.ts                  # tRPC client, React Query provider
-│   │       ├── utils.ts                 # cn(), formatDate, etc.
-│   │       └── constants.ts             # App-wide constants
+│   ├── hooks/
+│   │   ├── useTask.ts                 # Task query/mutation (rspc)
+│   │   ├── useAgent.ts                # Agent control hooks
+│   │   ├── useTerminal.ts             # Terminal + Tauri Channel
+│   │   ├── useGit.ts                  # Git operation hooks
+│   │   ├── useActivity.ts             # Activity log + Tauri Events
+│   │   ├── useSprint.ts               # Sprint hooks
+│   │   └── useChat.ts                 # Chat session hooks
 │   │
-│   └── shared/                    # === SHARED TYPES ===
-│       └── types/
-│           ├── task.types.ts            # Task, Sprint, Epic types
-│           ├── agent.types.ts           # AgentRun, AgentStatus types
-│           ├── git.types.ts             # Worktree, Branch types
-│           └── config.types.ts          # ProjectConfig, MethodologyType
+│   ├── stores/
+│   │   ├── ui.store.ts                # Sidebar, panel visibility
+│   │   └── terminal.store.ts          # Terminal buffer state
+│   │
+│   └── lib/
+│       ├── rspc.ts                    # rspc client + React Query provider
+│       ├── events.ts                  # Tauri Event listener helpers
+│       ├── utils.ts                   # cn(), formatDate, etc.
+│       └── constants.ts               # App-wide constants
 │
 ├── data/                          # Runtime data (gitignored)
 │   └── tinsu.db                   # SQLite database file
 │
 └── dist/                          # Build output (gitignored)
-    ├── main/
-    ├── preload/
-    └── renderer/
 ```
 
 ### Architectural Boundaries
@@ -641,99 +869,124 @@ tinsu/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     ELECTRON MAIN PROCESS                       │
+│                     TAURI RUST BACKEND                           │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐  │
-│  │   tRPC      │   │  Services   │   │     Database        │  │
-│  │   Routers   │──▶│  (PTY, Git) │──▶│  (Drizzle+SQLite)   │  │
+│  │   rspc      │   │  Services   │   │     Database        │  │
+│  │   Router    │──▶│  (PTY, Git, │──▶│  (SeaORM+SQLite)    │  │
+│  │             │   │  tmux, SSH) │   │                     │  │
 │  └─────────────┘   └─────────────┘   └─────────────────────┘  │
-│         ▲                                                       │
-│         │ IPC (contextBridge)                                   │
-│         ▼                                                       │
+│         ▲                │                                      │
+│         │ invoke         │ Tauri Events + Channels              │
+│         ▼                ▼                                      │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    PRELOAD SCRIPT                        │   │
+│  │              TAURI IPC LAYER (capabilities)              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-         ▲
-         │ IPC (invoke/on)
-         ▼
+         ▲                 │
+         │ rspc invoke     │ Events/Channels
+         ▼                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   RENDERER PROCESS (React)                      │
+│                   WEBVIEW (React Frontend)                       │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐  │
-│  │   tRPC      │   │   Zustand   │   │    React            │  │
+│  │   rspc      │   │   Zustand   │   │    React            │  │
 │  │   Client    │──▶│   Stores    │──▶│    Components       │  │
 │  └─────────────┘   └─────────────┘   └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**tRPC Router Boundaries:**
-| Router | Responsibility | External Dependencies |
-|--------|----------------|----------------------|
-| `task.router` | Task/Sprint/Epic CRUD, status transitions | Drizzle (db) |
-| `agent.router` | PTY spawn, pause, resume, kill | PtyService, StallDetectorService |
-| `review.router` | Get diff, approve, reject, request changes | GitService |
-| `git.router` | Worktree create/remove, branch merge | GitService (shell commands) |
-| `config.router` | Read/write project YAML, detect CLI | File system |
+**rspc Router Boundaries:**
+
+| Router | Responsibility | Service Dependencies |
+|--------|----------------|---------------------|
+| `task` | Task/Sprint/Epic CRUD, status transitions | SeaORM (db) |
+| `agent` | PTY spawn, pause, resume, kill, session management | PtyService, TmuxService, StallDetector |
+| `review` | Get diff, approve, reject, request changes | GitService |
+| `git` | Worktree create/remove, branch merge | GitService |
+| `config` | Read/write project YAML, detect CLI | Filesystem |
+| `activity` | Activity CRUD + event queries | ActivityLog |
+| `sprint` | Sprint lifecycle, single-active constraint | SeaORM (db) |
+| `chat` | Chat session management, message send | ChatCliService, TmuxService |
 
 **Service Boundaries:**
+
 | Service | Owns | Exposes to Router |
 |---------|------|-------------------|
-| `PtyService` | node-pty instance map | spawn(), write(), kill(), pause(), resume() |
-| `GitService` | Git CLI execution | createWorktree(), removeWorktree(), merge(), getDiff() |
-| `StallDetectorService` | Output timers | startMonitoring(), onStall callback |
-| `ContextBuilderService` | File reading | buildContext(taskId) → prompt string |
+| `PtyService` | portable-pty instances | `spawn()`, `write()`, `kill()`, `pause()`, `resume()` |
+| `GitService` | Git CLI execution | `create_worktree()`, `remove_worktree()`, `merge()`, `get_diff()` |
+| `TmuxService` | tmux session lifecycle | `create_session()`, `kill_session()`, `has_session()`, `send_keys()` |
+| `HookListener` | axum HTTP server | `start()`, `stop()`, event routing to Tauri Events |
+| `ActivityLog` | Event persistence | `log_activity()`, `get_activities()` |
+| `Automation` | Story/Basic state machine | `on_status_change()`, `on_agent_complete()` |
+| `ChatCliService` | Chat session spawn/I/O | `spawn_session()`, `send_message()`, `kill_session()` |
+| `StallDetector` | Output timers | `start_monitoring()`, stall callback |
+| `SshService` | Phase 2: SSH connections | `connect()`, `exec()`, `forward_port()` |
 
 **Data Boundaries:**
+
 | Boundary | Pattern | Notes |
 |----------|---------|-------|
-| DB → Router | Drizzle queries in router | No raw SQL in routers |
-| Router → Client | tRPC procedures | Type-safe, validated with Zod |
-| Client → Component | TanStack Query hooks | useQuery/useMutation wrappers |
+| DB → Router | SeaORM queries in router procedures | No raw SQL in routers |
+| Router → Client | rspc procedures | Type-safe, auto-generated TS types |
+| Client → Component | TanStack Query hooks via `@rspc/react` | `useQuery` / `useMutation` wrappers |
 | Component → Store | Zustand actions | UI-only state |
+| Rust → Frontend (stream) | Tauri Channels | PTY byte data |
+| Rust → Frontend (events) | Tauri Events | Activity, status, hooks |
 
 ### Requirements to Structure Mapping
 
 **FR Categories → Directories:**
 
-| FR Category                   | Primary Location                          | Supporting Locations                                                 |
-| ----------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| **FR1-FR6: Board & Task**     | `renderer/components/board/`              | `main/trpc/routers/task.router.ts`, `main/db/schema.ts`              |
-| **FR7-FR11: Agent Execution** | `main/services/pty.service.ts`            | `renderer/components/terminal/`, `main/trpc/routers/agent.router.ts` |
-| **FR12-FR16: Monitoring**     | `main/services/stall-detector.service.ts` | `renderer/components/terminal/TerminalControls.tsx`                  |
-| **FR17-FR21: Review**         | `renderer/components/review/`             | `main/trpc/routers/review.router.ts`                                 |
-| **FR22-FR27: Git**            | `main/services/git.service.ts`            | `renderer/components/git/`, `main/trpc/routers/git.router.ts`        |
-| **FR28-FR31: Config**         | `main/trpc/routers/config.router.ts`      | Project root YAML files                                              |
-| **FR32-FR35: Persistence**    | `main/db/`                                | All routers via Drizzle context                                      |
+| FR Category | Primary Location (Rust) | Primary Location (React) |
+|-------------|------------------------|--------------------------|
+| **FR1-FR6: Board & Task** | `router/task.rs`, `db/entities/task.rs` | `components/board/`, `hooks/useTask.ts` |
+| **FR7-FR11: Agent Execution** | `services/pty_service.rs`, `services/tmux_service.rs` | `components/terminal/`, `hooks/useAgent.ts` |
+| **FR12-FR16: Monitoring** | `services/stall_detector.rs` | `components/terminal/TerminalControls.tsx` |
+| **FR17-FR21: Review** | `router/review.rs`, `services/git_service.rs` | `components/review/` |
+| **FR22-FR27: Git** | `services/git_service.rs`, `router/git.rs` | `components/git/` |
+| **FR28-FR31: Config** | `router/config.rs` | Project root YAML files |
+| **FR32-FR35: Persistence** | `db/`, all entities | All routers via SeaORM |
+| **FR36-FR53: Planning** | `router/chat.rs`, `services/chat_cli.rs` | `components/planning/` |
+| **TES FR1-FR47** | `services/activity_log.rs`, `services/automation.rs` | `components/task/`, `hooks/useActivity.ts` |
 
 ### Integration Points
 
 **Internal Communication:**
+
 | From | To | Method |
 |------|-----|--------|
-| React Component | tRPC Router | `trpc.{router}.{procedure}.useQuery/useMutation()` |
-| tRPC Router | Service | Direct function call (injected via context) |
-| Service | Database | Drizzle ORM queries |
-| PTY output | React Terminal | tRPC subscription → xterm.js write |
+| React Component | rspc Router | `rspc.useQuery(['router.procedure', input])` |
+| rspc Router | Service | Direct function call (injected via app state) |
+| Service | Database | SeaORM queries |
+| PTY output | React Terminal | Tauri Channel → xterm.js write |
+| Hook listener | React UI | Tauri Event emission |
+| Activity events | React UI | Tauri Event → `listen()` callback |
 
 **External Integrations:**
+
 | System | Integration Point | Method |
 |--------|-------------------|--------|
-| Claude Code CLI | `main/services/pty.service.ts` | node-pty spawn with `claude` command |
-| Git | `main/services/git.service.ts` | child_process.exec for git commands |
-| File System | Config router, Context builder | Node.js fs module |
+| Claude Code CLI | `services/tmux_service.rs` | tmux send-keys + PTY attachment |
+| Git | `services/git_service.rs` | `tokio::process::Command` for git CLI |
+| File System | Config router, Context builder | `tokio::fs` |
+| Claude Code Hooks | `services/hook_listener.rs` | axum HTTP POST endpoints |
+| SSH (Phase 2) | `services/ssh_service.rs` | russh async SSH client |
 
 **Data Flow (Task Execution):**
 
 ```
 User clicks "Start Agent" on TaskCard
-  → TaskActions.tsx calls trpc.agent.startAgent.mutate({ taskId })
-  → agent.router creates worktree via GitService
-  → agent.router builds context via ContextBuilderService
-  → agent.router spawns PTY via PtyService
-  → PtyService emits 'pty:data' events
-  → agent.router streams via tRPC subscription
-  → TerminalOutput.tsx writes to xterm.js
-  → StallDetectorService monitors for timeouts
-  → On completion: agent.router updates task status to 'review'
+  → useAgent hook calls rspc.useMutation('agent.startAgent')
+  → agent router creates worktree via GitService
+  → agent router builds context via ContextBuilder
+  → agent router creates tmux session via TmuxService
+  → TmuxService sends claude command into tmux
+  → PtyService attaches to tmux, streams via Tauri Channel
+  → TerminalOutput.tsx writes Channel data to xterm.js
+  → StallDetector monitors output timing
+  → Hook listener receives Stop event via axum
+  → Automation service updates task status
+  → Tauri Event emits 'task:status-changed'
+  → React components update via event listener
 ```
 
 ### Development Workflow
@@ -741,21 +994,23 @@ User clicks "Start Agent" on TaskCard
 **Dev Server:**
 
 ```bash
-npm run dev          # Starts electron-vite dev server (HMR for all processes)
+npm run tauri dev    # Starts Vite dev server + Tauri window (HMR for React, recompile for Rust)
 ```
 
 **Database Migrations:**
 
 ```bash
-npm run db:generate  # Generate migrations from schema changes
-npm run db:push      # Apply migrations to dev database
+# Migrations run automatically on app startup via sea-orm-migration
+# To generate a new migration:
+cd src-tauri && cargo run --bin migration -- generate MIGRATION_NAME
 ```
 
 **Build & Package:**
 
 ```bash
-npm run build        # TypeScript compile + Vite bundle
-npm run package      # electron-builder → .dmg / .AppImage
+npm run tauri build              # Desktop build for current platform
+npm run tauri android build      # Android APK/AAB (Phase 3)
+npm run tauri ios build          # iOS IPA (Phase 3)
 ```
 
 ## Architecture Validation Results
@@ -763,69 +1018,77 @@ npm run package      # electron-builder → .dmg / .AppImage
 ### Coherence Validation ✅
 
 **Decision Compatibility:**
-All technology choices form a cohesive stack:
+All technology choices form a cohesive, modern stack:
 
-- electron-vite 5.0 + React 18 + TypeScript 5.x — proven combination
-- tRPC 11 + Zod — type-safe IPC with runtime validation
-- Drizzle 1.0-beta.2 + better-sqlite3 — synchronous ORM ideal for Electron main process
-- shadcn/ui + Tailwind 4.x — modern, accessible UI foundation (CSS-first configuration)
-- @dnd-kit + xterm.js + Monaco — specialized components with no conflicts
+- Tauri v2.10.3 + React 18 + TypeScript 5.x — proven combination
+- rspc + Specta — type-safe IPC with auto-generated TypeScript types, designed for Tauri
+- SeaORM + SQLite — async ORM on tokio runtime, compile-time entity validation
+- axum 0.8.8 on tokio — same async runtime as Tauri's backend, no runtime conflict
+- portable-pty 0.9.0 — cross-platform PTY from wezterm project
+- russh 0.54.6 — async SSH on tokio, compatible with the async stack
+- shadcn/ui + Tailwind v4 + xterm.js + Monaco — all web-based, render identically in Tauri's webview
 
 **Pattern Consistency:**
 
-- Naming conventions (snake_case DB, camelCase tRPC, PascalCase components) are industry-standard for this stack
-- Structure patterns match electron-vite conventions
-- Communication patterns (tRPC procedures, Zustand stores) align with chosen libraries
+- Naming conventions: Rust snake_case ↔ DB snake_case aligned; React PascalCase ↔ rspc camelCase aligned
+- Structure patterns match technology conventions (Cargo module system, Vite project layout)
+- Communication patterns (rspc for request-response, Channels for streams, Events for notifications) are non-overlapping
 
 **Structure Alignment:**
 
-- Project structure extends electron-vite template properly
-- Boundaries (main/preload/renderer) follow Electron security model
-- Integration points are well-defined with clear data flow
+- `src-tauri/src/router/` mirrors the existing tRPC router structure
+- `src-tauri/src/services/` maps 1:1 to existing Node.js services
+- Frontend structure preserved from Electron with minimal changes
 
 ### Requirements Coverage Validation ✅
 
 **Functional Requirements Coverage:**
 
-| FR Category               | Status | Architectural Support                                |
-| ------------------------- | ------ | ---------------------------------------------------- |
-| FR1-FR6: Board & Task     | ✅     | `board/` components, `task.router`, Drizzle schema   |
-| FR7-FR11: Agent Execution | ✅     | `pty.service`, `agent.router`, terminal components   |
-| FR12-FR16: Monitoring     | ✅     | `stall-detector.service`, `TerminalControls`         |
-| FR17-FR21: Review         | ✅     | Monaco diff viewer, `review.router`, `ReviewActions` |
-| FR22-FR27: Git            | ✅     | `git.service`, `git.router`, worktree patterns       |
-| FR28-FR31: Config         | ✅     | `config.router`, YAML file handling                  |
-| FR32-FR35: Persistence    | ✅     | Drizzle schema, SQLite, migrations                   |
+| FR Category | Status | Architectural Support |
+|-------------|--------|----------------------|
+| FR1-FR6: Board & Task | ✅ | `router/task.rs`, `board/` components, SeaORM entities |
+| FR7-FR11: Agent Execution | ✅ | `pty_service.rs`, `tmux_service.rs`, `agent` router, terminal components |
+| FR12-FR16: Monitoring | ✅ | `stall_detector.rs`, `TerminalControls`, Tauri Events |
+| FR17-FR21: Review | ✅ | Monaco diff viewer, `review` router, `ReviewActions` |
+| FR22-FR27: Git | ✅ | `git_service.rs`, `git` router, worktree patterns |
+| FR28-FR31: Config | ✅ | `config` router, YAML file handling via `tokio::fs` |
+| FR32-FR35: Persistence | ✅ | SeaORM entities, SQLite, sea-orm-migration |
+| FR36-FR43: Planning | ✅ | `chat` router, `chat_cli.rs`, `planning/` components |
+| FR44-FR47: Concurrent | ✅ | Independent tmux sessions, Tauri Events for status |
+| FR48-FR53: Multi-Project | ✅ | Project-scoped DB queries, tmux session naming |
+| TES FR1-FR47 | ✅ | `activity_log.rs`, `automation.rs`, `task/` components |
 
 **Non-Functional Requirements Coverage:**
 
-| NFR Category                 | Status | How Addressed                                              |
-| ---------------------------- | ------ | ---------------------------------------------------------- |
-| Performance (<100ms UI)      | ✅     | Vite HMR, React 18 concurrent, SQLite sync API             |
-| Reliability (crash recovery) | ✅     | ACID SQLite, error handling layers, TRPCError patterns     |
-| Integration (PTY, Git)       | ✅     | node-pty service, Git CLI service, contextBridge isolation |
+| NFR Category | Status | How Addressed |
+|-------------|--------|---------------|
+| Performance (<100ms UI) | ✅ | Vite HMR, React 18, Tauri's native webview |
+| Terminal streaming (<500ms) | ✅ | Tauri Channels — direct byte streaming |
+| Reliability (crash recovery) | ✅ | ACID SQLite via SeaORM, tmux persistence, AppError patterns |
+| Concurrency (5+ chat, 10+ task) | ✅ | Independent tmux sessions, tokio async runtime |
+| Session persistence | ✅ | tmux native persistence, scrollback backup service |
+| Hook routing accuracy | ✅ | tmux session name keyed, Tauri Event emission |
 
 ### Implementation Readiness Validation ✅
 
 **Decision Completeness:**
 
-- All critical decisions documented with verified versions
-- Technology rationale provided for each choice
-- Deferred decisions explicitly noted (auto-update, crash reporting)
+- 15 major architectural decisions documented with verified 2026 versions
+- Implementation patterns cover all 7 conflict categories
+- Concrete code examples for rspc, Rust errors, Tauri Events, Channels, Zustand
 
 **Structure Completeness:**
 
-- 50+ files/directories defined with FR mapping
-- Component boundaries clear (board/, task/, terminal/, review/)
-- Service boundaries explicit (PTY, Git, StallDetector)
+- 80+ files/directories defined with FR mapping
+- Component boundaries clear (board/, task/, terminal/, review/, planning/)
+- Service boundaries explicit (PTY, Git, tmux, hooks, activity, automation, chat, SSH)
 
 **Pattern Completeness:**
 
 - 6 naming convention categories with examples
-- tRPC response/error patterns with code samples
-- Zustand store pattern template
+- rspc response/error patterns with code samples
 - Error handling layers defined per component type
-- Anti-patterns documented to prevent common mistakes
+- Anti-patterns documented
 
 ### Gap Analysis Results
 
@@ -833,44 +1096,45 @@ All technology choices form a cohesive stack:
 
 **Important Gaps (addressable during implementation):**
 
-1. Detailed Drizzle schema not yet written (will be first implementation task)
-2. tRPC subscription pattern for real-time PTY streaming not fully specified
-3. Stall detection algorithm specifics deferred to implementation
+1. SeaORM entity definitions not yet written — first implementation task when porting the 17-table schema
+2. rspc subscription pattern for real-time activity streaming — Tauri Events cover this, exact API integration explored during T1.3
+3. Mobile-specific patterns (Phase 3) — responsive layouts, touch interactions deferred
 
 **Nice-to-Have (post-MVP):**
 
-- Testing strategy details (unit, integration, e2e)
-- CI/CD pipeline specifics
+- Detailed testing strategy for Rust services (cargo test patterns, mocking SeaORM)
+- CI/CD pipeline specifics (Phase 4)
 - Performance profiling approach
+- SSH connection pooling strategy (Phase 2)
 
 ### Architecture Completeness Checklist
 
 **✅ Requirements Analysis**
 
-- [x] Project context thoroughly analyzed (35 FRs, 24 NFRs)
-- [x] Scale and complexity assessed (Medium complexity)
-- [x] Technical constraints identified (5 constraints)
-- [x] Cross-cutting concerns mapped (5 concerns)
+- [x] Project context thoroughly analyzed (100 FRs, 32+ NFRs)
+- [x] Scale and complexity assessed (High — 5 platforms, Rust rewrite, SSH)
+- [x] Technical constraints identified (8 constraints)
+- [x] Cross-cutting concerns mapped (6 concerns)
 
 **✅ Architectural Decisions**
 
-- [x] Critical decisions documented with versions
-- [x] Technology stack fully specified (14 libraries)
-- [x] Integration patterns defined (tRPC, IPC events)
-- [x] Performance considerations addressed (sync SQLite, Vite HMR)
+- [x] Critical decisions documented with verified 2026 versions
+- [x] Technology stack fully specified (15+ libraries/crates)
+- [x] Integration patterns defined (rspc, Tauri Events, Channels)
+- [x] Performance considerations addressed (Channels for PTY, async tokio)
 
 **✅ Implementation Patterns**
 
-- [x] Naming conventions established (DB, tRPC, React, TS)
-- [x] Structure patterns defined (50+ files mapped)
-- [x] Communication patterns specified (tRPC, Zustand, IPC events)
-- [x] Process patterns documented (error handling, loading states)
+- [x] Naming conventions established (DB, SeaORM, rspc, Rust, React, Tauri Events)
+- [x] Structure patterns defined (80+ files mapped)
+- [x] Communication patterns specified (rspc, Events, Channels)
+- [x] Process patterns documented (error handling, loading states, state machine)
 
 **✅ Project Structure**
 
 - [x] Complete directory structure defined
-- [x] Component boundaries established (main/preload/renderer)
-- [x] Integration points mapped (services → routers → client)
+- [x] Component boundaries established (Rust backend / Tauri IPC / React frontend)
+- [x] Integration points mapped (services → routers → client → components)
 - [x] Requirements to structure mapping complete
 
 ### Architecture Readiness Assessment
@@ -881,17 +1145,19 @@ All technology choices form a cohesive stack:
 
 **Key Strengths:**
 
-- Type-safe end-to-end with tRPC + Zod + TypeScript
-- Modern, fast tooling (Vite, Drizzle)
-- Clear separation of concerns (Electron process model)
-- Comprehensive patterns prevent AI agent conflicts
-- Industry-proven library choices (VS Code uses same terminal stack)
+- Type-safe end-to-end with rspc + Specta + TypeScript
+- Single codebase for 5 platforms — core migration motivation
+- React frontend preserved — zero UI rewrite, massive risk reduction
+- Async-native Rust backend — tokio runtime for all I/O
+- Comprehensive patterns prevent AI agent conflicts across Rust/TypeScript boundary
+- Clear migration path — tRPC→rspc is near 1:1, service structure mirrors existing
 
 **Areas for Future Enhancement:**
 
-- Testing strategy (can evolve during implementation)
+- SSH remote execution abstraction (Phase 2 — LocalHost vs RemoteHost trait)
+- Mobile-specific responsive patterns (Phase 3)
+- Testing strategy refinement (evolves during implementation)
 - Auto-update mechanism (post-MVP)
-- Windows platform support (deferred per PRD)
 
 ### Implementation Handoff
 
@@ -906,1490 +1172,57 @@ All technology choices form a cohesive stack:
 **First Implementation Priority:**
 
 ```bash
-npm create @quick-start/electron@latest tinsu -- --template react-ts
+cd tinsu
+npm install @tauri-apps/cli@latest @tauri-apps/api@latest
+npm run tauri init
 ```
 
-Then proceed through the Implementation Sequence (8 steps) defined in Core Architectural Decisions.
+Then proceed through the Implementation Sequence (10 steps) defined in Core Architectural Decisions.
 
 ## Architecture Completion Summary
 
 ### Workflow Completion
 
-**Architecture Decision Workflow:** COMPLETED ✅
+**Architecture Decision Workflow:** COMPLETED
 **Total Steps Completed:** 8
-**Date Completed:** 2026-01-03
+**Date Completed:** 2026-04-12
 **Document Location:** `_bmad-output/planning-artifacts/architecture.md`
 
 ### Final Architecture Deliverables
 
 **Complete Architecture Document**
 
-- All architectural decisions documented with specific versions
-- Implementation patterns ensuring AI agent consistency
-- Complete project structure with all files and directories
-- Requirements to architecture mapping
+- All architectural decisions documented with verified 2026 versions
+- Implementation patterns ensuring AI agent consistency across Rust + TypeScript
+- Complete project structure with 80+ files and directories
+- Requirements to architecture mapping for 100+ FRs
 - Validation confirming coherence and completeness
+
+**Technology Stack Summary**
+
+| Layer | Electron (old) | Tauri (new) |
+|-------|---------------|-------------|
+| Framework | Electron | Tauri v2.10.3 |
+| Backend | Node.js + TypeScript | Rust + tokio |
+| IPC | tRPC 11.6.0 + trpc-electron | rspc + @rspc/tauri |
+| Database | better-sqlite3 + Drizzle | SQLite + SeaORM |
+| PTY | node-pty | portable-pty 0.9.0 |
+| HTTP hooks | Custom Express | axum 0.8.8 |
+| SSH | N/A | russh 0.54.6 |
+| Frontend | React + shadcn/ui + Tailwind | **Unchanged** |
+| Platforms | macOS, Linux | macOS, Linux, Windows, Android, iOS |
 
 **Implementation Ready Foundation**
 
-- 14 major architectural decisions made
-- 6 implementation pattern categories defined
-- 8 architectural components specified
-- 35 functional requirements + 24 non-functional requirements fully supported
-
-**AI Agent Implementation Guide**
-
-- Technology stack with verified versions
-- Consistency rules that prevent implementation conflicts
-- Project structure with clear boundaries
-- Integration patterns and communication standards
-
-### Implementation Handoff
-
-**For AI Agents:**
-This architecture document is your complete guide for implementing TinSu. Follow all decisions, patterns, and structures exactly as documented.
-
-**First Implementation Priority:**
-
-```bash
-npm create @quick-start/electron@latest tinsu -- --template react-ts
-```
-
-**Development Sequence:**
-
-1. Initialize project using documented starter template
-2. Set up development environment per architecture
-3. Implement core architectural foundations (Drizzle schema, tRPC routers)
-4. Build features following established patterns
-5. Maintain consistency with documented rules
-
-### Quality Assurance Checklist
-
-**✅ Architecture Coherence**
-
-- [x] All decisions work together without conflicts
-- [x] Technology choices are compatible
-- [x] Patterns support the architectural decisions
-- [x] Structure aligns with all choices
-
-**✅ Requirements Coverage**
-
-- [x] All functional requirements are supported
-- [x] All non-functional requirements are addressed
-- [x] Cross-cutting concerns are handled
-- [x] Integration points are defined
-
-**✅ Implementation Readiness**
-
-- [x] Decisions are specific and actionable
-- [x] Patterns prevent agent conflicts
-- [x] Structure is complete and unambiguous
-- [x] Examples are provided for clarity
-
-### Project Success Factors
-
-**Clear Decision Framework**
-Every technology choice was made collaboratively with clear rationale, ensuring all stakeholders understand the architectural direction.
-
-**Consistency Guarantee**
-Implementation patterns and rules ensure that multiple AI agents will produce compatible, consistent code that works together seamlessly.
-
-**Complete Coverage**
-All project requirements are architecturally supported, with clear mapping from business needs to technical implementation.
-
-**Solid Foundation**
-The chosen starter template and architectural patterns provide a production-ready foundation following current best practices.
+- 15 major architectural decisions made
+- 7 implementation pattern categories defined
+- 12-15 architectural components specified
+- 100+ functional requirements + 32+ non-functional requirements fully supported
 
 ---
 
-## Task Execution Sandbox Architecture (Feature Extension)
-
-_Added: 2026-01-12 | PRD: prd-task-execution-sandbox.md_
-
-This section extends the core architecture with infrastructure for per-task execution environments, activity logging, and workflow automation.
-
-### Feature Overview
-
-The Task Execution Sandbox transforms task detail views into isolated execution workspaces:
-
-- **Per-Task Terminal** — Persistent tmux session per task, survives app restart and reboot
-- **Activity Log** — Real-time, append-only event stream for complete audit trail
-- **Workflow Automation** — Task-type-aware triggers (Story vs Basic)
-- **4-Tab Task Detail** — Terminal, Activities, Diff, Content
-
-### New Technology Decisions
-
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Terminal Persistence | **tmux** | Native session management, survives app restart, `send-keys` for automation |
-| Event Detection | **Claude Code Hooks** | Stop + PostToolUse hooks for completion and activity tracking |
-| Hook IPC | **HTTP localhost** | Reliable delivery, debuggable, no race conditions |
-| Activity Storage | **SQLite** | Consistent with existing data layer, supports real-time streaming |
-| Scrollback Backup | **Filesystem (gzip)** | Survives system reboot, lazy loading |
-
-### New Database Schema
-
-```sql
--- Task Activities (append-only event log)
-CREATE TABLE task_activities (
-  id TEXT PRIMARY KEY,
-  task_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  payload TEXT,                    -- JSON
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_task_activities_task_id ON task_activities(task_id);
-CREATE INDEX idx_task_activities_event_type ON task_activities(event_type);
-CREATE INDEX idx_task_activities_created_at ON task_activities(created_at);
-
--- Task Sessions (tmux + Claude Code session mapping)
-CREATE TABLE task_sessions (
-  id TEXT PRIMARY KEY,
-  task_id TEXT NOT NULL UNIQUE,
-  session_id TEXT,                 -- Claude Code session ID (from hooks)
-  tmux_session TEXT NOT NULL,      -- tinsu-{projectName}-{taskId}
-  current_phase TEXT,              -- dev-story | code-review | user-feedback
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_task_sessions_session_id ON task_sessions(session_id);
-
--- Activity Retention Settings
-CREATE TABLE app_settings (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
--- Default: activity_retention_days = -1 (unlimited)
-```
-
-**Event Types:**
-| Type | Description | Payload Example |
-|------|-------------|-----------------|
-| `status_change` | Task moved between columns | `{ from: 'backlog', to: 'in_progress' }` |
-| `agent_start` | Claude Code started | `{ phase: 'dev-story' }` |
-| `agent_complete` | Stop hook fired | `{ phase: 'dev-story', duration_ms: 45000 }` |
-| `tool_used` | PostToolUse hook | `{ tool: 'Edit', file: 'src/foo.ts' }` |
-| `user_command` | User typed in terminal | `{ command: '/code-review' }` |
-| `automation_trigger` | Auto code-review | `{ command: 'code-review', trigger: 'dev-story-complete' }` |
-| `error` | Agent or hook failure | `{ message: 'ECONNREFUSED', code: 'HOOK_FAILED' }` |
-
-### New Services Architecture
-
-```
-src/main/services/
-├── task-terminal.service.ts       # tmux session lifecycle
-├── hook-listener.service.ts       # HTTP server for hook events
-├── activity-log.service.ts        # Event logging + streaming
-├── automation.service.ts          # Story/Basic state machine
-└── scrollback-backup.service.ts   # Filesystem persistence
-```
-
-#### TaskTerminalService
-
-```typescript
-interface TaskTerminalService {
-  // Session lifecycle
-  createSession(taskId: string, projectName: string): Promise<string>  // Returns tmux session name
-  killSession(taskId: string): Promise<void>
-  hasSession(taskId: string): Promise<boolean>
-
-  // Command execution
-  sendCommand(taskId: string, command: string): Promise<void>  // tmux send-keys
-
-  // Attachment (for xterm.js)
-  getAttachCommand(taskId: string): string  // Returns: tmux attach-session -t {name}
-
-  // Scrollback
-  captureScrollback(taskId: string, lines?: number): Promise<string>
-}
-```
-
-**tmux Session Naming:** `tinsu-{projectName}-{taskId}`
-- Multi-project safe
-- Easy to identify in `tmux list-sessions`
-- Example: `tinsu-myapp-task-abc123`
-
-#### HookListenerService
-
-```typescript
-interface HookListenerService {
-  // Lifecycle
-  start(port: number): Promise<void>
-  stop(): Promise<void>
-
-  // Event handlers (internal)
-  onStopHook(payload: StopHookPayload): Promise<void>
-  onToolUseHook(payload: ToolUseHookPayload): Promise<void>
-}
-
-interface StopHookPayload {
-  session_id: string
-  transcript_path: string
-  cwd: string
-  hook_event_name: 'Stop'
-}
-
-interface ToolUseHookPayload {
-  session_id: string
-  tool_name: string
-  tool_input: Record<string, unknown>
-  hook_event_name: 'PostToolUse'
-}
-```
-
-**HTTP Endpoints:**
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/hooks/stop` | POST | Receives Stop hook events |
-| `/api/hooks/tool-use` | POST | Receives PostToolUse hook events |
-| `/api/hooks/health` | GET | Health check for hook scripts |
-
-**Port Selection:** Use `TINSU_HOOK_PORT` env var, default to dynamic port stored in temp file for hook scripts to read.
-
-#### ActivityLogService
-
-```typescript
-interface ActivityLogService {
-  // Write
-  logActivity(taskId: string, eventType: EventType, payload?: object): Promise<Activity>
-
-  // Read
-  getActivities(taskId: string, options?: ActivityQueryOptions): Promise<Activity[]>
-
-  // Stream (for real-time UI)
-  subscribeToTask(taskId: string): Observable<Activity>
-
-  // Retention
-  cleanupOldActivities(retentionDays: number): Promise<number>  // Returns deleted count
-}
-
-interface ActivityQueryOptions {
-  eventTypes?: EventType[]
-  limit?: number
-  offset?: number
-  since?: Date
-}
-```
-
-#### AutomationService
-
-```typescript
-interface AutomationService {
-  // Status change triggers
-  onStatusChange(taskId: string, newStatus: TaskStatus): Promise<void>
-
-  // Hook event triggers
-  onAgentComplete(sessionId: string): Promise<void>
-
-  // Manual triggers (fallback UI)
-  triggerDevStory(taskId: string): Promise<void>
-  triggerCodeReview(taskId: string): Promise<void>
-}
-```
-
-**State Machine:**
-```
-Story Task:
-  In Progress → createSession → sendCommand(dev-story prompt)
-  dev-story complete (Stop hook) → updateStatus(review) → sendCommand('/code-review')
-  code-review complete (Stop hook) → notifyUser('Ready for review')
-
-Basic Task:
-  In Progress → createSession → sendCommand(task.description)
-  agent complete (Stop hook) → updateStatus(review)
-  [No auto code-review - user reviews manually]
-```
-
-#### ScrollbackBackupService
-
-```typescript
-interface ScrollbackBackupService {
-  // Backup triggers
-  backupOnStatusChange(taskId: string): Promise<void>
-  startPeriodicBackup(taskId: string, intervalMs: number): void
-  stopPeriodicBackup(taskId: string): void
-  backupOnShutdown(): Promise<void>
-
-  // Restore
-  restoreScrollback(taskId: string): Promise<string | null>
-
-  // Cleanup
-  deleteBackup(taskId: string): Promise<void>
-}
-```
-
-**Storage Location:** `{app.getPath('userData')}/terminal-history/{taskId}/`
-```
-terminal-history/
-└── {taskId}/
-    ├── scrollback.txt.gz     # Compressed scrollback
-    ├── metadata.json         # { lines: 5000, lastBackup: '...', tmuxSession: '...' }
-    └── transcript.json       # Claude Code transcript (from hook)
-```
-
-### New tRPC Router
-
-**`activity.router.ts`**
-
-```typescript
-export const activityRouter = router({
-  // Queries
-  listActivities: t.procedure
-    .input(z.object({
-      taskId: z.string(),
-      eventTypes: z.array(z.enum([...])).optional(),
-      limit: z.number().default(100),
-      offset: z.number().default(0)
-    }))
-    .query(({ input, ctx }) => {
-      return ctx.activityLogService.getActivities(input.taskId, input)
-    }),
-
-  // Subscriptions (real-time streaming)
-  onActivityCreated: t.procedure
-    .input(z.object({ taskId: z.string() }))
-    .subscription(({ input, ctx }) => {
-      return observable<Activity>((emit) => {
-        const sub = ctx.activityLogService.subscribeToTask(input.taskId)
-        sub.subscribe((activity) => emit.next(activity))
-        return () => sub.unsubscribe()
-      })
-    }),
-
-  // Retention settings
-  getRetentionDays: t.procedure.query(({ ctx }) => {
-    return ctx.settingsService.get('activity_retention_days') ?? -1
-  }),
-
-  setRetentionDays: t.procedure
-    .input(z.object({ days: z.number().min(-1) }))  // -1 = unlimited
-    .mutation(({ input, ctx }) => {
-      return ctx.settingsService.set('activity_retention_days', input.days)
-    })
-})
-```
-
-**Updates to `agent.router.ts`**
-
-```typescript
-// Add to existing agent.router.ts
-createTaskSession: t.procedure
-  .input(z.object({ taskId: z.string() }))
-  .mutation(async ({ input, ctx }) => {
-    const task = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, input.taskId) })
-    if (!task) throw new TRPCError({ code: 'NOT_FOUND' })
-
-    const projectName = ctx.configService.getProjectName()
-    const tmuxSession = await ctx.taskTerminalService.createSession(input.taskId, projectName)
-
-    await ctx.db.insert(taskSessions).values({
-      id: generateId(),
-      taskId: input.taskId,
-      tmuxSession,
-      createdAt: Date.now()
-    })
-
-    return { tmuxSession }
-  }),
-
-sendTerminalCommand: t.procedure
-  .input(z.object({ taskId: z.string(), command: z.string() }))
-  .mutation(async ({ input, ctx }) => {
-    await ctx.taskTerminalService.sendCommand(input.taskId, input.command)
-    await ctx.activityLogService.logActivity(input.taskId, 'user_command', { command: input.command })
-  }),
-
-getTaskSession: t.procedure
-  .input(z.object({ taskId: z.string() }))
-  .query(({ input, ctx }) => {
-    return ctx.db.query.taskSessions.findFirst({ where: eq(taskSessions.taskId, input.taskId) })
-  })
-```
-
-### New UI Components
-
-```
-src/renderer/components/
-├── task/
-│   ├── TaskDetailTabs.tsx          # 4-tab container
-│   ├── ActivitiesTab.tsx           # Activity log with filters
-│   ├── ActivitiesFilter.tsx        # Event type filter chips
-│   ├── ActivityItem.tsx            # Single activity row
-│   ├── ContentTab.tsx              # Task description display
-│   ├── TaskAutomationStatus.tsx    # Current phase indicator
-│   └── ManualTriggerButtons.tsx    # Fallback trigger UI
-```
-
-**TaskDetailTabs.tsx Structure:**
-```typescript
-<Tabs defaultValue="terminal">
-  <TabsList>
-    <TabsTrigger value="terminal">Terminal</TabsTrigger>
-    <TabsTrigger value="activities">Activities</TabsTrigger>
-    <TabsTrigger value="diff">Diff</TabsTrigger>
-    <TabsTrigger value="content">Content</TabsTrigger>
-  </TabsList>
-
-  <TabsContent value="terminal">
-    <TerminalOutput taskId={taskId} />
-    <TerminalControls taskId={taskId} />
-  </TabsContent>
-
-  <TabsContent value="activities">
-    <ActivitiesTab taskId={taskId} />
-  </TabsContent>
-
-  <TabsContent value="diff">
-    <DiffViewer taskId={taskId} />
-  </TabsContent>
-
-  <TabsContent value="content">
-    <ContentTab task={task} />
-  </TabsContent>
-</Tabs>
-```
-
-### Claude Code Hook Configuration
-
-**`.claude/settings.json` (project-level)**
-```json
-{
-  "hooks": {
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "bash .claude/hooks/task-completion.sh"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "bash .claude/hooks/log-tool-use.sh"
-      }]
-    }]
-  }
-}
-```
-
-**`.claude/hooks/task-completion.sh`**
-```bash
-#!/bin/bash
-# Read JSON from stdin
-INPUT=$(cat)
-
-# Get TinSu hook port from temp file
-TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
-
-# Send to TinSu
-curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/stop" \
-  -H "Content-Type: application/json" \
-  -d "$INPUT" || true  # Don't fail if TinSu not running
-```
-
-**`.claude/hooks/log-tool-use.sh`**
-```bash
-#!/bin/bash
-INPUT=$(cat)
-TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
-
-curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/tool-use" \
-  -H "Content-Type: application/json" \
-  -d "$INPUT" || true
-```
-
-### Integration Patterns
-
-**Terminal Attachment (xterm.js → tmux):**
-```typescript
-// In TerminalOutput.tsx
-const { data: session } = trpc.agent.getTaskSession.useQuery({ taskId })
-
-useEffect(() => {
-  if (session?.tmuxSession) {
-    // Spawn PTY that attaches to tmux
-    const attachCmd = `tmux attach-session -t ${session.tmuxSession}`
-    ptyService.spawn('bash', ['-c', attachCmd])
-  }
-}, [session?.tmuxSession])
-```
-
-**Activity Streaming (real-time updates):**
-```typescript
-// In ActivitiesTab.tsx
-const [activities, setActivities] = useState<Activity[]>([])
-
-// Initial load
-const { data } = trpc.activity.listActivities.useQuery({ taskId })
-
-// Real-time subscription
-trpc.activity.onActivityCreated.useSubscription(
-  { taskId },
-  { onData: (activity) => setActivities(prev => [activity, ...prev]) }
-)
-```
-
-**Automation Trigger Flow:**
-```typescript
-// In task.router.ts - updateStatus mutation
-updateStatus: t.procedure
-  .input(z.object({ id: z.string(), status: z.enum([...]) }))
-  .mutation(async ({ input, ctx }) => {
-    const oldTask = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, input.id) })
-
-    // Update status
-    const [updated] = await ctx.db.update(tasks)
-      .set({ status: input.status, updatedAt: Date.now() })
-      .where(eq(tasks.id, input.id))
-      .returning()
-
-    // Log activity
-    await ctx.activityLogService.logActivity(input.id, 'status_change', {
-      from: oldTask?.status,
-      to: input.status
-    })
-
-    // Trigger automation
-    await ctx.automationService.onStatusChange(input.id, input.status)
-
-    return updated
-  })
-```
-
-### Platform Requirements
-
-| Platform | tmux Support | Notes |
-|----------|--------------|-------|
-| **macOS** | ✅ Native | `brew install tmux` |
-| **Linux** | ✅ Native | `apt install tmux` / `yum install tmux` |
-| **Windows** | ⚠️ WSL only | Deferred to post-MVP |
-
-**Startup Check:**
-```typescript
-// In main/index.ts
-async function checkDependencies() {
-  try {
-    await execAsync('tmux -V')
-  } catch {
-    dialog.showErrorBox(
-      'tmux Required',
-      'TinSu requires tmux for terminal persistence.\n\n' +
-      'Install with:\n' +
-      '  macOS: brew install tmux\n' +
-      '  Linux: apt install tmux'
-    )
-    app.quit()
-  }
-}
-```
-
-### Updated Project Structure
-
-```
-src/main/
-├── services/
-│   ├── pty.service.ts              # Existing
-│   ├── git.service.ts              # Existing
-│   ├── stall-detector.service.ts   # Existing
-│   ├── context-builder.service.ts  # Existing
-│   ├── task-terminal.service.ts    # NEW: tmux management
-│   ├── hook-listener.service.ts    # NEW: HTTP hook server
-│   ├── activity-log.service.ts     # NEW: Event logging
-│   ├── automation.service.ts       # NEW: State machine
-│   └── scrollback-backup.service.ts# NEW: Filesystem persistence
-├── trpc/routers/
-│   ├── task.router.ts              # Existing
-│   ├── agent.router.ts             # UPDATED: Session management
-│   ├── activity.router.ts          # NEW: Activity CRUD + streaming
-│   └── ...
-└── db/
-    └── schema.ts                   # UPDATED: task_activities, task_sessions, app_settings
-
-src/renderer/components/
-├── task/
-│   ├── TaskPanel.tsx               # UPDATED: Uses TaskDetailTabs
-│   ├── TaskDetailTabs.tsx          # NEW: 4-tab container
-│   ├── ActivitiesTab.tsx           # NEW: Activity log UI
-│   ├── ContentTab.tsx              # NEW: Description display
-│   └── ...
-└── ...
-
-.claude/
-├── settings.json                   # NEW: Hook configuration
-└── hooks/
-    ├── task-completion.sh          # NEW: Stop hook
-    └── log-tool-use.sh             # NEW: PostToolUse hook
-```
-
-### Task Execution Sandbox NFRs
-
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Activity event latency | <1s | Events appear in UI within 1 second |
-| Terminal streaming | <500ms | Active terminal output lag |
-| Scrollback load | <2s | On-demand loading for inactive tasks |
-| Automation trigger | <5s | Story task auto-triggers |
-| Concurrent tasks | 10+ | System responsive with many terminals |
-| Terminal persistence | 100% | Survives app restart + reboot |
-| Activity integrity | Zero loss | No events dropped |
-
----
-
-**Architecture Status:** READY FOR IMPLEMENTATION ✅
+**Architecture Status:** READY FOR IMPLEMENTATION
 
 **Next Phase:** Begin implementation using the architectural decisions and patterns documented herein.
 
 **Document Maintenance:** Update this architecture when major technical decisions are made during implementation.
-
----
-
-## Architecture Addendum: Sprint Management Feature
-
-**Date Added:** 2026-01-13
-**Feature:** Sprint Management with per-sprint Kanban boards
-
-### Overview
-
-This addendum extends the core architecture to support Sprint Management — a feature that organizes epics into time-boxed sprints, each with its own dedicated Kanban board view.
-
-### Data Model Changes
-
-#### Sprint Table (Extended Schema)
-
-```sql
-CREATE TABLE IF NOT EXISTS sprints (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  start_date INTEGER,              -- Unix timestamp (nullable for backlog sprint)
-  end_date INTEGER,                -- Unix timestamp (nullable for backlog sprint)
-  status TEXT DEFAULT 'planning',  -- 'planning' | 'active' | 'completed'
-  goal TEXT,                       -- Optional sprint goal
-  velocity INTEGER,                -- Optional: story points completed
-  capacity INTEGER,                -- Optional: team capacity
-  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  created_at INTEGER DEFAULT (unixepoch())
-);
-
-CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id);
-CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status);
-```
-
-**Status Enum Values:**
-| Status | Description |
-|--------|-------------|
-| `planning` | Sprint being prepared, not yet started |
-| `active` | Currently executing sprint (max 1 per project) |
-| `completed` | Sprint finished, read-only |
-
-#### Epic Table (Addition)
-
-```sql
-ALTER TABLE epics ADD COLUMN IF NOT EXISTS sprint_id TEXT REFERENCES sprints(id);
-CREATE INDEX IF NOT EXISTS idx_epics_sprint_id ON epics(sprint_id);
-```
-
-**Note:** `sprint_id` is nullable for migration compatibility. New epics must have a sprint assigned via UI validation.
-
-### Entity Relationships
-
-```
-Project (1) ──────► Sprint (many)
-                        │
-                        ▼
-                   Epic (many) ──────► Task/Story (many)
-```
-
-**Cardinality Rules:**
-- Project has many Sprints
-- Sprint has many Epics (1:many, epic belongs to exactly 1 sprint)
-- Epic has many Tasks/Stories (unchanged from core architecture)
-
-### Business Constraints
-
-#### 1. Single Active Sprint Constraint
-
-**Rule:** Only one sprint per project can have `status = 'active'` at any time.
-
-**Implementation:** Application-level validation in `sprint.router.ts`:
-
-```typescript
-// In updateSprintStatus mutation
-const activeSprint = await db.query.sprints.findFirst({
-  where: and(
-    eq(sprints.projectId, input.projectId),
-    eq(sprints.status, 'active'),
-    ne(sprints.id, input.sprintId)  // Exclude current sprint
-  )
-});
-
-if (activeSprint && input.status === 'active') {
-  throw new TRPCError({
-    code: 'CONFLICT',
-    message: `Sprint "${activeSprint.name}" is already active. Complete or deactivate it first.`
-  });
-}
-```
-
-#### 2. Cascade Delete Behavior
-
-**Rule:** Deleting a sprint removes all child epics and their stories.
-
-**Implementation:** Application-level cascade in transaction:
-
-```typescript
-// In deleteSprint mutation
-await db.transaction(async (tx) => {
-  // Get all epic IDs for this sprint
-  const epicIds = await tx.query.epics.findMany({
-    where: eq(epics.sprintId, input.sprintId),
-    columns: { id: true }
-  });
-
-  // Delete tasks for each epic
-  for (const epic of epicIds) {
-    await tx.delete(tasks).where(eq(tasks.epicId, epic.id));
-  }
-
-  // Delete epics
-  await tx.delete(epics).where(eq(epics.sprintId, input.sprintId));
-
-  // Delete sprint
-  await tx.delete(sprints).where(eq(sprints.id, input.sprintId));
-});
-```
-
-#### 3. Completed Sprint Read-Only
-
-**Rule:** Sprints with `status = 'completed'` cannot be modified.
-
-**Implementation:** Guard in all sprint/epic/task mutations:
-
-```typescript
-// Helper function
-async function assertSprintNotCompleted(sprintId: string) {
-  const sprint = await db.query.sprints.findFirst({
-    where: eq(sprints.id, sprintId)
-  });
-
-  if (sprint?.status === 'completed') {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Cannot modify completed sprint'
-    });
-  }
-}
-```
-
-### tRPC Router Additions
-
-#### sprint.router.ts
-
-```typescript
-export const sprintRouter = router({
-  // Queries
-  listSprints: t.procedure
-    .input(z.object({ projectId: z.string() }))
-    .query(({ input }) => { /* ... */ }),
-
-  getSprint: t.procedure
-    .input(z.object({ id: z.string() }))
-    .query(({ input }) => { /* ... */ }),
-
-  // Mutations
-  createSprint: t.procedure
-    .input(z.object({
-      projectId: z.string(),
-      name: z.string(),
-      startDate: z.number().optional(),
-      endDate: z.number().optional(),
-      goal: z.string().optional()
-    }))
-    .mutation(({ input }) => { /* ... */ }),
-
-  updateSprint: t.procedure
-    .input(z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      startDate: z.number().optional(),
-      endDate: z.number().optional(),
-      goal: z.string().optional(),
-      velocity: z.number().optional(),
-      capacity: z.number().optional()
-    }))
-    .mutation(({ input }) => { /* ... */ }),
-
-  updateSprintStatus: t.procedure
-    .input(z.object({
-      id: z.string(),
-      projectId: z.string(),
-      status: z.enum(['planning', 'active', 'completed'])
-    }))
-    .mutation(({ input }) => { /* ... */ }),  // Enforces single-active constraint
-
-  deleteSprint: t.procedure
-    .input(z.object({ id: z.string() }))
-    .mutation(({ input }) => { /* ... */ }),  // Cascade deletes epics/tasks
-
-  // Epic linking
-  linkEpicToSprint: t.procedure
-    .input(z.object({ epicId: z.string(), sprintId: z.string() }))
-    .mutation(({ input }) => { /* ... */ }),
-});
-```
-
-### Migration Strategy
-
-**On App Startup (in `db/index.ts`):**
-
-```typescript
-// Migration: Create default sprint for orphaned epics
-async function migrateOrphanedEpics(projectId: string) {
-  const orphanedEpics = await db.query.epics.findMany({
-    where: and(
-      eq(epics.projectId, projectId),
-      isNull(epics.sprintId)
-    )
-  });
-
-  if (orphanedEpics.length === 0) return;
-
-  // Check if Backlog sprint exists
-  let backlogSprint = await db.query.sprints.findFirst({
-    where: and(
-      eq(sprints.projectId, projectId),
-      eq(sprints.name, 'Backlog')
-    )
-  });
-
-  // Create if not exists
-  if (!backlogSprint) {
-    const [created] = await db.insert(sprints).values({
-      id: crypto.randomUUID(),
-      name: 'Backlog',
-      status: 'planning',
-      projectId: projectId
-    }).returning();
-    backlogSprint = created;
-  }
-
-  // Assign orphaned epics
-  await db.update(epics)
-    .set({ sprintId: backlogSprint.id })
-    .where(and(
-      eq(epics.projectId, projectId),
-      isNull(epics.sprintId)
-    ));
-}
-```
-
-### UI Architecture
-
-#### Sidebar (Sprint List)
-
-```
-src/renderer/components/layout/Sidebar.tsx
-├── Project selector (existing)
-├── Sprint list                    ← NEW
-│   ├── SprintListItem.tsx         ← NEW (shows name + status badge)
-│   └── NewSprintButton.tsx        ← NEW
-└── Navigation (existing)
-```
-
-**SprintListItem Component:**
-- Display: Sprint name + status indicator (planning/active/completed)
-- Active sprint: visually emphasized (bold, accent color)
-- Click: Loads sprint's Kanban board
-- No tree structure (flat list per user requirement)
-
-#### Kanban Board (Sprint-Scoped)
-
-```typescript
-// KanbanBoard.tsx receives sprintId prop
-interface KanbanBoardProps {
-  sprintId: string;  // Filters epics/tasks to this sprint
-}
-```
-
-**Board behavior:**
-- Fetches epics where `epic.sprintId === sprintId`
-- Task cards show epic badge (existing)
-- Completed sprint: disable drag-drop, show read-only indicator
-
-#### Epic Import Dialog
-
-**Existing file picker** (per user confirmation) handles importing story `.md` files. When linking existing epics:
-
-```typescript
-// Dialog shows file picker for _bmad-output/implementation-artifacts/*.md
-// On selection: creates epic record and links to current sprint
-```
-
-### File Structure Additions
-
-```
-src/main/
-├── trpc/routers/
-│   └── sprint.router.ts           ← NEW
-├── db/
-│   └── migrations/
-│       └── XXXX_add_sprint_management.ts  ← Generated by Drizzle
-
-src/renderer/components/
-├── layout/
-│   └── Sidebar.tsx                ← MODIFIED (add sprint list)
-├── sprint/                        ← NEW directory
-│   ├── SprintListItem.tsx
-│   ├── NewSprintButton.tsx
-│   ├── SprintForm.tsx             ← Create/edit sprint dialog
-│   └── SprintStatusBadge.tsx
-```
-
-### Type Definitions
-
-```typescript
-// src/shared/types/sprint.types.ts
-
-export type SprintStatus = 'planning' | 'active' | 'completed';
-
-export interface Sprint {
-  id: string;
-  name: string;
-  startDate: number | null;
-  endDate: number | null;
-  status: SprintStatus;
-  goal: string | null;
-  velocity: number | null;
-  capacity: number | null;
-  projectId: string;
-  createdAt: number;
-}
-
-export interface CreateSprintInput {
-  projectId: string;
-  name: string;
-  startDate?: number;
-  endDate?: number;
-  goal?: string;
-}
-
-export interface UpdateSprintInput {
-  id: string;
-  name?: string;
-  startDate?: number;
-  endDate?: number;
-  goal?: string;
-  velocity?: number;
-  capacity?: number;
-}
-```
-
-### Implementation Checklist
-
-**Database Layer:**
-- [ ] Add `status`, `goal`, `velocity`, `capacity` columns to sprints table
-- [ ] Add `sprint_id` column to epics table
-- [ ] Create indexes for new columns
-- [ ] Run migration on existing databases
-
-**tRPC Layer:**
-- [ ] Implement `sprint.router.ts` with all CRUD operations
-- [ ] Add single-active constraint validation
-- [ ] Add completed sprint guards
-- [ ] Implement cascade delete transaction
-
-**UI Layer:**
-- [ ] Add sprint list to Sidebar
-- [ ] Create SprintListItem, SprintStatusBadge components
-- [ ] Create SprintForm dialog for create/edit
-- [ ] Modify KanbanBoard to accept sprintId prop
-- [ ] Add epic import dialog with sprint assignment
-
-**Migration:**
-- [ ] Implement orphaned epic migration on startup
-- [ ] Create default "Backlog" sprint if needed
-
----
-
-**Addendum Status:** READY FOR IMPLEMENTATION ✅
-
----
-
-## Chat Session tmux Migration (Feature Extension)
-
-_Added: 2026-03-26 | PRD: prd.md (FR36-FR53, NFR25-NFR32) | Handoff: handoff-chat-tmux-migration.md_
-
-This section extends the architecture to migrate Planning Workspace chat sessions from node-pty to tmux, aligning with the task execution pattern and enabling persistent, concurrent multi-agent chat sessions.
-
-### Problem Summary
-
-The current chat system spawns one node-pty process per conversation. This breaks under concurrency:
-
-1. **Orphan UUID Routing** — `findOrphanSession()` returns the wrong session when multiple are active
-2. **No Session Persistence** — node-pty dies on app restart, requiring `--resume` + TUI ready detection
-3. **Single-Project Scoping** — `project.getCurrent` returns one project; other sessions are invisible
-4. **No Background Visibility** — switching agents disconnects the old session (`setSessionId(null)`)
-
-### Solution: Two-Layer tmux Model
-
-```
-tmux session (persistence layer)  ─── tinsu-chat-{sessionId}
-  └─ PTY attached via ptyService.spawn(tmux attach ...)  (I/O layer)
-       └─ claude --session-id {uuid}  (agent process)
-            └─ hooks POST to /api/hooks/chat-*  (event routing)
-```
-
-**Key insight:** Use tmux for session persistence and lifecycle, but attach a PTY to the tmux session for message I/O. This gives direct `ptyService.write()` control (byte-level stdin) instead of `tmux send-keys` (which has escaping issues with multi-line messages, code blocks, and special characters).
-
-This is the same two-layer pattern the task system uses — `ptyService.spawn('bash', ['-c', 'tmux attach-session -t ...'])` — but for programmatic stdin writing instead of visual xterm.js display.
-
-### Architectural Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **tmux server** | Shared with task sessions (default server) | Distinct naming (`tinsu-chat-*` vs `tinsu-*`) prevents collision; separate servers add complexity with no benefit |
-| **Idle timeout** | 2 hours (extended from 30 min) | tmux sessions are cheap to keep alive (no `--resume`); chat is conversational with longer gaps. Task sessions retain 30 min |
-| **PTY attachment** | Permanent (lifetime of session) | PTY is the I/O channel for `ptyService.write()` — on-demand attachment adds latency to message send and a complex attach/detach state machine |
-| **Hook session ID** | `TINSU_TMUX_SESSION` env var passed to hook scripts | Cleaner than DB lookup per hook event; set at spawn time, included in POST payload for O(1) cache routing |
-| **Ready detection** | Same `writeWhenReady` pattern on tmux-attached PTY | TUI output flows through tmux transparently; "ctrl+g"/"/effort" detection unchanged |
-| **Busy tracking** | Same `busySessions` Set pattern | Application-level guard independent of PTY backing; hook-based detection unchanged |
-
-### Schema Change
-
-```sql
-ALTER TABLE chat_sessions ADD COLUMN tmux_session TEXT;
-```
-
-The `tmux_session` column stores the tmux session name (e.g., `tinsu-chat-abc123`). This becomes the stable identifier for hook routing, replacing the `session_uuid` lookup that was prone to orphan mismatches.
-
-**No new tables required.** The existing `chat_sessions`, `chat_messages`, and `chat_message_attachments` tables are sufficient. The migration adds a single column.
-
-### Service Architecture Changes
-
-#### ChatCliService (`src/main/services/chat-cli.service.ts`) — Major Refactor
-
-**What changes:**
-
-| Current (node-pty) | New (tmux + PTY) |
-|---------------------|------------------|
-| `ptyService.spawn('claude', [...args])` | `tmux new-session -d -s tinsu-chat-{sessionId}` then `ptyService.spawn('bash', ['-c', 'tmux attach-session -t ...'])` |
-| In-memory `processId → sessionId` map | In-memory `chatSessionId → tmuxSessionName` cache (like task system's `taskToSessionCache`) |
-| `findOrphanSession()` orphan UUID matching | **Removed** — tmux session name is the stable identifier; no UUID mismatch possible |
-| `discoverCorrectUuid()` filesystem scan | **Removed** — orphan recovery no longer needed |
-| `maybeRetryResume()` | **Removed** — tmux sessions don't need `--resume` |
-| `IDLE_TIMEOUT_MS = 30 * 60 * 1000` | `IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000` (2 hours) |
-| `resumeSession()` with `--resume` flag | `tmux has-session` check + PTY re-attachment (session still alive in tmux) |
-
-**What stays the same:**
-
-| Pattern | Why |
-|---------|-----|
-| `writeWhenReady()` with TUI detection | PTY output stream is identical through tmux |
-| `busySessions` Set | Application-level guard, independent of backing |
-| `onData` callback for output capture | PTY data events flow the same way |
-| 150ms delay between message content and Enter | TUI paste-mode bug mitigation unchanged |
-| Persona injection via `--append-system-prompt` | Spawn-time argument, not affected by tmux |
-
-**New interface shape:**
-
-```typescript
-interface ChatCliService {
-  // Session lifecycle (replaces direct PTY spawn)
-  spawnSession(sessionId: string, opts: SpawnOpts): Promise<string>  // Returns tmux session name
-  killSession(sessionId: string): Promise<void>
-  isSessionAlive(sessionId: string): boolean  // Check tmux + PTY
-
-  // Message I/O (unchanged interface, different backing)
-  sendMessage(sessionId: string, message: string): Promise<void>  // writeWhenReady on attached PTY
-
-  // Session recovery (simplified — no --resume needed)
-  reattachSession(sessionId: string): Promise<void>  // PTY attach to existing tmux session
-
-  // Monitoring
-  checkIdleSessions(): void  // 2-hour timeout
-  validateSessionsOnStartup(): Promise<void>  // tmux has-session for all DB sessions
-
-  // Cache
-  sessionCache: Map<string, string>  // chatSessionId → tmuxSessionName
-}
-
-interface SpawnOpts {
-  sessionUuid: string      // Claude Code --session-id
-  persona: string          // --append-system-prompt content
-  projectDir: string       // Working directory
-  skipPermissions: boolean // Tool use auto-approve
-}
-```
-
-**Startup validation pattern** (adapted from `TaskTerminalService.validateSessionsOnStartup()`):
-
-```typescript
-async validateSessionsOnStartup(): Promise<void> {
-  const activeSessions = await db.query.chatSessions.findMany({
-    where: eq(chatSessions.status, 'active')
-  })
-
-  for (const session of activeSessions) {
-    if (!session.tmuxSession) continue
-
-    const alive = await tmuxHasSession(session.tmuxSession)
-    if (!alive) {
-      // Mark for re-creation on next message (FR52)
-      await db.update(chatSessions)
-        .set({ status: 'paused', updatedAt: Date.now() })
-        .where(eq(chatSessions.id, session.id))
-    } else {
-      // Rebuild cache
-      this.sessionCache.set(session.id, session.tmuxSession)
-    }
-  }
-}
-```
-
-#### HookListenerService (`src/main/services/hook-listener.service.ts`) — Routing Update
-
-**What changes:**
-
-| Current | New |
-|---------|-----|
-| `tryRegisterChatOrphan()` — find session by mismatched UUID | **Removed** — no orphan UUIDs with tmux |
-| Route by `session_uuid` DB lookup | Route by `tmux_session` from hook payload (O(1) cache lookup) |
-
-**New routing pattern:**
-
-```typescript
-// In-memory cache (like task system's sessionToTaskCache)
-private sessionToChatCache: Map<string, string>  // tmuxSessionName → chatSessionId
-
-async onChatStopHook(payload: ChatStopPayload): Promise<void> {
-  const tmuxSession = payload.tmux_session  // From TINSU_TMUX_SESSION env var
-  const chatSessionId = this.sessionToChatCache.get(tmuxSession)
-
-  if (!chatSessionId) {
-    // Fallback: DB lookup
-    const session = await db.query.chatSessions.findFirst({
-      where: eq(chatSessions.tmuxSession, tmuxSession)
-    })
-    if (!session) return  // Unknown session, ignore
-    chatSessionId = session.id
-    this.sessionToChatCache.set(tmuxSession, session.id)
-  }
-
-  // Process hook event for chatSessionId...
-}
-```
-
-**Permission system unchanged** — `pendingPermissions` Map, `resolvePreToolUseDecision()`, 4-minute timeout all stay the same. Only the session lookup changes.
-
-#### Session Monitoring — tmux Health Polling
-
-```typescript
-// Poll every 2 seconds (same interval as task system)
-private monitorInterval: NodeJS.Timeout
-
-startMonitoring(): void {
-  this.monitorInterval = setInterval(async () => {
-    for (const [sessionId, tmuxName] of this.sessionCache) {
-      const alive = await tmuxHasSession(tmuxName)
-      if (!alive) {
-        // Session exited — update status (NFR32: <2s detection)
-        this.sessionCache.delete(sessionId)
-        await db.update(chatSessions)
-          .set({ status: 'paused', updatedAt: Date.now() })
-          .where(eq(chatSessions.id, sessionId))
-        // Emit status change event for UI
-        this.emitSessionStatus(sessionId, 'exited')
-      }
-    }
-  }, 2000)
-}
-```
-
-### tRPC Router Changes
-
-#### `chat-session.router.ts` — Three-Case Handler Update
-
-The `sendChatMessage` mutation's three-case logic simplifies:
-
-```typescript
-// Case A: tmux session alive + PTY attached → sendMessage()
-// Case B: tmux session alive + PTY detached → reattachSession() then sendMessage()
-// Case C: No tmux session (new or paused):
-//   - If session.tmuxSession exists but tmux dead → create new tmux session, spawn claude
-//   - If no session.tmuxSession → spawnSession() (first message)
-```
-
-**Key simplification:** Case B no longer needs `--resume`. The tmux session is still alive with Claude Code running inside it. We just re-attach the PTY for I/O.
-
-**New procedures:**
-
-```typescript
-// Startup validation (called from app init)
-validateChatSessions: t.procedure
-  .mutation(async ({ ctx }) => {
-    await ctx.chatCliService.validateSessionsOnStartup()
-  }),
-
-// Session list with live status (FR46)
-listChatSessionsWithStatus: t.procedure
-  .input(z.object({ projectId: z.string() }))
-  .query(async ({ input, ctx }) => {
-    const sessions = await db.query.chatSessions.findMany({
-      where: eq(chatSessions.projectId, input.projectId),
-      orderBy: desc(chatSessions.lastMessageAt)
-    })
-
-    return sessions.map(s => ({
-      ...s,
-      liveStatus: ctx.chatCliService.getSessionStatus(s.id)
-      // 'thinking' | 'idle' | 'completed' | 'exited'
-    }))
-  }),
-```
-
-### Hook Script Changes
-
-#### All Chat Hook Scripts (`src/main/resources/chat-hooks/*.sh`)
-
-**Change:** Include `TINSU_TMUX_SESSION` in POST payload.
-
-```bash
-#!/bin/bash
-# stop.sh (updated)
-INPUT=$(cat)
-TINSU_PORT=$(cat /tmp/tinsu-hook-port 2>/dev/null || echo "3847")
-TMUX_SESSION="${TINSU_TMUX_SESSION:-unknown}"
-
-# Inject tmux session name into payload
-PAYLOAD=$(echo "$INPUT" | jq --arg ts "$TMUX_SESSION" '. + {tmux_session: $ts}')
-
-curl -s -X POST "http://localhost:${TINSU_PORT}/api/hooks/chat-stop" \
-  -H "Content-Type: application/json" \
-  --connect-timeout 2 --max-time 5 \
-  -d "$PAYLOAD" || true
-```
-
-Same pattern for `tool-use.sh`, `pre-tool-use.sh`, and `status.sh`.
-
-**Environment variable injection** (in `ChatCliService.spawnSession()`):
-
-```typescript
-// When creating tmux session, set env vars in the tmux environment
-const tmuxName = `tinsu-chat-${sessionId}`
-await execAsync(`tmux new-session -d -s ${tmuxName}`)
-await execAsync(`tmux set-environment -t ${tmuxName} TINSU_TMUX_SESSION ${tmuxName}`)
-await execAsync(`tmux set-environment -t ${tmuxName} TINSU_SESSION_UUID ${sessionUuid}`)
-
-// Then send the claude command into the tmux session
-// PTY attachment handles I/O from this point
-```
-
-### UI Component Changes
-
-#### `ChatPanel.tsx` — Multi-Session Awareness
-
-| Current | New |
-|---------|-----|
-| `setSessionId(null)` on agent switch | Keep `sessionId` — session runs in background |
-| Single `isAgentThinking` state | Per-session status from `listChatSessionsWithStatus` |
-| No session status badges | Live status badges in session list (thinking/idle/completed/exited) |
-
-**Session list enhancement (FR46):**
-
-```typescript
-// ChatSessionList now shows live status
-interface SessionListItem {
-  id: string
-  agentPersona: string
-  lastMessageAt: number
-  liveStatus: 'thinking' | 'idle' | 'completed' | 'exited'
-  preview: string  // Last message snippet
-}
-```
-
-**Session switching (FR45):**
-
-```typescript
-// Switching agents no longer kills the old session
-const handlePersonaSwitch = (newPersona: string) => {
-  // Old session continues in tmux background
-  // Just update UI to show new/different session
-  const existingSession = sessions.find(
-    s => s.agentPersona === newPersona && s.liveStatus !== 'exited'
-  )
-  if (existingSession) {
-    setSessionId(existingSession.id)  // Resume existing
-  } else {
-    setSessionId(null)  // Will create on first message
-  }
-}
-```
-
-#### `PlanningWorkspacePage.tsx` — Session Status Visibility
-
-Add session status summary in sidebar or header showing count of active background sessions:
-
-```
-PM (payment PRD) — idle
-Architect (payment) — thinking
-PM (side project) — idle
-```
-
-### Integration Patterns
-
-**tmux Session Creation Flow:**
-
-```
-User sends first message
-  → chatSession.create() in DB (with tmux_session = null)
-  → chatCliService.spawnSession():
-      1. tmux new-session -d -s tinsu-chat-{sessionId}
-      2. tmux set-environment TINSU_TMUX_SESSION / TINSU_SESSION_UUID
-      3. tmux send-keys "claude --session-id {uuid} --append-system-prompt {persona} ..." Enter
-      4. ptyService.spawn('bash', ['-c', 'tmux attach-session -t tinsu-chat-{sessionId}'])
-      5. Update DB: chat_sessions.tmux_session = tinsu-chat-{sessionId}
-      6. Populate sessionCache
-      7. writeWhenReady() detects TUI → write user message
-```
-
-**Session Recovery Flow (App Restart):**
-
-```
-App starts
-  → validateSessionsOnStartup():
-      For each active chat_session in DB:
-        tmux has-session -t {tmux_session}?
-          YES → rebuild cache, status stays 'active'
-          NO  → set status = 'paused'
-  → User opens chat, selects paused session, sends message:
-      → spawnSession() creates NEW tmux session (fresh claude process)
-      → Claude Code's --session-id restores conversation context
-      → No --resume needed (claude starts fresh but session-id gives history)
-```
-
-**Multi-Project Isolation (FR48-FR50):**
-
-```
-Project A sessions:  tinsu-chat-{sessionId-a1}, tinsu-chat-{sessionId-a2}
-Project B sessions:  tinsu-chat-{sessionId-b1}
-
-DB query: WHERE project_id = ?  (existing filter, unchanged)
-tmux: All sessions on same server, but UI only shows current project's sessions
-File isolation: Claude Code's cwd set to project directory at spawn time
-```
-
-### Removed Code
-
-The following patterns are **deleted** in this migration:
-
-| Removed | Why |
-|---------|-----|
-| `findOrphanSession()` | tmux session name is stable — no UUID mismatch possible |
-| `discoverCorrectUuid()` | No filesystem scan for session recovery needed |
-| `maybeRetryResume()` | tmux sessions don't die and need `--resume` |
-| `tryRegisterChatOrphan()` in HookListenerService | Orphan concept eliminated |
-| `--resume` flag usage for chat sessions | tmux persistence replaces `--resume` |
-
-### NFR Coverage
-
-| NFR | Target | How Met |
-|-----|--------|---------|
-| NFR25 | 5+ concurrent sessions | Independent tmux sessions, shared server handles hundreds |
-| NFR26 | <500ms session switch | PTY permanently attached; switch = UI state change + cache lookup |
-| NFR27 | Zero background message loss | tmux sessions run independently; no PTY disconnect on switch |
-| NFR28 | Zero context loss on restart | tmux survives restart; `validateSessionsOnStartup()` reconciles |
-| NFR29 | <5s startup validation | Sequential `tmux has-session` calls (~50ms each, 20 sessions = 1s) |
-| NFR30 | 100% hook routing accuracy | `TINSU_TMUX_SESSION` env var → O(1) cache lookup, no orphan ambiguity |
-| NFR31 | <15s session creation | tmux new-session (<1s) + claude spawn + TUI ready (~10-12s) |
-| NFR32 | <2s stale detection | 2-second polling interval on `tmux has-session` |
-
-### FR Coverage
-
-| FR | Description | Architectural Support |
-|----|-------------|----------------------|
-| FR36 | Planning Workspace with BMAD sidebar | Existing UI — no architectural change |
-| FR37 | Agent persona selector | Existing `--append-system-prompt` injection — unchanged |
-| FR38 | Chat interface with message bubbles | Existing `chat_messages` table + ChatPanel — unchanged |
-| FR39 | Persistent isolated terminal session | tmux session per chat (`tinsu-chat-{sessionId}`) |
-| FR40 | Bidirectional communication channel | PTY attached to tmux; `ptyService.write()` for input, `onData` for output |
-| FR41 | Agent launch with session identity | `claude --session-id {uuid}` inside tmux with `TINSU_TMUX_SESSION` env var |
-| FR42 | Event routing without cross-session leakage | `TINSU_TMUX_SESSION` env var → O(1) cache routing, no orphan matching |
-| FR43 | Message persistence | Existing `chat_messages` + `chat-stop` hook transcript extraction — unchanged |
-| FR44 | Multiple simultaneous sessions | Independent tmux sessions, permanent PTY attachment each |
-| FR45 | Switch without interrupting background | Switching = UI state change; tmux sessions unaffected |
-| FR46 | Session list with live status | `listChatSessionsWithStatus` query + 2s polling health monitor |
-| FR47 | Resume previous sessions | Session list click → PTY re-attach if needed, or send message to alive session |
-| FR48 | Project-scoped sessions | `chat_sessions.project_id` filter (existing) + `tinsu-chat-*` naming |
-| FR49 | Cross-project concurrent sessions | Same tmux server, project isolation via DB filter and Claude cwd |
-| FR50 | Project-confined file operations | Claude Code cwd set to project directory at spawn time |
-| FR51 | Survive app restart | tmux sessions persist natively; `validateSessionsOnStartup()` reconciles |
-| FR52 | Startup health validation | `tmux has-session` for each active DB session; mark unavailable as 'paused' |
-| FR53 | Health monitoring with 2s detection | 2-second polling interval on `tmux has-session` for all cached sessions |
-
-### Files Changed
-
-**Backend (Main Process):**
-
-| File | Change |
-|------|--------|
-| `src/main/services/chat-cli.service.ts` | **Major refactor** — tmux session creation + PTY attachment, remove orphan logic, 2-hour idle timeout, startup validation, session cache |
-| `src/main/services/hook-listener.service.ts` | Route chat hooks by `tmux_session` payload field via `sessionToChatCache`; remove `tryRegisterChatOrphan()` |
-| `src/main/services/index.ts` | No new services — existing services refactored |
-| `src/main/trpc/routers/chat-session.router.ts` | Simplify three-case handler for tmux; add `validateChatSessions`, `listChatSessionsWithStatus` |
-| `src/main/db/schema.ts` | Add `tmux_session` column to `chat_sessions` table |
-| `src/main/db/index.ts` | Migration for `tmux_session` column |
-
-**Frontend (Renderer):**
-
-| File | Change |
-|------|--------|
-| `src/renderer/src/components/planning/ChatPanel.tsx` | Multi-session awareness; session switching without kill; live status badges |
-| `src/renderer/src/components/planning/ChatSessionList.tsx` | Live status indicators per session |
-| `src/renderer/src/pages/PlanningWorkspacePage.tsx` | Background session count/status in sidebar |
-
-**Hook Scripts:**
-
-| File | Change |
-|------|--------|
-| `src/main/resources/chat-hooks/stop.sh` | Include `TINSU_TMUX_SESSION` in POST payload via jq |
-| `src/main/resources/chat-hooks/tool-use.sh` | Same |
-| `src/main/resources/chat-hooks/pre-tool-use.sh` | Same |
-| `src/main/resources/chat-hooks/status.sh` | Same |
-
-### Implementation Checklist
-
-**Database Layer:**
-- [ ] Add `tmux_session TEXT` column to `chat_sessions` schema
-- [ ] Add migration in `db/index.ts`
-- [ ] Run `npm run rebuild:electron`
-
-**Service Layer:**
-- [ ] Refactor `ChatCliService.spawnSession()` to create tmux session + PTY attachment
-- [ ] Refactor `ChatCliService.resumeSession()` to PTY re-attachment (no `--resume`)
-- [ ] Add `validateSessionsOnStartup()` with `tmux has-session` checks
-- [ ] Add `sessionCache` (Map<chatSessionId, tmuxSessionName>)
-- [ ] Add `startMonitoring()` with 2-second polling
-- [ ] Change `IDLE_TIMEOUT_MS` to 2 hours
-- [ ] Remove `findOrphanSession()`, `discoverCorrectUuid()`, `maybeRetryResume()`
-- [ ] Update `HookListenerService` to route by `tmux_session` payload field
-- [ ] Add `sessionToChatCache` (Map<tmuxSessionName, chatSessionId>)
-- [ ] Remove `tryRegisterChatOrphan()`
-
-**tRPC Layer:**
-- [ ] Simplify `sendChatMessage` three-case handler for tmux
-- [ ] Add `validateChatSessions` mutation
-- [ ] Add `listChatSessionsWithStatus` query
-
-**Hook Scripts:**
-- [ ] Update all 4 chat hook scripts to include `TINSU_TMUX_SESSION` in payload
-- [ ] Set `TINSU_TMUX_SESSION` env var via `tmux set-environment` at session creation
-
-**UI Layer:**
-- [ ] Update `ChatPanel.tsx` for multi-session awareness
-- [ ] Add live status badges to `ChatSessionList`
-- [ ] Add background session visibility to `PlanningWorkspacePage`
-
----
-
-**Extension Status:** READY FOR IMPLEMENTATION ✅
