@@ -8,7 +8,23 @@
  * @see Story 8.10: Task 2.1, 2.2, 2.3, 2.4
  */
 
-import { GitError } from '../../main/services/git.service'
+/**
+ * GitError - stub class for frontend-only type safety.
+ * The real GitError lived in src/main/services/git.service (Electron backend).
+ * Kept here so categorizeGitError/createRecoverableErrorFromGeneric work without
+ * a backend. Will be replaced by the Rust git-service error type in T1.8.
+ */
+export class GitError extends Error {
+  constructor(
+    message: string,
+    public readonly command?: string,
+    public readonly exitCode?: number,
+    public readonly stderr?: string
+  ) {
+    super(message)
+    this.name = 'GitError'
+  }
+}
 
 /**
  * Categories of git errors for user-friendly messaging.

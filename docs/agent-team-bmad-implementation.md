@@ -34,7 +34,6 @@ This document defines the automated agent team workflow for implementing epics s
 
 ### Step 3: Code Review & Auto-Fix
 **Agent:** DEV 2 (Sonnet 4.6)
-
 ```
 /bmad-code-review *story-number
 ```
@@ -45,7 +44,7 @@ This document defines the automated agent team workflow for implementing epics s
 
 ### Step 4: Commit Changes
 - Stage and commit all changes from the story implementation
-- Commit message references the story number
+- **Commit message MUST include the story number** (e.g., `feat: [14-1-1] remove required file enforcement backend`)
 
 ### Step 5: Repeat
 - Move to the next story number and repeat from Step 1
@@ -57,12 +56,12 @@ This document defines the automated agent team workflow for implementing epics s
 ┌──────────────────────────────────────────────────────────────┐
 │                   For each story:                             │
 │                                                              │
-│  SM (Sonnet 4.6)                                              │
+│  SM (Sonnet 4.6)                                               │
 │  └─► /bmad-create-story *N                                   │
 │       status: backlog → ready-for-dev                        │
 │       │                                                      │
 │       ▼                                                      │
-│  DEV 1 (Sonnet 4.6)                                           │
+│  DEV 1 (Sonnet 4.6)                                            │
 │  └─► /bmad-dev-story *N                                      │
 │       status: ready-for-dev → in-progress → review           │
 │       │                                                      │
@@ -127,6 +126,15 @@ list files in the prompt. Keep prompts minimal so the agent MUST use the Skill t
 loads the full BMAD workflow chain (workflow.xml → workflow.yaml → instructions.xml) with
 all steps including status updates.
 
+### Model Selection (Critical)
+
+**Model assignment is per-role and MUST be set explicitly:**
+- **SM** → `model: "sonnet"` (story creation)
+- **DEV 1** → `model: "sonnet"` (implementation)
+- **DEV 2** → `model: "sonnet"` (code review)
+
+Always pass the correct model to the Agent tool when spawning each agent.
+
 ### SM Agent Prompt
 ```
 You are Agent SM (Scrum Master) in the BMAD implementation pipeline.
@@ -135,7 +143,7 @@ Before starting, read these two files for context:
 1. {project-root}/agent-team-bmad-implementation.md
 2. {project-root}/CLAUDE.md
 
-Your ONLY task: Use the Skill tool to run /bmad-bmm-create-story {story-number}
+Your ONLY task: Use the Skill tool to run /bmad-create-story {story-number}
 
 You MUST use the Skill tool to invoke this command. Do NOT attempt to create the story
 manually. The Skill tool will load the full BMAD workflow which you must follow step by step.
@@ -166,6 +174,9 @@ UI you need (what component, what it should display, interactions, and the tech 
 Next.js 16, React 19, TypeScript, Tailwind v4, shadcn/ui). Then integrate its output into
 the codebase. Do NOT write UI code from scratch without using /frontend-design first.
 
+If the workflow includes a commit step, the commit message MUST include the story number
+(e.g., `feat: [14-1-1] remove required file enforcement backend`).
+
 After completion, verify that sprint-status.yaml shows the story as "review".
 Report back what files were created/modified and confirm the status update.
 ```
@@ -174,8 +185,13 @@ Report back what files were created/modified and confirm the status update.
 ```
 You are Agent DEV 2 (Code Reviewer) in the BMAD implementation pipeline.
 
+CRITICAL — AUTO-FIX RULE: At every step of the review workflow, automatically fix all
+identified issues without pausing. When presented with any fix options, always choose
+to fix automatically. Do NOT wait for human input at any checkpoint — auto-proceed and
+auto-fix throughout the entire workflow.
+
 Before starting, read these two files for context:
-1. {project-root}/agent-team-bmad-implementation.md
+1. {project-root}/docs/agent-team-bmad-implementation.md
 2. {project-root}/CLAUDE.md
 
 Your ONLY task: Use the Skill tool to run /bmad-code-review {story-number}
@@ -184,10 +200,90 @@ You MUST use the Skill tool to invoke this command. Do NOT attempt to review the
 manually or read files directly. The Skill tool will load the full BMAD workflow which
 you must follow step by step — including status updates in sprint-status.yaml.
 
-When the review workflow presents fix options, choose option 1 (fix automatically).
+If the workflow includes a commit step, the commit message MUST include the story number
+(e.g., `fix: [14-1-1] code review fixes`).
 
 After completion, verify that sprint-status.yaml shows the story as "done".
 Report back what issues were found, what was fixed, and confirm the status update.
+```
+
+## Agent Completion Enforcement (Critical)
+
+**The team lead MUST verify that each agent completed its job before moving on.** Agents can terminate early due to context limits, especially on large UI stories. This is non-negotiable:
+
+### Detection
+
+After every agent returns, the team lead checks:
+1. Did the agent report completion of ALL tasks?
+2. Is `sprint-status.yaml` updated to the expected status?
+3. Do `git status` results show all expected files were created/modified?
+
+**IMPORTANT — Wait for the completion report, do NOT interrupt:** Only intervene (check status, send messages) after the agent has sent a completion report message. Do not ping agents mid-work just because they went idle — idle is normal during sub-agent delegation. An agent going idle without sending a completion report does NOT require intervention unless significant time has passed.
+
+### Idle ≠ Stopped (Critical)
+
+**An idle notification does NOT mean the agent has stopped or failed.** Agents go idle between turns — this is normal. An agent running a skill (e.g., `/bmad-code-review`) may spawn local sub-agents internally and appear idle while waiting for them to finish. Before treating an agent as failed:
+
+1. **Check `sprint-status.yaml`** — if the status has NOT changed, the agent may still be working
+2. **Send a status-check message** and wait for a real response (not just another idle notification)
+3. **Do NOT spawn a replacement** just because the agent went idle — only replace if the agent has truly stopped (no response after multiple prompts, or confirmed context limit exceeded)
+
+**NEVER spawn a duplicate agent while the original is still running.** If you spawned a duplicate by mistake, shut it down immediately before the original finishes, to avoid conflicting writes.
+
+### Recovery
+
+If an agent stopped midway (incomplete output, missing files, status not updated):
+1. **Shutdown the stale agent first** via `SendMessage(type: shutdown_request)` then `tmux kill-pane -t <paneId>` — check `~/.claude/teams/bmad-pipeline/config.json` for the pane ID. **NEVER spawn a replacement before killing the stale one.**
+2. **Spawn a single replacement agent** to continue the work
+3. The new agent prompt MUST include:
+   - What was already completed (list specific files created/modified)
+   - What still needs to be done (remaining tasks from the story file)
+   - Instruction to read the story file and existing code before continuing
+3. If the replacement agent also stops midway, spawn another one — **repeat until the step is fully complete**
+4. Only proceed to the next pipeline step (e.g., DEV 2 review) after ALL work for the current step is verified complete
+
+### Why This Matters
+
+- Large UI stories (Epic 7) routinely exceed a single agent's context window
+- Partial implementations left uncommitted cause drift and confusion
+- The team lead is responsible for pipeline continuity — never stop and wait for user intervention
+
+## Agent Shutdown Protocol (Critical)
+
+**When an agent completes their step, the team lead MUST shut them down properly** — do not leave idle agents running. This frees resources and prevents stale context pollution.
+
+### Shutdown Sequence
+
+After verifying an agent's work is complete and status is updated:
+
+1. **Send shutdown request** via `SendMessage`:
+   ```
+   SendMessage(to: "<agent-name>", message: {type: "shutdown_request"})
+   ```
+2. **Wait for acknowledgement** — the agent will confirm and exit gracefully
+3. **Kill the tmux pane** for that agent's session:
+   ```bash
+   tmux kill-pane -t <session-name>:1.1
+   ```
+   or kill the entire session if it's dedicated to that agent:
+   ```bash
+   tmux kill-session -t <session-name>
+   ```
+
+### Rules
+
+- **Never leave an agent running after their pipeline step is done** — idle agents waste resources
+- **Kill the tmux pane immediately** after the agent acknowledges shutdown, don't wait
+- For recovery/replacement agents that were spawned mid-story: shut them down the same way once their continuation work is verified complete
+- After shutdown, the team lead spawns a **fresh agent** for the next pipeline step — never reuse a session
+
+### Finding the Agent's Tmux Session
+
+Agent sessions are visible with `tmux list-sessions`. Look for sessions matching the agent's spawn time or name pattern. Each Claude Code agent session runs in its own tmux session.
+
+```bash
+tmux list-sessions   # find the agent session
+tmux kill-session -t <session-name>
 ```
 
 ## Important Notes
