@@ -12,6 +12,20 @@ class ConnectionTester(
     private val remoteExecutor: RemoteExecutorContract,
     private val secureKeyStore: SecureKeyStoreContract
 ) {
+    suspend fun deployPublicKey(
+        config: ConnectionConfig,
+        password: String,
+        publicKey: String
+    ): com.tinsu.mobile.util.Result<Unit> {
+        return remoteExecutor.deployPublicKey(
+            host = config.host,
+            port = config.port,
+            username = config.username,
+            password = password,
+            publicKey = publicKey
+        )
+    }
+
     suspend fun testConnection(config: ConnectionConfig): ConnectionTestResult {
         // Validate required fields
         if (config.host.isBlank()) {

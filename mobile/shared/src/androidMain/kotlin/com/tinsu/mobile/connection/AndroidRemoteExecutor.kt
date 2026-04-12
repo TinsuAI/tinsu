@@ -33,6 +33,60 @@ actual class RemoteExecutor actual constructor(
     @Volatile
     private var connected = false
 
+    override suspend fun deployPublicKey(
+        host: String,
+        port: Int,
+        username: String,
+        password: String,
+        publicKey: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val client = SshClient.setUpDefaultClient()
+            client.start()
+
+            val connectFuture = client.connect(username, host, port)
+            val clientSession = connectFuture.verify(5000).session
+                ?: return@withContext Result.Failure(AppError.ConnectionFailed("Connection timed out"))
+
+            clientSession.addPasswordIdentity(password)
+            clientSession.auth().verify(5000)
+
+            if (!clientSession.isAuthenticated) {
+                clientSession.close(false)
+                client.close()
+                return@withContext Result.Failure(AppError.ConnectionFailed("Authentication failed — check your password"))
+            }
+
+            val escapedKey = publicKey.replace("'", "'\\''")
+            val command = "mkdir -p ~/.ssh && chmod 700 ~/.ssh && " +
+                "grep -qxF '$escapedKey' ~/.ssh/authorized_keys 2>/dev/null || " +
+                "echo '$escapedKey' >> ~/.ssh/authorized_keys && " +
+                "chmod 600 ~/.ssh/authorized_keys"
+
+            val channel = clientSession.createExecChannel(command)
+            val stdoutStream = java.io.ByteArrayOutputStream()
+            val stderrStream = java.io.ByteArrayOutputStream()
+            channel.out = stdoutStream
+            channel.err = stderrStream
+            channel.open().verify(5000)
+            channel.waitFor(setOf(ClientChannelEvent.CLOSED), 10000)
+
+            val exitCode = channel.exitStatus ?: -1
+            channel.close(false)
+            clientSession.close(false)
+            client.close()
+
+            if (exitCode == 0) {
+                Result.Success(Unit)
+            } else {
+                val msg = stderrStream.toString("UTF-8").ifBlank { "Deploy failed (exit $exitCode)" }
+                Result.Failure(AppError.ConnectionFailed(msg))
+            }
+        } catch (e: Exception) {
+            Result.Failure(AppError.ConnectionFailed(e.message ?: "Unknown error"))
+        }
+    }
+
     override suspend fun connect(
         host: String,
         port: Int,

@@ -25,7 +25,7 @@ struct ProjectRow: View {
                 Spacer()
 
                 if project.activeSessionCount > 0 {
-                    sessionBadge(count: project.activeSessionCount)
+                    sessionBadge(count: Int(project.activeSessionCount))
                 }
 
                 if isSelected {

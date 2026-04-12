@@ -12,7 +12,6 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
@@ -48,6 +47,7 @@ import platform.Security.kSecAttrKeyTypeRSA
 import platform.Security.kSecAttrLabel
 import platform.Security.kSecClass
 import platform.Security.kSecClassKey
+import platform.Security.kSecReturnData
 import platform.Security.kSecValueRef
 
 /**
@@ -56,6 +56,7 @@ import platform.Security.kSecValueRef
  */
 interface Ed25519KeyProvider {
     fun generateAndStoreKey(alias: String): String?
+    fun getPrivateKeyData(alias: String): ByteArray?
     fun deleteKey(alias: String): Boolean
 }
 
@@ -69,7 +70,7 @@ actual class SecureKeyStore(
     actual suspend fun generateKeyPair(
         alias: String,
         keyType: KeyType
-    ): Result<SshKeyPair> = withContext(Dispatchers.IO) {
+    ): Result<SshKeyPair> = withContext(Dispatchers.Default) {
         if (alias.isBlank()) {
             return@withContext Result.Failure(
                 AppError.KeyGenerationFailed("Alias must not be blank")
@@ -90,7 +91,7 @@ actual class SecureKeyStore(
     }
 
     actual suspend fun getPublicKey(alias: String): Result<String> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 val pubKey = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_PUBKEY")
                 if (pubKey != null) {
@@ -104,7 +105,7 @@ actual class SecureKeyStore(
         }
 
     actual suspend fun listKeys(): Result<List<SshKeyPair>> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 val aliases = getStoredAliases()
                 val keys = aliases.mapNotNull { loadKeyMetadata(it) }
@@ -115,7 +116,7 @@ actual class SecureKeyStore(
         }
 
     actual suspend fun deleteKey(alias: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 deleteKeychainKey(alias)
                 ed25519Provider?.deleteKey(alias)
@@ -127,7 +128,7 @@ actual class SecureKeyStore(
         }
 
     actual override suspend fun hasKey(alias: String): Result<Boolean> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 val exists = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE") != null
                 Result.Success(exists)
@@ -137,7 +138,7 @@ actual class SecureKeyStore(
         }
 
     actual override suspend fun getKeyType(alias: String): Result<KeyType> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 val typeName = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE")
                 if (typeName != null) {
@@ -152,7 +153,7 @@ actual class SecureKeyStore(
         }
 
     actual override suspend fun getPrivateKeyData(alias: String): Result<ByteArray> =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             try {
                 val typeName = defaults.stringForKey("$META_PREFIX$alias$META_SUFFIX_TYPE")
                 if (typeName == null) {
@@ -162,8 +163,8 @@ actual class SecureKeyStore(
 
                 when (keyType) {
                     KeyType.Ed25519 -> {
-                        // Ed25519 keys are managed by Swift bridge - export via SecKeyCopyExternalRepresentation
-                        val keyData = getSecKeyData(alias)
+                        // Delegate to the Swift bridge: same code that stored it retrieves it.
+                        val keyData = ed25519Provider?.getPrivateKeyData(alias)
                         if (keyData != null) {
                             Result.Success(keyData)
                         } else {

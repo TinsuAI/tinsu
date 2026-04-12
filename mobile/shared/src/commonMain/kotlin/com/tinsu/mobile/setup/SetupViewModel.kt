@@ -44,9 +44,17 @@ class SetupViewModel(
         private set
     var publicKeyText: String? = null
         private set
+    var keyGenerationError: String? = null
+        private set
     var displayName: String = ""
         private set
     var testSessionInfo: SessionInfo? = null
+        private set
+    var isDeployingKey: Boolean = false
+        private set
+    var deployKeySuccess: Boolean = false
+        private set
+    var deployKeyError: String? = null
         private set
 
     init {
@@ -105,12 +113,12 @@ class SetupViewModel(
     }
 
     fun generateKey(keyType: KeyType = KeyType.Ed25519) {
+        keyGenerationError = null
         viewModelScope.launch {
             val alias = "tinsu-mobile-${Clock.System.now().toEpochMilliseconds()}"
             when (val result = secureKeyStore.generateKeyPair(alias, keyType)) {
                 is Result.Success -> {
                     sshKeyAlias = result.data.alias
-                    // Immediately fetch the public key
                     when (val pubResult = secureKeyStore.getPublicKey(alias)) {
                         is Result.Success -> {
                             publicKeyText = pubResult.data
@@ -123,6 +131,8 @@ class SetupViewModel(
                 is Result.Failure -> {
                     sshKeyAlias = null
                     publicKeyText = null
+                    keyGenerationError = (result.error as? com.tinsu.mobile.util.AppError)
+                        ?.userMessage ?: "Key generation failed"
                 }
             }
         }
@@ -135,6 +145,36 @@ class SetupViewModel(
 
     fun copyPublicKeyToClipboard() {
         clipboardText = publicKeyText
+    }
+
+    fun deployPublicKey(password: String) {
+        val pubKey = publicKeyText ?: return
+        val alias = sshKeyAlias ?: return
+        isDeployingKey = true
+        deployKeySuccess = false
+        deployKeyError = null
+
+        val config = ConnectionConfig(
+            displayName = "",
+            host = host,
+            port = port,
+            username = username,
+            sshKeyAlias = alias
+        )
+
+        viewModelScope.launch {
+            when (val result = connectionTester.deployPublicKey(config, password, pubKey)) {
+                is com.tinsu.mobile.util.Result.Success -> {
+                    isDeployingKey = false
+                    deployKeySuccess = true
+                }
+                is com.tinsu.mobile.util.Result.Failure -> {
+                    isDeployingKey = false
+                    deployKeyError = (result.error as? com.tinsu.mobile.util.AppError)
+                        ?.userMessage ?: "Failed to deploy key"
+                }
+            }
+        }
     }
 
     fun testConnection() {

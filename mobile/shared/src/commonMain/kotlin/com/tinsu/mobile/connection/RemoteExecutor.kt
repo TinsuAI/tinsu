@@ -8,6 +8,7 @@ import com.tinsu.mobile.util.Result
  */
 interface RemoteExecutorContract {
     suspend fun connect(host: String, port: Int, username: String, keyAlias: String): Result<SessionInfo>
+    suspend fun deployPublicKey(host: String, port: Int, username: String, password: String, publicKey: String): Result<Unit>
     suspend fun exec(command: String): CommandResult
     suspend fun disconnect()
     fun isConnected(): Boolean

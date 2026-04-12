@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
  */
 interface SshSessionProvider {
     fun connect(host: String, port: Int, username: String, privateKeyData: ByteArray, keyType: String): SshBridgeResult
+    fun connectWithPassword(host: String, port: Int, username: String, password: String): SshBridgeResult
     fun exec(command: String): SshBridgeExecResult
     fun disconnect()
     fun isConnected(): Boolean
@@ -47,6 +48,57 @@ actual class RemoteExecutor actual constructor(
 
     fun setSshProvider(provider: SshSessionProvider?) {
         this.sshProvider = provider
+    }
+
+    override suspend fun deployPublicKey(
+        host: String,
+        port: Int,
+        username: String,
+        password: String,
+        publicKey: String
+    ): Result<Unit> = withContext(Dispatchers.Default) {
+        val provider = sshProvider ?: return@withContext Result.Failure(
+            AppError.ConnectionFailed("SSH provider not configured")
+        )
+
+        val connectResult = provider.connectWithPassword(host, port, username, password)
+        if (!connectResult.success) {
+            return@withContext Result.Failure(AppError.ConnectionFailed(connectResult.errorMessage))
+        }
+
+        try {
+            // Append key only if not already present, then fix permissions.
+            // Use $HOME instead of ~ for broader shell compatibility.
+            val escapedKey = publicKey.trim().replace("'", "'\\''")
+            val command = "mkdir -p \"\$HOME/.ssh\" && chmod 700 \"\$HOME/.ssh\" && " +
+                "grep -qxF '$escapedKey' \"\$HOME/.ssh/authorized_keys\" 2>/dev/null || " +
+                "echo '$escapedKey' >> \"\$HOME/.ssh/authorized_keys\" && " +
+                "chmod 600 \"\$HOME/.ssh/authorized_keys\""
+
+            val deployResult = provider.exec(command)
+            if (deployResult.exitCode != 0) {
+                provider.disconnect()
+                val msg = deployResult.stderr.ifBlank { "Failed to add key (exit ${deployResult.exitCode})" }
+                return@withContext Result.Failure(AppError.ConnectionFailed(msg))
+            }
+
+            // Verify the key is actually present — guards against silent failures
+            // where the deploy command exits 0 but nothing was written.
+            val verifyResult = provider.exec("cat \"\$HOME/.ssh/authorized_keys\" 2>/dev/null")
+            provider.disconnect()
+
+            val keyWritten = verifyResult.stdout.lines().any { it.trim() == publicKey.trim() }
+            if (!keyWritten) {
+                return@withContext Result.Failure(
+                    AppError.ConnectionFailed("Key was not found in authorized_keys after deployment")
+                )
+            }
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            try { provider.disconnect() } catch (_: Exception) {}
+            Result.Failure(AppError.ConnectionFailed(e.message ?: "Unknown error"))
+        }
     }
 
     override suspend fun connect(

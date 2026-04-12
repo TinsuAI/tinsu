@@ -1,69 +1,96 @@
 import SwiftUI
 
-// MARK: - Authorized Keys Instructions Step
+// MARK: - Deploy Key Step (automated)
 struct AuthorizedKeysSetupStep: View {
     @ObservedObject var viewModel: SetupObservableViewModel
+    @State private var password = ""
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Add Key to Remote Machine")
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Add Key to Server")
                     .font(TinsuTypography.headline)
                     .foregroundColor(TinsuColors.onBackground)
-                Text("Add your public key to the remote PC so you can connect without a password.")
+                Text("Enter your SSH password once. Tinsu will add your public key to the server automatically — you won't need a password after this.")
                     .font(TinsuTypography.body)
                     .foregroundColor(TinsuColors.onSurfaceVariant)
 
-                // Quick method
-                Text("Quick Method")
-                    .font(TinsuTypography.title)
-                    .foregroundColor(TinsuColors.onBackground)
-
-                Text("ssh-copy-id -i ~/.ssh/tinsu_key.pub \(viewModel.username)@\(viewModel.host)")
-                    .font(TinsuTypography.code)
-                    .foregroundColor(TinsuColors.primary)
-                    .textSelection(.enabled)
+                if viewModel.deployKeySuccess {
+                    // Success state
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .tinsuIcon(color: TinsuColors.success)
+                        Text("Key Deployed Successfully")
+                            .font(TinsuTypography.title)
+                            .foregroundColor(TinsuColors.onSurface)
+                        Text("Your public key has been added to ~/.ssh/authorized_keys on the remote server.")
+                            .font(TinsuTypography.body)
+                            .foregroundColor(TinsuColors.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
                     .padding(TinsuSpacing.cardPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(TinsuColors.surfaceVariant)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                // Manual steps
-                Text("Manual Steps")
-                    .font(TinsuTypography.title)
-                    .foregroundColor(TinsuColors.onBackground)
+                    Spacer(minLength: 16)
 
-                let steps = [
-                    "SSH into your remote machine: ssh \(viewModel.username)@\(viewModel.host)",
-                    "Create the .ssh directory: mkdir -p ~/.ssh && chmod 700 ~/.ssh",
-                    "Open authorized_keys: nano ~/.ssh/authorized_keys",
-                    "Paste your public key on a new line, then save the file",
-                    "Set permissions: chmod 600 ~/.ssh/authorized_keys"
-                ]
+                    Button("Next") {
+                        viewModel.nextStep()
+                    }
+                    .primaryButtonStyle()
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: TinsuSpacing.minTouchTarget)
 
-                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Step \(index + 1)")
-                            .font(TinsuTypography.code)
-                            .foregroundColor(TinsuColors.primary)
-                        Text(step)
-                            .font(TinsuTypography.code)
-                            .foregroundColor(TinsuColors.onSurface)
+                } else {
+                    // Password input
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("SSH Password")
+                            .font(TinsuTypography.label)
+                            .foregroundColor(TinsuColors.onSurfaceVariant)
+                        SecureField("Enter your SSH password", text: $password)
+                            .textContentType(.password)
                             .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(TinsuColors.surfaceVariant)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .foregroundColor(TinsuColors.onSurface)
                     }
-                }
 
-                Spacer(minLength: TinsuSpacing.contentMargin)
+                    if let error = viewModel.deployKeyError {
+                        Text(error)
+                            .font(TinsuTypography.label)
+                            .foregroundColor(TinsuColors.error)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
-                Button("I've Added the Key") {
-                    viewModel.nextStep()
+                    if viewModel.isDeployingKey {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                                .tint(TinsuColors.primary)
+                            Text("Adding key to server…")
+                                .font(TinsuTypography.body)
+                                .foregroundColor(TinsuColors.onSurfaceVariant)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Button("Deploy Key to Server") {
+                            viewModel.deployPublicKey(password: password)
+                        }
+                        .primaryButtonStyle()
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: TinsuSpacing.minTouchTarget)
+                        .disabled(password.isEmpty)
+                    }
+
+                    // Manual fallback
+                    Button("I'll add it manually") {
+                        viewModel.nextStep()
+                    }
+                    .tertiaryButtonStyle()
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: TinsuSpacing.minTouchTarget)
                 }
-                .primaryButtonStyle()
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: TinsuSpacing.minTouchTarget)
             }
             .padding(.horizontal, TinsuSpacing.contentMargin)
             .padding(.vertical, 24)
