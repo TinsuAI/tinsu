@@ -210,7 +210,11 @@ pub async fn resolve_artifact_path(project_path: &str, workflow_key: &str) -> Op
         find_file_with_prefix_suffix(&dir, pattern.prefix, pattern.suffix).await
     } else {
         let path = dir.join(pattern.prefix);
-        if path.exists() { Some(path) } else { None }
+        if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            Some(path)
+        } else {
+            None
+        }
     }
 }
 
@@ -632,7 +636,8 @@ fn extract_section(content: &str, heading: &str, max_chars: usize) -> Option<Str
     if text.is_empty() {
         None
     } else {
-        Some(text[..text.len().min(max_chars)].to_string())
+        let truncated: String = text.chars().take(max_chars).collect();
+        Some(truncated)
     }
 }
 

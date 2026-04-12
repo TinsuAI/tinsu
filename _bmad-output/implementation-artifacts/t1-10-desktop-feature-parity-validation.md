@@ -1,6 +1,6 @@
 # Story T1.10: Desktop Feature Parity Validation (Phase 1 Gate)
 
-Status: review
+Status: done
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
@@ -650,4 +650,9 @@ claude-sonnet-4-6
 
 ### Review Findings
 
-(to be filled by reviewer)
+- [ ] [Review][Patch] `extract_section` slices string by byte offset — can panic on multi-byte UTF-8 chars at the 500-char boundary [`planning.rs:635`]
+- [ ] [Review][Patch] `resolve_artifact_path` uses blocking `std::path::Path::exists()` in async fn — violates architecture rule (use `tokio::fs`) [`planning.rs:213`]
+- [ ] [Review][Patch] `ArtifactViewer` heading id extraction uses `typeof children === 'string'` — fails for headings with inline bold/code/links (ReactMarkdown passes arrays); scroll targeting breaks [`ArtifactViewer.tsx:70-97`]
+- [x] [Review][Defer] `WorkflowRunPanel` "View Terminal" renders as non-clickable text — task 6.3 requires navigation to task workspace; deferred, needs task workspace navigation store integration [`WorkflowRunPanel.tsx:147`]
+- [x] [Review][Defer] `WorkflowRunPanel` output artifact links missing when run succeeds — task 6.4 unimplemented; deferred, architectural limitation (active query only returns running/needs-input) [`WorkflowRunPanel.tsx`]
+- [x] [Review][Defer] `ArtifactViewer` "Edit with Agent" button missing — task 3.7 not implemented; deferred, pre-existing gap [`ArtifactViewer.tsx`]

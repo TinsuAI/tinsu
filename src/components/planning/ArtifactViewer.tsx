@@ -63,13 +63,26 @@ function parseHeadings(content: string): Array<{ level: number; text: string; id
   return headings
 }
 
+/** Extract plain text from React children (handles strings, arrays, and elements) */
+function extractTextFromChildren(children: React.ReactNode): string {
+  if (typeof children === 'string') return children
+  if (typeof children === 'number') return String(children)
+  if (Array.isArray(children)) return children.map(extractTextFromChildren).join('')
+  if (children !== null && children !== undefined && typeof children === 'object') {
+    const el = children as { props?: { children?: React.ReactNode } }
+    if (el.props?.children !== undefined) {
+      return extractTextFromChildren(el.props.children)
+    }
+  }
+  return ''
+}
+
 /** Extended markdown components with id attrs on headings for scroll targeting */
 function makeMarkdownComponents(baseComponents: typeof markdownComponents) {
   return {
     ...baseComponents,
     h1: ({ children }: { children?: React.ReactNode }) => {
-      const text = typeof children === 'string' ? children : ''
-      const id = slugify(text)
+      const id = slugify(extractTextFromChildren(children))
       return (
         <h1 id={id} className="mb-6 mt-10 text-2xl font-bold tracking-tight text-foreground first:mt-0">
           {children}
@@ -77,8 +90,7 @@ function makeMarkdownComponents(baseComponents: typeof markdownComponents) {
       )
     },
     h2: ({ children }: { children?: React.ReactNode }) => {
-      const text = typeof children === 'string' ? children : ''
-      const id = slugify(text)
+      const id = slugify(extractTextFromChildren(children))
       return (
         <h2 id={id} className="mb-4 mt-8 text-xl font-semibold tracking-tight text-foreground">
           {children}
@@ -86,8 +98,7 @@ function makeMarkdownComponents(baseComponents: typeof markdownComponents) {
       )
     },
     h3: ({ children }: { children?: React.ReactNode }) => {
-      const text = typeof children === 'string' ? children : ''
-      const id = slugify(text)
+      const id = slugify(extractTextFromChildren(children))
       return (
         <h3 id={id} className="mb-3 mt-6 text-lg font-semibold text-foreground">
           {children}
