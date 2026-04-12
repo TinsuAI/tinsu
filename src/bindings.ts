@@ -176,6 +176,48 @@ export const commands = {
 	attachChatTerminal: (sessionId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_chat_terminal", { sessionId, cols, rows, onData })),
 	// Detach a PTY from a chat session (leaves tmux running).
 	detachChatTerminal: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("detach_chat_terminal", { processId })),
+	// Scan all known BMAD planning artifacts for a project.
+	scanArtifacts: (projectId: string) => typedError<ArtifactScanResult[], AppError>(__TAURI_INVOKE("scan_artifacts", { projectId })),
+	// Get the markdown content of an artifact.
+	getArtifactContent: (projectId: string, workflowKey: string) => typedError<ArtifactContentResult, AppError>(__TAURI_INVOKE("get_artifact_content", { projectId, workflowKey })),
+	// Update the stored status for an artifact.
+	updateArtifactStatus: (projectId: string, artifactKey: string, status: string) => typedError<null, AppError>(__TAURI_INVOKE("update_artifact_status", { projectId, artifactKey, status })),
+	// Create a new workflow run record.
+	createWorkflowRun: (projectId: string, workflowKey: string, phase: string | null, agentName: string | null, taskId: string | null, inputArtifacts: string[] | null) => typedError<WorkflowRunModel, AppError>(__TAURI_INVOKE("create_workflow_run", { projectId, workflowKey, phase, agentName, taskId, inputArtifacts })),
+	// Update a workflow run's status (and optionally output artifacts).
+	updateWorkflowRun: (runId: string, status: string, outputArtifacts: string[] | null) => typedError<WorkflowRunModel, AppError>(__TAURI_INVOKE("update_workflow_run", { runId, status, outputArtifacts })),
+	// List workflow runs for a project (ordered by started_at DESC).
+	listWorkflowRuns: (projectId: string, limit: number | null) => typedError<WorkflowRunModel[], AppError>(__TAURI_INVOKE("list_workflow_runs", { projectId, limit })),
+	// Get the currently active workflow run for a project (status running or needs-input).
+	getActiveWorkflowRun: (projectId: string) => typedError<{
+	id: string,
+	project_id: string,
+	workflow_key: string,
+	phase: string | null,
+	status: string,
+	started_at: number | null,
+	finished_at: number | null,
+	input_artifacts: string[] | null,
+	output_artifacts: string[] | null,
+	agent_name: string | null,
+	task_id: string | null,
+} | null, AppError>(__TAURI_INVOKE("get_active_workflow_run", { projectId })),
+	// Parse a readiness report file and save as a gate_decision record.
+	parseAndSaveGateResult: (projectId: string, workflowRunId: string | null) => typedError<GateDecisionModel, AppError>(__TAURI_INVOKE("parse_and_save_gate_result", { projectId, workflowRunId })),
+	// Get the most recent gate decision for a project.
+	getLatestGateDecision: (projectId: string) => typedError<{
+	id: string,
+	project_id: string,
+	decision: string,
+	rationale: string | null,
+	issues: GateIssue[] | null,
+	created_at: number,
+	workflow_run_id: string | null,
+} | null, AppError>(__TAURI_INVOKE("get_latest_gate_decision", { projectId })),
+	// List gate decisions for a project (ordered by created_at DESC).
+	listGateDecisions: (projectId: string, limit: number | null) => typedError<GateDecisionModel[], AppError>(__TAURI_INVOKE("list_gate_decisions", { projectId, limit })),
+	// Approve all artifacts for implementation (requires latest gate decision = pass).
+	approveForImplementation: (projectId: string) => typedError<number, AppError>(__TAURI_INVOKE("approve_for_implementation", { projectId })),
 };
 
 /* Types */
@@ -188,6 +230,24 @@ export type ActivityModel = {
 };
 
 export type AppError = ({ NotFound: string }) & { BadRequest?: never; Database?: never; GitConflict?: never; GitOperation?: never; Internal?: never } | ({ BadRequest: string }) & { Database?: never; GitConflict?: never; GitOperation?: never; Internal?: never; NotFound?: never } | ({ Internal: string }) & { BadRequest?: never; Database?: never; GitConflict?: never; GitOperation?: never; NotFound?: never } | ({ Database: string }) & { BadRequest?: never; GitConflict?: never; GitOperation?: never; Internal?: never; NotFound?: never } | ({ GitConflict: string }) & { BadRequest?: never; Database?: never; GitOperation?: never; Internal?: never; NotFound?: never } | ({ GitOperation: string }) & { BadRequest?: never; Database?: never; GitConflict?: never; Internal?: never; NotFound?: never };
+
+export type ArtifactContentResult = {
+	content: string,
+	file_path: string,
+	last_modified: number,
+	size_bytes: number,
+	word_count: number,
+	workflow_key: string,
+};
+
+export type ArtifactScanResult = {
+	workflow_key: string,
+	exists: boolean,
+	filename: string | null,
+	last_modified: number | null,
+	size_bytes: number | null,
+	status: string,
+};
 
 export type AttachResult = {
 	process_id: string,
@@ -297,6 +357,23 @@ export type EpicModel = {
 	sprint_id: string | null,
 	project_id: string,
 	created_at: number,
+};
+
+export type GateDecisionModel = {
+	id: string,
+	project_id: string,
+	decision: string,
+	rationale: string | null,
+	issues: GateIssue[] | null,
+	created_at: number,
+	workflow_run_id: string | null,
+};
+
+export type GateIssue = {
+	severity: string,
+	description: string,
+	artifact_key: string | null,
+	section_ref: string | null,
 };
 
 export type GetTaskInput = {
@@ -484,6 +561,20 @@ export type WeekBucket = {
 export type WeeklyVelocityData = {
 	total_completed: number,
 	weeks: WeekBucket[],
+};
+
+export type WorkflowRunModel = {
+	id: string,
+	project_id: string,
+	workflow_key: string,
+	phase: string | null,
+	status: string,
+	started_at: number | null,
+	finished_at: number | null,
+	input_artifacts: string[] | null,
+	output_artifacts: string[] | null,
+	agent_name: string | null,
+	task_id: string | null,
 };
 
 /* Tauri Specta runtime */

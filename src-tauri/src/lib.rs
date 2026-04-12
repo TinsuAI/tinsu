@@ -14,6 +14,7 @@ use services::{
 };
 use specta_typescript::Typescript;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::Manager;
 use tauri_specta::collect_commands;
 
@@ -76,6 +77,17 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::chat::get_chat_session_by_workflow_key,
         commands::chat::attach_chat_terminal,
         commands::chat::detach_chat_terminal,
+        commands::planning::scan_artifacts,
+        commands::planning::get_artifact_content,
+        commands::planning::update_artifact_status,
+        commands::planning::create_workflow_run,
+        commands::planning::update_workflow_run,
+        commands::planning::list_workflow_runs,
+        commands::planning::get_active_workflow_run,
+        commands::planning::parse_and_save_gate_result,
+        commands::planning::get_latest_gate_decision,
+        commands::planning::list_gate_decisions,
+        commands::planning::approve_for_implementation,
     ])
 }
 
@@ -112,6 +124,22 @@ pub fn run() {
                 // Restore session state on startup
                 commands::agent::restore_sessions_on_startup(&db, &tmux_service).await;
                 services::chat_cli::validate_chat_sessions_on_startup(&db, &tmux_service).await;
+
+                // Spawn periodic stale-session health monitor (every 30s)
+                let db_clone = db.clone();
+                let tmux_clone = Arc::clone(&tmux_service);
+                let app_handle_clone = app_handle.clone();
+                tokio::spawn(async move {
+                    loop {
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                        services::chat_cli::check_and_update_stale_sessions(
+                            &db_clone,
+                            &tmux_clone,
+                            &app_handle_clone,
+                        )
+                        .await;
+                    }
+                });
 
                 // Initialize hook listener
                 let hook_db = db.clone();

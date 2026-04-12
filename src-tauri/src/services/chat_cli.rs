@@ -273,6 +273,73 @@ impl ChatCliService {
     }
 }
 
+// ─── Stale Session Monitor ────────────────────────────────────────────────
+
+/// Periodic health check: mark sessions as "exited" if their tmux session has disappeared.
+/// Called every 30 seconds from the background task spawned in lib.rs.
+pub async fn check_and_update_stale_sessions(
+    db: &DatabaseConnection,
+    tmux_service: &Arc<TmuxService>,
+    app_handle: &tauri::AppHandle,
+) {
+    use crate::db::entities::chat_session;
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+    use tauri::Emitter;
+
+    let sessions = match chat_session::Entity::find()
+        .filter(
+            chat_session::Column::Status
+                .ne("exited")
+                .and(chat_session::Column::Status.ne("deleted")),
+        )
+        .all(db)
+        .await
+    {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("check_and_update_stale_sessions: DB query failed: {}", e);
+            return;
+        }
+    };
+
+    let chat_cli = ChatCliService;
+    for session in sessions {
+        if let Some(ref tmux_name) = session.tmux_session {
+            let alive = chat_cli.get_session_status(tmux_name, tmux_service).await;
+            if !alive {
+                tracing::info!(
+                    "check_and_update_stale_sessions: session {} tmux gone, marking exited",
+                    session.id
+                );
+                let now = now_unix_secs();
+                let updated = chat_session::ActiveModel {
+                    id: Set(session.id.clone()),
+                    status: Set("exited".to_string()),
+                    updated_at: Set(now),
+                    ..Default::default()
+                };
+                if let Err(e) = updated.update(db).await {
+                    tracing::warn!(
+                        "check_and_update_stale_sessions: failed to update session {}: {}",
+                        session.id,
+                        e
+                    );
+                    continue;
+                }
+                if let Err(e) = app_handle.emit(
+                    "chat:session-status-changed",
+                    serde_json::json!({ "session_id": session.id, "status": "exited" }),
+                ) {
+                    tracing::warn!(
+                        "check_and_update_stale_sessions: failed to emit event: {}",
+                        e
+                    );
+                }
+            }
+        }
+    }
+}
+
 // ─── Startup Validator ─────────────────────────────────────────────────────
 
 /// Check all chat sessions on startup. Mark sessions as "exited" if their tmux session is gone.
