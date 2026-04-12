@@ -5,20 +5,22 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/components/ui/select'
-import { trpc } from '@renderer/lib/trpc'
+import { useListEpics } from '@renderer/hooks/useEpicCommands'
 
 interface EpicSelectProps {
   value: string | undefined
   onValueChange: (value: string | undefined) => void
   placeholder?: string
+  projectId?: string
 }
 
 export function EpicSelect({
   value,
   onValueChange,
-  placeholder = 'Select epic...'
+  placeholder = 'Select epic...',
+  projectId = ''
 }: EpicSelectProps) {
-  const { data: epics, isLoading } = trpc.epics.getAll.useQuery()
+  const { data: epics, isLoading } = useListEpics(projectId)
 
   return (
     <Select

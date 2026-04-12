@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-12  # t1-1 done, tauri-epic-1 in-progress
+last_updated: 2026-04-12  # t1-1 done, t1-2 done, t1-3 done, t1-4 done, tauri-epic-1 in-progress
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -374,9 +374,9 @@ development_status:
   # Tauri Epic 1: Tauri Desktop Foundation & React Migration (Phase 1)
   tauri-epic-1: in-progress
   t1-1-initialize-tauri-v2-project-with-react-frontend: done  # Code review complete - 1 auto-fix applied (deleted stale electron.vite.config.*.mjs artifact), 2 deferred, 13 dismissed
-  t1-2-set-up-rust-sqlite-database-with-migrations: backlog
-  t1-3-implement-type-safe-ipc-command-layer: backlog
-  t1-4-migrate-task-crud-commands: backlog
+  t1-2-set-up-rust-sqlite-database-with-migrations: done  # Code review complete - 1 auto-fix applied (removed unused `use super::*` wildcard import from test module), 2 deferred, 3 dismissed, all 1 test passing
+  t1-3-implement-type-safe-ipc-command-layer: done  # Code review complete - 4 auto-fixes applied (specta-typescript pinned to =0.0.11, duplicate tokio dev-dep removed, timestamp unwrap_or(0) logs tracing::warn, test_specta_builder_builds uses pid-scoped temp file + cleanup), 8 deferred, 12 dismissed
+  t1-4-migrate-task-crud-commands: done  # Code review complete - 2 auto-fixes applied (inline_comments JSON.parse try/catch, KanbanBoardContainer.test.tsx migrated from tRPC mocks to useTaskCommands/useEpicCommands), 4 deferred, 10 dismissed, all 25 frontend + 15 Rust tests passing
   t1-5-migrate-project-sprint-and-epic-commands: backlog
   t1-6-migrate-pty-and-tmux-services-to-rust: backlog
   t1-7-migrate-hook-listener-http-server-to-rust: backlog

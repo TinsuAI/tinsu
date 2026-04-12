@@ -1,7 +1,5 @@
 import { useCallback, useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { trpc } from '@renderer/lib/trpc'
 import { KanbanBoard } from './KanbanBoard'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { ImportStoriesDialog } from '../dialogs/ImportStoriesDialog'
@@ -13,13 +11,23 @@ import { useUIStore, useTerminalStore, useTaskWorkspaceStore } from '@renderer/s
 import { useAgentLauncher } from '@renderer/hooks/useAgentLauncher'
 import { useStorySync } from '@renderer/hooks/useStorySync'
 import { useBranchStatus } from '@renderer/hooks/useBranchStatus'
+import {
+  useListTasks,
+  useUpdateTaskStatus,
+  useReorderTasks,
+  useDeleteTask,
+} from '@renderer/hooks/useTaskCommands'
+import { useListEpics } from '@renderer/hooks/useEpicCommands'
 import type { Task, TaskStatus } from '@shared/types/task.types'
 import type { GitRecoverableError } from '@shared/types/git-error.types'
 
 export function KanbanBoardContainer() {
-  const queryClient = useQueryClient()
-  const { data: tasks, isLoading, isError, error } = trpc.tasks.getAll.useQuery() as { data: Task[] | undefined; isLoading: boolean; isError: boolean; error: Error | null }
-  const { data: epics } = trpc.epics.getAll.useQuery()
+  // Resolve active project ID — projectStore has projectPath, not projectId.
+  // Pass "" as fallback; backend returns all tasks when project_id is empty.
+  const activeProjectId = ''
+
+  const { data: tasks, isLoading, isError, error } = useListTasks(activeProjectId)
+  const { data: epics } = useListEpics(activeProjectId)
 
   // Story 3.4: Agent launcher hook for planning tasks
   // Story 5.3: Extended with launchCreateStory and launchDevStory
@@ -67,6 +75,11 @@ export function KanbanBoardContainer() {
   const [failedTaskId, setFailedTaskId] = useState<string | null>(null)
   const [failedStatus, setFailedStatus] = useState<TaskStatus | null>(null)
 
+  // tauri-specta mutations
+  const updateStatusMutation = useUpdateTaskStatus(activeProjectId)
+  const reorderMutation = useReorderTasks(activeProjectId)
+  const deleteMutation = useDeleteTask(activeProjectId)
+
   // Handle add task from column "+" button
   const handleAddTask = useCallback((status: TaskStatus) => {
     setDialogInitialStatus(status)
@@ -101,138 +114,68 @@ export function KanbanBoardContainer() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Mutation for updating task status
-  const updateStatusMutation = trpc.tasks.updateStatus.useMutation({
-    // Optimistic update
-    onMutate: async ({ id, status }) => {
-      // Cancel outgoing refetches to avoid overwriting optimistic update
-      await queryClient.cancelQueries({ queryKey: [['tasks', 'getAll']] })
-
-      // Snapshot current state for rollback
-      const previousTasks = queryClient.getQueryData([['tasks', 'getAll']])
-
-      // Optimistically update the cache
-      queryClient.setQueryData([['tasks', 'getAll']], (old: Task[] | undefined) => {
-        if (!old) return old
-        return old.map((task) =>
-          task.id === id ? { ...task, status, updated_at: new Date() } : task
-        )
-      })
-
-      return { previousTasks }
-    },
-    // Rollback on error and notify user
-    onError: (err, variables, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
-      }
-
-      // Story 8.10 AC2: Check if this is a recoverable git error
-      const cause = (err as any).cause
-      if (cause && cause.recoverable) {
-        // Show GitErrorDialog instead of toast
-        setGitError(cause.recoverable as GitRecoverableError)
-        setFailedTaskId(variables.id)
-        setFailedStatus(variables.status)
-        setGitErrorDialogOpen(true)
-      } else {
-        // Show regular error toast
-        toast.error('Failed to update task status', {
-          description: err.message
-        })
-      }
-    },
-    // Refetch after success or error
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [['tasks', 'getAll']] })
-    }
-  })
-
   // Handle status change from drag-drop
   const handleStatusChange = useCallback(
     (taskId: string, newStatus: TaskStatus) => {
-      updateStatusMutation.mutate({ id: taskId, status: newStatus })
+      updateStatusMutation.mutate(
+        { id: taskId, status: newStatus },
+        {
+          onError: (err) => {
+            // Story 8.10 AC2: Check if this is a recoverable git error
+            const cause = (err as any).cause
+            if (cause && cause.recoverable) {
+              setGitError(cause.recoverable as GitRecoverableError)
+              setFailedTaskId(taskId)
+              setFailedStatus(newStatus)
+              setGitErrorDialogOpen(true)
+            } else {
+              toast.error('Failed to update task status', {
+                description: err.message
+              })
+            }
+          },
+        }
+      )
     },
     [updateStatusMutation]
   )
 
-  // Mutation for reordering tasks within a column
-  const reorderMutation = trpc.tasks.reorder.useMutation({
-    onMutate: async ({ taskIds, status }) => {
-      await queryClient.cancelQueries({ queryKey: [['tasks', 'getAll']] })
-      const previousTasks = queryClient.getQueryData([['tasks', 'getAll']])
-
-      // Optimistically update sort_order based on new positions
-      queryClient.setQueryData([['tasks', 'getAll']], (old: Task[] | undefined) => {
-        if (!old) return old
-        return old.map((task) => {
-          if (task.status !== status) return task
-          const newIndex = taskIds.indexOf(task.id)
-          if (newIndex === -1) return task
-          return { ...task, sort_order: newIndex, updated_at: new Date() }
-        })
-      })
-
-      return { previousTasks }
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
-      }
-      toast.error('Failed to reorder tasks', {
-        description: err.message
-      })
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [['tasks', 'getAll']] })
-    }
-  })
-
   // Handle reorder within column
   const handleReorder = useCallback(
     (taskIds: string[], status: TaskStatus) => {
-      reorderMutation.mutate({ taskIds, status })
+      reorderMutation.mutate(
+        { task_ids: taskIds, status },
+        {
+          onError: (err) => {
+            toast.error('Failed to reorder tasks', {
+              description: err.message
+            })
+          },
+        }
+      )
     },
     [reorderMutation]
   )
 
-  // Mutation for deleting tasks
-  const deleteMutation = trpc.tasks.delete.useMutation({
-    onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: [['tasks', 'getAll']] })
-      const previousTasks = queryClient.getQueryData([['tasks', 'getAll']])
-
-      // Optimistically remove the task from cache
-      queryClient.setQueryData([['tasks', 'getAll']], (old: Task[] | undefined) => {
-        if (!old) return old
-        return old.filter((task) => task.id !== id)
-      })
-
-      // TES-1.6: Clear terminal buffer when task is deleted
-      useTerminalStore.getState().clearBuffer(id)
-
-      return { previousTasks }
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData([['tasks', 'getAll']], context.previousTasks)
-      }
-      toast.error('Failed to delete task', {
-        description: err.message
-      })
-    },
-    onSuccess: () => {
-      toast.success('Task deleted')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [['tasks', 'getAll']] })
-    }
-  })
-
   // Handle delete task
   const handleDeleteTask = useCallback(
     (taskId: string) => {
-      deleteMutation.mutate({ id: taskId })
+      // TES-1.6: Clear terminal buffer when task is deleted
+      useTerminalStore.getState().clearBuffer(taskId)
+
+      deleteMutation.mutate(
+        { id: taskId },
+        {
+          onError: (err) => {
+            toast.error('Failed to delete task', {
+              description: err.message
+            })
+          },
+          onSuccess: () => {
+            toast.success('Task deleted')
+          },
+        }
+      )
     },
     [deleteMutation]
   )
@@ -240,7 +183,6 @@ export function KanbanBoardContainer() {
   // Story 5.2c: Handle drag blocked notification
   // Story 5.3b AC4: Use toast.info for basic task guidance (not warning)
   const handleDragBlocked = useCallback((message: string) => {
-    // Basic task guidance should be info, not warning
     if (message.includes('Basic Tasks execute directly')) {
       toast.info('Move blocked', {
         description: message
@@ -267,17 +209,13 @@ export function KanbanBoardContainer() {
       return
     }
 
-    // Move task to create_story status (this creates the tmux session)
-    // Must await to ensure session is created before launching workflow
     console.log('[KanbanBoardContainer] handleCreateStoryConfirm: Updating status to create_story')
     await updateStatusMutation.mutateAsync({ id: createStoryTask.id, status: 'create_story' })
     console.log('[KanbanBoardContainer] handleCreateStoryConfirm: Status updated, now launching create-story')
 
-    // Launch the create-story workflow
     launchCreateStory(createStoryTask.id)
     console.log('[KanbanBoardContainer] handleCreateStoryConfirm: launchCreateStory called')
 
-    // Clear the dialog state
     setCreateStoryTask(null)
   }, [createStoryTask, updateStatusMutation, launchCreateStory])
 
@@ -295,17 +233,13 @@ export function KanbanBoardContainer() {
       return
     }
 
-    // Move task to in_progress status (this creates the tmux session if needed)
-    // Must await to ensure session is created before launching workflow
     console.log('[KanbanBoardContainer] handleDevStoryConfirm: Updating status to in_progress')
     await updateStatusMutation.mutateAsync({ id: devStoryTask.id, status: 'in_progress' })
     console.log('[KanbanBoardContainer] handleDevStoryConfirm: Status updated, now launching dev-story')
 
-    // Launch the dev-story workflow
     launchDevStory(devStoryTask.id)
     console.log('[KanbanBoardContainer] handleDevStoryConfirm: launchDevStory called')
 
-    // Clear the dialog state
     setDevStoryTask(null)
   }, [devStoryTask, updateStatusMutation, launchDevStory])
 
@@ -319,72 +253,29 @@ export function KanbanBoardContainer() {
   const handleBasicTaskConfirm = useCallback(async () => {
     if (!basicTask) return
 
-    // Move task to in_progress status (this creates the tmux session)
-    // Must await to ensure session is created before launching workflow
     await updateStatusMutation.mutateAsync({ id: basicTask.id, status: 'in_progress' })
 
-    // Launch the basic task directly
     launchBasicTask(basicTask.id)
 
-    // Clear the dialog state
     setBasicTask(null)
   }, [basicTask, updateStatusMutation, launchBasicTask])
 
-  // Story 8.10 AC2: Handle git error retry
-  const retryWorktreeCreationMutation = trpc.git.retryWorktreeCreation.useMutation({
-    onSuccess: () => {
-      // Retry succeeded, try status update again
-      if (failedTaskId && failedStatus) {
-        updateStatusMutation.mutate({ id: failedTaskId, status: failedStatus })
-      }
-      setGitErrorDialogOpen(false)
-      setGitError(null)
-      setFailedTaskId(null)
-      setFailedStatus(null)
-    },
-    onError: (err) => {
-      // Retry also failed - keep dialog open, show toast
-      toast.error('Retry failed', {
-        description: err.message
-      })
-    }
-  })
-
-  const skipWorktreeCreationMutation = trpc.git.skipWorktreeCreation.useMutation({
-    onSuccess: () => {
-      // Skip succeeded, try status update again
-      if (failedTaskId && failedStatus) {
-        updateStatusMutation.mutate({ id: failedTaskId, status: failedStatus })
-      }
-      setGitErrorDialogOpen(false)
-      setGitError(null)
-      setFailedTaskId(null)
-      setFailedStatus(null)
-      toast.success('Proceeding without git worktree')
-    },
-    onError: (err) => {
-      toast.error('Skip failed', {
-        description: err.message
-      })
-    }
-  })
-
+  // Story 8.10 AC2: Git error retry — T1.8 deferred: git commands not yet in Rust
   const handleGitErrorRetry = useCallback(() => {
-    if (failedTaskId) {
-      // Get task title for retry
-      const task = tasks?.find((t) => t.id === failedTaskId)
-      retryWorktreeCreationMutation.mutate({
-        taskId: failedTaskId,
-        taskTitle: task?.title
-      })
-    }
-  }, [failedTaskId, tasks, retryWorktreeCreationMutation])
+    console.warn('Git commands deferred to T1.8')
+    setGitErrorDialogOpen(false)
+    setGitError(null)
+    setFailedTaskId(null)
+    setFailedStatus(null)
+  }, [])
 
   const handleGitErrorSkip = useCallback(() => {
-    if (failedTaskId) {
-      skipWorktreeCreationMutation.mutate({ taskId: failedTaskId })
-    }
-  }, [failedTaskId, skipWorktreeCreationMutation])
+    console.warn('Git commands deferred to T1.8')
+    setGitErrorDialogOpen(false)
+    setGitError(null)
+    setFailedTaskId(null)
+    setFailedStatus(null)
+  }, [])
 
   const handleGitErrorDismiss = useCallback(() => {
     setGitErrorDialogOpen(false)
@@ -393,29 +284,22 @@ export function KanbanBoardContainer() {
     setFailedStatus(null)
   }, [])
 
-  // Transform tasks to match the Task interface (handle date serialization from tRPC)
   // Story 2.6: Apply comprehensive filtering with AND logic between filter types
+  // Tasks from useListTasks are already transformed (dates as Date, etc.)
   const transformedTasks: Task[] = useMemo(() => {
-    let filtered = (tasks ?? []).map((task) => ({
-      ...task,
-      status: task.status as TaskStatus,
-      task_type: task.task_type as 'planning' | 'story',
-      created_at: new Date(task.created_at),
-      updated_at: new Date(task.updated_at)
-    }))
+    let filtered = tasks ?? []
 
-    // Sprint filter (single select, existing from Story 2.5)
+    // Sprint filter (single select)
     if (selectedSprintId) {
       filtered = filtered.filter((task) => task.sprint_id === selectedSprintId)
     }
 
-    // Epic filter (multi-select, OR logic within - Story 2.6)
+    // Epic filter (multi-select, OR logic within)
     if (selectedEpicIds.length > 0) {
       filtered = filtered.filter((task) => task.epic_id && selectedEpicIds.includes(task.epic_id))
     }
 
-    // Status filter (multi-select, OR logic within - Story 2.6)
-    // Only apply if some statuses are selected but not all 4 (selecting all = no filter)
+    // Status filter (multi-select, OR logic within)
     if (selectedStatuses.length > 0 && selectedStatuses.length < 4) {
       filtered = filtered.filter((task) => selectedStatuses.includes(task.status))
     }
@@ -460,7 +344,7 @@ export function KanbanBoardContainer() {
     return taskWithProject?.project_id ?? ''
   }, [transformedTasks])
 
-  // Error state - must be after all hooks to avoid "fewer hooks than expected" error
+  // Error state — must be after all hooks to avoid "fewer hooks than expected" error
   if (isError) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -503,6 +387,7 @@ export function KanbanBoardContainer() {
         onOpenChange={setDialogOpen}
         initialStatus={dialogInitialStatus}
         initialSprintId={selectedSprintId}
+        projectId={activeProjectId}
       />
       <ImportStoriesDialog
         open={importDialogOpen}
@@ -543,7 +428,7 @@ export function KanbanBoardContainer() {
           onConfirm={handleBasicTaskConfirm}
         />
       )}
-      {/* Story 8.10 AC2: Git error recovery dialog */}
+      {/* Story 8.10 AC2: Git error recovery dialog — git retry/skip deferred to T1.8 */}
       {gitError && (
         <GitErrorDialog
           open={gitErrorDialogOpen}
@@ -553,7 +438,7 @@ export function KanbanBoardContainer() {
           onRetry={handleGitErrorRetry}
           onSkip={handleGitErrorSkip}
           onDismiss={handleGitErrorDismiss}
-          isRetrying={retryWorktreeCreationMutation.isPending || skipWorktreeCreationMutation.isPending}
+          isRetrying={false}
         />
       )}
     </>

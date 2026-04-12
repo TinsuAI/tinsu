@@ -46,13 +46,17 @@ export function useFileWatcher(projectPath: string | null): void {
     // Start watching files
     startWatchingMutation.mutate({ projectPath })
 
-    // Subscribe to file change events (no-op in Tauri until T1.3 IPC is wired)
-    if (!window.api) return
-    unsubscribeRef.current = window.api.onFileChange((event) => {
-      showSyncNotification(event.taskId, event.taskTitle)
-    })
+    // Subscribe to file change events via Electron contextBridge API.
+    // window.api is only available in Electron; in Tauri this path is skipped.
+    // The cleanup is always registered regardless to ensure stopWatching fires on unmount.
+    if (window.api) {
+      unsubscribeRef.current = window.api.onFileChange((event) => {
+        showSyncNotification(event.taskId, event.taskTitle)
+      })
+    }
 
-    // Cleanup on unmount or project change
+    // Cleanup on unmount or project change — always registered so stopWatching
+    // fires even when window.api is unavailable (T1.1 deferred fix).
     return () => {
       stopWatchingMutation.mutate()
       if (unsubscribeRef.current) {

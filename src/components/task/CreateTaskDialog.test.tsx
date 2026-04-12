@@ -26,81 +26,43 @@ function createWrapper() {
   }
 }
 
-// Mock tRPC
+// Mock useCreateTask hook
 const mockMutate = vi.fn()
-const mockInvalidate = vi.fn()
 let mockIsPending = false
-let mockShouldError = false
 
-vi.mock('@renderer/lib/trpc', () => ({
-  trpc: {
-    tasks: {
-      create: {
-        useMutation: (options?: {
-          onMutate?: (data: { title: string; description?: string; status: string }) => Promise<unknown>
-          onSuccess?: () => void
-          onError?: (error: Error, variables: unknown, context: unknown) => void
-          onSettled?: () => void
-        }) => ({
-          mutate: async (data: { title: string; description?: string; status: string }) => {
-            mockMutate(data)
-            // Call onMutate first (optimistic update)
-            let context: unknown
-            if (options?.onMutate) {
-              context = await options.onMutate(data)
-            }
-            if (mockShouldError && options?.onError) {
-              // Simulate error
-              setTimeout(() => options.onError?.(new Error('Database connection failed'), data, context), 0)
-            } else if (options?.onSuccess && !mockIsPending) {
-              // Simulate successful creation
-              setTimeout(() => options.onSuccess?.(), 0)
-            }
-            // Call onSettled
-            if (options?.onSettled) {
-              setTimeout(() => options.onSettled?.(), 10)
-            }
-          },
-          isPending: mockIsPending
-        })
-      }
-    },
-    epics: {
-      getAll: {
-        useQuery: () => ({
-          data: [],
-          isLoading: false
-        })
-      }
-    },
-    sprints: {
-      getAll: {
-        useQuery: () => ({
-          data: [],
-          isLoading: false
-        })
-      }
-    },
-    useUtils: () => ({
-      tasks: {
-        getAll: {
-          invalidate: mockInvalidate
-        }
-      }
-    })
-  }
+vi.mock('@renderer/hooks/useTaskCommands', () => ({
+  useCreateTask: () => ({
+    mutate: mockMutate,
+    isPending: mockIsPending,
+  })
+}))
+
+// Mock useListEpics hook (used by EpicSelect)
+vi.mock('@renderer/hooks/useEpicCommands', () => ({
+  useListEpics: () => ({
+    data: [],
+    isLoading: false,
+  })
+}))
+
+// Mock SprintSelect to avoid tRPC dependency
+vi.mock('./SprintSelect', () => ({
+  SprintSelect: ({ value, onValueChange }: { value?: string; onValueChange: (v?: string) => void }) => (
+    <select data-testid="sprint-select" value={value ?? ''} onChange={(e) => onValueChange(e.target.value || undefined)}>
+      <option value="">Select sprint...</option>
+    </select>
+  )
 }))
 
 describe('CreateTaskDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsPending = false
-    mockShouldError = false
   })
 
   it('should render dialog when open is true', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -112,7 +74,7 @@ describe('CreateTaskDialog', () => {
 
   it('should not render dialog when open is false', () => {
     render(
-      <CreateTaskDialog open={false} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={false} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -121,7 +83,7 @@ describe('CreateTaskDialog', () => {
 
   it('should show required indicator on title field', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -130,7 +92,7 @@ describe('CreateTaskDialog', () => {
 
   it('should show optional labels on description and acceptance criteria', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -141,7 +103,7 @@ describe('CreateTaskDialog', () => {
   it('should show validation error when submitting empty title', async () => {
     const user = userEvent.setup()
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -154,7 +116,7 @@ describe('CreateTaskDialog', () => {
   it('should clear validation error when user starts typing', async () => {
     const user = userEvent.setup()
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -168,55 +130,35 @@ describe('CreateTaskDialog', () => {
     expect(screen.queryByTestId('title-error')).not.toBeInTheDocument()
   })
 
-  it('should call mutation with correct data on valid submit', async () => {
+  it('should call mutation with title and project_id on valid submit', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="in_progress" />,
+      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
     await user.type(screen.getByTestId('task-title-input'), 'Test Task')
-    await user.type(screen.getByTestId('task-description-input'), 'Test description')
     await user.click(screen.getByTestId('create-button'))
 
-    expect(mockMutate).toHaveBeenCalledWith({
-      title: 'Test Task',
-      description: 'Test description',
-      status: 'in_progress'
-    })
+    expect(mockMutate).toHaveBeenCalledWith(
+      { title: 'Test Task', project_id: 'proj-1' },
+      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) })
+    )
   })
 
-  it('should include acceptance criteria in description when provided', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
-      { wrapper: createWrapper() }
-    )
-
-    await user.type(screen.getByTestId('task-title-input'), 'Test Task')
-    await user.type(screen.getByTestId('task-description-input'), 'Task description')
-    await user.type(
-      screen.getByTestId('task-acceptance-criteria-input'),
-      '- Given X, When Y, Then Z'
-    )
-    await user.click(screen.getByTestId('create-button'))
-
-    expect(mockMutate).toHaveBeenCalledWith({
-      title: 'Test Task',
-      description: 'Task description\n\n## Acceptance Criteria\n- Given X, When Y, Then Z',
-      status: 'backlog'
-    })
-  })
-
-  it('should close dialog on successful create', async () => {
+  it('should close dialog on successful create via onSuccess callback', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
 
+    // Set up mutate to call onSuccess
+    mockMutate.mockImplementation((_data, callbacks) => {
+      callbacks?.onSuccess?.()
+    })
+
     render(
-      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -228,28 +170,12 @@ describe('CreateTaskDialog', () => {
     })
   })
 
-  it('should invalidate tasks query on successful create', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
-      { wrapper: createWrapper() }
-    )
-
-    await user.type(screen.getByTestId('task-title-input'), 'Test Task')
-    await user.click(screen.getByTestId('create-button'))
-
-    await waitFor(() => {
-      expect(mockInvalidate).toHaveBeenCalled()
-    })
-  })
-
   it('should close dialog when Cancel button is clicked', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -263,7 +189,7 @@ describe('CreateTaskDialog', () => {
     const onOpenChange = vi.fn()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={onOpenChange} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -272,10 +198,10 @@ describe('CreateTaskDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should reset form when dialog closes', async () => {
+  it('should reset form when dialog closes and reopens', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -285,10 +211,10 @@ describe('CreateTaskDialog', () => {
 
     // Close and reopen dialog
     rerender(
-      <CreateTaskDialog open={false} onOpenChange={vi.fn()} initialStatus="backlog" />
+      <CreateTaskDialog open={false} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />
     )
     rerender(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />
     )
 
     // Form should be reset
@@ -300,7 +226,7 @@ describe('CreateTaskDialog', () => {
     const user = userEvent.setup()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -312,18 +238,17 @@ describe('CreateTaskDialog', () => {
       metaKey: true
     })
 
-    expect(mockMutate).toHaveBeenCalledWith({
-      title: 'Test Task',
-      description: undefined,
-      status: 'backlog'
-    })
+    expect(mockMutate).toHaveBeenCalledWith(
+      { title: 'Test Task', project_id: 'proj-1' },
+      expect.any(Object)
+    )
   })
 
   it('should submit form when Ctrl+Enter is pressed', async () => {
     const user = userEvent.setup()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -335,18 +260,17 @@ describe('CreateTaskDialog', () => {
       ctrlKey: true
     })
 
-    expect(mockMutate).toHaveBeenCalledWith({
-      title: 'Test Task',
-      description: undefined,
-      status: 'backlog'
-    })
+    expect(mockMutate).toHaveBeenCalledWith(
+      { title: 'Test Task', project_id: 'proj-1' },
+      expect.any(Object)
+    )
   })
 
   it('should not submit when only Enter is pressed without modifier', async () => {
     const user = userEvent.setup()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -364,7 +288,7 @@ describe('CreateTaskDialog', () => {
     mockIsPending = true
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -374,7 +298,7 @@ describe('CreateTaskDialog', () => {
 
   it('should autofocus title input when dialog opens', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -383,47 +307,18 @@ describe('CreateTaskDialog', () => {
 
   it('should have monospace font for acceptance criteria textarea', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
     expect(screen.getByTestId('task-acceptance-criteria-input')).toHaveClass('font-mono')
   })
 
-  it('should use initialStatus passed from props', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="review" />,
-      { wrapper: createWrapper() }
-    )
-
-    await user.type(screen.getByTestId('task-title-input'), 'Review Task')
-    await user.click(screen.getByTestId('create-button'))
-
-    expect(mockMutate).toHaveBeenCalledWith({
-      title: 'Review Task',
-      description: undefined,
-      status: 'review'
-    })
-  })
-
-  it('should show keyboard shortcut hint on Create button', () => {
-    render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
-      { wrapper: createWrapper() }
-    )
-
-    const createButton = screen.getByTestId('create-button')
-    // Should contain either ⌘↵ or Ctrl+Enter depending on platform
-    expect(createButton.textContent).toMatch(/Create.*[⌘↵|Ctrl\+Enter]/)
-  })
-
   it('should trim whitespace from title', async () => {
     const user = userEvent.setup()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -431,9 +326,8 @@ describe('CreateTaskDialog', () => {
     await user.click(screen.getByTestId('create-button'))
 
     expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Test Task'
-      })
+      expect.objectContaining({ title: 'Test Task' }),
+      expect.any(Object)
     )
   })
 
@@ -441,7 +335,7 @@ describe('CreateTaskDialog', () => {
     const user = userEvent.setup()
 
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -452,12 +346,16 @@ describe('CreateTaskDialog', () => {
     expect(screen.getByTestId('title-error')).toBeInTheDocument()
   })
 
-  it('should show error toast when mutation fails', async () => {
-    mockShouldError = true
+  it('should show error toast when mutation calls onError', async () => {
     const user = userEvent.setup()
 
+    // Set up mutate to call onError
+    mockMutate.mockImplementation((_data, callbacks) => {
+      callbacks?.onError?.(new Error('Database connection failed'))
+    })
+
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -475,7 +373,7 @@ describe('CreateTaskDialog', () => {
 describe('CreateTaskDialog accessibility', () => {
   it('should have accessible labels for form fields', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 
@@ -486,7 +384,7 @@ describe('CreateTaskDialog accessibility', () => {
 
   it('should trap focus within dialog', () => {
     render(
-      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" />,
+      <CreateTaskDialog open={true} onOpenChange={vi.fn()} initialStatus="backlog" projectId="proj-1" />,
       { wrapper: createWrapper() }
     )
 

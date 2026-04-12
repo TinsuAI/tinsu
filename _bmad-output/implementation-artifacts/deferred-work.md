@@ -1,8 +1,26 @@
 # Deferred Work
 
+## Deferred from: code review of t1-4-migrate-task-crud-commands (2026-04-12)
+
+- **`CreateTaskDialog` silently drops description/status/epicId/sprintId from mutation** — `CreateTaskInput` only accepts `title` + `project_id`; expand in a future story that adds these fields to the Rust command.
+- **`activeProjectId = ''` hardcoded in KanbanBoardContainer** — Backend returns all tasks when project_id is empty; blocked on project UUID resolution from store. Deferred to T1.5 or store migration.
+- **`reorder_tasks` doesn't validate task_ids belong to the project** — Any task ID can be passed; no ownership/project check before sort_order update. Address in a security hardening story (T1.8 or later).
+- **`now_unix_secs()` returns 0 on system clock before UNIX_EPOCH** — Accepted fallback with `tracing::warn!`; tasks would get created_at=0 (1970). Acceptable for development; harden before production release.
+
+## Deferred from: code review of t1-3-implement-type-safe-ipc-command-layer (2026-04-12)
+
+- **`stopWatchingMutation.mutate()` not awaited in useFileWatcher cleanup** — fire-and-forget is the established tRPC mutation pattern throughout the codebase; low risk.
+- **`AppError` missing `From` impls for serde/tokio errors** — only `sea_orm::DbErr` and `std::io::Error` needed for T1.3 commands; extend in T1.4/T1.5 as new commands require additional conversions.
+
+_Resolved in T1.4: input validation on title/id/project_id, magic string constants for status/task_type._
+
+## Deferred from: code review of t1-2-set-up-rust-sqlite-database-with-migrations (2026-04-12)
+
+- **`.expect()` panics in production startup paths** — `create_dir_all`, `db::connect()`, and `Migrator::up()` all panic on failure (lib.rs + db/mod.rs). Accepted Tauri startup pattern for MVP. Revisit in T1.3+ to propagate errors via `AppError` and display a user-facing dialog instead of crashing.
+- **`version_number: i32` type inconsistency** — `task_versions.version_number` uses `i32` in the entity while all other INTEGER fields use `i64`. No overflow risk or functional impact; harmonize when this field is first used in query code.
+
 ## Deferred from: code review of t1-1-initialize-tauri-v2-project-with-react-frontend (2026-04-12)
 
-- **useFileWatcher missing cleanup on early return** — When `window.api` is null (all of T1.1), the early return on line 50 skips registering the cleanup function, so `stopWatchingMutation.mutate()` won't fire on unmount. Harmless in T1.1 (tRPC links:[] means mutations never complete). Fix when real IPC is wired in T1.3.
 - **Monaco editor stub minimal implementation** — `src/__mocks__/monaco-editor.ts` exports stub editor with only `defineTheme`, `setTheme`, `MouseTargetType`. Components using @monaco-editor/react already mock that package separately in tests; this stub only resolves vitest ESM resolution errors. Revisit if new tests import monaco-editor directly.
 
 ## Deferred from: code review of mobile-1-1-initialize-kmp-project-with-jetbrains-wizard (2026-04-07)
