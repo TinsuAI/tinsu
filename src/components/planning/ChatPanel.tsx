@@ -21,6 +21,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { ArrowLeft, PanelLeftClose, Trash2, ShieldCheck, ShieldAlert, Terminal } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { listen } from '@tauri-apps/api/event'
 import { commands } from '@renderer/lib/rspc'
 import { useProjectStore, usePlanningWorkspaceStore } from '@renderer/stores'
 import { BMAD_WORKFLOWS } from '@renderer/constants/planning-workspace'
@@ -253,6 +254,29 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
     enabled: !!sessionId,
     refetchInterval: 2000,
   })
+
+  // T1.9 AC 7.13: Listen for chat:message-received Tauri events to invalidate message cache instantly.
+  // This supplements the 2-second polling so new assistant messages appear without delay.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let isMounted = true
+    listen<{ session_id: string }>('chat:message-received', (event) => {
+      if (sessionId && event.payload.session_id === sessionId) {
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] })
+      }
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions-preview', projectId] })
+    }).then((fn) => {
+      if (isMounted) {
+        unlisten = fn
+      } else {
+        fn()
+      }
+    })
+    return () => {
+      isMounted = false
+      unlisten?.()
+    }
+  }, [sessionId, projectId, queryClient])
 
   // T1.9: Attachment fetching stubbed — will be implemented in T1.10
   const attachmentsByMessageId = useMemo<Record<string, ChatMessageAttachment[]>>(() => ({}), [])

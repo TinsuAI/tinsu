@@ -182,19 +182,25 @@ async fn handle_chat_stop_hook(
     let now = now_unix_secs();
     let content = payload.content.unwrap_or_default();
 
-    // Insert assistant message
-    let msg_id = uuid::Uuid::new_v4().to_string();
-    let new_msg = chat_message::ActiveModel {
-        id: Set(msg_id),
-        session_id: Set(session_id.clone()),
-        role: Set("assistant".to_string()),
-        content: Set(content.clone()),
-        tool_name: Set(None),
-        tool_input: Set(None),
-        created_at: Set(now),
-    };
-    if let Err(e) = new_msg.insert(&state.db).await {
-        tracing::warn!("chat-stop: failed to insert assistant message: {}", e);
+    // Only insert an assistant message when content is non-empty.
+    // An empty chat-stop payload means the Stop hook fired with no transcript content;
+    // inserting a blank message would create noise in the DB and confuse the UI.
+    if !content.is_empty() {
+        let msg_id = uuid::Uuid::new_v4().to_string();
+        let new_msg = chat_message::ActiveModel {
+            id: Set(msg_id),
+            session_id: Set(session_id.clone()),
+            role: Set("assistant".to_string()),
+            content: Set(content.clone()),
+            tool_name: Set(None),
+            tool_input: Set(None),
+            created_at: Set(now),
+        };
+        if let Err(e) = new_msg.insert(&state.db).await {
+            tracing::warn!("chat-stop: failed to insert assistant message: {}", e);
+        }
+    } else {
+        tracing::warn!("chat-stop hook: empty content received, skipping message insertion");
     }
 
     // Update session: status=idle, last_message_at=now

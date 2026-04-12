@@ -194,38 +194,72 @@ impl ChatCliService {
             .as_object_mut()
             .ok_or_else(|| AppError::Internal("hooks field is not an object".to_string()))?;
 
-        // Append Stop hook entry
+        // Helper: check if a hook entry with the exact command already exists in the array.
+        // Prevents duplicate entries when spawn_session is called multiple times for the same project.
+        let command_exists = |arr: &[serde_json::Value], cmd: &str| -> bool {
+            arr.iter().any(|entry| {
+                entry
+                    .get("hooks")
+                    .and_then(|h| h.as_array())
+                    .map(|inner| {
+                        inner.iter().any(|h| {
+                            h.get("command")
+                                .and_then(|c| c.as_str())
+                                .map(|c| c == cmd)
+                                .unwrap_or(false)
+                        })
+                    })
+                    .unwrap_or(false)
+            })
+        };
+
+        // Append Stop hook entry (skip if already present)
+        let stop_cmd = format!("bash {}", chat_stop_path);
         let stop_entry = serde_json::json!({
             "matcher": "",
-            "hooks": [{"type": "command", "command": format!("bash {}", chat_stop_path)}]
+            "hooks": [{"type": "command", "command": stop_cmd.clone()}]
         });
         hooks
             .entry("Stop")
             .or_insert_with(|| serde_json::json!([]))
             .as_array_mut()
-            .map(|arr| arr.push(stop_entry));
+            .map(|arr| {
+                if !command_exists(arr, &stop_cmd) {
+                    arr.push(stop_entry);
+                }
+            });
 
-        // Append PostToolUse hook entry
+        // Append PostToolUse hook entry (skip if already present)
+        let post_tool_cmd = format!("bash {}", chat_tool_use_path);
         let post_tool_entry = serde_json::json!({
             "matcher": "",
-            "hooks": [{"type": "command", "command": format!("bash {}", chat_tool_use_path)}]
+            "hooks": [{"type": "command", "command": post_tool_cmd.clone()}]
         });
         hooks
             .entry("PostToolUse")
             .or_insert_with(|| serde_json::json!([]))
             .as_array_mut()
-            .map(|arr| arr.push(post_tool_entry));
+            .map(|arr| {
+                if !command_exists(arr, &post_tool_cmd) {
+                    arr.push(post_tool_entry);
+                }
+            });
 
-        // Append PreToolUse hook entry
+        // Append PreToolUse hook entry (skip if already present)
+        let pre_tool_cmd = format!("bash {}", chat_pre_tool_use_path);
         let pre_tool_entry = serde_json::json!({
             "matcher": "",
-            "hooks": [{"type": "command", "command": format!("bash {}", chat_pre_tool_use_path)}]
+            "hooks": [{"type": "command", "command": pre_tool_cmd.clone()}]
         });
         hooks
             .entry("PreToolUse")
             .or_insert_with(|| serde_json::json!([]))
             .as_array_mut()
-            .map(|arr| arr.push(pre_tool_entry));
+            .map(|arr| {
+                if !command_exists(arr, &pre_tool_cmd) {
+                    arr.push(pre_tool_entry);
+                }
+            });
 
         // Write back atomically
         let json_str = serde_json::to_string_pretty(&settings).map_err(|e| {

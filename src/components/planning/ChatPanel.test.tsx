@@ -9,6 +9,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ChatPanel } from './ChatPanel'
 
+// Mock @tauri-apps/api/event so listen() resolves cleanly in tests
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}))
+
 // Mock react-markdown to avoid ESM import issues
 vi.mock('react-markdown', () => ({
   default: ({ children }: { children: string }) => <div>{children}</div>

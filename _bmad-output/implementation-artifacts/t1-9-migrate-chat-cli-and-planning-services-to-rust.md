@@ -1,6 +1,6 @@
 # Story T1.9: Planning Workspace and Chat Services
 
-Status: review
+Status: done
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
@@ -703,4 +703,15 @@ claude-sonnet-4-6
 
 ### Review Findings
 
-<!-- Fill in after code review -->
+Code review complete — 5 auto-fixes applied, 5 deferred, 10 dismissed.
+
+- [x] [Review][Patch] Hook accumulation: `write_session_hooks` appended entries without deduplication — duplicate hooks fired N times per event [src-tauri/src/services/chat_cli.rs:write_session_hooks] — **fixed**: added `command_exists` guard before each `.push()`
+- [x] [Review][Patch] Empty content in `handle_chat_stop_hook` inserted blank assistant messages — **fixed**: skip DB insert when `content.is_empty()`; still update session status [src-tauri/src/services/hook_listener.rs:handle_chat_stop_hook]
+- [x] [Review][Patch] AC 7.13 missing: `ChatPanel` used 2s polling instead of `listen()` for `chat:message-received` — **fixed**: added `useEffect` with `listen()` + `isMounted` guard; test mock added [src/components/planning/ChatPanel.tsx]
+- [x] [Review][Patch] Planning stub components missing required CSS classes (AC 21) — **fixed**: added `className="flex items-center justify-center h-full text-muted-foreground text-sm"` to all 6 stubs [src/components/planning/{PhaseProgressDashboard,ReadinessGatePanel,WhatNextPanel,ArtifactViewer,WorkflowRunPanel,RecentRunsTable}.tsx]
+- [x] [Review][Patch] `get_chat_messages` limit unbounded — could exhaust memory — **fixed**: `limit_val.min(500)` cap [src-tauri/src/commands/chat.rs:get_chat_messages]
+- [x] [Review][Defer] Shell injection risk in hook scripts via unquoted `${TOOL_INPUT}` — pre-existing pattern across hook system; TOOL_INPUT is Claude-controlled JSON [src-tauri/resources/hooks/chat-*.sh] — deferred, pre-existing
+- [x] [Review][Defer] Port conflict / stale `/tmp/tinsu-hook-port` — pre-existing design from T1.7 [src-tauri/src/services/hook_listener.rs] — deferred, pre-existing
+- [x] [Review][Defer] Persona injection race window (2s sleep) — design limitation, single-user desktop [src-tauri/src/services/chat_cli.rs:spawn_session] — deferred, pre-existing
+- [x] [Review][Defer] Orphaned session when `spawn_session` fails non-fatally — intentional design, user can retry [src-tauri/src/commands/chat.rs:create_chat_session] — deferred, pre-existing
+- [x] [Review][Defer] Concurrent `write_session_hooks` race on same project path — very low probability in desktop app — deferred, pre-existing

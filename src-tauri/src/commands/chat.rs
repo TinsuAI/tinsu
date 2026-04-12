@@ -254,7 +254,7 @@ pub async fn get_chat_messages(
         .order_by_asc(chat_message::Column::CreatedAt);
 
     if let Some(limit_val) = limit {
-        query = query.limit(limit_val);
+        query = query.limit(limit_val.min(500));
     } else {
         query = query.limit(100);
     }

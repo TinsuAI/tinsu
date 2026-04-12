@@ -4,5 +4,5 @@
  */
 
 export function PhaseProgressDashboard() {
-  return <div data-testid="phase-progress-dashboard">Planning features coming in T1.10</div>
+  return <div className="flex items-center justify-center h-full text-muted-foreground text-sm" data-testid="phase-progress-dashboard">Planning features coming in T1.10</div>
 }
