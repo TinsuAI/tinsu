@@ -1,5 +1,6 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -56,15 +57,11 @@ pub async fn list_recent_projects(
     let projects = project::Entity::find()
         .order_by_desc(project::Column::LastOpenedAt)
         .order_by_desc(project::Column::CreatedAt)
+        .limit(input.limit)
         .all(db.inner())
         .await?;
 
-    let limit = input.limit as usize;
-    Ok(projects
-        .into_iter()
-        .take(limit)
-        .map(ProjectModel::from)
-        .collect())
+    Ok(projects.into_iter().map(ProjectModel::from).collect())
 }
 
 /// Returns true if path is a directory containing .tinsu/config.yaml.
@@ -80,6 +77,13 @@ pub async fn validate_project_path(path: String) -> Result<bool, AppError> {
 struct TinsuConfig {
     #[serde(rename = "projectName")]
     project_name: String,
+}
+
+#[derive(serde::Serialize)]
+struct TinsuConfigOut {
+    #[serde(rename = "projectName")]
+    project_name: String,
+    methodology: String,
 }
 
 fn read_project_name(path: &str) -> Result<String, AppError> {
@@ -205,8 +209,14 @@ pub async fn create_project(
             "project_name must not be empty".to_string(),
         ));
     }
+    let trimmed_name = project_name.trim();
+    if trimmed_name.contains('/') || trimmed_name.contains("..") {
+        return Err(AppError::BadRequest(
+            "project_name must not contain path separators or '..'".to_string(),
+        ));
+    }
 
-    let project_path = format!("{}/{}", parent_dir, project_name.trim());
+    let project_path = format!("{}/{}", parent_dir, trimmed_name);
 
     // 1. Create directory
     std::fs::create_dir_all(&project_path)
@@ -226,10 +236,12 @@ pub async fn create_project(
     let tinsu_dir = format!("{}/.tinsu", project_path);
     std::fs::create_dir_all(&tinsu_dir)
         .map_err(|e| AppError::Internal(format!("Failed to create .tinsu dir: {}", e)))?;
-    let config_content = format!(
-        "projectName: \"{}\"\nmethodology: \"bmad\"\n",
-        project_name.trim()
-    );
+    let config_out = TinsuConfigOut {
+        project_name: trimmed_name.to_string(),
+        methodology: "bmad".to_string(),
+    };
+    let config_content = serde_yaml::to_string(&config_out)
+        .map_err(|e| AppError::Internal(format!("Failed to serialize config: {}", e)))?;
     std::fs::write(format!("{}/config.yaml", tinsu_dir), config_content)
         .map_err(|e| AppError::Internal(format!("Failed to write config: {}", e)))?;
 
@@ -238,7 +250,7 @@ pub async fn create_project(
     let new = project::ActiveModel {
         id: Set(uuid::Uuid::new_v4().to_string()),
         path: Set(project_path),
-        name: Set(project_name.trim().to_string()),
+        name: Set(trimmed_name.to_string()),
         created_at: Set(now),
         last_opened_at: Set(Some(now)),
     };

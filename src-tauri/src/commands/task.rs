@@ -232,39 +232,38 @@ pub async fn get_weekly_velocity(
     let now = now_unix_secs();
     let weeks_ago_ts = now - (weeks * 7 * 24 * 3600);
 
-    let sql = if input.project_id.is_empty() {
-        format!(
+    let stmt = if input.project_id.is_empty() {
+        Statement::from_sql_and_values(
+            DbBackend::Sqlite,
             r#"
             SELECT
                 strftime('%Y-W%W', datetime(updated_at, 'unixepoch')) as week_label,
                 COUNT(*) as count
             FROM tasks
             WHERE status = 'done'
-              AND updated_at >= {}
+              AND updated_at >= ?1
             GROUP BY week_label
             ORDER BY week_label ASC
             "#,
-            weeks_ago_ts
+            [weeks_ago_ts.into()],
         )
     } else {
-        format!(
+        Statement::from_sql_and_values(
+            DbBackend::Sqlite,
             r#"
             SELECT
                 strftime('%Y-W%W', datetime(updated_at, 'unixepoch')) as week_label,
                 COUNT(*) as count
             FROM tasks
             WHERE status = 'done'
-              AND updated_at >= {}
-              AND project_id = '{}'
+              AND updated_at >= ?1
+              AND project_id = ?2
             GROUP BY week_label
             ORDER BY week_label ASC
             "#,
-            weeks_ago_ts,
-            input.project_id.replace('\'', "''")
+            [weeks_ago_ts.into(), input.project_id.clone().into()],
         )
     };
-
-    let stmt = Statement::from_string(DbBackend::Sqlite, sql);
     let rows = db.inner().query_all(stmt).await?;
 
     let mut week_buckets: Vec<WeekBucket> = Vec::new();

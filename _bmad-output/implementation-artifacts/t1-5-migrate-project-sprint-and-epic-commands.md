@@ -1,6 +1,6 @@
 # Story T1.5: Migrate Project, Sprint, and Epic Commands
 
-Status: review
+Status: done
 
 ## Story
 
@@ -621,3 +621,14 @@ None — implementation completed without runtime errors. `cargo test` passed 30
 - `src/components/board/KanbanBoardContainer.tsx` — fixed activeProjectId (AC: 13)
 - `src/components/Welcome.tsx` — migrated from tRPC
 - `src/App.tsx` — fixed setProject signature, migrated re-open logic
+
+### Review Findings
+
+- [x] [Review][Patch] SQL injection via format!() in get_weekly_velocity [src-tauri/src/commands/task.rs:235] — **FIXED**: replaced string interpolation with `Statement::from_sql_and_values()` parameterized query using `?1`/`?2` placeholders
+- [x] [Review][Patch] Path traversal in create_project — project_name not validated [src-tauri/src/commands/project.rs:209] — **FIXED**: added guard rejecting names containing `/` or `..`
+- [x] [Review][Patch] YAML injection in config.yaml write — project_name with quotes breaks YAML [src-tauri/src/commands/project.rs:229] — **FIXED**: replaced format!() with serde_yaml serialization via TinsuConfigOut struct
+- [x] [Review][Patch] list_recent_projects fetches all rows then limits in memory [src-tauri/src/commands/project.rs:56] — **FIXED**: added `.limit(input.limit)` to SeaORM query for DB-level limiting
+- [x] [Review][Patch] useOpenProjectByPath and useCreateProject missing cache invalidation [src/hooks/useProjectCommands.ts:39,86] — **FIXED**: added `onSuccess` handlers invalidating `['projects', 'recent']` query key
+- [x] [Review][Defer] now_unix_secs() duplicated across 4 command modules — deferred, pre-existing pattern; extract to shared utils in future refactor
+- [x] [Review][Defer] SprintList.tsx uses native confirm() for delete — deferred, pre-existing UX pattern; refactor to custom dialog in separate story
+- [x] [Review][Defer] Row parsing uses unwrap_or() in velocity aggregation — deferred, sensible defaults for aggregation; non-critical

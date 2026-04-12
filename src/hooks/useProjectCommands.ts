@@ -37,11 +37,15 @@ export function useValidateProjectPath(path: string) {
 
 /** Opens a project by path: reads config, upserts DB record, returns ProjectModel. */
 export function useOpenProjectByPath() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (path: string) => {
       const result = await commands.openProjectByPath(path)
       if (result.status === 'error') throw new Error(JSON.stringify(result.error))
       return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectQueryKeys.recent() })
     },
   })
 }
@@ -84,11 +88,15 @@ export function useSelectParentDirectory() {
 
 /** Creates a new project directory with git + TinSu config, returns ProjectModel. */
 export function useCreateProject() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: { parentDir: string; projectName: string }) => {
       const result = await commands.createProject(input.parentDir, input.projectName)
       if (result.status === 'error') throw new Error(JSON.stringify(result.error))
       return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectQueryKeys.recent() })
     },
   })
 }

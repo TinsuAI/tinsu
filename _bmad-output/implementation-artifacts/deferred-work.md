@@ -1,5 +1,11 @@
 # Deferred Work
 
+## Deferred from: code review of t1-5-migrate-project-sprint-and-epic-commands (2026-04-12)
+
+- **now_unix_secs() duplicated across 4 command modules** — Same function in epic.rs, sprint.rs, project.rs, task.rs. Extract to a shared `utils.rs` module in a future refactor story.
+- **SprintList.tsx uses native confirm() for delete** — Should use a custom styled dialog (like BasicTaskConfirmDialog) for consistency and accessibility. Refactor in a separate frontend story.
+- **Row parsing uses unwrap_or() in velocity aggregation** — `try_get("", "week_label").unwrap_or_default()` and `try_get("", "count").unwrap_or(0)` silently swallow parse errors. Consider adding explicit error logging in a future hardening pass.
+
 ## Deferred from: code review of t1-4-migrate-task-crud-commands (2026-04-12)
 
 - **`CreateTaskDialog` silently drops description/status/epicId/sprintId from mutation** — `CreateTaskInput` only accepts `title` + `project_id`; expand in a future story that adds these fields to the Rust command.
