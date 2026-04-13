@@ -175,6 +175,43 @@ pub async fn test_ssh_connection(
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn test_ssh_connection_profile_round_trip() {
+        use crate::migration::Migrator;
+        use sea_orm::Database;
+        use sea_orm_migration::MigratorTrait;
+
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        Migrator::up(&db, None).await.unwrap();
+
+        // Insert profile
+        let id = uuid::Uuid::new_v4().to_string();
+        let active = ssh_connection::ActiveModel {
+            id: Set(id.clone()),
+            host: Set("test.example.com".to_string()),
+            port: Set(22),
+            username: Set("testuser".to_string()),
+            auth_method: Set("password".to_string()),
+            key_name: Set(None),
+            created_at: Set(now_unix_secs()),
+        };
+        let inserted = active.insert(&db).await.unwrap();
+        assert_eq!(inserted.host, "test.example.com");
+
+        // List it
+        let rows = ssh_connection::Entity::find().all(&db).await.unwrap();
+        assert_eq!(rows.len(), 1, "Should find 1 profile after insert");
+        assert_eq!(rows[0].id, id, "Listed profile id must match inserted id");
+
+        // Delete it
+        let to_delete: ssh_connection::ActiveModel = inserted.into();
+        to_delete.delete(&db).await.unwrap();
+
+        // Verify gone
+        let rows_after = ssh_connection::Entity::find().all(&db).await.unwrap();
+        assert!(rows_after.is_empty(), "Profile list must be empty after deletion");
+    }
+
     #[test]
     fn test_validate_rejects_empty_host() {
         let result = validate_connection_input("", 22, "user", "password", None);

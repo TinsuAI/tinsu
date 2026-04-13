@@ -242,9 +242,9 @@ async fn run_forwarder(
     }
 
     // Remove from active map on exit
-    if let Ok(mut guard) = active.lock() {
-        guard.remove(&connection_id);
-    }
+    // Use unwrap_or_else to recover from poisoned mutex (in case another task panicked)
+    let mut guard = active.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.remove(&connection_id);
 }
 
 /// Connect to SSH, establish reverse tunnel, proxy forwarded connections.
@@ -513,12 +513,20 @@ mod tests {
     }
 
     #[test]
-    fn test_backoff_caps_at_30_seconds() {
-        let mut backoff: u64 = 2;
-        for _ in 0..10 {
-            backoff = (backoff * 2).min(30);
+    fn test_backoff_caps_at_15s() {
+        // AC6: backoff capped at 15 seconds (RECONNECT_BACKOFF_MAX_SECS = 15)
+        assert_eq!(
+            RECONNECT_BACKOFF_MAX_SECS, 15,
+            "RECONNECT_BACKOFF_MAX_SECS must be 15s per AC6 requirement"
+        );
+        let mut backoff: u64 = RECONNECT_BACKOFF_INITIAL_SECS;
+        for _ in 0..20 {
+            backoff = (backoff * 2).min(RECONNECT_BACKOFF_MAX_SECS);
         }
-        assert_eq!(backoff, 30, "Backoff must cap at 30 seconds");
+        assert_eq!(
+            backoff, 15,
+            "Backoff must cap at 15s after many doublings"
+        );
     }
 
     #[test]

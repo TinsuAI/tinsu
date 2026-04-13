@@ -84,3 +84,41 @@ pub async fn get_remote_hook_status(
     }
     manager.status(&connection_id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_start_forwarder_rejects_empty_connection_id() {
+        // Command guard: empty connection_id → AppError::BadRequest before any DB/SSH call
+        // Verify via the manager-level guard (same logic, no Tauri State needed)
+        let manager = RemoteHookForwarderManager::new();
+        let result = manager.start(
+            "".to_string(),
+            "host.example.com".to_string(),
+            22,
+            "user".to_string(),
+            "my-key".to_string(),
+            3847,
+        );
+        assert!(result.is_err(), "Manager.start must reject empty connection_id");
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("connection_id"),
+            "Error message must mention connection_id, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_forwarder_status_returns_inactive_for_unknown() {
+        // Unknown connection_id → is_active: false (not an error)
+        let manager = RemoteHookForwarderManager::new();
+        let status = manager.status("unknown-connection-id").unwrap();
+        assert!(!status.is_active, "Unknown connection_id → is_active must be false");
+        assert!(
+            status.remote_port.is_none(),
+            "Unknown connection_id → remote_port must be None"
+        );
+    }
+}

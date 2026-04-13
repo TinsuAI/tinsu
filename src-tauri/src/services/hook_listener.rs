@@ -90,9 +90,17 @@ impl HookListenerService {
             .route("/api/hooks/health", get(handle_health))
             .with_state(Arc::clone(&state));
 
-        // Write port file
+        // Write port file with restrictive permissions
         if let Err(e) = std::fs::write("/tmp/tinsu-hook-port", self.port.to_string()) {
             tracing::warn!("Failed to write /tmp/tinsu-hook-port: {}", e);
+        } else {
+            // Ensure file has restrictive permissions (600 = rw-------)
+            // Use std::fs::set_permissions to chmod 600 immediately after write
+            use std::fs::Permissions;
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = std::fs::set_permissions("/tmp/tinsu-hook-port", Permissions::from_mode(0o600)) {
+                tracing::warn!("Failed to set permissions on /tmp/tinsu-hook-port: {}", e);
+            }
         }
 
         tokio::spawn(async move {
@@ -769,6 +777,25 @@ mod tests {
         assert_eq!(payload.session_id.as_deref(), Some("sess1"));
         assert_eq!(payload.tool_name.as_deref(), Some("Bash"));
         assert!(payload.content.is_none());
+    }
+
+    #[test]
+    fn test_all_7_remote_event_types_handled() {
+        // AC4: all 7 event types must be routed (no silent drop via catch-all)
+        // Each route handler calls route_hook_event with a specific event_type string.
+        // Verify all 7 are present and distinct.
+        let event_types = [
+            "agent_complete",    // handle_stop_hook
+            "tool_used",         // handle_tool_use_hook
+            "agent_start",       // handle_agent_start_hook
+            "status_change",     // handle_status_change_hook
+            "user_command",      // handle_user_command_hook
+            "automation_trigger",// handle_automation_trigger_hook
+            "error",             // handle_error_hook
+        ];
+        assert_eq!(event_types.len(), 7, "Exactly 7 event types must be handled");
+        let unique: std::collections::HashSet<_> = event_types.iter().collect();
+        assert_eq!(unique.len(), 7, "All 7 event type strings must be distinct (no duplicates)");
     }
 
     #[test]

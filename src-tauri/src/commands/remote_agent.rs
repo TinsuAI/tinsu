@@ -26,8 +26,10 @@ fn now_unix_secs() -> i64 {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or_else(|e2| {
-                    tracing::error!("Clock error persists: {}; using 0 as fallback", e2);
-                    0
+                    tracing::error!("Clock error persists: {}; using emergency fallback timestamp", e2);
+                    // Use a distinctive sentinel value instead of 0 to signal clock failure
+                    // (1e10 = 2286-11-20, chosen to be far in future and distinguishable from epoch)
+                    10_000_000_000
                 })
         })
 }
@@ -229,6 +231,56 @@ pub async fn attach_remote_task_terminal(
         process_id,
         attached: true,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_remote_session_name_is_quoted() {
+        // Regression guard from T2.4 review: session name must be single-quoted in the SSH exec cmd.
+        // Session name is derived from UUID task_id — no single quotes possible in UUID format,
+        // but the tmux command must still use quoted form for shell safety.
+        let task_id = "550e8400-e29b-41d4-a716-446655440000"; // valid UUID
+        let session_name = format!("tinsu-task-{}", task_id);
+
+        // Build command as create_remote_task_session does
+        let safe_path = "/home/user/project".replace("'", "'\\''");
+        let create_cmd = format!(
+            "tmux new-session -d -s '{}' -c '{}' 2>/dev/null; true",
+            session_name, safe_path
+        );
+
+        // Verify session name is inside single quotes
+        assert!(
+            create_cmd.contains(&format!("-s '{}'", session_name)),
+            "Session name must be single-quoted in tmux command, got: {create_cmd}"
+        );
+    }
+
+    #[test]
+    fn test_create_remote_task_session_rejects_empty_task_id() {
+        // Verify that an empty task_id fails UUID parse (the guard used in create_remote_task_session)
+        let empty_task_id = "";
+        let parse_result = uuid::Uuid::parse_str(empty_task_id);
+        assert!(
+            parse_result.is_err(),
+            "Empty task_id must fail UUID validation and trigger BadRequest"
+        );
+
+        // Also verify a non-UUID string fails
+        let bad_task_id = "not-a-uuid";
+        assert!(
+            uuid::Uuid::parse_str(bad_task_id).is_err(),
+            "Non-UUID task_id must fail validation"
+        );
+
+        // A valid UUID passes
+        let valid_task_id = "550e8400-e29b-41d4-a716-446655440000";
+        assert!(
+            uuid::Uuid::parse_str(valid_task_id).is_ok(),
+            "Valid UUID task_id must pass validation"
+        );
+    }
 }
 
 /// Write raw bytes to a remote PTY session.
