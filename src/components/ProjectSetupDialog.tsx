@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import {
@@ -47,19 +47,6 @@ export function ProjectSetupDialog({
   const createMutation = useCreateProject()
   const openProjectMutation = useOpenProjectByPath()
 
-  // In onboard mode, resolve the project ID from DB as soon as the dialog opens.
-  // createdProjectId is only set via handleCreateAndNext (create mode), so without
-  // this effect the onboard path always passes projectId='' to the caller, leaving
-  // activeProjectId null and permanently disabling the chat send button.
-  useEffect(() => {
-    if (mode === 'onboard' && initialProjectPath && !createdProjectId) {
-      openProjectMutation.mutate(initialProjectPath, {
-        onSuccess: (result) => setCreatedProjectId(result.id),
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, initialProjectPath])
-
   const handleSelectDirectory = async (): Promise<void> => {
     selectDirMutation.mutate(undefined, {
       onSuccess: (result) => {
@@ -87,16 +74,20 @@ export function ProjectSetupDialog({
     }
   }
 
-  const handleContinue = (): void => {
+  const handleContinue = async (): Promise<void> => {
     if (!effectiveProjectPath) return
-    const name =
-      mode === 'onboard'
-        ? effectiveProjectPath.split('/').pop() ?? 'Project'
-        : projectName.trim()
+    if (mode === 'onboard') {
+      // Resolve the project ID on click via mutateAsync so we never pass an
+      // empty id — the effect+callback pattern is unreliable under React 18
+      // StrictMode (observer is destroyed between double-invocations).
+      const result = await openProjectMutation.mutateAsync(effectiveProjectPath)
+      onProjectCreated({ path: result.path, projectId: result.id, projectName: result.name })
+      return
+    }
     onProjectCreated({
       path: effectiveProjectPath,
       projectId: createdProjectId ?? '',
-      projectName: name,
+      projectName: projectName.trim(),
     })
   }
 
@@ -218,8 +209,15 @@ export function ProjectSetupDialog({
                   Cancel
                 </Button>
               )}
-              <Button onClick={handleContinue} disabled={!allCriticalPassed}>
-                Continue
+              <Button onClick={handleContinue} disabled={!allCriticalPassed || openProjectMutation.isPending}>
+                {openProjectMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Opening...
+                  </>
+                ) : (
+                  'Continue'
+                )}
               </Button>
             </>
           )}
