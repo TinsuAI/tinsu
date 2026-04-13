@@ -10,6 +10,33 @@ use tauri_plugin_dialog::DialogExt;
 use crate::db::entities::project;
 use crate::error::AppError;
 
+// ---------------------------------------------------------------------------
+// Tool verification
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct ToolCheckResult {
+    pub id: String,
+    pub name: String,
+    /// "installed" | "missing" | "error"
+    pub status: String,
+    pub version: Option<String>,
+    pub critical: bool,
+    pub install_hint: Option<String>,
+}
+
+fn check_bin(cmd: &str, args: &[&str]) -> (String, Option<String>) {
+    match std::process::Command::new(cmd).args(args).output() {
+        Ok(output) if output.status.success() => {
+            let raw = String::from_utf8_lossy(&output.stdout);
+            let version = raw.lines().next().unwrap_or("").trim().to_string();
+            ("installed".to_string(), Some(version))
+        }
+        Ok(_) => ("error".to_string(), None),
+        Err(_) => ("missing".to_string(), None),
+    }
+}
+
 /// DTO for project data exposed via tauri-specta.
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ProjectModel {
@@ -256,6 +283,87 @@ pub async fn create_project(
     };
     let result = new.insert(db.inner()).await?;
     Ok(ProjectModel::from(result))
+}
+
+/// Checks required tools and returns their install status.
+#[tauri::command]
+#[specta::specta]
+pub async fn verify_tools(project_path: String) -> Result<Vec<ToolCheckResult>, AppError> {
+    let mut results = Vec::new();
+
+    // git
+    let (status, version) = check_bin("git", &["--version"]);
+    results.push(ToolCheckResult {
+        id: "git".into(),
+        name: "Git".into(),
+        status,
+        version: version.map(|v| v.replace("git version ", "")),
+        critical: true,
+        install_hint: Some("https://git-scm.com/downloads".into()),
+    });
+
+    // tmux
+    let (status, version) = check_bin("tmux", &["-V"]);
+    results.push(ToolCheckResult {
+        id: "tmux".into(),
+        name: "tmux".into(),
+        status,
+        version: version.map(|v| v.replace("tmux ", "")),
+        critical: true,
+        install_hint: Some("brew install tmux  |  apt install tmux".into()),
+    });
+
+    // Node.js
+    let (status, version) = check_bin("node", &["--version"]);
+    results.push(ToolCheckResult {
+        id: "nodejs".into(),
+        name: "Node.js".into(),
+        status,
+        version: version.map(|v| v.trim_start_matches('v').to_string()),
+        critical: true,
+        install_hint: Some("https://nodejs.org".into()),
+    });
+
+    // Claude Code CLI
+    let (status, version) = check_bin("claude", &["--version"]);
+    results.push(ToolCheckResult {
+        id: "claude-cli".into(),
+        name: "Claude Code CLI".into(),
+        status,
+        version,
+        critical: true,
+        install_hint: Some("npm install -g @anthropic-ai/claude-code".into()),
+    });
+
+    // BMAD — detect via _bmad/_config/manifest.yaml
+    let bmad_dir = std::path::Path::new(&project_path).join("_bmad");
+    let bmad_manifest = bmad_dir.join("_config").join("manifest.yaml");
+    let bmad_status = if bmad_dir.is_dir() { "installed" } else { "missing" };
+    let bmad_version = if bmad_manifest.exists() {
+        std::fs::read_to_string(&bmad_manifest).ok().and_then(|content| {
+            // Grab the top-level `version:` line (first occurrence inside `installation:`)
+            content
+                .lines()
+                .find(|l| {
+                    let t = l.trim();
+                    t.starts_with("version:") && !t.contains("null")
+                })
+                .and_then(|l| l.split(':').nth(1))
+                .map(|v| v.trim().to_string())
+        })
+    } else {
+        None
+    };
+    results.push(ToolCheckResult {
+        id: "bmad".into(),
+        name: "BMAD Framework".into(),
+        status: bmad_status.into(),
+        version: bmad_version,
+        critical: true,
+        install_hint: None, // handled by inline form in ToolVerificationStep
+    });
+
+    Ok(results)
 }
 
 #[cfg(test)]

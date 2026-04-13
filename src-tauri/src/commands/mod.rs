@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod agent;
+pub mod bmad;
 pub mod chat;
 pub mod config;
 pub mod epic;

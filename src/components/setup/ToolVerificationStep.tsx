@@ -2,16 +2,18 @@
  * ToolVerificationStep
  *
  * Step 2 of the onboarding wizard — shows tool checklist and BMAD config form
- * when BMAD needs installation.
+ * when BMAD needs installation. Uses Tauri commands directly (no tRPC).
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
 import { ToolCheckList } from './ToolCheckList'
 import { BmadConfigForm } from './BmadConfigForm'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
+import { BMAD_MODULES, BMAD_TOOLS, BMAD_LANGUAGES } from '@shared/types/bmad.types'
+import type { ToolCheckResult } from '@shared/types/tool-verification.types'
 
 export interface ToolVerificationStepProps {
   projectPath: string
@@ -27,78 +29,80 @@ export function ToolVerificationStep({
   const [bmadTools, setBmadTools] = useState<string[]>([])
   const [language, setLanguage] = useState('English')
 
-  // Tool verification query
-  const {
-    data: toolResults,
-    isFetching: isChecking,
-    refetch: recheckTools
-  } = trpc.project.verifyTools.useQuery({ projectPath })
+  const [toolResults, setToolResults] = useState<ToolCheckResult[]>([])
+  const [isChecking, setIsChecking] = useState(false)
+  const [isInstallingBmad, setIsInstallingBmad] = useState(false)
+  const [isInstallingNode, setIsInstallingNode] = useState(false)
 
-  // BMAD available modules/tools/languages
-  const { data: availableModulesData } = trpc.bmad.availableModules.useQuery()
+  const runVerification = useCallback(async () => {
+    setIsChecking(true)
+    const result = await commands.verifyTools(projectPath)
+    setIsChecking(false)
 
-  // BMAD check status for pre-population
-  const { data: bmadStatus } = trpc.bmad.checkStatus.useQuery()
-
-  // Pre-populate from existing BMAD config
-  useEffect(() => {
-    if (bmadStatus?.installed) {
-      if (bmadStatus.modules && bmadStatus.modules.length > 0) {
-        setBmadModules(bmadStatus.modules)
-      }
-      if (bmadStatus.tools && bmadStatus.tools.length > 0) {
-        setBmadTools(bmadStatus.tools)
-      }
+    if (result.status === 'error') {
+      toast.error(`Tool check failed: ${JSON.stringify(result.error)}`)
+      return
     }
-  }, [bmadStatus])
 
-  // Notify parent whether all critical tools pass
-  useEffect(() => {
-    if (!toolResults) return
-    const allCriticalPassed = toolResults
+    const results = result.data as ToolCheckResult[]
+    setToolResults(results)
+
+    const allCriticalPassed = results
       .filter((r) => r.critical)
       .every((r) => r.status === 'installed')
     onAllCriticalPassed(allCriticalPassed)
-  }, [toolResults, onAllCriticalPassed])
+  }, [projectPath, onAllCriticalPassed])
 
-  // BMAD install mutation
-  const bmadInstallMutation = trpc.bmad.installToPath.useMutation({
-    onSuccess: () => {
-      toast.success('BMAD Framework installed successfully!')
-      recheckTools()
-    },
-    onError: (err) => {
-      toast.error(`BMAD installation failed: ${err.message}`)
-    }
-  })
+  // Pre-populate from existing BMAD config
+  useEffect(() => {
+    if (!projectPath) return
+    commands.bmadCheckStatus(projectPath).then((result) => {
+      if (result.status === 'error') return
+      const status = result.data
+      if (status.installed) {
+        if (status.modules && status.modules.length > 0) {
+          setBmadModules(status.modules)
+        }
+      }
+    })
+  }, [projectPath])
 
-  // Node.js install mutation
-  const installNodeMutation = trpc.bmad.installNodejs.useMutation({
-    onSuccess: () => {
-      toast.success('Node.js installed successfully!')
-      recheckTools()
-    },
-    onError: (err) => {
-      toast.error(`Node.js installation failed: ${err.message}`)
-    }
-  })
+  // Run verification on mount
+  useEffect(() => {
+    runVerification()
+  }, [runVerification])
 
-  function handleInstallAction(toolId: string): void {
+  async function handleInstallAction(toolId: string): Promise<void> {
     if (toolId === 'nodejs') {
-      installNodeMutation.mutate()
+      setIsInstallingNode(true)
+      const result = await commands.installNodejs()
+      setIsInstallingNode(false)
+      if (result.status === 'error') {
+        toast.error(`Node.js installation failed: ${JSON.stringify(result.error)}`)
+      } else {
+        toast.success('Node.js installed successfully!')
+        runVerification()
+      }
     }
-    // Other tools show install hints in the list — no action needed here
   }
 
-  function handleInstallBmad(): void {
-    bmadInstallMutation.mutate({
-      projectPath,
+  async function handleInstallBmad(): Promise<void> {
+    setIsInstallingBmad(true)
+    const result = await commands.bmadInstallToPath({
+      project_path: projectPath,
       modules: bmadModules,
       tools: bmadTools,
-      userName,
-      communicationLanguage: language,
-      documentOutputLanguage: language
+      user_name: userName,
+      communication_language: language,
+      document_output_language: language
     })
+    setIsInstallingBmad(false)
+    if (result.status === 'error') {
+      toast.error(`BMAD installation failed: ${JSON.stringify(result.error)}`)
+    } else {
+      toast.success('BMAD Framework installed successfully!')
+      runVerification()
+    }
   }
 
   function toggleModule(moduleId: string): void {
@@ -113,13 +117,8 @@ export function ToolVerificationStep({
     )
   }
 
-  // Show BMAD config form when BMAD is not yet installed
   const bmadNeedsInstall =
-    toolResults?.some((r) => r.id === 'bmad' && r.status !== 'installed') ?? false
-
-  const modules = availableModulesData?.modules ?? []
-  const tools = availableModulesData?.tools ?? []
-  const languages = availableModulesData?.languages ?? ['English']
+    toolResults.some((r) => r.id === 'bmad' && r.status !== 'installed') ?? false
 
   return (
     <div className="space-y-5">
@@ -129,7 +128,8 @@ export function ToolVerificationStep({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => recheckTools()}
+          onClick={() => runVerification()}
+          disabled={isChecking}
           data-testid="recheck-tools-btn"
         >
           {isChecking ? (
@@ -143,8 +143,8 @@ export function ToolVerificationStep({
 
       {/* Tool Check List */}
       <ToolCheckList
-        results={toolResults ?? []}
-        isChecking={isChecking}
+        results={toolResults}
+        isChecking={isChecking || isInstallingNode}
         onInstallAction={handleInstallAction}
       />
 
@@ -167,18 +167,18 @@ export function ToolVerificationStep({
             onToggleTool={toggleTool}
             language={language}
             onLanguageChange={setLanguage}
-            modules={modules}
-            tools={tools}
-            languages={languages}
-            disabled={bmadInstallMutation.isPending}
+            modules={BMAD_MODULES}
+            tools={BMAD_TOOLS}
+            languages={BMAD_LANGUAGES}
+            disabled={isInstallingBmad}
           />
 
           <Button
             onClick={handleInstallBmad}
-            disabled={bmadInstallMutation.isPending || !userName.trim()}
+            disabled={isInstallingBmad || !userName.trim()}
             data-testid="install-bmad-btn"
           >
-            {bmadInstallMutation.isPending ? (
+            {isInstallingBmad ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Installing BMAD...

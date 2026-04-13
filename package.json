@@ -67,6 +67,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "tiptap-markdown": "^0.9.0",
+    "uuid": "^13.0.0",
     "yaml": "^2.8.2",
     "zod": "^4.3.5",
     "zustand": "^5.0.9"
@@ -81,6 +82,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",

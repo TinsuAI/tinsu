@@ -76,6 +76,14 @@ export const commands = {
 	selectParentDirectory: () => typedError<string | null, AppError>(__TAURI_INVOKE("select_parent_directory")),
 	// Creates a new project directory, initializes git, writes config, and inserts in DB.
 	createProject: (parentDir: string, projectName: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("create_project", { parentDir, projectName })),
+	// Checks required tools and returns their install status.
+	verifyTools: (projectPath: string) => typedError<ToolCheckResult[], AppError>(__TAURI_INVOKE("verify_tools", { projectPath })),
+	// Returns BMAD installation status by reading _bmad/_config/manifest.yaml.
+	bmadCheckStatus: (projectPath: string) => typedError<BmadStatus, AppError>(__TAURI_INVOKE("bmad_check_status", { projectPath })),
+	// Runs `npx bmad-method install` with the given options.
+	bmadInstallToPath: (input: BmadInstallInput) => typedError<null, AppError>(__TAURI_INVOKE("bmad_install_to_path", { input })),
+	// Attempts to install Node.js via the platform package manager.
+	installNodejs: () => typedError<null, AppError>(__TAURI_INVOKE("install_nodejs")),
 	/**
 	 *  Create a tmux session for a task and upsert a `task_sessions` record.
 	 *  If the task has a worktree_path, the session is created in that directory
@@ -252,6 +260,21 @@ export type ArtifactScanResult = {
 export type AttachResult = {
 	process_id: string,
 	attached: boolean,
+};
+
+export type BmadInstallInput = {
+	project_path: string,
+	modules: string[],
+	tools: string[],
+	user_name: string,
+	communication_language: string,
+	document_output_language: string,
+};
+
+export type BmadStatus = {
+	installed: boolean,
+	version: string | null,
+	modules: string[] | null,
 };
 
 export type BranchStatus = {
@@ -524,6 +547,16 @@ export type TaskSessionModel = {
 	tmux_session: string | null,
 	current_phase: string | null,
 	created_at: number,
+};
+
+export type ToolCheckResult = {
+	id: string,
+	name: string,
+	// "installed" | "missing" | "error"
+	status: string,
+	version: string | null,
+	critical: boolean,
+	install_hint: string | null,
 };
 
 export type UpdateEpicInput = {
