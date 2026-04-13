@@ -1,3 +1,5 @@
+> **DEPRECATED 2026-04-12:** KMP native mobile approach superseded by Tauri mobile (Epic 3 in epics.md). Mobile is now a WebView-based Tauri app — same React+Rust codebase targeting Android/iOS. This document is retained for reference only.
+
 # TinSu Mobile -- Native UI Design Recommendations
 
 **Date:** 2026-04-06

@@ -50,3 +50,5 @@ data/
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/growth-hacking-setup/
+
+src-electron-deprecated/

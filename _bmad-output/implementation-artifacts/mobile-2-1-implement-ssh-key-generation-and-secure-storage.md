@@ -1,3 +1,5 @@
+> **DEPRECATED 2026-04-12:** KMP mobile story — superseded by Tauri mobile approach (epics.md Epic 3). Retained for reference only.
+
 # Story mobile-2.1: Implement SSH Key Generation and Secure Storage
 
 Status: done

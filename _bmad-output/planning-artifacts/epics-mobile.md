@@ -1,4 +1,7 @@
 ---
+deprecated: true
+deprecatedDate: '2026-04-12'
+deprecatedReason: 'KMP native mobile approach superseded by Tauri mobile (Epic 3 in epics.md). Mobile is now a WebView-based Tauri app — same React+Rust codebase targeting Android/iOS. See epics.md Epic 3.'
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
 inputDocuments:
   - _bmad-output/planning-artifacts/prd-mobile.md

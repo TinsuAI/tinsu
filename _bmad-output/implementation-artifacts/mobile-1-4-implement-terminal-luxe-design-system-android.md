@@ -1,3 +1,5 @@
+> **DEPRECATED 2026-04-12:** KMP mobile story — superseded by Tauri mobile approach (epics.md Epic 3). Retained for reference only.
+
 # Story 1.4: Implement Terminal Luxe Design System — Android
 
 Status: done
