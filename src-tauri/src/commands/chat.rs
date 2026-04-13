@@ -1,7 +1,8 @@
-use crate::db::entities::{chat_message, chat_session, project};
+use crate::db::entities::{chat_message, chat_session, project, remote_project, ssh_connection};
 use crate::error::AppError;
 use crate::services::chat_cli::ChatCliService;
 use crate::services::pty_service::PtyService;
+use crate::services::ssh_service;
 use crate::services::tmux_service::TmuxService;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
@@ -282,16 +283,61 @@ pub async fn send_chat_message(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("chat session not found: {}", session_id)))?;
 
-    let tmux_session = session.tmux_session.as_deref().unwrap_or("");
+    let tmux_session = session.tmux_session.as_deref().unwrap_or("").to_string();
 
     // Send to tmux (if tmux_session is available)
     if !tmux_session.is_empty() {
-        let chat_cli = ChatCliService;
-        if let Err(e) = chat_cli
-            .send_message(tmux_session, &content, tmux.inner())
-            .await
-        {
-            tracing::warn!("send_chat_message: tmux send failed: {}", e);
+        // Determine whether this is a remote project to route via SSH
+        let proj = project::Entity::find_by_id(&session.project_id)
+            .one(db.inner())
+            .await?;
+
+        let remote_project_id = proj.as_ref().and_then(|p| p.remote_project_id.clone());
+
+        if let Some(rp_id) = remote_project_id {
+            // Remote project: send via SSH tmux send-keys on the remote host
+            let rp = remote_project::Entity::find_by_id(&rp_id)
+                .one(db.inner())
+                .await?;
+
+            if let Some(rp) = rp {
+                let ssh_conn = ssh_connection::Entity::find_by_id(&rp.connection_id)
+                    .one(db.inner())
+                    .await?;
+
+                if let Some(ssh_conn) = ssh_conn {
+                    // Shell-escape content: replace ' with '\''
+                    let escaped = content.replace('\'', "'\\''");
+                    let cmd = format!("tmux send-keys -t '{}' '{}' Enter", tmux_session, escaped);
+
+                    if let Err(e) = ssh_service::run_ssh_exec(
+                        &ssh_conn.host,
+                        ssh_conn.port as u16,
+                        &ssh_conn.username,
+                        &ssh_conn.auth_method,
+                        ssh_conn.key_name.as_deref(),
+                        None,
+                        &cmd,
+                    )
+                    .await
+                    {
+                        tracing::warn!("send_chat_message: remote tmux send failed: {}", e);
+                    }
+                } else {
+                    tracing::warn!("send_chat_message: SSH connection not found for remote project");
+                }
+            } else {
+                tracing::warn!("send_chat_message: remote project record not found: {}", rp_id);
+            }
+        } else {
+            // Local project: send via local tmux
+            let chat_cli = ChatCliService;
+            if let Err(e) = chat_cli
+                .send_message(&tmux_session, &content, tmux.inner())
+                .await
+            {
+                tracing::warn!("send_chat_message: tmux send failed: {}", e);
+            }
         }
     }
 

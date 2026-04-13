@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { FolderOpen, Clock, AlertTriangle, Trash2, Plus, Server } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
@@ -40,24 +40,64 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
   // Query for recent projects
   const { data: recentProjects } = useListRecentProjects(5)
 
-  // Validate paths for recent projects
-  const paths = recentProjects?.map((p) => p.path) ?? []
+  // Fetch remote project profiles to resolve connection_id → ssh label
+  const { data: remoteProfiles } = useQuery({
+    queryKey: ['remoteProjects'],
+    queryFn: async () => {
+      const result = await commands.listRemoteProjects()
+      if (result.status === 'error') return []
+      return result.data
+    },
+    staleTime: 60000,
+  })
+
+  // Fetch SSH connections to resolve host/username
+  const { data: sshConnections } = useQuery({
+    queryKey: ['sshConnections'],
+    queryFn: async () => {
+      const result = await commands.listSshConnections()
+      if (result.status === 'error') return []
+      return result.data
+    },
+    staleTime: 60000,
+  })
+
+  // Build lookup: remote_project_id → "user@host" (or "user@host:port" if non-22)
+  const sshLabelByRemoteProjectId = new Map<string, string>()
+  if (remoteProfiles && sshConnections) {
+    const connById = new Map(sshConnections.map((c) => [c.id, c]))
+    for (const rp of remoteProfiles) {
+      const conn = connById.get(rp.connection_id)
+      if (conn) {
+        const label =
+          conn.port === 22
+            ? `${conn.username}@${conn.host}`
+            : `${conn.username}@${conn.host}:${conn.port}`
+        sshLabelByRemoteProjectId.set(rp.id, label)
+      }
+    }
+  }
+
+  // Only validate local project paths (remote paths live on the SSH host)
+  const localProjects = (recentProjects ?? []).filter((p) => !p.remote_project_id)
+  const localPaths = localProjects.map((p) => p.path)
+
   const validationQueries = useQueries({
-    queries: paths.map((path) => ({
+    queries: localPaths.map((path) => ({
       queryKey: projectQueryKeys.validate(path),
       queryFn: async () => {
         const result = await commands.validateProjectPath(path)
         if (result.status === 'error') return true
         return result.data
       },
-      enabled: paths.length > 0,
+      enabled: localPaths.length > 0,
       staleTime: 60000,
     })),
   })
 
-  // Create a map of path -> isValid
+  // Map of local path → isValid
   const pathValidation = new Map<string, boolean>()
-  paths.forEach((path, index) => {
+  localPaths.forEach((path, index) => {
     pathValidation.set(path, validationQueries[index]?.data ?? true)
   })
 
@@ -91,16 +131,25 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
     }
   }
 
-  const handleOpenRecent = async (path: string) => {
-    const isValid = pathValidation.get(path) ?? true
-    if (!isValid) {
-      setError('Project folder not found. It may have been moved or deleted.')
-      return
-    }
+  const handleOpenRecent = async (projectId: string, path: string, remoteProjectId: string | null) => {
     setError(null)
     try {
-      const project = await openByPathMutation.mutateAsync(path)
-      onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+      if (remoteProjectId) {
+        // Remote project: open via remote_project_id (no local path check)
+        const result = await commands.openRemoteProject(remoteProjectId)
+        if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+        const project = result.data
+        onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+      } else {
+        // Local project: validate path first
+        const isValid = pathValidation.get(path) ?? true
+        if (!isValid) {
+          setError('Project folder not found. It may have been moved or deleted.')
+          return
+        }
+        const project = await openByPathMutation.mutateAsync(path)
+        onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open project')
     }
@@ -190,21 +239,36 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
           </h3>
           <div className="divide-y divide-border rounded-lg border border-border bg-card">
             {recentProjects.map((project) => {
-              const isValid = pathValidation.get(project.path) ?? true
+              const isRemote = !!project.remote_project_id
+              const isValid = isRemote ? true : (pathValidation.get(project.path) ?? true)
+              const sshLabel = isRemote && project.remote_project_id
+                ? sshLabelByRemoteProjectId.get(project.remote_project_id)
+                : undefined
+
               return (
                 <div
                   key={project.id}
                   className="group flex items-center gap-3 px-4 py-3 transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-accent"
                 >
                   <button
-                    onClick={() => handleOpenRecent(project.path)}
+                    onClick={() => handleOpenRecent(project.id, project.path, project.remote_project_id)}
                     disabled={isLoading}
                     className="flex flex-1 items-center gap-3 text-left disabled:opacity-50"
                   >
-                    <FolderOpen className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    {isRemote ? (
+                      <Server className="h-5 w-5 shrink-0 text-blue-500" />
+                    ) : (
+                      <FolderOpen className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{project.name}</div>
                       <div className="truncate text-xs text-muted-foreground">{project.path}</div>
+                      {sshLabel && (
+                        <div className="mt-0.5 flex items-center gap-1 text-xs text-blue-500">
+                          <Server className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{sshLabel}</span>
+                        </div>
+                      )}
                     </div>
                     {!isValid && (
                       <span title="Project folder not found">

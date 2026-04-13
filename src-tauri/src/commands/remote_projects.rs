@@ -7,7 +7,7 @@ use crate::models::ssh_config::{
     RemoteProjectProfile, SaveRemoteProjectInput,
 };
 use crate::services::ssh_service;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set};
 use tauri::State;
 
 fn now_unix_secs() -> i64 {
@@ -188,6 +188,17 @@ pub async fn save_remote_project(
                 input.connection_id
             ))
         })?;
+
+    // Deduplicate: return existing record if (connection_id, path) already saved
+    let existing = remote_project::Entity::find()
+        .filter(remote_project::Column::ConnectionId.eq(&input.connection_id))
+        .filter(remote_project::Column::Path.eq(path))
+        .one(db.inner())
+        .await?;
+
+    if let Some(existing_model) = existing {
+        return Ok(model_to_profile(existing_model));
+    }
 
     let id = uuid::Uuid::new_v4().to_string();
     let active = remote_project::ActiveModel {
