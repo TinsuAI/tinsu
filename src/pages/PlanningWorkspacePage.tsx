@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Group, Panel, Separator, usePanelRef, type Layout } from 'react-resizable-panels'
 import {
   ArrowLeft,
@@ -21,7 +22,7 @@ import {
   TooltipTrigger
 } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
-import { trpc } from '@renderer/lib/trpc'
+import { commands } from '@renderer/lib/rspc'
 import { usePlanningWorkspaceStore, type PlanningPhase } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import {
@@ -84,17 +85,30 @@ export function PlanningWorkspacePage() {
     setShowTerminal
   } = usePlanningWorkspaceStore()
   const projectName = useProjectStore((state) => state.projectName)
-  const { data: project } = trpc.project.getCurrent.useQuery()
-  const projectId = project?.id ?? ''
-  const { data: artifacts } = trpc.planning.scanArtifacts.useQuery(
-    { projectId },
-    { enabled: !!projectId, refetchOnWindowFocus: true, placeholderData: (prev) => prev }
-  )
+  const projectId = useProjectStore((state) => state.activeProjectId) ?? ''
+  const queryClient = useQueryClient()
+  const { data: artifacts } = useQuery({
+    queryKey: ['planning-artifacts', projectId],
+    queryFn: async () => {
+      const r = await commands.scanArtifacts(projectId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!projectId,
+    refetchOnWindowFocus: true,
+    placeholderData: (prev) => prev,
+  })
   // Story 9.8: Query active workflow run for agent persona indicator
-  const { data: activeRun } = trpc.planning.getActiveWorkflowRun.useQuery(
-    { projectId },
-    { enabled: !!projectId, refetchInterval: 3000 }
-  )
+  const { data: activeRun } = useQuery({
+    queryKey: ['planning-active-run', projectId],
+    queryFn: async () => {
+      const r = await commands.getActiveWorkflowRun(projectId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!projectId,
+    refetchInterval: 3000,
+  })
 
   const workspaceRef = useRef<HTMLDivElement>(null)
   // Active document path for session documents bar
@@ -137,7 +151,7 @@ export function PlanningWorkspacePage() {
   // Story 9.9: Announce artifact status when a workflow with an artifact is selected (AC7/Task 5.8)
   useEffect(() => {
     if (!selectedWorkflowKey || !artifacts) return
-    const artifact = artifacts.find((a) => a.workflowKey === selectedWorkflowKey)
+    const artifact = artifacts.find((a) => a.workflow_key === selectedWorkflowKey)
     if (!artifact?.status) return
     const workflow = BMAD_WORKFLOWS.find((w) => w.key === selectedWorkflowKey)
     const name = workflow?.name ?? selectedWorkflowKey
@@ -186,7 +200,7 @@ export function PlanningWorkspacePage() {
   // Check if selected workflow's artifact file exists
   const artifactExists = useMemo(() => {
     if (!selectedWorkflow || !artifacts) return false
-    const artifact = artifacts.find((a) => a.workflowKey === selectedWorkflow.key)
+    const artifact = artifacts.find((a) => a.workflow_key === selectedWorkflow.key)
     return artifact?.exists ?? false
   }, [selectedWorkflow, artifacts])
 
@@ -194,16 +208,24 @@ export function PlanningWorkspacePage() {
   const isReadinessCheck = selectedWorkflowKey === 'readiness-check'
 
   // Story 9.6: Auto-parse gate result when readiness-check artifact is viewed
-  const { data: latestGate, isLoading: isGateLoading } =
-    trpc.planning.getLatestGateDecision.useQuery(
-      { projectId },
-      { enabled: !!projectId && isReadinessCheck && artifactExists }
-    )
-  const trpcUtils = trpc.useUtils()
-  const parseGateMutation = trpc.planning.parseAndSaveGateResult.useMutation({
+  const { data: latestGate, isLoading: isGateLoading } = useQuery({
+    queryKey: ['planning-latest-gate', projectId],
+    queryFn: async () => {
+      const r = await commands.getLatestGateDecision(projectId)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
+    enabled: !!projectId && isReadinessCheck && artifactExists,
+  })
+  const parseGateMutation = useMutation({
+    mutationFn: async () => {
+      const r = await commands.parseAndSaveGateResult(projectId, null)
+      if (r.status === 'error') throw new Error(JSON.stringify(r.error))
+      return r.data
+    },
     onSuccess: () => {
-      trpcUtils.planning.getLatestGateDecision.invalidate()
-    }
+      queryClient.invalidateQueries({ queryKey: ['planning-latest-gate', projectId] })
+    },
   })
   const parseGate = parseGateMutation.mutate
   const [autoParseTriggered, setAutoParseTriggered] = useState(false)
@@ -211,8 +233,8 @@ export function PlanningWorkspacePage() {
   // Get artifact lastModified for comparison
   const readinessArtifactLastModified = useMemo(() => {
     if (!artifacts) return null
-    const artifact = artifacts.find((a) => a.workflowKey === 'readiness-check')
-    return artifact?.lastModified ?? null
+    const artifact = artifacts.find((a) => a.workflow_key === 'readiness-check')
+    return artifact?.last_modified ?? null
   }, [artifacts])
 
   useEffect(() => {
@@ -238,7 +260,7 @@ export function PlanningWorkspacePage() {
 
     if (shouldParse) {
       setAutoParseTriggered(true)
-      parseGate({ projectId })
+      parseGate()
     }
   }, [
     isReadinessCheck,
@@ -679,7 +701,7 @@ export function PlanningWorkspacePage() {
                     <div className="h-full overflow-y-auto">
                       <div className="space-y-4 p-6">
                         <ReadinessGatePanel />
-                        <ArtifactViewer workflowKey={selectedWorkflow.key} />
+                        <ArtifactViewer workflowKey={selectedWorkflow.key} filePath="" onCloseFile={() => {}} />
                       </div>
                     </div>
                   ) : isReadinessCheck && !artifactExists ? (
@@ -687,7 +709,7 @@ export function PlanningWorkspacePage() {
                       <ReadinessGatePanel />
                     </div>
                   ) : artifactExists ? (
-                    <ArtifactViewer workflowKey={selectedWorkflow.key} />
+                    <ArtifactViewer workflowKey={selectedWorkflow.key} filePath="" onCloseFile={() => {}} />
                   ) : (
                     <SelectedWorkflowPlaceholder workflow={selectedWorkflow} />
                   )}

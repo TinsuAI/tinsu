@@ -10,9 +10,4 @@ interface Window {
     ) => () => void
     onFileChange: (callback: (event: { taskId: string; taskTitle: string }) => void) => () => void
   }
-  electron?: {
-    process?: {
-      versions?: Record<string, string>
-    }
-  }
 }

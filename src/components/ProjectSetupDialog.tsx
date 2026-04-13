@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import {
@@ -11,7 +11,7 @@ import {
 } from './ui/dialog'
 import { ProjectBasicsStep } from './setup/ProjectBasicsStep'
 import { ToolVerificationStep } from './setup/ToolVerificationStep'
-import { useSelectParentDirectory, useCreateProject } from '@renderer/hooks/useProjectCommands'
+import { useSelectParentDirectory, useCreateProject, useOpenProjectByPath } from '@renderer/hooks/useProjectCommands'
 
 interface ProjectSetupDialogProps {
   open: boolean
@@ -45,6 +45,20 @@ export function ProjectSetupDialog({
 
   const selectDirMutation = useSelectParentDirectory()
   const createMutation = useCreateProject()
+  const openProjectMutation = useOpenProjectByPath()
+
+  // In onboard mode, resolve the project ID from DB as soon as the dialog opens.
+  // createdProjectId is only set via handleCreateAndNext (create mode), so without
+  // this effect the onboard path always passes projectId='' to the caller, leaving
+  // activeProjectId null and permanently disabling the chat send button.
+  useEffect(() => {
+    if (mode === 'onboard' && initialProjectPath && !createdProjectId) {
+      openProjectMutation.mutate(initialProjectPath, {
+        onSuccess: (result) => setCreatedProjectId(result.id),
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, initialProjectPath])
 
   const handleSelectDirectory = async (): Promise<void> => {
     selectDirMutation.mutate(undefined, {
