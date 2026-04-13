@@ -112,6 +112,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_agent::write_remote_pty,
         commands::remote_agent::resize_remote_pty,
         commands::remote_agent::detach_remote_task_terminal,
+        commands::remote_files::get_remote_task_diff,
+        commands::remote_files::read_remote_file,
     ])
 }
 

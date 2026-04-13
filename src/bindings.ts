@@ -284,6 +284,25 @@ export const commands = {
 	resizeRemotePty: (processId: string, cols: number, rows: number) => typedError<null, AppError>(__TAURI_INVOKE("resize_remote_pty", { processId, cols, rows })),
 	// Detach from a remote PTY session (SSH channel closed; tmux persists on remote).
 	detachRemoteTaskTerminal: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("detach_remote_task_terminal", { processId })),
+	/**
+	 *  Get the git diff for a remote task's branch vs main.
+	 * 
+	 *  Mirrors `get_task_diff` but executes git commands on the remote machine via SSH.
+	 *  Returns empty GitDiffResult if the task has no branch or is not a remote task.
+	 */
+	getRemoteTaskDiff: (taskId: string) => typedError<GitDiffResult, AppError>(__TAURI_INVOKE("get_remote_task_diff", { taskId })),
+	/**
+	 *  Read a file from the remote project filesystem via SSH exec.
+	 * 
+	 *  `relative_path`: path relative to the remote project root (e.g. "_bmad-output/implementation-artifacts/t2-5.md")
+	 * 
+	 *  Validates:
+	 *  - No null bytes (injection guard)
+	 *  - No `../` traversal
+	 *  - Non-empty
+	 *  - File size ≤ 1MB (checked via wc -c before reading)
+	 */
+	readRemoteFile: (remoteProjectId: string, relativePath: string) => typedError<string, AppError>(__TAURI_INVOKE("read_remote_file", { remoteProjectId, relativePath })),
 };
 
 /* Types */

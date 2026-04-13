@@ -8,6 +8,7 @@ pub mod git;
 pub mod planning;
 pub mod project;
 pub mod remote_agent;
+pub mod remote_files;
 pub mod remote_projects;
 pub mod review;
 pub mod sprint;

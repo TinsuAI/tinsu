@@ -387,7 +387,7 @@ impl GitService {
 // ─── Unified Diff Parser ──────────────────────────────────────────────────────
 
 /// Parse `git diff main...HEAD` unified output into `Vec<GitDiffFile>`.
-fn parse_unified_diff(unified: &str, name_status: &str) -> Vec<GitDiffFile> {
+pub(crate) fn parse_unified_diff(unified: &str, name_status: &str) -> Vec<GitDiffFile> {
     // Build a map of path → status from name-status output
     let mut status_map: std::collections::HashMap<String, (String, Option<String>)> =
         std::collections::HashMap::new();
