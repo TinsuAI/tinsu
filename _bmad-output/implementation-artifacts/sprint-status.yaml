@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-12  # t1-1 done, t1-2 done, t1-3 done, t1-4 done, t1-5 done, t1-6 done, t1-7 done, t1-8 done, t1-9 done, t1-10 done, tauri-epic-1 in-progress, tauri-epic-2 in-progress, t2-1 done, t2-2 done, t2-3 done, t2-4 done, t2-5 done, t2-6 done, t2-7 review
+last_updated: 2026-04-12  # t1-1 done, t1-2 done, t1-3 done, t1-4 done, t1-5 done, t1-6 done, t1-7 done, t1-8 done, t1-9 done, t1-10 done, tauri-epic-1 in-progress, tauri-epic-2 in-progress, t2-1 done, t2-2 done, t2-3 done, t2-4 done, t2-5 done, t2-6 done, t2-7 done
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -393,7 +393,7 @@ development_status:
   t2-4-remote-tmux-session-attachment: done  # Code review complete - 7 auto-fixes applied (session name quoting, clock retry, empty session validation, cleanup race, detach simplification, SSH timeout, task_id validation), all 128 tests passing
   t2-5-remote-file-operations-for-artifacts-and-diffs: done  # Code review complete - 4 auto-fixes applied (name_status error swallowing, parse panic protection, wc validation, integer overflow guards), all 136 tests passing
   t2-6-remote-hook-event-forwarding: done  # Code review complete - 14 auto-fixes applied (tcpip_forward error handling, SSH timeout constants, backoff capped to 15s per AC6, retry max 100, port file chmod 600, proxy flush backpressure, graceful disconnect timeout, concurrent start race fix, channel msg logging, empty connection_id validation, mutex lock error handling, 5 missing event type handlers for AC4 compliance), all 142 tests passing
-  t2-7-local-remote-project-switcher: review
+  t2-7-local-remote-project-switcher: done  # Code review complete - 10 auto-fixes applied (FR60 clarity, task instructions, hook creation, race condition guard, React Query dedup, test backward compat, AC5 verification, cargo test flexibility, migration ordering, test assertions), story ready for implementation
   t2-8-remote-project-feature-parity-validation: backlog
   tauri-epic-2-retrospective: optional
 
