@@ -48,6 +48,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::project::select_parent_directory,
         commands::project::create_project,
         commands::project::verify_tools,
+        commands::project::open_remote_project,
         commands::bmad::bmad_check_status,
         commands::bmad::bmad_install_to_path,
         commands::bmad::install_nodejs,

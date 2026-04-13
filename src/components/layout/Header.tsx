@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Download, Trash2, RefreshCw, Settings, Terminal } from 'lucide-react'
+import { X, Download, Trash2, RefreshCw, Settings, Terminal, WifiOff } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
@@ -9,6 +9,10 @@ import { VelocityWidget } from '@renderer/components/velocity'
 import { ProjectSwitcher } from '@renderer/components/project'
 import { Button } from '@renderer/components/ui/button'
 import { ThemeToggle } from '@renderer/components/ui/theme-toggle'
+import {
+  useRemoteConnectionStatus,
+  useReconnectRemoteProject,
+} from '@renderer/hooks/useRemoteProjectSwitcher'
 
 interface HeaderProps {
   className?: string
@@ -26,11 +30,17 @@ interface HeaderProps {
 
 export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll, isSyncingAll = false, onOpenSettings }: HeaderProps) {
   const projectName = useProjectStore((state) => state.projectName)
+  const remoteProjectId = useProjectStore((state) => state.remoteProjectId)
+  const remoteConnectionId = useProjectStore((state) => state.remoteConnectionId)
   const { clearAllFilters, hasActiveFilters } = useUIStore()
   const { isVisible: isTerminalVisible, toggleVisible: toggleTerminalVisible } = useTerminalStore()
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
 
+  const { data: hookStatus } = useRemoteConnectionStatus(remoteConnectionId, !!remoteProjectId)
+  const reconnect = useReconnectRemoteProject()
+
   const showClearAll = hasActiveFilters()
+  const showReconnect = !!remoteProjectId && !!hookStatus && !hookStatus.is_active
 
   return (
     <div className={cn('sticky top-0 z-50 flex flex-col border-b border-border bg-background', className)}>
@@ -48,6 +58,20 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
         <div className="ml-auto flex items-center gap-2">
           {/* Velocity widget - shows task completion metrics (Story 2.7) */}
           <VelocityWidget />
+
+          {/* Reconnect button — visible when remote project is active but SSH tunnel is down */}
+          {showReconnect && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => reconnect.mutate()}
+              disabled={reconnect.isPending}
+              data-testid="reconnect-remote-button"
+            >
+              <WifiOff className="mr-1 h-3 w-3" />
+              {reconnect.isPending ? 'Reconnecting...' : 'Reconnect'}
+            </Button>
+          )}
 
           {/* Terminal toggle button */}
           <Button

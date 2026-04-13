@@ -15,6 +15,17 @@ vi.mock('recharts', async () => {
   }
 })
 
+// Mock remote project hooks to avoid QueryClient requirement
+vi.mock('@renderer/hooks/useRemoteProjectSwitcher', () => ({
+  useRemoteConnectionStatus: () => ({ data: undefined, isPending: false }),
+  useReconnectRemoteProject: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
+// Mock ProjectSwitcher to avoid QueryClient requirement (it uses useQuery internally)
+vi.mock('@renderer/components/project', () => ({
+  ProjectSwitcher: () => <span data-testid="project-switcher-mock" />,
+}))
+
 // Mock tRPC for FilterPanel and VelocityWidget
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {

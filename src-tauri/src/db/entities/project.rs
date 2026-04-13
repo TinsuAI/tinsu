@@ -10,6 +10,7 @@ pub struct Model {
     pub name: String,
     pub created_at: i64,
     pub last_opened_at: Option<i64>,
+    pub remote_project_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

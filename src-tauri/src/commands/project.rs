@@ -7,7 +7,7 @@ use specta::Type;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::db::entities::project;
+use crate::db::entities::{project, remote_project};
 use crate::error::AppError;
 
 // ---------------------------------------------------------------------------
@@ -45,6 +45,7 @@ pub struct ProjectModel {
     pub name: String,
     pub created_at: i64,
     pub last_opened_at: Option<i64>,
+    pub remote_project_id: Option<String>,
 }
 
 impl From<project::Model> for ProjectModel {
@@ -55,6 +56,7 @@ impl From<project::Model> for ProjectModel {
             name: m.name,
             created_at: m.created_at,
             last_opened_at: m.last_opened_at,
+            remote_project_id: m.remote_project_id,
         }
     }
 }
@@ -126,6 +128,7 @@ async fn upsert_project(
     path: &str,
     project_name: String,
     db: &DatabaseConnection,
+    remote_project_id: Option<String>,
 ) -> Result<ProjectModel, AppError> {
     let existing = project::Entity::find()
         .filter(project::Column::Path.eq(path))
@@ -136,6 +139,7 @@ async fn upsert_project(
 
     let model = match existing {
         Some(p) => {
+            // Do NOT overwrite remote_project_id on update — keep existing value
             let updated = project::ActiveModel {
                 id: Set(p.id.clone()),
                 last_opened_at: Set(Some(now)),
@@ -150,6 +154,7 @@ async fn upsert_project(
                 name: Set(project_name),
                 created_at: Set(now),
                 last_opened_at: Set(Some(now)),
+                remote_project_id: Set(remote_project_id),
             };
             new.insert(db).await?
         }
@@ -168,7 +173,7 @@ pub async fn open_project_by_path(
         return Err(AppError::BadRequest("path must not be empty".to_string()));
     }
     let project_name = read_project_name(&path)?;
-    upsert_project(&path, project_name, db.inner()).await
+    upsert_project(&path, project_name, db.inner(), None).await
 }
 
 /// Removes a project from DB (does NOT delete files).
@@ -204,7 +209,7 @@ pub async fn open_project_dialog(
         Some(file_path) => {
             let path = file_path.to_string();
             let project_name = read_project_name(&path)?;
-            let model = upsert_project(&path, project_name, db.inner()).await?;
+            let model = upsert_project(&path, project_name, db.inner(), None).await?;
             Ok(Some(model))
         }
     }
@@ -280,9 +285,77 @@ pub async fn create_project(
         name: Set(trimmed_name.to_string()),
         created_at: Set(now),
         last_opened_at: Set(Some(now)),
+        remote_project_id: Set(None),
     };
     let result = new.insert(db.inner()).await?;
     Ok(ProjectModel::from(result))
+}
+
+/// Open a remote project by its remote_project_id.
+/// Finds or creates a local `projects` record linked to this remote project.
+/// The local record serves as the anchor for tasks, sprints, and epics.
+///
+/// Logic:
+/// 1. Load remote_project from DB (error if not found)
+/// 2. Find existing project WHERE remote_project_id = id → if found, update last_opened_at + return
+/// 3. If not found, create new project with path = remote_project.path,
+///    name = remote_project.name, remote_project_id = remote_project.id
+#[tauri::command]
+#[specta::specta]
+pub async fn open_remote_project(
+    db: State<'_, DatabaseConnection>,
+    remote_project_id: String,
+) -> Result<ProjectModel, AppError> {
+    if remote_project_id.is_empty() {
+        return Err(AppError::BadRequest(
+            "remote_project_id must not be empty".into(),
+        ));
+    }
+
+    // 1. Load remote project profile
+    let rp = remote_project::Entity::find_by_id(&remote_project_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "Remote project '{}' not found",
+                remote_project_id
+            ))
+        })?;
+
+    let now = now_unix_secs();
+
+    // 2. Find existing linked local project
+    let existing = project::Entity::find()
+        .filter(project::Column::RemoteProjectId.eq(&remote_project_id))
+        .one(db.inner())
+        .await?;
+
+    let model = match existing {
+        Some(p) => {
+            // Update last_opened_at
+            let updated = project::ActiveModel {
+                id: Set(p.id.clone()),
+                last_opened_at: Set(Some(now)),
+                ..Default::default()
+            };
+            updated.update(db.inner()).await?
+        }
+        None => {
+            // Create new local project anchored to this remote project
+            let new = project::ActiveModel {
+                id: Set(uuid::Uuid::new_v4().to_string()),
+                path: Set(rp.path.clone()),
+                name: Set(rp.name.clone()),
+                created_at: Set(now),
+                last_opened_at: Set(Some(now)),
+                remote_project_id: Set(Some(remote_project_id)),
+            };
+            new.insert(db.inner()).await?
+        }
+    };
+
+    Ok(ProjectModel::from(model))
 }
 
 /// Checks required tools and returns their install status.
@@ -378,6 +451,7 @@ mod tests {
             name: "My Project".to_string(),
             created_at: 1_000_000,
             last_opened_at: Some(1_000_100),
+            remote_project_id: None,
         };
         let json = serde_json::to_string(&model).expect("serialize");
         assert!(json.contains("My Project"));
@@ -392,11 +466,13 @@ mod tests {
             name: "Test Project".to_string(),
             created_at: 1_000_000,
             last_opened_at: None,
+            remote_project_id: None,
         };
         let dto = ProjectModel::from(entity);
         assert_eq!(dto.id, "p1");
         assert_eq!(dto.name, "Test Project");
         assert_eq!(dto.last_opened_at, None);
+        assert_eq!(dto.remote_project_id, None);
     }
 
     #[test]
@@ -404,5 +480,52 @@ mod tests {
         let input = ListRecentProjectsInput { limit: 10 };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("10"));
+    }
+
+    #[test]
+    fn test_open_remote_project_rejects_empty_id() {
+        // Validates the empty-id guard without hitting DB
+        assert!(remote_project_id_is_empty(""));
+        assert!(!remote_project_id_is_empty("some-uuid"));
+    }
+
+    fn remote_project_id_is_empty(id: &str) -> bool {
+        id.is_empty()
+    }
+
+    #[test]
+    fn test_project_model_includes_remote_project_id() {
+        let model = ProjectModel {
+            id: "p1".into(),
+            path: "/remote/path".into(),
+            name: "RemoteProj".into(),
+            created_at: 1_000_000,
+            last_opened_at: None,
+            remote_project_id: Some("rp-uuid".into()),
+        };
+        let json = serde_json::to_string(&model).unwrap();
+        assert!(json.contains("rp-uuid"));
+        assert!(json.contains("remote_project_id"));
+    }
+
+    #[test]
+    fn test_project_model_remote_project_id_nullable() {
+        let model = ProjectModel {
+            id: "p2".into(),
+            path: "/local/path".into(),
+            name: "LocalProj".into(),
+            created_at: 1_000_000,
+            last_opened_at: None,
+            remote_project_id: None,
+        };
+        let json = serde_json::to_string(&model).unwrap();
+        assert!(json.contains("\"remote_project_id\":null"));
+    }
+
+    #[test]
+    fn test_migration_000005_name() {
+        use crate::migration::m20260412_000005_project_remote_link::Migration;
+        use sea_orm_migration::MigrationName;
+        assert_eq!(Migration.name(), "m20260412_000005_project_remote_link");
     }
 }

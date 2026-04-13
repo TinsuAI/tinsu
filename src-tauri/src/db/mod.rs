@@ -36,6 +36,8 @@ mod tests {
             "chat_sessions",
             "chat_messages",
             "chat_message_attachments",
+            "ssh_connections",
+            "remote_projects",
         ];
 
         for table in expected_tables {

@@ -11,8 +11,18 @@ interface ProjectState {
   // Current project ID from DB (null until project is opened via Rust command)
   activeProjectId: string | null
 
+  // Remote project context (null for local projects)
+  remoteProjectId: string | null
+  remoteConnectionId: string | null
+
   // Actions
-  setProject: (id: string, path: string, name: string) => void
+  setProject: (
+    id: string,
+    path: string,
+    name: string,
+    remoteProjectId?: string | null,
+    remoteConnectionId?: string | null
+  ) => void
   setProjectId: (id: string | null) => void
   clearProject: () => void
 }
@@ -27,12 +37,16 @@ export const useProjectStore = create<ProjectState>()(
       projectPath: null,
       projectName: null,
       activeProjectId: null,
+      remoteProjectId: null,
+      remoteConnectionId: null,
 
-      setProject: (id, path, name) =>
+      setProject: (id, path, name, remoteProjectId = null, remoteConnectionId = null) =>
         set({
           activeProjectId: id,
           projectPath: path,
           projectName: name,
+          remoteProjectId,
+          remoteConnectionId,
         }),
 
       setProjectId: (id) => set({ activeProjectId: id }),
@@ -42,12 +56,18 @@ export const useProjectStore = create<ProjectState>()(
           projectPath: null,
           projectName: null,
           activeProjectId: null,
+          remoteProjectId: null,
+          remoteConnectionId: null,
         }),
     }),
     {
       name: 'tinsu-project-storage',
-      // Only persist the path — id and name are resolved fresh from DB on open
-      partialize: (state) => ({ projectPath: state.projectPath }),
+      // Persist path and remote context — id and name are resolved fresh from DB on open
+      partialize: (state) => ({
+        projectPath: state.projectPath,
+        remoteProjectId: state.remoteProjectId,
+        remoteConnectionId: state.remoteConnectionId,
+      }),
     }
   )
 )

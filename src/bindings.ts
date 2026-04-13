@@ -71,6 +71,7 @@ export const commands = {
 	name: string,
 	created_at: number,
 	last_opened_at: number | null,
+	remote_project_id: string | null,
 } | null, AppError>(__TAURI_INVOKE("open_project_dialog")),
 	// Opens a native folder picker and returns the selected path or None if cancelled.
 	selectParentDirectory: () => typedError<string | null, AppError>(__TAURI_INVOKE("select_parent_directory")),
@@ -78,6 +79,18 @@ export const commands = {
 	createProject: (parentDir: string, projectName: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("create_project", { parentDir, projectName })),
 	// Checks required tools and returns their install status.
 	verifyTools: (projectPath: string) => typedError<ToolCheckResult[], AppError>(__TAURI_INVOKE("verify_tools", { projectPath })),
+	/**
+	 *  Open a remote project by its remote_project_id.
+	 *  Finds or creates a local `projects` record linked to this remote project.
+	 *  The local record serves as the anchor for tasks, sprints, and epics.
+	 * 
+	 *  Logic:
+	 *  1. Load remote_project from DB (error if not found)
+	 *  2. Find existing project WHERE remote_project_id = id → if found, update last_opened_at + return
+	 *  3. If not found, create new project with path = remote_project.path,
+	 *     name = remote_project.name, remote_project_id = remote_project.id
+	 */
+	openRemoteProject: (remoteProjectId: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("open_remote_project", { remoteProjectId })),
 	// Returns BMAD installation status by reading _bmad/_config/manifest.yaml.
 	bmadCheckStatus: (projectPath: string) => typedError<BmadStatus, AppError>(__TAURI_INVOKE("bmad_check_status", { projectPath })),
 	// Runs `npx bmad-method install` with the given options.
@@ -622,6 +635,7 @@ export type ProjectModel = {
 	name: string,
 	created_at: number,
 	last_opened_at: number | null,
+	remote_project_id: string | null,
 };
 
 // Input for creating a remote tmux task session.

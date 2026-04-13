@@ -64,4 +64,5 @@ export type {
   DiscoverProjectsInput,
   SaveRemoteProjectInput,
   RemoteCreateSessionInput,
+  RemoteHookStatus,
 } from '../bindings'
