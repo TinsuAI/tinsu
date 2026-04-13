@@ -51,26 +51,31 @@ function App(): React.JSX.Element {
   const reopenMutation = useOpenProjectByPath()
 
   useEffect(() => {
-    // On mount, if we have a stored project path, try to re-open it
+    // On mount, if we have a stored project path, try to re-open it.
+    // Use mutateAsync (promise-based) instead of mutate(callbacks) so that the
+    // resolution is not tied to the observer instance — React 18 StrictMode
+    // destroys and recreates observers between the two effect invocations,
+    // silently dropping any inline callbacks passed to mutate().
     if (projectPath && !hasAttemptedReopen.current) {
       hasAttemptedReopen.current = true
       setIsReopening(true)
-      reopenMutation.mutate(projectPath, {
-        onSuccess: (result) => {
+      reopenMutation.mutateAsync(projectPath)
+        .then((result) => {
           setProject(result.id, result.path, result.name)
           setIsReopening(false)
           // Story 8.10 AC4: Check for crashed operations after project opens
-          crashRecoveryQuery.refetch().then((response) => {
-            if (response.data && response.data.crashedOperations.length > 0) {
-              setCrashRecoveryData({
-                crashedOperations: response.data.crashedOperations,
-                summary: response.data.summary,
-              })
-              setShowCrashRecovery(true)
-            }
-          })
-        },
-        onError: (err) => {
+          return crashRecoveryQuery.refetch()
+        })
+        .then((response) => {
+          if (response.data && response.data.crashedOperations.length > 0) {
+            setCrashRecoveryData({
+              crashedOperations: response.data.crashedOperations,
+              summary: response.data.summary,
+            })
+            setShowCrashRecovery(true)
+          }
+        })
+        .catch((err) => {
           // If no .tinsu/config.yaml — path exists but not yet set up
           if (err.message.includes('"NotFound"') || err.message.includes('config.yaml')) {
             setOnboardingProjectPath(projectPath)
@@ -80,8 +85,7 @@ function App(): React.JSX.Element {
             clearProject()
           }
           setIsReopening(false)
-        },
-      })
+        })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount - intentionally omit dependencies
