@@ -62,7 +62,7 @@ export const commands = {
 	validateProjectPath: (path: string) => typedError<boolean, AppError>(__TAURI_INVOKE("validate_project_path", { path })),
 	// Opens a project by path: reads config, upserts in DB, returns ProjectModel.
 	openProjectByPath: (path: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("open_project_by_path", { path })),
-	// Removes a project from DB (does NOT delete files).
+	// Removes a project and all related records from DB (does NOT delete files).
 	removeProject: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_project", { id })),
 	// Opens a native folder picker dialog; returns the selected ProjectModel or None if cancelled.
 	openProjectDialog: () => typedError<{

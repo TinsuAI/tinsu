@@ -176,7 +176,7 @@ pub async fn open_project_by_path(
     upsert_project(&path, project_name, db.inner(), None).await
 }
 
-/// Removes a project from DB (does NOT delete files).
+/// Removes a project and all related records from DB (does NOT delete files).
 #[tauri::command]
 #[specta::specta]
 pub async fn remove_project(
@@ -186,12 +186,52 @@ pub async fn remove_project(
     if id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
     }
-    use sea_orm::ModelTrait;
-    let existing = project::Entity::find_by_id(&id)
-        .one(db.inner())
+    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
+
+    let conn = db.inner();
+
+    // Verify project exists
+    project::Entity::find_by_id(&id)
+        .one(conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Project {} not found", id)))?;
-    existing.delete(db.inner()).await?;
+
+    // Delete child records bottom-up to satisfy FK constraints.
+    // Order: deepest children first, then direct children of projects.
+    let cascade_sql = [
+        // chat_message_attachments → chat_messages → chat_sessions → projects
+        "DELETE FROM chat_message_attachments WHERE message_id IN (SELECT id FROM chat_messages WHERE session_id IN (SELECT id FROM chat_sessions WHERE project_id = $1))",
+        "DELETE FROM chat_messages WHERE session_id IN (SELECT id FROM chat_sessions WHERE project_id = $1)",
+        "DELETE FROM chat_sessions WHERE project_id = $1",
+        // gate_decisions → projects (also FK → workflow_runs, but we delete gate_decisions first)
+        "DELETE FROM gate_decisions WHERE project_id = $1",
+        // workflow_runs → projects + tasks
+        "DELETE FROM workflow_runs WHERE project_id = $1",
+        // task children → tasks → projects
+        "DELETE FROM task_versions WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM task_activities WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM session_history WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM task_sessions WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM task_artifacts WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM agent_runs WHERE task_id IN (SELECT id FROM tasks WHERE project_id = $1)",
+        "DELETE FROM tasks WHERE project_id = $1",
+        // direct children of projects
+        "DELETE FROM planning_artifact_statuses WHERE project_id = $1",
+        "DELETE FROM epics WHERE project_id = $1",
+        "DELETE FROM sprints WHERE project_id = $1",
+        // finally the project itself
+        "DELETE FROM projects WHERE id = $1",
+    ];
+
+    for sql in cascade_sql {
+        conn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Sqlite,
+            sql,
+            [id.clone().into()],
+        ))
+        .await?;
+    }
+
     Ok(())
 }
 
