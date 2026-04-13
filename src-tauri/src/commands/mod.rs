@@ -10,5 +10,6 @@ pub mod project;
 pub mod review;
 pub mod sprint;
 pub mod ssh;
+pub mod remote_projects;
 pub mod ssh_connections;
 pub mod task;

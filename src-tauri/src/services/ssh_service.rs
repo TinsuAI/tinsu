@@ -267,6 +267,163 @@ pub async fn test_connection(
     }
 }
 
+// ── Remote Project Discovery ─────────────────────────────────────────────────
+
+/// Connect to a remote host via SSH and find all git repositories under `search_path`.
+/// Returns a list of DiscoveredProject (name + path). Skips permission errors silently.
+/// Times out after 30 seconds.
+pub async fn discover_projects(
+    host: &str,
+    port: u16,
+    username: &str,
+    auth_method: &str,   // "key" | "password"
+    key_name: Option<&str>,
+    password: Option<&str>,
+    search_path: &str,   // e.g. "~" or "/home/user"
+) -> Result<Vec<crate::models::ssh_config::DiscoveredProject>, AppError> {
+    use tokio::time::{timeout, Duration};
+
+    // Build find command — 2>/dev/null silences permission errors
+    // Limit maxdepth to 5 to avoid scanning huge trees
+    // Quote search_path to prevent shell injection (e.g., "~; rm -rf /")
+    let cmd = format!(
+        "find '{}' -name .git -maxdepth 5 -type d 2>/dev/null",
+        search_path.replace("'", "'\\''")
+    );
+
+    let output = timeout(
+        Duration::from_secs(30),
+        ssh_exec(host, port, username, auth_method, key_name, password, &cmd),
+    )
+    .await
+    .map_err(|_| AppError::Internal("Remote project discovery timed out after 30 seconds".into()))??;
+
+    Ok(parse_discovered_projects(&output))
+}
+
+/// Execute a single command over SSH, collect stdout, return as String.
+async fn ssh_exec(
+    host: &str,
+    port: u16,
+    username: &str,
+    auth_method: &str,
+    key_name: Option<&str>,
+    password: Option<&str>,
+    command: &str,
+) -> Result<String, AppError> {
+    use std::sync::Arc;
+    use russh::ChannelMsg;
+
+    // ── Connect ───────────────────────────────────────────────────────────
+    let fingerprint_store: Arc<std::sync::Mutex<Option<String>>> =
+        Arc::new(std::sync::Mutex::new(None));
+    let handler = TestHandler { fingerprint: Arc::clone(&fingerprint_store) };
+
+    let config = Arc::new(russh::client::Config::default());
+    let addr = format!("{host}:{port}");
+    let mut session = russh::client::connect(config, addr, handler)
+        .await
+        .map_err(|e| AppError::Internal(format!("SSH connect failed: {e}")))?;
+
+    // ── Authenticate ─────────────────────────────────────────────────────
+    let auth_ok = match auth_method {
+        "key" => {
+            let name = key_name.ok_or_else(|| {
+                AppError::BadRequest("key_name required for key auth".into())
+            })?;
+            let export = export_key(name)?;
+            let private_key = russh::keys::PrivateKey::from_openssh(
+                export.private_key_pem.as_bytes(),
+            )
+            .map_err(|e| AppError::Internal(format!("Bad private key PEM: {e}")))?;
+            let key_with_alg =
+                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(private_key), None);
+            session
+                .authenticate_publickey(username, key_with_alg)
+                .await
+                .map_err(|e| AppError::Internal(format!("SSH auth failed: {e}")))?
+                .success()
+        }
+        "password" => {
+            let pw = password.unwrap_or("");
+            session
+                .authenticate_password(username, pw)
+                .await
+                .map_err(|e| AppError::Internal(format!("SSH auth failed: {e}")))?
+                .success()
+        }
+        other => {
+            return Err(AppError::BadRequest(format!(
+                "auth_method must be 'key' or 'password', got '{other}'"
+            )));
+        }
+    };
+
+    if !auth_ok {
+        return Err(AppError::Internal(
+            "SSH authentication failed".into(),
+        ));
+    }
+
+    // ── Open channel and exec command ─────────────────────────────────────
+    let mut channel = session
+        .channel_open_session()
+        .await
+        .map_err(|e| AppError::Internal(format!("SSH channel open failed: {e}")))?;
+
+    channel
+        .exec(true, command)
+        .await
+        .map_err(|e| AppError::Internal(format!("SSH exec failed: {e}")))?;
+
+    // ── Collect stdout ────────────────────────────────────────────────────
+    let mut stdout = Vec::new();
+    loop {
+        match channel.wait().await {
+            None => break,
+            Some(ChannelMsg::Data { ref data }) => {
+                stdout.extend_from_slice(data);
+            }
+            Some(ChannelMsg::Eof) => {
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let _ = session.disconnect(russh::Disconnect::ByApplication, "", "").await;
+
+    String::from_utf8(stdout)
+        .map_err(|e| AppError::Internal(format!("SSH output not UTF-8: {e}")))
+}
+
+/// Parse `find … -name .git -type d` output into DiscoveredProject list.
+/// Input lines look like: /home/user/my-repo/.git
+/// Output: name = "my-repo", path = "/home/user/my-repo"
+pub(crate) fn parse_discovered_projects(output: &str) -> Vec<crate::models::ssh_config::DiscoveredProject> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            // Strip trailing "/.git"
+            let parent = line.strip_suffix("/.git").or_else(|| line.strip_suffix("/.git/"))?;
+            if parent.is_empty() {
+                return None;
+            }
+            // Name = last path segment
+            let name = std::path::Path::new(parent)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(parent)
+                .to_string();
+            Some(crate::models::ssh_config::DiscoveredProject {
+                name,
+                path: parent.to_string(),
+            })
+        })
+        .collect()
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 fn get_private_pem(name: &str) -> Result<String, AppError> {

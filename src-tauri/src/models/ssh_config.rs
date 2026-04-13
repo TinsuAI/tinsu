@@ -99,3 +99,39 @@ pub struct SshKeyExport {
     /// PEM-encoded private key — only returned for export operations
     pub private_key_pem: String,
 }
+
+/// A discovered git repository on the remote machine (not yet saved).
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct DiscoveredProject {
+    /// Display name — last path segment of the repo parent dir (e.g., "my-repo")
+    pub name: String,
+    /// Absolute path on the remote machine (e.g., "/home/user/my-repo")
+    pub path: String,
+}
+
+/// A saved remote project profile.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct RemoteProjectProfile {
+    pub id: String,
+    pub connection_id: String,
+    pub name: String,
+    pub path: String,
+    pub created_at: i64,
+}
+
+/// Input for the SSH project discovery command.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct DiscoverProjectsInput {
+    /// ID of the saved SSH connection to use
+    pub connection_id: String,
+    /// Root path to search from (e.g., "~" or "/home/user"). Defaults to "~".
+    pub search_path: Option<String>,
+}
+
+/// Input to save a discovered (or manually entered) remote project.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SaveRemoteProjectInput {
+    pub connection_id: String,
+    pub name: String,
+    pub path: String,
+}

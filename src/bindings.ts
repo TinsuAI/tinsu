@@ -249,6 +249,17 @@ export const commands = {
 	deleteSshConnection: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_ssh_connection", { id })),
 	// Test an SSH connection — connect, authenticate, return fingerprint on success.
 	testSshConnection: (input: TestSshConnectionInput) => typedError<SshConnectionTestResult, AppError>(__TAURI_INVOKE("test_ssh_connection", { input })),
+	/**
+	 *  Discover git repositories on a remote machine via SSH.
+	 *  Runs `find <path> -name .git -maxdepth 5 -type d 2>/dev/null` over SSH.
+	 */
+	discoverRemoteProjects: (input: DiscoverProjectsInput) => typedError<DiscoveredProject[], AppError>(__TAURI_INVOKE("discover_remote_projects", { input })),
+	// Save a discovered (or manually entered) remote project profile.
+	saveRemoteProject: (input: SaveRemoteProjectInput) => typedError<RemoteProjectProfile, AppError>(__TAURI_INVOKE("save_remote_project", { input })),
+	// List all saved remote project profiles.
+	listRemoteProjects: () => typedError<RemoteProjectProfile[], AppError>(__TAURI_INVOKE("list_remote_projects")),
+	// Delete a saved remote project profile.
+	deleteRemoteProject: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_remote_project", { id })),
 };
 
 /* Types */
@@ -397,6 +408,22 @@ export type DeleteTaskInput = {
 	id: string,
 };
 
+// Input for the SSH project discovery command.
+export type DiscoverProjectsInput = {
+	// ID of the saved SSH connection to use
+	connection_id: string,
+	// Root path to search from (e.g., "~" or "/home/user"). Defaults to "~".
+	search_path: string | null,
+};
+
+// A discovered git repository on the remote machine (not yet saved).
+export type DiscoveredProject = {
+	// Display name — last path segment of the repo parent dir (e.g., "my-repo")
+	name: string,
+	// Absolute path on the remote machine (e.g., "/home/user/my-repo")
+	path: string,
+};
+
 /**
  *  DTO for epic data exposed via tauri-specta.
  *  Mirrors epic::Model but with a unique specta type name to avoid collision with task::Model.
@@ -542,9 +569,25 @@ export type ProjectModel = {
 	last_opened_at: number | null,
 };
 
+// A saved remote project profile.
+export type RemoteProjectProfile = {
+	id: string,
+	connection_id: string,
+	name: string,
+	path: string,
+	created_at: number,
+};
+
 export type ReorderTasksInput = {
 	task_ids: string[],
 	status: string,
+};
+
+// Input to save a discovered (or manually entered) remote project.
+export type SaveRemoteProjectInput = {
+	connection_id: string,
+	name: string,
+	path: string,
 };
 
 export type ScrollbackMetadata = {

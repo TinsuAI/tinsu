@@ -10,6 +10,7 @@ pub mod prelude;
 pub mod session_history;
 pub mod settings;
 pub mod sprint;
+pub mod remote_project;
 pub mod ssh_connection;
 pub mod task;
 pub mod task_activity;

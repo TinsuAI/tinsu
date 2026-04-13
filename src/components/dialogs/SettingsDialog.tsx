@@ -10,6 +10,7 @@ import { AgentSettingsPanel } from '@renderer/components/settings/AgentSettingsP
 import { BmadSettingsPanel } from '@renderer/components/settings/BmadSettingsPanel'
 import { GitLogsPanel } from '@renderer/components/settings/GitLogsPanel'
 import { SshConnectionsPanel } from '@renderer/components/settings/SshConnectionsPanel'
+import { RemoteProjectsPanel } from '@renderer/components/settings/RemoteProjectsPanel'
 
 interface SettingsDialogProps {
   open: boolean
@@ -35,6 +36,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): Rea
           <GitLogsPanel />
           <hr className="border-border" />
           <SshConnectionsPanel />
+          <hr className="border-border" />
+          <RemoteProjectsPanel />
         </div>
       </DialogContent>
     </Dialog>

@@ -102,6 +102,10 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::ssh_connections::update_ssh_connection,
         commands::ssh_connections::delete_ssh_connection,
         commands::ssh_connections::test_ssh_connection,
+        commands::remote_projects::discover_remote_projects,
+        commands::remote_projects::save_remote_project,
+        commands::remote_projects::list_remote_projects,
+        commands::remote_projects::delete_remote_project,
     ])
 }
 

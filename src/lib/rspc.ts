@@ -59,4 +59,8 @@ export type {
   UpdateSshConnectionInput,
   TestSshConnectionInput,
   SshConnectionTestResult,
+  DiscoveredProject,
+  RemoteProjectProfile,
+  DiscoverProjectsInput,
+  SaveRemoteProjectInput,
 } from '../bindings'
