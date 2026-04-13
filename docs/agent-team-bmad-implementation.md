@@ -131,7 +131,7 @@ all steps including status updates.
 **Model assignment is per-role and MUST be set explicitly:**
 - **SM** → `model: "sonnet"` (story creation)
 - **DEV 1** → `model: "sonnet"` (implementation)
-- **DEV 2** → `model: "sonnet"` (code review)
+- **DEV 2** → `model: "haiku"` (code review)
 
 Always pass the correct model to the Agent tool when spawning each agent.
 
