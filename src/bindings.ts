@@ -226,6 +226,19 @@ export const commands = {
 	listGateDecisions: (projectId: string, limit: number | null) => typedError<GateDecisionModel[], AppError>(__TAURI_INVOKE("list_gate_decisions", { projectId, limit })),
 	// Approve all artifacts for implementation (requires latest gate decision = pass).
 	approveForImplementation: (projectId: string) => typedError<number, AppError>(__TAURI_INVOKE("approve_for_implementation", { projectId })),
+	// Generate a new Ed25519 key pair, store in OS keychain, persist name in DB.
+	generateSshKey: (input: GenerateSshKeyInput) => typedError<SshKeyEntry, AppError>(__TAURI_INVOKE("generate_ssh_key", { input })),
+	// List all SSH keys stored in the OS keychain (names from DB, public keys from keychain).
+	listSshKeys: () => typedError<SshKeyEntry[], AppError>(__TAURI_INVOKE("list_ssh_keys")),
+	// Get the public key for a named SSH key.
+	getSshPublicKey: (name: string) => typedError<SshKeyEntry, AppError>(__TAURI_INVOKE("get_ssh_public_key", { name })),
+	/**
+	 *  Export both public and private key for a named SSH key.
+	 *  WARNING: Private key is returned in plaintext — use only for one-time export.
+	 */
+	exportSshKey: (name: string) => typedError<SshKeyExport, AppError>(__TAURI_INVOKE("export_ssh_key", { name })),
+	// Delete a named SSH key from the OS keychain and remove from DB name list.
+	deleteSshKey: (name: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_ssh_key", { name })),
 };
 
 /* Types */
@@ -399,6 +412,11 @@ export type GateIssue = {
 	section_ref: string | null,
 };
 
+export type GenerateSshKeyInput = {
+	// Name to identify this key pair (e.g. "macbook-tinsu")
+	name: string,
+};
+
 export type GetTaskInput = {
 	id: string,
 };
@@ -538,6 +556,20 @@ export type SprintModel = {
 	story_prefix: string | null,
 	epics_file_path: string | null,
 	created_at: number,
+};
+
+export type SshKeyEntry = {
+	// User-provided name, also used as keychain account identifier
+	name: string,
+	// OpenSSH-format public key (safe to display)
+	public_key: string,
+};
+
+export type SshKeyExport = {
+	name: string,
+	public_key: string,
+	// PEM-encoded private key — only returned for export operations
+	private_key_pem: string,
 };
 
 export type TaskSessionModel = {

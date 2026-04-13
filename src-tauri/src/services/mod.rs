@@ -4,4 +4,5 @@ pub mod git_service;
 pub mod hook_listener;
 pub mod pty_service;
 pub mod scrollback_backup;
+pub mod ssh_service;
 pub mod tmux_service;

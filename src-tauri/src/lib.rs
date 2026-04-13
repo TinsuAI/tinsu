@@ -92,6 +92,11 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::planning::get_latest_gate_decision,
         commands::planning::list_gate_decisions,
         commands::planning::approve_for_implementation,
+        commands::ssh::generate_ssh_key,
+        commands::ssh::list_ssh_keys,
+        commands::ssh::get_ssh_public_key,
+        commands::ssh::export_ssh_key,
+        commands::ssh::delete_ssh_key,
     ])
 }
 

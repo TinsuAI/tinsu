@@ -9,4 +9,5 @@ pub mod planning;
 pub mod project;
 pub mod review;
 pub mod sprint;
+pub mod ssh;
 pub mod task;
