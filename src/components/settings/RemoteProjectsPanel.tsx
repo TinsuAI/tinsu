@@ -22,17 +22,19 @@ import {
   FolderGit2,
   Trash2,
   Loader2,
-  GitBranch,
   Plus,
-  BookmarkPlus,
+  Folder,
+  ChevronRight,
+  Home,
+  FolderOpen,
 } from 'lucide-react'
 import { commands } from '@renderer/lib/rspc'
 import type {
   SshConnectionProfile,
-  DiscoveredProject,
   RemoteProjectProfile,
-  DiscoverProjectsInput,
   SaveRemoteProjectInput,
+  ListRemoteDirInput,
+  RemoteDirEntry,
 } from '@renderer/lib/rspc'
 
 // ─── Discover Dialog ──────────────────────────────────────────────────────────
@@ -43,89 +45,71 @@ interface DiscoverDialogProps {
   connections: SshConnectionProfile[]
   onSave: (input: SaveRemoteProjectInput) => void
   isSaving: boolean
+  onAddConnection?: () => void
+  onEditConnection?: (connection: SshConnectionProfile) => void
 }
 
-function DiscoverProjectsDialog({
+export function DiscoverProjectsDialog({
   open,
   onOpenChange,
   connections,
   onSave,
   isSaving,
+  onAddConnection,
+  onEditConnection,
 }: DiscoverDialogProps) {
   const [connectionId, setConnectionId] = useState('')
-  const [searchPath, setSearchPath] = useState('')
-  const [discovered, setDiscovered] = useState<DiscoveredProject[]>([])
-  const [hasDiscovered, setHasDiscovered] = useState(false)
-  const [manualPath, setManualPath] = useState('')
-  const [manualPathError, setManualPathError] = useState('')
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [browserPath, setBrowserPath] = useState('~')
+  const [browserEntries, setBrowserEntries] = useState<RemoteDirEntry[]>([])
+  const [browserFilter, setBrowserFilter] = useState('')
+  const [browserLoading, setBrowserLoading] = useState(false)
+  const [browserError, setBrowserError] = useState('')
 
   React.useEffect(() => {
     if (open) {
       setConnectionId('')
-      setSearchPath('')
-      setDiscovered([])
-      setHasDiscovered(false)
-      setManualPath('')
-      setManualPathError('')
-      setSavedIds(new Set())
+      setBrowserPath('~')
+      setBrowserEntries([])
+      setBrowserFilter('')
+      setBrowserLoading(false)
+      setBrowserError('')
     }
   }, [open])
 
-  const discoverMutation = useMutation({
-    mutationFn: async (input: DiscoverProjectsInput) => {
-      const result = await commands.discoverRemoteProjects(input)
-      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
-      return result.data
-    },
-    onSuccess: (data) => {
-      setDiscovered(data)
-      setHasDiscovered(true)
-    },
-    onError: (err: Error) => {
-      toast.error('Discovery failed', { description: err.message })
-    },
-  })
+  // Browse to a directory on the remote server
+  const browseTo = async (connId: string, path: string) => {
+    if (!connId) return
+    setBrowserLoading(true)
+    setBrowserError('')
+    const input: ListRemoteDirInput = { connection_id: connId, path }
+    const result = await commands.listRemoteDir(input)
+    setBrowserLoading(false)
+    if (result.status === 'error') {
+      setBrowserError(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
+      setBrowserEntries([])
+    } else {
+      setBrowserEntries(result.data)
+      setBrowserPath(path)
+      setBrowserFilter('')
+    }
+  }
 
-  const handleDiscover = () => {
+  // When connection changes, load home dir
+  React.useEffect(() => {
+    if (connectionId) {
+      setBrowserPath('~')
+      setBrowserEntries([])
+      browseTo(connectionId, '~')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId])
+
+  const handleOpenHere = () => {
     if (!connectionId) return
-    const input: DiscoverProjectsInput = {
-      connection_id: connectionId,
-      search_path: searchPath.trim() || null,
-    }
-    discoverMutation.mutate(input)
-  }
-
-  const handleSaveDiscovered = (project: DiscoveredProject) => {
-    onSave({
-      connection_id: connectionId,
-      name: project.name,
-      path: project.path,
-    })
-    // Mark as saved optimistically
-    setSavedIds((prev) => new Set(prev).add(project.path))
-  }
-
-  const handleAddManually = () => {
-    const path = manualPath.trim()
-    if (!path) {
-      setManualPathError('Path must not be empty')
-      return
-    }
-    if (!path.startsWith('/') && !path.startsWith('~')) {
-      setManualPathError("Path must start with '/' or '~'")
-      return
-    }
-    if (!connectionId) {
-      setManualPathError('Select a connection first')
-      return
-    }
-    setManualPathError('')
-    // Use last segment as name (filter(Boolean) removes empty strings from leading/trailing slashes)
-    const pathSegments = path.split('/').filter(Boolean)
-    const name = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : path
-    onSave({ connection_id: connectionId, name, path })
-    setManualPath('')
+    // Use the last non-empty path segment as the project name
+    const pathSegments = browserPath.replace(/^~\/?/, '').split('/').filter(Boolean)
+    const name = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : browserPath
+    onSave({ connection_id: connectionId, name, path: browserPath })
   }
 
   const selectedConn = connections.find((c) => c.id === connectionId)
@@ -157,8 +141,8 @@ function DiscoverProjectsDialog({
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               }}
             >
-              <FolderSearch size={14} className="opacity-70" />
-              Discover Remote Projects
+              <FolderOpen size={14} className="opacity-70" />
+              Open Remote Project
             </DialogTitle>
           </DialogHeader>
         </div>
@@ -166,287 +150,296 @@ function DiscoverProjectsDialog({
         <div className="px-6 pb-4 space-y-4 overflow-y-auto flex-1">
           {/* Connection select */}
           <div className="space-y-1.5">
-            <Label
-              className="text-[11px] uppercase tracking-widest"
-              style={{
-                color: 'rgba(74,222,128,0.5)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              SSH Connection
-            </Label>
-            <Select value={connectionId} onValueChange={setConnectionId}>
-              <SelectTrigger
-                className="border-0 text-sm h-9"
-                data-testid="connection-select"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  color: '#e2e8f0',
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                <SelectValue placeholder="— select connection —" />
-              </SelectTrigger>
-              <SelectContent
-                style={{
-                  background: '#0f1117',
-                  border: '1px solid rgba(74,222,128,0.2)',
-                }}
-              >
-                {connections.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-                      {c.username}@{c.host}:{c.port}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Search path */}
-          <div className="space-y-1.5">
-            <Label
-              className="text-[11px] uppercase tracking-widest"
-              style={{
-                color: 'rgba(74,222,128,0.5)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              Search Path{' '}
-              <span
-                className="normal-case tracking-normal text-[10px] ml-1"
-                style={{ color: 'rgba(255,255,255,0.25)' }}
-              >
-                (optional, default: ~)
-              </span>
-            </Label>
-            <Input
-              value={searchPath}
-              onChange={(e) => setSearchPath(e.target.value)}
-              placeholder="~"
-              data-testid="search-path-input"
-              className="border-0 text-sm h-9"
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                color: '#e2e8f0',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            />
-          </div>
-
-          {/* Discover button */}
-          <Button
-            size="sm"
-            onClick={handleDiscover}
-            disabled={!connectionId || discoverMutation.isPending}
-            data-testid="run-discover-btn"
-            className="w-full h-9 text-xs uppercase tracking-widest border-0 gap-2"
-            style={{
-              background: connectionId ? 'rgba(74,222,128,0.12)' : 'rgba(74,222,128,0.04)',
-              color: connectionId ? '#4ade80' : 'rgba(74,222,128,0.3)',
-              boxShadow: connectionId ? '0 0 0 1px rgba(74,222,128,0.3)' : 'none',
-              fontFamily: "'JetBrains Mono', monospace",
-            }}
-          >
-            {discoverMutation.isPending ? (
-              <>
-                <Loader2 size={12} className="animate-spin" data-testid="loading-discover" />
-                Scanning…
-              </>
-            ) : (
-              <>
-                <FolderSearch size={12} />
-                {selectedConn
-                  ? `Discover on ${selectedConn.username}@${selectedConn.host}`
-                  : 'Discover'}
-              </>
-            )}
-          </Button>
-
-          {/* Results */}
-          {hasDiscovered && (
-            <div className="space-y-2">
-              <p
+            <div className="flex items-center justify-between">
+              <Label
                 className="text-[11px] uppercase tracking-widest"
                 style={{
                   color: 'rgba(74,222,128,0.5)',
                   fontFamily: "'JetBrains Mono', monospace",
                 }}
               >
-                Results
-              </p>
-
-              {discovered.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center py-8 rounded-lg"
-                  data-testid="empty-discover-state"
+                SSH Connection
+              </Label>
+              {onAddConnection && (
+                <button
+                  onClick={onAddConnection}
+                  className="flex items-center gap-1 text-[10px] uppercase tracking-wider transition-colors"
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px dashed rgba(255,255,255,0.08)',
+                    color: 'rgba(74,222,128,0.5)',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#4ade80')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(74,222,128,0.5)')}
+                >
+                  <Plus size={10} />
+                  Add connection
+                </button>
+              )}
+            </div>
+
+            {connections.length === 0 ? (
+              <div
+                className="flex flex-col items-center justify-center py-5 rounded-lg gap-3"
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px dashed rgba(74,222,128,0.15)',
+                }}
+              >
+                <p
+                  className="text-xs text-center"
+                  style={{
+                    color: 'rgba(255,255,255,0.35)',
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
-                  <FolderGit2
-                    size={22}
-                    style={{ color: 'rgba(255,255,255,0.15)', marginBottom: '8px' }}
-                  />
-                  <p
-                    className="text-xs text-center"
+                  No SSH connections configured yet.
+                </p>
+                {onAddConnection && (
+                  <button
+                    onClick={onAddConnection}
+                    className="flex items-center gap-1.5 px-3 h-7 rounded text-[11px] uppercase tracking-wider transition-all"
                     style={{
-                      color: 'rgba(255,255,255,0.3)',
+                      background: 'rgba(74,222,128,0.08)',
+                      color: '#4ade80',
+                      boxShadow: '0 0 0 1px rgba(74,222,128,0.3)',
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(74,222,128,0.14)'
+                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(74,222,128,0.5)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(74,222,128,0.08)'
+                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(74,222,128,0.3)'
+                    }}
+                  >
+                    <Plus size={11} />
+                    Add SSH Connection
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Select value={connectionId} onValueChange={setConnectionId}>
+                <SelectTrigger
+                  className="border-0 text-sm h-9"
+                  data-testid="connection-select"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#e2e8f0',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                >
+                  <SelectValue placeholder="— select connection —" />
+                </SelectTrigger>
+                <SelectContent
+                  style={{
+                    background: '#0f1117',
+                    border: '1px solid rgba(74,222,128,0.2)',
+                  }}
+                >
+                  {connections.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
+                        {c.username}@{c.host}:{c.port}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Password auth warning */}
+            {selectedConn && selectedConn.auth_method === 'password' && (
+              <div
+                className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg"
+                style={{
+                  background: 'rgba(251,191,36,0.06)',
+                  border: '1px solid rgba(251,191,36,0.2)',
+                }}
+              >
+                <span style={{ color: '#fbbf24', fontSize: '13px', lineHeight: 1, marginTop: '1px' }}>⚠</span>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[11px] leading-relaxed"
+                    style={{
+                      color: 'rgba(251,191,36,0.8)',
                       fontFamily: "'JetBrains Mono', monospace",
                     }}
                   >
-                    No git repositories found.
-                    <br />
-                    Try a different path.
+                    Discovery requires key-based auth. This connection uses a password.
                   </p>
+                  {onEditConnection && (
+                    <button
+                      onClick={() => onEditConnection(selectedConn)}
+                      className="mt-1.5 text-[10px] uppercase tracking-wider transition-colors"
+                      style={{
+                        color: 'rgba(251,191,36,0.6)',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#fbbf24')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(251,191,36,0.6)')}
+                    >
+                      Edit connection →
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div
-                  className="space-y-1 rounded-lg overflow-hidden"
-                  data-testid="discovered-list"
-                  style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-                >
-                  {discovered.map((proj, idx) => {
-                    const isSaved = savedIds.has(proj.path)
-                    return (
-                      <div
-                        key={`${proj.path}-${idx}`}
-                        className="group flex items-center gap-3 px-3 py-2.5 transition-colors"
-                        data-testid="discovered-row"
-                        style={{
-                          background:
-                            idx % 2 === 0
-                              ? 'rgba(255,255,255,0.01)'
-                              : 'rgba(255,255,255,0.025)',
-                        }}
-                      >
-                        <GitBranch
-                          size={12}
-                          className="shrink-0"
-                          style={{ color: 'rgba(74,222,128,0.4)' }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="text-xs font-semibold truncate"
-                            style={{
-                              color: '#e2e8f0',
-                              fontFamily: "'JetBrains Mono', monospace",
-                            }}
-                          >
-                            {proj.name}
-                          </p>
-                          <p
-                            className="text-[10px] truncate"
-                            style={{
-                              color: 'rgba(255,255,255,0.3)',
-                              fontFamily: "'JetBrains Mono', monospace",
-                            }}
-                          >
-                            {proj.path}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleSaveDiscovered(proj)}
-                          disabled={isSaved || isSaving}
-                          data-testid="save-discovered-btn"
-                          className="shrink-0 flex items-center gap-1 px-2 h-6 rounded text-[10px] uppercase tracking-wider transition-all"
-                          style={{
-                            background: isSaved
-                              ? 'rgba(74,222,128,0.08)'
-                              : 'rgba(74,222,128,0.1)',
-                            color: isSaved ? 'rgba(74,222,128,0.4)' : '#4ade80',
-                            boxShadow: isSaved ? 'none' : '0 0 0 1px rgba(74,222,128,0.3)',
-                            fontFamily: "'JetBrains Mono', monospace",
-                          }}
-                        >
-                          <BookmarkPlus size={9} />
-                          {isSaved ? 'Saved' : 'Save'}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Divider */}
-          <div
-            className="h-px w-full"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
-          />
-
-          {/* Manual path */}
-          <div className="space-y-2">
-            <p
-              className="text-[11px] uppercase tracking-widest"
-              style={{
-                color: 'rgba(74,222,128,0.5)',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              Add Manually
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={manualPath}
-                onChange={(e) => {
-                  setManualPath(e.target.value)
-                  setManualPathError('')
-                }}
-                placeholder="/home/user/my-project"
-                data-testid="manual-path-input"
-                className="border-0 text-sm h-8 flex-1"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  color: '#e2e8f0',
-                  boxShadow: manualPathError
-                    ? 'inset 0 0 0 1px rgba(248,113,113,0.4)'
-                    : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              />
-              <button
-                onClick={handleAddManually}
-                disabled={isSaving}
-                data-testid="add-manually-btn"
-                className="flex items-center gap-1.5 px-3 h-8 rounded text-xs uppercase tracking-wider shrink-0 transition-all"
-                style={{
-                  background: 'rgba(74,222,128,0.08)',
-                  color: 'rgba(74,222,128,0.7)',
-                  boxShadow: '0 0 0 1px rgba(74,222,128,0.2)',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(74,222,128,0.14)'
-                  e.currentTarget.style.color = '#4ade80'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(74,222,128,0.08)'
-                  e.currentTarget.style.color = 'rgba(74,222,128,0.7)'
-                }}
-              >
-                <Plus size={11} />
-                Add
-              </button>
-            </div>
-            {manualPathError && (
-              <p
-                className="text-[11px]"
-                data-testid="manual-path-error"
-                style={{
-                  color: '#f87171',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {manualPathError}
-              </p>
+              </div>
             )}
           </div>
+
+          {/* Folder browser — only shown when a valid connection is selected */}
+          {connectionId && selectedConn?.auth_method !== 'password' && (
+            <div className="space-y-1.5">
+              <Label
+                className="text-[11px] uppercase tracking-widest"
+                style={{
+                  color: 'rgba(74,222,128,0.5)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                Browse Folder
+              </Label>
+
+              {/* Breadcrumb */}
+              <div
+                className="flex items-center gap-1 px-2 py-1.5 rounded flex-wrap"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '11px',
+                  minHeight: '32px',
+                }}
+              >
+                {/* Home button */}
+                <button
+                  onClick={() => browseTo(connectionId, '~')}
+                  className="flex items-center gap-1 transition-colors"
+                  style={{ color: 'rgba(74,222,128,0.6)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#4ade80')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(74,222,128,0.6)')}
+                  title="Home"
+                >
+                  <Home size={11} />
+                </button>
+                {/* Path segments — skip ~ prefix */}
+                {(() => {
+                  const resolved = browserPath.startsWith('~') ? browserPath : browserPath
+                  const segments = resolved.replace(/^~\/?/, '').split('/').filter(Boolean)
+                  return segments.map((seg, i) => {
+                    const pathUpTo = segments.slice(0, i + 1)
+                    // Reconstruct full path: if original started with ~, keep that
+                    const target = browserPath.startsWith('~')
+                      ? '~/' + pathUpTo.join('/')
+                      : '/' + pathUpTo.join('/')
+                    return (
+                      <React.Fragment key={i}>
+                        <ChevronRight size={10} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                        <button
+                          onClick={() => browseTo(connectionId, target)}
+                          className="transition-colors hover:text-white"
+                          style={{ color: i === segments.length - 1 ? '#e2e8f0' : 'rgba(255,255,255,0.5)' }}
+                        >
+                          {seg}
+                        </button>
+                      </React.Fragment>
+                    )
+                  })
+                })()}
+              </div>
+
+              {/* Filter input */}
+              {!browserLoading && !browserError && browserEntries.length > 0 && (
+                <Input
+                  value={browserFilter}
+                  onChange={(e) => setBrowserFilter(e.target.value)}
+                  placeholder="Filter folders…"
+                  className="border-0 text-sm h-8"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#e2e8f0',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+              )}
+
+              {/* Directory listing */}
+              {(() => {
+                const filtered = browserFilter.trim()
+                  ? browserEntries.filter((e) =>
+                      e.name.toLowerCase().includes(browserFilter.trim().toLowerCase())
+                    )
+                  : browserEntries
+                return (
+                  <div
+                    className="rounded overflow-hidden"
+                    style={{
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {browserLoading ? (
+                      <div className="flex items-center justify-center py-4 gap-2" style={{ color: 'rgba(74,222,128,0.5)' }}>
+                        <Loader2 size={12} className="animate-spin" />
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Loading…</span>
+                      </div>
+                    ) : browserError ? (
+                      <div className="px-3 py-2 text-[11px]" style={{ color: '#f87171', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {browserError}
+                      </div>
+                    ) : filtered.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.25)', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {browserFilter ? 'No matches' : 'No subdirectories'}
+                      </div>
+                    ) : (
+                      filtered.map((entry) => (
+                        <button
+                          key={entry.path}
+                          onClick={() => browseTo(connectionId, entry.path)}
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5"
+                          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#e2e8f0' }}
+                        >
+                          <Folder size={12} style={{ color: 'rgba(74,222,128,0.5)', flexShrink: 0 }} />
+                          {entry.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Discover here button */}
+              {/* Open this folder button */}
+              <Button
+                size="sm"
+                onClick={handleOpenHere}
+                disabled={isSaving || browserLoading}
+                data-testid="open-here-btn"
+                className="w-full h-9 text-xs uppercase tracking-widest border-0 gap-2"
+                style={{
+                  background: 'rgba(74,222,128,0.12)',
+                  color: '#4ade80',
+                  boxShadow: '0 0 0 1px rgba(74,222,128,0.3)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Opening…
+                  </>
+                ) : (
+                  <>
+                    <FolderOpen size={12} />
+                    Open this folder
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

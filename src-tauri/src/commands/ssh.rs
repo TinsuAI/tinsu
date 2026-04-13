@@ -3,7 +3,7 @@
 
 use crate::db::entities::settings;
 use crate::error::AppError;
-use crate::models::ssh_config::{GenerateSshKeyInput, SshKeyEntry, SshKeyExport};
+use crate::models::ssh_config::{GenerateSshKeyInput, InstallSshKeyInput, SshKeyEntry, SshKeyExport};
 use crate::services::ssh_service;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use tauri::State;
@@ -75,6 +75,36 @@ pub async fn delete_ssh_key(
     ssh_service::delete_key(&name)?;
     remove_key_name(&db, &name).await?;
     Ok(())
+}
+
+/// Generate a new Ed25519 key and install it on the remote server via one-time password auth.
+/// The password is never stored. Returns the new SshKeyEntry (name + public key).
+#[tauri::command]
+#[specta::specta]
+pub async fn install_ssh_key(
+    input: InstallSshKeyInput,
+    db: State<'_, DatabaseConnection>,
+) -> Result<SshKeyEntry, AppError> {
+    let entry = ssh_service::install_key_on_server(
+        &input.host,
+        input.port,
+        &input.username,
+        &input.password,
+        &input.key_name,
+    )
+    .await?;
+    // Persist key name so it appears in listSshKeys
+    if let Err(db_err) = append_key_name(&db, &input.key_name).await {
+        if let Err(cleanup_err) = ssh_service::delete_key(&input.key_name) {
+            tracing::warn!(
+                "Failed to clean up keychain entry '{}' after DB failure: {}",
+                input.key_name,
+                cleanup_err
+            );
+        }
+        return Err(db_err);
+    }
+    Ok(entry)
 }
 
 // ── DB Helpers ───────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import {
   Plus,
   Monitor,
   Loader2,
+  Server,
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
@@ -15,6 +16,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
 import { ProjectSetupDialog } from '@renderer/components/ProjectSetupDialog'
+import { OpenRemoteProjectDialog } from './OpenRemoteProjectDialog'
 import {
   useListRecentProjects,
   useOpenProjectByPath,
@@ -131,6 +133,7 @@ export function ProjectSwitcher() {
   const [open, setOpen] = useState(false)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false)
 
   const projectName = useProjectStore((state) => state.projectName)
   const projectPath = useProjectStore((state) => state.projectPath)
@@ -347,6 +350,16 @@ export function ProjectSwitcher() {
               <FolderOpen className="h-4 w-4" />
               {openDialogMutation.isPending ? 'Opening...' : 'Open Another Project...'}
             </button>
+            <button
+              onClick={() => {
+                setIsRemoteDialogOpen(true)
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <Server className="h-4 w-4" />
+              Open Remote Project...
+            </button>
           </div>
         </PopoverContent>
       </Popover>
@@ -359,6 +372,11 @@ export function ProjectSwitcher() {
           toast.success(`Created ${name}`)
         }}
         mode="create"
+      />
+
+      <OpenRemoteProjectDialog
+        open={isRemoteDialogOpen}
+        onOpenChange={setIsRemoteDialogOpen}
       />
     </>
   )

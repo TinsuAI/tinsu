@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
-import { FolderOpen, Clock, AlertTriangle, Trash2, Plus } from 'lucide-react'
+import { FolderOpen, Clock, AlertTriangle, Trash2, Plus, Server } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from './ui/button'
 import { ThemeToggle } from './ui/theme-toggle'
 import { ProjectSetupDialog } from './ProjectSetupDialog'
+import { OpenRemoteProjectDialog } from './project/OpenRemoteProjectDialog'
 import { commands } from '@renderer/lib/rspc'
 import { cn } from '@renderer/lib/utils'
 import {
@@ -34,6 +35,7 @@ interface WelcomeProps {
 export function Welcome({ onProjectOpened, className }: WelcomeProps) {
   const [error, setError] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false)
 
   // Query for recent projects
   const { data: recentProjects } = useListRecentProjects(5)
@@ -153,6 +155,17 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
             <Plus className="mr-1.5 h-4 w-4" />
             Create New Project
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => setIsRemoteDialogOpen(true)}
+            disabled={isLoading}
+            className="w-full"
+            size="lg"
+          >
+            <Server className="mr-1.5 h-4 w-4" />
+            Open Remote Project
+          </Button>
         </div>
 
         {/* Hint text */}
@@ -231,6 +244,12 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
         onOpenChange={setIsCreateDialogOpen}
         onProjectCreated={onProjectOpened}
         mode="create"
+      />
+
+      {/* Open Remote Project Dialog */}
+      <OpenRemoteProjectDialog
+        open={isRemoteDialogOpen}
+        onOpenChange={setIsRemoteDialogOpen}
       />
     </div>
   )
