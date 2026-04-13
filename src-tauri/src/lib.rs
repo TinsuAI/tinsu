@@ -9,6 +9,7 @@ use sea_orm_migration::MigratorTrait;
 use services::{
     hook_listener::HookListenerService,
     pty_service::PtyService,
+    remote_pty_service::RemotePtyService,
     scrollback_backup::ScrollbackBackup,
     tmux_service::TmuxService,
 };
@@ -106,6 +107,11 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_projects::save_remote_project,
         commands::remote_projects::list_remote_projects,
         commands::remote_projects::delete_remote_project,
+        commands::remote_agent::create_remote_task_session,
+        commands::remote_agent::attach_remote_task_terminal,
+        commands::remote_agent::write_remote_pty,
+        commands::remote_agent::resize_remote_pty,
+        commands::remote_agent::detach_remote_task_terminal,
     ])
 }
 
@@ -172,8 +178,10 @@ pub fn run() {
                     tracing::warn!("Hook listener failed to start: {}", e);
                 }
 
+                let remote_pty_service = Arc::new(RemotePtyService::new());
                 app_handle.manage(tmux_service);
                 app_handle.manage(pty_service);
+                app_handle.manage(remote_pty_service);
                 app_handle.manage(scrollback_backup);
                 app_handle.manage(Mutex::new(hook_listener));
                 app_handle.manage(db);

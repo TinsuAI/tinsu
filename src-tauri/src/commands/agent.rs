@@ -19,6 +19,8 @@ pub struct TaskSessionModel {
     pub tmux_session: Option<String>,
     pub current_phase: Option<String>,
     pub created_at: i64,
+    pub remote_connection_id: Option<String>,
+    pub remote_project_id: Option<String>,
 }
 
 impl From<task_session::Model> for TaskSessionModel {
@@ -30,6 +32,8 @@ impl From<task_session::Model> for TaskSessionModel {
             tmux_session: m.tmux_session,
             current_phase: m.current_phase,
             created_at: m.created_at,
+            remote_connection_id: m.remote_connection_id,
+            remote_project_id: m.remote_project_id,
         }
     }
 }
@@ -125,6 +129,8 @@ pub async fn create_task_session(
                 tmux_session: Set(Some(session_name.clone())),
                 current_phase: Set(None),
                 created_at: Set(now),
+                remote_connection_id: Set(None),
+                remote_project_id: Set(None),
             };
             new.insert(db.inner()).await?
         }

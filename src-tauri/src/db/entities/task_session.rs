@@ -11,6 +11,8 @@ pub struct Model {
     pub tmux_session: Option<String>,
     pub current_phase: Option<String>,
     pub created_at: i64,
+    pub remote_connection_id: Option<String>,
+    pub remote_project_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

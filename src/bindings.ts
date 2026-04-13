@@ -112,6 +112,8 @@ export const commands = {
 	tmux_session: string | null,
 	current_phase: string | null,
 	created_at: number,
+	remote_connection_id: string | null,
+	remote_project_id: string | null,
 } | null, AppError>(__TAURI_INVOKE("get_task_session", { taskId })),
 	// Get scrollback backup for a task.
 	getScrollbackBackup: (taskId: string) => typedError<ScrollbackResult, AppError>(__TAURI_INVOKE("get_scrollback_backup", { taskId })),
@@ -260,6 +262,28 @@ export const commands = {
 	listRemoteProjects: () => typedError<RemoteProjectProfile[], AppError>(__TAURI_INVOKE("list_remote_projects")),
 	// Delete a saved remote project profile.
 	deleteRemoteProject: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_remote_project", { id })),
+	/**
+	 *  Create a tmux session on the remote machine for a task.
+	 * 
+	 *  Steps:
+	 *  1. Load remote_project → ssh_connection from DB
+	 *  2. SSH exec `tmux new-session -d -s 'tinsu-task-{id}' -c '{path}' 2>/dev/null; true`
+	 *  3. Upsert task_sessions with remote_connection_id + remote_project_id
+	 */
+	createRemoteTaskSession: (input: RemoteCreateSessionInput) => typedError<TaskSessionModel, AppError>(__TAURI_INVOKE("create_remote_task_session", { input })),
+	/**
+	 *  Attach to a remote tmux session via SSH PTY channel.
+	 * 
+	 *  Process ID format: "remote-{uuid}" — distinguishes remote PTYs from local ones.
+	 *  The `on_data` channel receives raw terminal bytes (same as attach_task_terminal).
+	 */
+	attachRemoteTaskTerminal: (taskId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_remote_task_terminal", { taskId, cols, rows, onData })),
+	// Write raw bytes to a remote PTY session.
+	writeRemotePty: (processId: string, data: number[]) => typedError<null, AppError>(__TAURI_INVOKE("write_remote_pty", { processId, data })),
+	// Resize a remote PTY session.
+	resizeRemotePty: (processId: string, cols: number, rows: number) => typedError<null, AppError>(__TAURI_INVOKE("resize_remote_pty", { processId, cols, rows })),
+	// Detach from a remote PTY session (SSH channel closed; tmux persists on remote).
+	detachRemoteTaskTerminal: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("detach_remote_task_terminal", { processId })),
 };
 
 /* Types */
@@ -569,6 +593,14 @@ export type ProjectModel = {
 	last_opened_at: number | null,
 };
 
+// Input for creating a remote tmux task session.
+export type RemoteCreateSessionInput = {
+	// The task ID for which to create the remote session.
+	task_id: string,
+	// ID of the saved remote project profile (from `remote_projects` table).
+	remote_project_id: string,
+};
+
 // A saved remote project profile.
 export type RemoteProjectProfile = {
 	id: string,
@@ -659,6 +691,8 @@ export type TaskSessionModel = {
 	tmux_session: string | null,
 	current_phase: string | null,
 	created_at: number,
+	remote_connection_id: string | null,
+	remote_project_id: string | null,
 };
 
 export type TestSshConnectionInput = {

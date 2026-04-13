@@ -3,6 +3,7 @@ use sea_orm_migration::MigratorTrait;
 mod m20260412_000001_initial_schema;
 mod m20260412_000002_ssh_connections;
 mod m20260412_000003_remote_projects;
+mod m20260412_000004_remote_task_sessions;
 
 pub struct Migrator;
 
@@ -13,6 +14,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260412_000001_initial_schema::Migration),
             Box::new(m20260412_000002_ssh_connections::Migration),
             Box::new(m20260412_000003_remote_projects::Migration),
+            Box::new(m20260412_000004_remote_task_sessions::Migration),
         ]
     }
 }

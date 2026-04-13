@@ -293,7 +293,7 @@ pub async fn discover_projects(
 
     let output = timeout(
         Duration::from_secs(30),
-        ssh_exec(host, port, username, auth_method, key_name, password, &cmd),
+        run_ssh_exec(host, port, username, auth_method, key_name, password, &cmd),
     )
     .await
     .map_err(|_| AppError::Internal("Remote project discovery timed out after 30 seconds".into()))??;
@@ -302,7 +302,7 @@ pub async fn discover_projects(
 }
 
 /// Execute a single command over SSH, collect stdout, return as String.
-async fn ssh_exec(
+pub(crate) async fn run_ssh_exec(
     host: &str,
     port: u16,
     username: &str,

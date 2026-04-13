@@ -135,3 +135,12 @@ pub struct SaveRemoteProjectInput {
     pub name: String,
     pub path: String,
 }
+
+/// Input for creating a remote tmux task session.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct RemoteCreateSessionInput {
+    /// The task ID for which to create the remote session.
+    pub task_id: String,
+    /// ID of the saved remote project profile (from `remote_projects` table).
+    pub remote_project_id: String,
+}
