@@ -392,7 +392,7 @@ development_status:
   t2-3-remote-project-discovery: done  # Code review complete - 5 auto-fixes applied (shell injection quoting, path validation order, ~user/ expansion check, query limit, name extraction crash), all 122 tests passing
   t2-4-remote-tmux-session-attachment: done  # Code review complete - 7 auto-fixes applied (session name quoting, clock retry, empty session validation, cleanup race, detach simplification, SSH timeout, task_id validation), all 128 tests passing
   t2-5-remote-file-operations-for-artifacts-and-diffs: done  # Code review complete - 4 auto-fixes applied (name_status error swallowing, parse panic protection, wc validation, integer overflow guards), all 136 tests passing
-  t2-6-remote-hook-event-forwarding: review
+  t2-6-remote-hook-event-forwarding: done  # Code review complete - 14 auto-fixes applied (tcpip_forward error handling, SSH timeout constants, backoff capped to 15s per AC6, retry max 100, port file chmod 600, proxy flush backpressure, graceful disconnect timeout, concurrent start race fix, channel msg logging, empty connection_id validation, mutex lock error handling, 5 missing event type handlers for AC4 compliance), all 142 tests passing
   t2-7-local-remote-project-switcher: backlog
   t2-8-remote-project-feature-parity-validation: backlog
   tauri-epic-2-retrospective: optional
