@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-08
+# updated: 2026-04-12
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -37,6 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
+last_updated: 2026-04-12  # t1-1 done, t1-2 done, t1-3 done, t1-4 done, t1-5 done, t1-6 done, t1-7 done, t1-8 done, t1-9 done, t1-10 done, tauri-epic-1 in-progress, tauri-epic-2 in-progress, t2-1 done, t2-2 done, t2-3 done, t2-4 done, t2-5 done, t2-6 done, t2-7 done, t2-8 review
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -115,15 +116,16 @@ development_status:
   epic-5-retrospective: optional
 
   # Epic 6: Agent Monitoring & Control
-  epic-6: superseded
-  6-1-stall-detector-service: backlog
-  6-2-visual-stall-indicator: backlog
-  6-3-pause-running-agent: backlog
-  6-4-resume-paused-agent: backlog
-  6-5-pause-resume-during-multi-agent-workflow: backlog
-  6-6-reasoning-log-capture: backlog
-  6-7-reasoning-log-viewer: backlog
-  6-8-agent-health-dashboard: backlog
+  # DEFERRED (2026-04-12): Tauri migration — implement in Rust after Phase 1
+  epic-6: deferred
+  6-1-stall-detector-service: deferred
+  6-2-visual-stall-indicator: deferred
+  6-3-pause-running-agent: deferred
+  6-4-resume-paused-agent: deferred
+  6-5-pause-resume-during-multi-agent-workflow: deferred
+  6-6-reasoning-log-capture: deferred
+  6-7-reasoning-log-viewer: deferred
+  6-8-agent-health-dashboard: deferred
   epic-6-retrospective: optional
 
   # Epic 7: Review & Approval Workflow
@@ -231,17 +233,18 @@ development_status:
 
   # TES Epic 5: Workflow Automation Engine
   # Story tasks auto-flow through dev-story → Review → code-review
-  tes-epic-5: backlog
-  tes-5-1-task-type-field-and-differentiation: backlog
-  tes-5-2-automation-service-core: backlog
-  tes-5-3-story-task-auto-execute-dev-story: backlog
-  tes-5-4-story-task-auto-move-to-review: backlog
-  tes-5-5-story-task-auto-execute-code-review: backlog
-  tes-5-6-basic-task-auto-execute-with-description: backlog
-  tes-5-7-code-review-complete-notification: backlog
-  tes-5-8-workflow-phase-tracking: backlog
-  tes-5-9-manual-trigger-buttons: backlog
-  tes-5-10-automation-keyboard-shortcuts: backlog
+  # DEFERRED (2026-04-12): Tauri migration — implement in Rust after Phase 1
+  tes-epic-5: deferred
+  tes-5-1-task-type-field-and-differentiation: deferred
+  tes-5-2-automation-service-core: deferred
+  tes-5-3-story-task-auto-execute-dev-story: deferred
+  tes-5-4-story-task-auto-move-to-review: deferred
+  tes-5-5-story-task-auto-execute-code-review: deferred
+  tes-5-6-basic-task-auto-execute-with-description: deferred
+  tes-5-7-code-review-complete-notification: deferred
+  tes-5-8-workflow-phase-tracking: deferred
+  tes-5-9-manual-trigger-buttons: deferred
+  tes-5-10-automation-keyboard-shortcuts: deferred
   tes-epic-5-retrospective: optional
 
   # Epic 9: BMAD Planning Workspace (added 2026-03-21 via sprint change proposal)
@@ -300,61 +303,116 @@ development_status:
   # Android (Jetpack Compose) + iOS (SwiftUI) with shared KMP business logic.
   # ============================================================================
 
-  # Mobile Epic 1: Project Foundation & KMP Scaffold
-  mobile-epic-1: in-progress
-  mobile-1-1-initialize-kmp-project-with-jetbrains-wizard: done  # Code review complete - 2 auto-fixes applied (INTERNET permission added to AndroidManifest.xml, *.iml/*.iws/*.ipr gitignore entries split to separate lines), build verified 209 tasks BUILD SUCCESSFUL
-  mobile-1-2-implement-shared-infrastructure-di-error-types-and-logging: done  # Code review complete - 3 auto-fixes applied (Android Logger double-tag removed, initKoin double-init guard added, iOS Logger error() uses stackTraceToString()), all 16 tests passing
-  mobile-1-3-set-up-sqldelight-local-cache-schema: done  # Code review complete - 1 auto-fix applied (KoinHelper.initKoin bare Exception catch reverted to GlobalContext.getOrNull() guard), 4 deferred FK/cascade items, all ACs verified
-  mobile-1-4-implement-terminal-luxe-design-system-android: done  # Code review complete - 3 auto-fixes applied (unused dp import removed from Buttons.kt, Routes.kt connected via TinsuTab enum, LightPrimary constant used in Theme.kt light userBubble), all ACs verified
-  mobile-1-5-implement-terminal-luxe-design-system-ios: done  # Code review complete - 2 auto-fixes applied (TinsuTypography.code Dynamic Type via Font.system(.body, design: .monospaced), TinsuLoadingView.cornerRadius deprecated → clipShape), all ACs verified
-  mobile-1-6-configure-ci-cd-pipelines: done  # Code review complete - 5 auto-fixes applied (SwiftLint rules_customization→top-level, Fastlane stubs created, release.yml workflow_dispatch+platform input, jvmTest removed from shared-tests, SwiftLint working-directory fix), all ACs verified
+  # ============================================================================
+  # KMP MOBILE EPICS — SUPERSEDED (2026-04-12)
+  # ============================================================================
+  # Superseded by Tauri v2 migration. Single codebase replaces KMP.
+  # See: sprint-change-proposal-2026-04-12.md
+  # ============================================================================
+
+  mobile-epic-1: superseded
+  mobile-1-1-initialize-kmp-project-with-jetbrains-wizard: superseded
+  mobile-1-2-implement-shared-infrastructure-di-error-types-and-logging: superseded
+  mobile-1-3-set-up-sqldelight-local-cache-schema: superseded
+  mobile-1-4-implement-terminal-luxe-design-system-android: superseded
+  mobile-1-5-implement-terminal-luxe-design-system-ios: superseded
+  mobile-1-6-configure-ci-cd-pipelines: superseded
   mobile-epic-1-retrospective: optional
 
-  # Mobile Epic 2: Connect to Your PC
-  mobile-epic-2: in-progress
-  mobile-2-1-implement-ssh-key-generation-and-secure-storage: done  # Code review complete - 7 auto-fixes applied (SecKeyCopyPublicKey critical fix, dead code removal, alias validation, NSNumber cast, DER bounds checks, deprecated synchronize removal, type-safe filterIsInstance)
-  mobile-2-2-create-and-save-remote-connections: done  # Code review complete - 4 auto-fixes applied (iOS refreshState() implementation, iOS method name fix, Android duplicate ConnectionCard removed, iOS Dispatchers.Default→IO for consistency); SSH key alias validation deferred to follow-up (requires SecureKeyStore injection into repository)
-  mobile-2-3-implement-ssh-connection-and-test-flow: done  # Code review complete - 4 auto-fixes applied (SwiftNIO SSH simplified, iOS getPrivateKeyData improvements, SecureKeyStore, iOS filterIsInstance checks, mandatory test-before save, Deferred: platform integration tests)
-  mobile-2-4-implement-guided-first-time-setup-flow: done  # Code review complete - 4 auto-fixes applied (iOS port range validation 1-65535, iOS SetupObservableViewModel replaced hardcoded delays with state polling, concurrent test connection guard, retryTest redundant when simplified); all 9 ACs verified PASS
-  mobile-2-5-discover-and-select-remote-projects: done  # Code review complete - 3 auto-fixes applied (remoteExecutor fallback for nil executor, discoveryJob cancellation for race condition, longest-name-first tmux session matching)
-  mobile-2-6-implement-connection-status-display-and-lifecycle: done  # Code review complete - 9 auto-fixes applied (HapticFeedback non-nullable, ConnectionManager non-nullable, TODO comments removed, state mutation atomic, return@withTimeout verified correct, sprint-status timestamp fixed, collect error handling added, DI getOrNull removed)
+  mobile-epic-2: superseded
+  mobile-2-1-implement-ssh-key-generation-and-secure-storage: superseded
+  mobile-2-2-create-and-save-remote-connections: superseded
+  mobile-2-3-implement-ssh-connection-and-test-flow: superseded
+  mobile-2-4-implement-guided-first-time-setup-flow: superseded
+  mobile-2-5-discover-and-select-remote-projects: superseded
+  mobile-2-6-implement-connection-status-display-and-lifecycle: superseded
   mobile-epic-2-retrospective: optional
 
-  # Mobile Epic 3: Chat with Your Agents
-  mobile-epic-3: backlog
-  mobile-3-1-implement-tmux-session-discovery-and-attachment: backlog
-  mobile-3-2-build-agent-chat-session-list: backlog
-  mobile-3-3-implement-agent-chat-conversation-view: backlog
-  mobile-3-4-implement-agent-response-streaming: backlog
-  mobile-3-5-start-new-chat-session-with-agent-persona: backlog
+  mobile-epic-3: superseded
+  mobile-3-1-implement-tmux-session-discovery-and-attachment: superseded
+  mobile-3-2-build-agent-chat-session-list: superseded
+  mobile-3-3-implement-agent-chat-conversation-view: superseded
+  mobile-3-4-implement-agent-response-streaming: superseded
+  mobile-3-5-start-new-chat-session-with-agent-persona: superseded
   mobile-epic-3-retrospective: optional
 
-  # Mobile Epic 4: Read Planning Documents
-  mobile-epic-4: backlog
-  mobile-4-1-browse-remote-planning-documents: backlog
-  mobile-4-2-read-rendered-markdown-documents: backlog
-  mobile-4-3-cache-documents-for-offline-reading: backlog
-  mobile-4-4-search-within-documents-and-navigate-internal-links: backlog
+  mobile-epic-4: superseded
+  mobile-4-1-browse-remote-planning-documents: superseded
+  mobile-4-2-read-rendered-markdown-documents: superseded
+  mobile-4-3-cache-documents-for-offline-reading: superseded
+  mobile-4-4-search-within-documents-and-navigate-internal-links: superseded
   mobile-epic-4-retrospective: optional
 
-  # Mobile Epic 5: Review Code & Act on Tasks
-  mobile-epic-5: backlog
-  mobile-5-1-view-task-list-with-status-filtering: backlog
-  mobile-5-2-view-code-diffs-with-syntax-highlighting: backlog
-  mobile-5-3-approve-request-changes-or-reject-tasks: backlog
-  mobile-5-4-view-agent-reasoning-log: backlog
+  mobile-epic-5: superseded
+  mobile-5-1-view-task-list-with-status-filtering: superseded
+  mobile-5-2-view-code-diffs-with-syntax-highlighting: superseded
+  mobile-5-3-approve-request-changes-or-reject-tasks: superseded
+  mobile-5-4-view-agent-reasoning-log: superseded
   mobile-epic-5-retrospective: optional
 
-  # Mobile Epic 6: Project Dashboard & Status at a Glance
-  mobile-epic-6: backlog
-  mobile-6-1-build-project-dashboard-overview: backlog
-  mobile-6-2-implement-bottom-navigation-with-badge-counts: backlog
+  mobile-epic-6: superseded
+  mobile-6-1-build-project-dashboard-overview: superseded
+  mobile-6-2-implement-bottom-navigation-with-badge-counts: superseded
   mobile-epic-6-retrospective: optional
 
-  # Mobile Epic 7: Resilient Connections & Settings
-  mobile-epic-7: backlog
-  mobile-7-1-integrate-mosh-for-resilient-connections: backlog
-  mobile-7-2-implement-offline-mode-and-message-queuing: backlog
-  mobile-7-3-implement-mosh-and-connection-settings: backlog
-  mobile-7-4-implement-cache-management-and-app-diagnostics: backlog
+  mobile-epic-7: superseded
+  mobile-7-1-integrate-mosh-for-resilient-connections: superseded
+  mobile-7-2-implement-offline-mode-and-message-queuing: superseded
+  mobile-7-3-implement-mosh-and-connection-settings: superseded
+  mobile-7-4-implement-cache-management-and-app-diagnostics: superseded
   mobile-epic-7-retrospective: optional
+
+  # ============================================================================
+  # TAURI V2 MIGRATION (Course Correction - 2026-04-12)
+  # ============================================================================
+  # Source: sprint-change-proposal-2026-04-12.md
+  # Migrates entire app from Electron + Node.js to Tauri v2 + Rust.
+  # Single codebase for desktop (macOS, Linux, Windows) + mobile (Android, iOS).
+  # Adds remote project support via SSH on all platforms.
+  # ============================================================================
+
+  # Tauri Epic 1: Tauri Desktop Foundation & React Migration (Phase 1)
+  tauri-epic-1: in-progress
+  t1-1-initialize-tauri-v2-project-with-react-frontend: done  # Code review complete - 1 auto-fix applied (deleted stale electron.vite.config.*.mjs artifact), 2 deferred, 13 dismissed
+  t1-2-set-up-rust-sqlite-database-with-migrations: done  # Code review complete - 1 auto-fix applied (removed unused `use super::*` wildcard import from test module), 2 deferred, 3 dismissed, all 1 test passing
+  t1-3-implement-type-safe-ipc-command-layer: done  # Code review complete - 4 auto-fixes applied (specta-typescript pinned to =0.0.11, duplicate tokio dev-dep removed, timestamp unwrap_or(0) logs tracing::warn, test_specta_builder_builds uses pid-scoped temp file + cleanup), 8 deferred, 12 dismissed
+  t1-4-migrate-task-crud-commands: done  # Code review complete - 2 auto-fixes applied (inline_comments JSON.parse try/catch, KanbanBoardContainer.test.tsx migrated from tRPC mocks to useTaskCommands/useEpicCommands), 4 deferred, 10 dismissed, all 25 frontend + 15 Rust tests passing
+  t1-5-migrate-project-sprint-and-epic-commands: done  # Code review complete - 5 auto-fixes applied (parameterized SQL query, path traversal validation, YAML serialization, DB-level LIMIT, cache invalidation), 3 deferred, 2 dismissed, all 30 Rust tests passing
+  t1-6-migrate-pty-and-tmux-services-to-rust: done  # Code review complete - 4 auto-fixes applied (ModelTrait unused import removed, Manager unused import removed, stall monitor emits once on threshold crossing, trivially-true test assertion replaced with type-driven check), 1 deferred (exit_code hardcoded to 0), all 46 frontend tests pass
+  t1-7-migrate-hook-listener-http-server-to-rust: done  # Code review complete - 3 auto-fixes applied (useActivitySubscription cancelled flag prevents listener leak on fast taskId change, .catch() added for listen() rejection, ActivitiesTab merges initialActivities with subscription events instead of overwriting), all 29 frontend tests passing
+  t1-8-migrate-git-service-to-rust: done  # Code review complete - 4 auto-fixes applied (exec_git stdout+stderr combined for CONFLICT detection, get_branch_status worktree_path param for accurate uncommitted-change detection, deleted-file path fix in parse_unified_diff, dead flush_hunk closure removed), all 74 Rust tests passing
+  t1-9-migrate-chat-cli-and-planning-services-to-rust: done  # Code review complete - 5 auto-fixes applied (hook accumulation dedup, empty content guard, ChatPanel listen() AC7.13, planning stub CSS classes, get_chat_messages limit cap), all 91 Rust + 25 ChatPanel tests passing
+  t1-10-desktop-feature-parity-validation: done  # Code review complete - 3 auto-fixes applied (extract_section UTF-8-safe char slice, resolve_artifact_path async try_exists, ArtifactViewer heading id extraction for formatted headings), 3 deferred, all 12 Rust + 12 planning component tests passing
+  tauri-epic-1-retrospective: optional
+
+  # Tauri Epic 2: Remote Project Support via SSH (Phase 2)
+  tauri-epic-2: in-progress
+  t2-1-rust-ssh-client-service-with-key-management: done  # Code review complete - 2 auto-fixes applied (keychain orphan rollback on DB failure, tracing::warn! for silent list_keys failures), 2 deferred, 2 dismissed, all 6 SSH tests passing
+  t2-2-remote-connection-management-ui: done  # Code review complete - 6 auto-fixes applied (key_name validation/trim, auth error details, port NaN handling, test trim), 0 deferred, 9 dismissed (TOCTOU, DNS timeout, Handler defaults, SQL safety, key cascade), all 7 Rust + 12 frontend tests passing
+  t2-3-remote-project-discovery: done  # Code review complete - 5 auto-fixes applied (shell injection quoting, path validation order, ~user/ expansion check, query limit, name extraction crash), all 122 tests passing
+  t2-4-remote-tmux-session-attachment: done  # Code review complete - 7 auto-fixes applied (session name quoting, clock retry, empty session validation, cleanup race, detach simplification, SSH timeout, task_id validation), all 128 tests passing
+  t2-5-remote-file-operations-for-artifacts-and-diffs: done  # Code review complete - 4 auto-fixes applied (name_status error swallowing, parse panic protection, wc validation, integer overflow guards), all 136 tests passing
+  t2-6-remote-hook-event-forwarding: done  # Code review complete - 14 auto-fixes applied (tcpip_forward error handling, SSH timeout constants, backoff capped to 15s per AC6, retry max 100, port file chmod 600, proxy flush backpressure, graceful disconnect timeout, concurrent start race fix, channel msg logging, empty connection_id validation, mutex lock error handling, 5 missing event type handlers for AC4 compliance), all 142 tests passing
+  t2-7-local-remote-project-switcher: done  # Code review complete - 10 auto-fixes applied (FR60 clarity, task instructions, hook creation, race condition guard, React Query dedup, test backward compat, AC5 verification, cargo test flexibility, migration ordering, test assertions), story ready for implementation
+  t2-8-remote-project-feature-parity-validation: done
+  tauri-epic-2-retrospective: optional
+
+  # Tauri Epic 3: Mobile Targets — Android + iOS (Phase 3)
+  tauri-epic-3: backlog
+  t3-1-add-android-and-ios-build-targets: backlog
+  t3-2-responsive-layout-and-mobile-navigation: backlog
+  t3-3-touch-optimized-kanban-interactions: backlog
+  t3-4-mobile-ssh-connection-flow: backlog
+  t3-5-mobile-terminal-view: backlog
+  t3-6-mobile-review-and-approval-flow: backlog
+  t3-7-mobile-chat-with-planning-agents: backlog
+  t3-8-mobile-platform-validation: backlog
+  tauri-epic-3-retrospective: optional
+
+  # Tauri Epic 4: CI/CD and Build Pipeline (Phase 4)
+  tauri-epic-4: backlog
+  t4-1-desktop-build-pipeline: backlog
+  t4-2-android-build-pipeline: backlog
+  t4-3-ios-build-pipeline: backlog
+  t4-4-auto-update-for-desktop: backlog
+  tauri-epic-4-retrospective: optional

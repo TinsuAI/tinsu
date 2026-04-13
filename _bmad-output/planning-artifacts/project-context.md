@@ -14,14 +14,13 @@ _Critical rules and patterns for implementing TinSu. Focus on unobvious details 
 
 | Layer      | Technology     | Version      | Notes                              |
 | ---------- | -------------- | ------------ | ---------------------------------- |
-| Framework  | Electron       | latest       | Desktop app, NOT web               |
+| Framework  | Tauri v2       | latest       | Desktop + mobile app, NOT web      |
 | UI         | React          | 18.x         | Strict mode enabled                |
 | Language   | TypeScript     | 5.x          | `strict: true` in tsconfig         |
-| Build      | electron-vite  | 5.0          | Vite for all processes             |
-| Database   | better-sqlite3 | latest       | Synchronous API, main process only |
-| ORM        | Drizzle        | 1.0.0-beta.2 | Type-safe, lightweight             |
-| IPC        | tRPC           | 11.6.0       | End-to-end type safety             |
-| Adapter    | trpc-electron  | latest       | Fork for tRPC v11                  |
+| Build      | Vite           | latest       | Bundler for React frontend         |
+| Backend    | Rust (rspc)    | latest       | Tauri commands replace tRPC        |
+| Database   | SQLite (SeaORM)| latest       | Via Tauri Rust backend             |
+| Mobile     | Tauri mobile   | latest       | Same React+Rust, WebView on Android/iOS — KMP approach deprecated 2026-04-12 |
 | Validation | Zod            | latest       | Runtime validation                 |
 | Components | shadcn/ui      | latest       | Copy-paste, Tailwind-based         |
 | Styling    | Tailwind CSS   | ^4.1.18      | Utility-first, CSS-first config    |

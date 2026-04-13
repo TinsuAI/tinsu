@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { categorizeGitError, createRecoverableErrorFromGeneric } from './git-error.types'
-import { GitError } from '../../main/services/git.service'
+import { GitError } from './git-error.types'
 
 describe('categorizeGitError', () => {
   describe('disk_full category', () => {

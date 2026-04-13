@@ -4,45 +4,19 @@ import path from 'node:path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@renderer': path.resolve(__dirname, 'src/renderer/src'),
-      '@shared': path.resolve(__dirname, 'src/shared')
-    }
+      '@renderer': path.resolve(__dirname, 'src'),
+      '@shared': path.resolve(__dirname, 'src/shared'),
+      // Redirect monaco-editor to a stub to avoid Vite bundler resolution errors.
+      // monaco-editor has non-standard ESM exports; tests that use Monaco components
+      // already mock @monaco-editor/react, so this stub is never actually called.
+      'monaco-editor': path.resolve(__dirname, 'src/__mocks__/monaco-editor.ts'),
+    },
   },
   test: {
     globals: true,
-    projects: [
-      {
-        // Main process tests (Node.js environment)
-        // Also includes shared types tests (pure TypeScript, no DOM needed)
-        resolve: {
-          alias: {
-            '@renderer': path.resolve(__dirname, 'src/renderer/src'),
-            '@shared': path.resolve(__dirname, 'src/shared')
-          }
-        },
-        test: {
-          name: 'main',
-          environment: 'node',
-          include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
-          exclude: ['node_modules', 'out', 'dist']
-        }
-      },
-      {
-        // Renderer process tests (Browser environment)
-        resolve: {
-          alias: {
-            '@renderer': path.resolve(__dirname, 'src/renderer/src'),
-            '@shared': path.resolve(__dirname, 'src/shared')
-          }
-        },
-        test: {
-          name: 'renderer',
-          environment: 'happy-dom',
-          include: ['src/renderer/**/*.test.{ts,tsx}'],
-          exclude: ['node_modules', 'out', 'dist'],
-          setupFiles: ['src/renderer/src/test-setup.ts']
-        }
-      }
-    ]
-  }
+    environment: 'happy-dom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    exclude: ['node_modules', 'dist', 'src-tauri'],
+    setupFiles: ['src/test-setup.ts'],
+  },
 })

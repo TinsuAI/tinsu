@@ -1,0 +1,39 @@
+[package]
+name = "tinsu"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tinsu_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-native-tls", "macros"] }
+sea-orm-migration = { version = "1", features = ["sqlx-sqlite"] }
+tokio = { version = "1", features = ["full"] }
+thiserror = "1"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+async-trait = "0.1"
+specta = { version = "=2.0.0-rc.24", features = ["derive"] }
+specta-typescript = "=0.0.11"
+tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
+portable-pty = "0.9"
+axum = "0.8.8"
+tower-http = { version = "0.6", features = ["cors"] }
+russh = "0.60.0"
+ssh-key = { version = "0.6", features = ["ed25519", "encryption", "std"] }
+rand = "0.8"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-openssl"] }
+
+[dev-dependencies]
+tempfile = "3"
+

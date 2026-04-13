@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]
+stepsCompleted: [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 'step-e-01-discovery', 'step-e-02-review', 'step-e-03-edit']
 inputDocuments:
   - _bmad-output/planning-artifacts/product-brief-TinSu-2026-01-02.md
   - docs/research.md
@@ -11,8 +11,10 @@ documentCounts:
   researchCount: 1
   brainstormingCount: 0
   projectDocsCount: 1
-lastEdited: '2026-03-26'
+lastEdited: '2026-04-12'
 editHistory:
+  - date: '2026-04-12'
+    changes: 'Tauri v2 migration — replaced Electron/Node.js with Tauri v2/Rust backend, added SSH/remote project support (FR54-FR61), moved mobile from deferred to MVP scope, updated integration architecture for Tauri invoke + russh SSH, updated risk mitigation for Tauri mobile maturity and Rust rewrite'
   - date: '2026-03-26'
     changes: 'Added Planning Workspace chat system with tmux migration architecture — new user journey (Journey 3: Multi-Agent Planning), FR36-FR53, NFR25-NFR32, updated integration architecture to dual tmux model, updated MVP scope and risk mitigation'
 ---
@@ -24,9 +26,9 @@ editHistory:
 
 ## Executive Summary
 
-TinSu is an AI Agent Orchestration Platform that transforms unstructured "vibe coding" into trustworthy, structured product development. Built for founders who want to delegate work to AI agents without losing control, TinSu provides a familiar Kanban interface where tasks aren't just tracked — they're executed by AI agents under human oversight.
+TinSu is a cross-platform AI Agent Orchestration Platform that transforms unstructured "vibe coding" into trustworthy, structured product development. Built on **Tauri v2 + Rust**, TinSu runs on macOS, Linux, Windows, Android, and iOS from a single codebase. For founders who want to delegate work to AI agents without losing control, TinSu provides a familiar Kanban interface where tasks aren't just tracked — they're executed by AI agents under human oversight.
 
-The platform bridges the gap between powerful-but-inaccessible developer tools (BMAD Method, TaskMaster, Claude Code) and intuitive project management interfaces (Asana, Trello). Founders manage sprints, epics, and stories while AI agents actually implement them — with human approval gates at every critical juncture.
+The platform bridges the gap between powerful-but-inaccessible developer tools (BMAD Method, TaskMaster, Claude Code) and intuitive project management interfaces (Asana, Trello). Founders manage sprints, epics, and stories while AI agents actually implement them — with human approval gates at every critical juncture. **SSH-based remote project support** enables founders to manage projects on remote machines from any device, including mobile.
 
 Beyond execution, TinSu provides a **Planning Workspace** where founders collaborate with specialized AI agents (PM, Architect, UX Designer) through concurrent chat sessions. Multiple agents can run simultaneously across projects, each in a persistent terminal session that survives app restarts and continues working in the background.
 
@@ -49,9 +51,12 @@ Beyond execution, TinSu provides a **Planning Workspace** where founders collabo
 
 **MVP Architecture:**
 
-- Single-tenant (local install on founder's device)
+- Tauri v2 desktop app with Rust backend and React frontend
+- Single-tenant (local install on founder's device + SSH access to remote machines)
 - Single role: Founder (full access)
 - Core integrations: Claude Code, GitHub, Git
+- Cross-platform targets: macOS, Linux, Windows (desktop); Android, iOS (mobile via Tauri)
+- Remote project support via SSH (russh)
 
 ## Success Criteria
 
@@ -118,12 +123,17 @@ Beyond execution, TinSu provides a **Planning Workspace** where founders collabo
 - GitHub + Git integration
 - Planning Workspace with multi-agent chat sessions (PM, Architect, UX Designer, Dev)
 - Concurrent agent support across multiple projects via persistent tmux sessions
+- SSH-based remote project support (connect to remote machines, manage projects remotely)
+- Cross-platform: macOS, Linux, Windows (desktop) + Android, iOS (mobile)
 
 **Architecture:**
 
-- Single-tenant (local install on founder's device)
+- Tauri v2 with Rust backend, React frontend in webview
+- Single-tenant (local install + SSH remote access)
 - Single role: Founder (full access)
 - tmux-based terminal session management for both task execution and planning chat
+- Rust services: portable-pty, tokio::process, russh (SSH), axum (HTTP hooks)
+- Type-safe IPC via Tauri invoke commands
 
 ### Growth Features (Post-MVP)
 
@@ -307,7 +317,7 @@ TinSu is a B2B platform with web application characteristics, designed for singl
 
 #### Claude Code CLI Integration
 
-TinSu uses two terminal session models depending on context:
+TinSu uses two terminal session models depending on context, implemented in Rust via portable-pty and tokio::process:
 
 **1. Task Execution: tmux Sessions (Kanban Board)**
 
@@ -319,7 +329,7 @@ TinSu uses two terminal session models depending on context:
 | **Persistence**        | tmux sessions survive app restarts; sessions validated on startup                   |
 | **Session Monitoring** | Polling `tmux has-session` every 2s detects session exit                            |
 | **Control Signals**    | Send SIGSTOP/SIGCONT via tmux for Pause/Resume                                      |
-| **State Detection**    | Hook scripts POST events to HTTP listener; stall detection via output monitoring    |
+| **State Detection**    | Hook scripts POST events to axum HTTP listener; stall detection via output monitoring |
 
 **2. Planning Chat: tmux Sessions + PTY I/O Channel**
 
@@ -327,11 +337,11 @@ TinSu uses two terminal session models depending on context:
 | ---------------------- | ----------------------------------------------------------------------------------- |
 | **Process Management** | One tmux session per chat (`tinsu-chat-{sessionId}`)                                |
 | **I/O Channel**        | PTY attaches to tmux session for direct stdin writing (not `send-keys`)             |
-| **Message Input**      | `ptyService.write()` for byte-level control over message content and Enter key      |
+| **Message Input**      | Rust PTY service write for byte-level control over message content and Enter key    |
 | **Persistence**        | tmux sessions survive app restarts; no `--resume` flag needed                       |
 | **Concurrency**        | Multiple tmux sessions run independently across agents and projects                 |
 | **Session Monitoring** | `tmux has-session` polling detects background session completion/exit                |
-| **Hook Routing**       | Chat-specific hook endpoints (`/api/hooks/chat-*`) route by tmux session name       |
+| **Hook Routing**       | Chat-specific hook endpoints (`/api/hooks/chat-*`) route by tmux session name via axum |
 
 **Why tmux for Both:**
 
@@ -345,9 +355,35 @@ TinSu uses two terminal session models depending on context:
 
 ```
 tmux session (persistence layer)
-  └─ PTY attached via ptyService.spawn(tmux attach ...)  (I/O layer)
+  └─ PTY attached via portable-pty (Rust)  (I/O layer)
        └─ claude --session-id {uuid}  (agent process)
-            └─ hooks POST to /api/hooks/{chat-*|stop|tool-use}  (event routing)
+            └─ hooks POST to axum /api/hooks/{chat-*|stop|tool-use}  (event routing)
+```
+
+#### SSH & Remote Project Architecture
+
+TinSu provides SSH-based remote project support via the russh Rust library, enabling founders to manage projects on remote development machines from any device.
+
+| Component              | Implementation                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **SSH Client**         | russh (Rust async SSH2 implementation)                                              |
+| **Key Management**     | SSH key generation and secure storage in OS keychain                                |
+| **Connection Mgmt**    | Named connection profiles with host, port, user, key path                           |
+| **Remote Discovery**   | List remote projects via SSH directory enumeration                                  |
+| **Remote Sessions**    | Attach to remote tmux sessions over SSH tunnel                                      |
+| **File Operations**    | Read/write remote artifacts, diffs via SFTP                                         |
+| **Hook Forwarding**    | Forward remote hook events to local axum listener via SSH port forwarding            |
+| **Project Switching**  | Unified local/remote project switcher in UI                                         |
+
+**Remote Architecture:**
+
+```
+Local Tauri App
+  └─ russh SSH connection
+       └─ Remote machine
+            ├─ tmux sessions (remote agent execution)
+            ├─ SFTP (file operations)
+            └─ SSH port forward (hook events → local axum)
 ```
 
 #### Git Integration
@@ -377,48 +413,65 @@ tmux session (persistence layer)
 
 ### Data Persistence Architecture
 
-**Hybrid Approach: SQLite + JSON/YAML**
+**Hybrid Approach: SQLite (Rust ORM) + JSON/YAML**
 
 | Data Type                 | Storage        | Rationale                                                   |
 | ------------------------- | -------------- | ----------------------------------------------------------- |
-| **Task State**            | SQLite         | Queryable, handles concurrent reads, timestamps, agent logs |
-| **Sprint/Epic Structure** | SQLite         | Relational data, status tracking                            |
+| **Task State**            | SQLite (Rust)  | Queryable, handles concurrent reads, timestamps, agent logs |
+| **Sprint/Epic Structure** | SQLite (Rust)  | Relational data, status tracking                            |
 | **Project Config**        | YAML           | Human-readable, version-controlled                          |
 | **Story Definitions**     | Markdown/YAML  | Compatible with BMAD/TaskMaster patterns                    |
 | **Agent Logs**            | SQLite + Files | Indexed for search, full logs in filesystem                 |
+| **SSH Connections**       | SQLite (Rust)  | Named profiles with host, port, user, key references        |
 
-**SQLite Schema Considerations:**
+**SQLite Schema (17 tables, same schema via Rust ORM):**
 
 - Tasks table: id, title, status, sprint_id, epic_id, created_at, updated_at
 - Agent runs table: task_id, started_at, ended_at, token_usage, exit_status
 - Logs table: run_id, timestamp, log_level, message
+- SSH connections table: id, name, host, port, user, key_path, last_connected
 
 **File Structure:**
 
 ```
 project/
+├── src-tauri/             # Rust backend (Tauri v2)
+│   ├── src/
+│   │   ├── main.rs        # Tauri entry point
+│   │   ├── commands/      # Tauri invoke command handlers
+│   │   ├── services/      # Rust service layer
+│   │   └── db/            # SQLite ORM models + migrations
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── src/                   # React frontend (preserved from Electron)
+│   ├── components/
+│   ├── stores/
+│   └── ...
 ├── .tinsu/
-│   ├── tinsu.db          # SQLite state
-│   ├── config.yaml       # Project configuration
-│   └── worktrees/        # Git worktrees for active tasks
-├── .bmad/                # BMAD artifacts (if using BMAD)
-└── stories/              # Story markdown files
+│   ├── tinsu.db           # SQLite state
+│   ├── config.yaml        # Project configuration
+│   └── worktrees/         # Git worktrees for active tasks
+├── .bmad/                 # BMAD artifacts (if using BMAD)
+└── stories/               # Story markdown files
 ```
 
 ### Implementation Considerations
 
 **MVP Technical Constraints:**
 
-- Must work offline (no cloud dependency)
-- Single-user, single-device
-- Claude Code CLI must be installed separately (prerequisite)
+- Tauri v2 with Rust toolchain required for building
+- Must work offline for local projects (no cloud dependency)
+- Single-user; supports local + remote projects via SSH
+- Claude Code CLI must be installed separately (prerequisite, locally or on remote machine)
 - Git must be initialized in project directory
+- Cross-platform builds: macOS, Linux, Windows (desktop); Android, iOS (mobile via Tauri)
 
 **Performance Requirements:**
 
-- UI must remain responsive during agent execution
-- PTY output streaming should not block main thread
+- UI must remain responsive during agent execution (React in Tauri webview)
+- PTY output streaming via portable-pty should not block main thread
 - SQLite queries should be indexed for task list views
+- SSH connections should establish in <5 seconds on standard network conditions
 
 ## Project Scoping & Phased Development
 
@@ -468,7 +521,6 @@ project/
 - Claude API integration (direct API calls)
 - Multi-device sync
 - Team collaboration / RBAC
-- Mobile app
 
 ### Post-MVP Features
 
@@ -478,6 +530,8 @@ project/
 - Horizontal workflows (content creation, sales outreach, growth experiments)
 - Claude API integration (move beyond CLI)
 - Basic analytics dashboard (task velocity trends)
+- Workflow automation (deferred from Electron-era backlog)
+- Agent monitoring dashboard (deferred from Electron-era backlog)
 
 **Phase 3 (Expansion):**
 
@@ -485,7 +539,6 @@ project/
 - Team collaboration + role-based access
 - Multiple AI providers (OpenAI, Gemini, etc.)
 - Marketplace for workflow templates
-- Mobile companion app
 
 ### Risk Mitigation Strategy
 
@@ -493,12 +546,16 @@ project/
 
 | Risk                            | Mitigation                                                  |
 | ------------------------------- | ----------------------------------------------------------- |
-| tmux + PTY complexity across platforms | tmux is battle-tested; node-pty for I/O channel; test on macOS + Linux |
+| Rust backend rewrite (31k LoC)  | Phased migration with gates; React frontend preserved; identical behavior target |
+| Tauri mobile maturity           | Mobile is remote-only (SSH), reducing PTY dependency; phase-gated (Phase 3) |
+| tmux + PTY complexity across platforms | tmux is battle-tested; portable-pty (Rust) for I/O channel; test on macOS + Linux + Windows |
 | Worktree merge conflicts        | Surface conflicts in UI, manual resolution workflow         |
 | Stall detection false positives | Tunable thresholds, manual override always available        |
 | Concurrent session rate limits  | Bounded by subscription plan; sessions queue gracefully on 429 |
 | Hook routing for N concurrent sessions | Keyed by tmux session name (stable identifier), eliminates orphan UUID bugs |
 | tmux session accumulation       | Idle timeout (30 min) auto-kills inactive sessions; startup validation cleans stale sessions |
+| SSH connection reliability      | Connection health checks, auto-reconnect with backoff, clear error messages on failure |
+| Cross-platform build complexity | Tauri v2 handles platform abstraction; CI/CD pipeline for all 5 targets |
 
 **Market Risks:**
 
@@ -605,6 +662,17 @@ project/
 - FR52: System validates chat session health on startup, marking unavailable sessions for re-creation on next message
 - FR53: System monitors agent session health and updates session status within 2 seconds of a session becoming unavailable
 
+### SSH & Remote Project Support
+
+- FR54: Founder can add, test, edit, and remove SSH connection profiles (host, port, user, authentication method)
+- FR55: System generates SSH key pairs and stores private keys securely in the OS keychain
+- FR56: Founder can discover and select projects on a remote machine via SSH directory enumeration
+- FR57: System attaches to remote tmux sessions over SSH tunnel for remote agent execution and monitoring
+- FR58: System reads and writes remote project artifacts (story files, diffs, logs) via SFTP
+- FR59: System forwards remote hook events (completion, tool use, permission requests) to the local app via SSH port forwarding
+- FR60: Founder can switch between local and remote projects using a unified project switcher in the UI
+- FR61: System builds and runs on macOS, Linux, Windows (desktop) and Android, iOS (mobile) from a single Tauri v2 codebase
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -651,7 +719,7 @@ project/
 
 - NFR17: System detects if Claude Code CLI is not installed and provides clear error
 - NFR18: Context injection works with story files up to 50KB
-- NFR19: PTY integration works on macOS and Linux
+- NFR19: PTY integration via portable-pty works on macOS, Linux, and Windows
 
 **Git:**
 
@@ -663,6 +731,19 @@ project/
 
 - NFR23: System handles story files with special characters in filenames
 - NFR24: YAML/Markdown parsing provides clear error messages on invalid syntax
+
+**SSH & Remote:**
+
+- NFR33: SSH connection establishment completes in <5 seconds on networks with <100ms latency
+- NFR34: Remote file operations (read/write artifacts) complete in <3 seconds for files up to 1MB
+- NFR35: SSH connections auto-reconnect within 10 seconds after transient network interruption
+- NFR36: Remote hook event forwarding adds <500ms latency to local event processing
+
+**Cross-Platform:**
+
+- NFR37: Tauri app binary size remains under 30MB for desktop platforms
+- NFR38: Mobile app (Android/iOS) launches in <3 seconds on devices from 2022 or newer
+- NFR39: React frontend renders identically across Tauri desktop and mobile webviews
 
 ### Planning Chat
 

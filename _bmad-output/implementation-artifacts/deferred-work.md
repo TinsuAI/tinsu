@@ -1,5 +1,51 @@
 # Deferred Work
 
+## Deferred from: code review of t1-8-migrate-git-service-to-rust (2026-04-12)
+
+- **Weak unit tests in `review.rs`** — `test_approve_task_requires_non_empty_id` and `test_reject_task_increments_rejection_count_logic` test constants, not command logic. AC4 called for tests of `reject_task` increment and `approve_task` without worktree. Full integration tests require a DB fixture; deferred to match T1.5–T1.7 test pattern.
+
+## Deferred from: code review of t1-7-migrate-hook-listener-http-server-to-rust (2026-04-12)
+
+- **`start_session_monitor` unbounded spawning + unwrap_or(false) silencing** — Calling `start_session_monitor` twice for the same task spawns two background loops; `spawn_blocking().unwrap_or(false)` silences panics. T1.6 code; deferred since T1.6 review is complete.
+- **Port file `/tmp/tinsu-hook-port` orphaned on hard crash** — File persists if the process crashes before `stop()` runs; harmless (overwritten on restart) but could confuse tooling. Low priority for localhost-only listener.
+- **Clock skew timestamp falls back to 0** — `SystemTime::now().duration_since(UNIX_EPOCH)` falls back to 0 with `tracing::warn!`. Pre-existing pattern accepted across the codebase; activities would sort to bottom.
+- **Concurrent cwd fallback race condition** — Two hooks arriving simultaneously for the same cwd both run `find_task_session_by_project_cwd`; last write wins for `session_id`. Rare edge case; lazy mapping via explicit `register_session_id` takes precedence once the session is registered.
+- **HTTP body size limit not explicit in axum routes** — No `DefaultBodyLimit` middleware set explicitly; axum's default 2MB limit applies. Acceptable for localhost hook listener; add explicit limit if security posture tightens.
+- **`update_session_id` failure after cwd fallback resolves task_id** — If DB update fails, warning is logged but `Some(task_id)` is still returned, so the activity is logged. Next hook from the same session will re-attempt the fallback (less efficient but not lossy).
+
+## Deferred from: code review of t1-6-migrate-pty-and-tmux-services-to-rust (2026-04-12)
+
+- **`PtyExitPayload.exit_code` hardcoded to 0** — `pty_service.rs` emits `exit_code: 0` on PTY EOF without reading the actual child process exit status. Should call `child.wait()` or `child.try_wait()` to get the real exit code before emitting the event. Deferred as the spec does not require accurate exit codes for MVP.
+
+## Deferred from: code review of t1-5-migrate-project-sprint-and-epic-commands (2026-04-12)
+
+- **now_unix_secs() duplicated across 4 command modules** — Same function in epic.rs, sprint.rs, project.rs, task.rs. Extract to a shared `utils.rs` module in a future refactor story.
+- **SprintList.tsx uses native confirm() for delete** — Should use a custom styled dialog (like BasicTaskConfirmDialog) for consistency and accessibility. Refactor in a separate frontend story.
+- **Row parsing uses unwrap_or() in velocity aggregation** — `try_get("", "week_label").unwrap_or_default()` and `try_get("", "count").unwrap_or(0)` silently swallow parse errors. Consider adding explicit error logging in a future hardening pass.
+
+## Deferred from: code review of t1-4-migrate-task-crud-commands (2026-04-12)
+
+- **`CreateTaskDialog` silently drops description/status/epicId/sprintId from mutation** — `CreateTaskInput` only accepts `title` + `project_id`; expand in a future story that adds these fields to the Rust command.
+- **`activeProjectId = ''` hardcoded in KanbanBoardContainer** — Backend returns all tasks when project_id is empty; blocked on project UUID resolution from store. Deferred to T1.5 or store migration.
+- **`reorder_tasks` doesn't validate task_ids belong to the project** — Any task ID can be passed; no ownership/project check before sort_order update. Address in a security hardening story (T1.8 or later).
+- **`now_unix_secs()` returns 0 on system clock before UNIX_EPOCH** — Accepted fallback with `tracing::warn!`; tasks would get created_at=0 (1970). Acceptable for development; harden before production release.
+
+## Deferred from: code review of t1-3-implement-type-safe-ipc-command-layer (2026-04-12)
+
+- **`stopWatchingMutation.mutate()` not awaited in useFileWatcher cleanup** — fire-and-forget is the established tRPC mutation pattern throughout the codebase; low risk.
+- **`AppError` missing `From` impls for serde/tokio errors** — only `sea_orm::DbErr` and `std::io::Error` needed for T1.3 commands; extend in T1.4/T1.5 as new commands require additional conversions.
+
+_Resolved in T1.4: input validation on title/id/project_id, magic string constants for status/task_type._
+
+## Deferred from: code review of t1-2-set-up-rust-sqlite-database-with-migrations (2026-04-12)
+
+- **`.expect()` panics in production startup paths** — `create_dir_all`, `db::connect()`, and `Migrator::up()` all panic on failure (lib.rs + db/mod.rs). Accepted Tauri startup pattern for MVP. Revisit in T1.3+ to propagate errors via `AppError` and display a user-facing dialog instead of crashing.
+- **`version_number: i32` type inconsistency** — `task_versions.version_number` uses `i32` in the entity while all other INTEGER fields use `i64`. No overflow risk or functional impact; harmonize when this field is first used in query code.
+
+## Deferred from: code review of t1-1-initialize-tauri-v2-project-with-react-frontend (2026-04-12)
+
+- **Monaco editor stub minimal implementation** — `src/__mocks__/monaco-editor.ts` exports stub editor with only `defineTheme`, `setTheme`, `MouseTargetType`. Components using @monaco-editor/react already mock that package separately in tests; this stub only resolves vitest ESM resolution errors. Revisit if new tests import monaco-editor directly.
+
 ## Deferred from: code review of mobile-1-1-initialize-kmp-project-with-jetbrains-wizard (2026-04-07)
 
 - **Release `isMinifyEnabled=false`, no signing config** — Enable R8 shrinking and add signing config before Play Store submission; not needed for development scaffold
