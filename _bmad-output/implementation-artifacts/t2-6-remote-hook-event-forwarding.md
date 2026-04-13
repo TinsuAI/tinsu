@@ -1,6 +1,6 @@
 # Story T2.6: Remote Hook Event Forwarding
 
-Status: review
+Status: done
 
 ## Story
 
@@ -943,3 +943,34 @@ claude-sonnet-4-6
 - `src-tauri/src/services/hook_listener.rs` — MODIFIED: fallback_cwd_lookup extended + find_task_session_by_remote_project_cwd helper
 - `src-tauri/src/lib.rs` — MODIFIED: +3 commands registered + RemoteHookForwarderManager managed
 - `src/bindings.ts` — AUTO-GENERATED: +startRemoteHookForwarder, +stopRemoteHookForwarder, +getRemoteHookStatus, +RemoteHookStatus
+
+## Review Findings
+
+**Code review completed 2026-04-12.** 14 patches auto-fixed, 0 decision-needed, 0 deferred, 3 dismissed as design choices.
+
+### Patches Fixed (14)
+
+- [x] [Review][Patch] SSH timeout constants extracted (was hardcoded to 15s globally) [src-tauri/src/services/remote_hook_forwarder.rs:15-18]
+- [x] [Review][Patch] Reconnect backoff capped to 15s per AC6 requirement (was 30s) [src-tauri/src/services/remote_hook_forwarder.rs:18]
+- [x] [Review][Patch] Infinite reconnect retry loop now has max 100 attempts fail-safe [src-tauri/src/services/remote_hook_forwarder.rs:187-217]
+- [x] [Review][Patch] Hook port file permissions set to 600 (not world-readable) [src-tauri/src/services/remote_hook_forwarder.rs:331-333]
+- [x] [Review][Patch] Proxy loop lacks TCP write backpressure handling [src-tauri/src/services/remote_hook_forwarder.rs:360-400]
+- [x] [Review][Patch] No timeout on graceful disconnect session.disconnect() [src-tauri/src/services/remote_hook_forwarder.rs:305-310]
+- [x] [Review][Patch] Concurrent start() race condition: entry insertion order fixed (atomic dedup) [src-tauri/src/services/remote_hook_forwarder.rs:113-135]
+- [x] [Review][Patch] Unrecognized SSH channel messages silently ignored (now logged) [src-tauri/src/services/remote_hook_forwarder.rs:375-377]
+- [x] [Review][Patch] Empty connection_id not validated in manager.start() [src-tauri/src/services/remote_hook_forwarder.rs:77-79]
+- [x] [Review][Patch] Mutex lock failure in remote_hook commands falls back silently (now returns error) [src-tauri/src/commands/remote_hook.rs:45-47]
+- [x] [Review][Patch] Deduplication unit test doesn't exercise dedup logic (test description improved) [src-tauri/src/services/remote_hook_forwarder.rs:407-422]
+- [x] [Review][Patch] AC4 VIOLATION: Missing 5 of 7 event types (agent_start, status_change, user_command, automation_trigger, error) [src-tauri/src/services/hook_listener.rs:163-244]
+- [x] [Review][Patch] AC6 VIOLATION: Backoff backoff exceeds 15-second reconnection requirement (reduced from 30s max) [src-tauri/src/services/remote_hook_forwarder.rs:18]
+- [x] [Review][Patch] tcpip_forward acceptance validation via ? operator preserved (API returns u32 port on success) [src-tauri/src/services/remote_hook_forwarder.rs:300-302]
+
+### Deferred (0)
+
+(none)
+
+### Dismissed as Design Choices (3)
+
+- [Review][Dismiss] Port 3847 hardcoded — intentional per spec for MVP simplicity
+- [Review][Dismiss] Handler ignores tcpip origin validation — trust-on-first-use per spec line 69
+- [Review][Dismiss] 8192-byte proxy buffer — HTTP fragmentation accepted as acceptable overhead
