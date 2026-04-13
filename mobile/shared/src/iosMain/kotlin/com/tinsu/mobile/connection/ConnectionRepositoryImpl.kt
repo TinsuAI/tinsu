@@ -18,7 +18,7 @@ private class IosConnectionRepository(
     private val database: TinsuMobile
 ) : ConnectionRepository {
 
-    override suspend fun getAllConnections(): Result<List<ConnectionConfig>> = withContext(Dispatchers.IO) {
+    override suspend fun getAllConnections(): Result<List<ConnectionConfig>> = withContext(Dispatchers.Default) {
         try {
             val connections = database.connectionsQueries.selectAllSortedByOrder(
                 mapper = { id, display_name, host, port, username, transport, ssh_key_alias, sort_order, last_connected_at, created_at, updated_at ->
@@ -43,7 +43,7 @@ private class IosConnectionRepository(
         }
     }
 
-    override suspend fun getConnectionById(id: String): Result<ConnectionConfig> = withContext(Dispatchers.IO) {
+    override suspend fun getConnectionById(id: String): Result<ConnectionConfig> = withContext(Dispatchers.Default) {
         try {
             val connection = database.connectionsQueries.selectById(id) { _, display_name, host, port, username, transport, ssh_key_alias, sort_order, last_connected_at, created_at, updated_at ->
                 ConnectionConfig(
@@ -71,7 +71,7 @@ private class IosConnectionRepository(
         }
     }
 
-    override suspend fun createConnection(config: ConnectionConfig): Result<ConnectionConfig> = withContext(Dispatchers.IO) {
+    override suspend fun createConnection(config: ConnectionConfig): Result<ConnectionConfig> = withContext(Dispatchers.Default) {
         try {
             // Validate before inserting
             val validationResult = config.isValid()
@@ -107,7 +107,7 @@ private class IosConnectionRepository(
         }
     }
 
-    override suspend fun updateConnection(config: ConnectionConfig): Result<ConnectionConfig> = withContext(Dispatchers.IO) {
+    override suspend fun updateConnection(config: ConnectionConfig): Result<ConnectionConfig> = withContext(Dispatchers.Default) {
         try {
             if (config.id == null) {
                 return@withContext Result.Failure(AppError.InvalidConnectionDetails("Cannot update connection without ID"))
@@ -147,7 +147,7 @@ private class IosConnectionRepository(
         }
     }
 
-    override suspend fun deleteConnection(id: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun deleteConnection(id: String): Result<Unit> = withContext(Dispatchers.Default) {
         try {
             database.connectionsQueries.deleteById(id)
             Result.Success(Unit)
@@ -156,7 +156,7 @@ private class IosConnectionRepository(
         }
     }
 
-    override suspend fun reorderConnectionIds(ids: List<String>): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun reorderConnectionIds(ids: List<String>): Result<Unit> = withContext(Dispatchers.Default) {
         try {
             val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
             database.transaction {

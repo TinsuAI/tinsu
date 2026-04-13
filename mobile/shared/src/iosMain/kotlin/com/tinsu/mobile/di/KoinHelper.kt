@@ -1,5 +1,7 @@
 package com.tinsu.mobile.di
 
+import com.tinsu.mobile.connection.ConnectionManager
+import com.tinsu.mobile.connection.ConnectionRepository
 import com.tinsu.mobile.connection.SshSessionProvider
 import com.tinsu.mobile.project.ProjectViewModel
 import com.tinsu.mobile.security.Ed25519KeyProvider
@@ -8,6 +10,7 @@ import com.tinsu.mobile.setup.SetupDetector
 import com.tinsu.mobile.setup.SetupViewModel
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
+import org.koin.mp.KoinPlatform
 
 fun initKoin(
     ed25519Provider: Ed25519KeyProvider? = null,
@@ -16,7 +19,9 @@ fun initKoin(
     try {
         val platformModule = module {
             single { SecureKeyStore(ed25519Provider) }
-            single<SshSessionProvider?> { sshProvider }
+            if (sshProvider != null) {
+                single<SshSessionProvider> { sshProvider }
+            }
         }
         startKoin {
             modules(sharedModule, iosModule, platformModule)
@@ -26,14 +31,27 @@ fun initKoin(
     }
 }
 
+@Throws(Exception::class)
 fun getSetupViewModel(): SetupViewModel {
-    return org.koin.core.context.GlobalContext.get().get<SetupViewModel>()
+    return KoinPlatform.getKoin().get<SetupViewModel>()
 }
 
+@Throws(Exception::class)
 fun getSetupDetector(): SetupDetector {
-    return org.koin.core.context.GlobalContext.get().get<SetupDetector>()
+    return KoinPlatform.getKoin().get<SetupDetector>()
 }
 
+@Throws(Exception::class)
 fun getProjectViewModel(): ProjectViewModel {
-    return org.koin.core.context.GlobalContext.get().get<ProjectViewModel>()
+    return KoinPlatform.getKoin().get<ProjectViewModel>()
+}
+
+@Throws(Exception::class)
+fun getConnectionManager(): ConnectionManager {
+    return KoinPlatform.getKoin().get<ConnectionManager>()
+}
+
+@Throws(Exception::class)
+fun getConnectionRepository(): ConnectionRepository {
+    return KoinPlatform.getKoin().get<ConnectionRepository>()
 }

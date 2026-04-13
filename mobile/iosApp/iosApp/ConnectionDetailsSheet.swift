@@ -154,17 +154,6 @@ struct DetailRow: View {
     }
 }
 
-/// Extended ConnectionState with details for connected state.
-extension ConnectionState {
-    static func connected(
-        host: String,
-        port: Int,
-        transport: String,
-        uptime: TimeInterval
-    ) -> ConnectionState {
-        return .connected(host: host, port: port, transport: transport, uptime: uptime)
-    }
-}
 
 #Preview {
     ConnectionDetailsSheet(

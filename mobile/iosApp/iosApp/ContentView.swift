@@ -1,9 +1,10 @@
 import SwiftUI
+import Shared
 
 // MARK: - Tab Definition
 /// Navigation tabs — defined separately to avoid tight coupling with ContentView.
 enum TinsuTab: Int, CaseIterable {
-    case chat, docs, tasks, settings
+    case chat, docs, tasks, connections
 }
 
 // MARK: - Root Content View
@@ -12,7 +13,12 @@ struct ContentView: View {
     @State private var chatPath    = NavigationPath()
     @State private var docsPath    = NavigationPath()
     @State private var tasksPath   = NavigationPath()
-    @State private var settingsPath = NavigationPath()
+    @State private var connectionsPath = NavigationPath()
+
+    /// Tracks which connection the user tapped so we can push ProjectDiscoveryView.
+    @State private var selectedConnection: ConnectionConfig? = nil
+
+    private let connectionRepository: ConnectionRepository? = try? KoinHelperKt.getConnectionRepository()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -49,20 +55,50 @@ struct ContentView: View {
             .tabItem { Label("Tasks", systemImage: "checklist") }
             .tag(TinsuTab.tasks)
 
-            // Settings
-            NavigationStack(path: $settingsPath) {
-                SettingsPlaceholderView()
-                    .navigationTitle("Settings")
-                    .navigationBarTitleDisplayMode(.large)
-                    .toolbarBackground(.visible, for: .navigationBar)
-                    .toolbarBackground(Material.bar, for: .navigationBar)
+            // Connections → Project Discovery
+            NavigationStack(path: $connectionsPath) {
+                connectionsRoot
             }
-            .tabItem { Label("Settings", systemImage: "gearshape") }
-            .tag(TinsuTab.settings)
+            .tabItem { Label("Connections", systemImage: "server.rack") }
+            .tag(TinsuTab.connections)
         }
         .tint(TinsuColors.primary)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(Material.bar, for: .tabBar)
+    }
+
+    // MARK: - Connections Root
+
+    @ViewBuilder
+    private var connectionsRoot: some View {
+        if let repo = connectionRepository {
+            ConnectionListScreen(
+                repository: repo,
+                onConnectionClick: { connection in
+                    selectedConnection = connection
+                }
+            )
+            .navigationTitle("Connections")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Material.bar, for: .navigationBar)
+            .navigationDestination(isPresented: Binding(
+                get: { selectedConnection != nil },
+                set: { if !$0 { selectedConnection = nil } }
+            )) {
+                ProjectDiscoveryView(
+                    onProjectSelected: { _ in
+                        // TODO: navigate to project dashboard in future story
+                    }
+                )
+            }
+        } else {
+            Text("Failed to load connections")
+                .font(TinsuTypography.body)
+                .foregroundColor(TinsuColors.onSurfaceVariant)
+                .navigationTitle("Connections")
+                .navigationBarTitleDisplayMode(.large)
+        }
     }
 }
 
@@ -99,20 +135,6 @@ struct TasksPlaceholderView: View {
     var body: some View {
         List {
             Text("Tasks coming soon")
-                .font(TinsuTypography.body)
-                .foregroundColor(TinsuColors.onSurface)
-                .frame(minHeight: TinsuSpacing.minTouchTarget)
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(TinsuColors.background)
-    }
-}
-
-struct SettingsPlaceholderView: View {
-    var body: some View {
-        List {
-            Text("Settings coming soon")
                 .font(TinsuTypography.body)
                 .foregroundColor(TinsuColors.onSurface)
                 .frame(minHeight: TinsuSpacing.minTouchTarget)

@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// Keychain service name prefix — keeps all TinSu keys grouped
-pub const KEYCHAIN_SERVICE: &str = "tinsu_ssh";
-
 #[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
 pub enum AuthMethod {
     Key,
@@ -128,12 +125,41 @@ pub struct DiscoverProjectsInput {
     pub search_path: Option<String>,
 }
 
+/// Input for listing subdirectories on a remote machine.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ListRemoteDirInput {
+    pub connection_id: String,
+    /// Absolute path or `~` to list. Defaults to `~`.
+    pub path: Option<String>,
+}
+
+/// A single entry returned by list_remote_dir.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct RemoteDirEntry {
+    /// Directory name (not full path)
+    pub name: String,
+    /// Full absolute path on the remote machine
+    pub path: String,
+}
+
 /// Input to save a discovered (or manually entered) remote project.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SaveRemoteProjectInput {
     pub connection_id: String,
     pub name: String,
     pub path: String,
+}
+
+/// Input for generating a new SSH key and installing it on a remote server via password auth.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct InstallSshKeyInput {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    /// One-time password used only to install the key — never stored.
+    pub password: String,
+    /// Name to give the generated key (e.g. "myserver-tinsu").
+    pub key_name: String,
 }
 
 /// Input for creating a remote tmux task session.

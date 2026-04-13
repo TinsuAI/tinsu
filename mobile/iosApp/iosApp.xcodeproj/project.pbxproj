@@ -14,6 +14,29 @@
 		BB0001AABBCC000001000006 /* TinsuSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000005 /* TinsuSpacing.swift */; };
 		BB0001AABBCC000001000008 /* TinsuStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000007 /* TinsuStyles.swift */; };
 		BB0001AABBCC00000100000A /* TinsuLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001AABBCC000001000009 /* TinsuLoadingView.swift */; };
+		BB0002000000000000000002 /* Ed25519KeyHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000001 /* Ed25519KeyHelper.swift */; };
+		BB0002000000000000000004 /* Ed25519KeyProviderBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000003 /* Ed25519KeyProviderBridge.swift */; };
+		BB0002000000000000000006 /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000005 /* ConnectionCardView.swift */; };
+		BB0002000000000000000008 /* ConnectionEditScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000007 /* ConnectionEditScreen.swift */; };
+		BB000200000000000000000A /* ConnectionListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000009 /* ConnectionListScreen.swift */; };
+		BB000200000000000000000C /* AuthorizedKeysSetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000000B /* AuthorizedKeysSetupStep.swift */; };
+		BB000200000000000000000E /* ConnectionDetailsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000000D /* ConnectionDetailsSheet.swift */; };
+		BB0002000000000000000010 /* ConnectionStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000000F /* ConnectionStatusBar.swift */; };
+		BB0002000000000000000012 /* GenerateKeySetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000011 /* GenerateKeySetupStep.swift */; };
+		BB0002000000000000000014 /* HostDetailsSetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000013 /* HostDetailsSetupStep.swift */; };
+		BB0002000000000000000016 /* ProjectDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000015 /* ProjectDiscoveryView.swift */; };
+		BB0002000000000000000018 /* ProjectObservableViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000017 /* ProjectObservableViewModel.swift */; };
+		BB000200000000000000001A /* ProjectRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000019 /* ProjectRow.swift */; };
+		BB000200000000000000001C /* SaveConnectionSetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000001B /* SaveConnectionSetupStep.swift */; };
+		BB000200000000000000001E /* SetupFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000001D /* SetupFlowView.swift */; };
+		BB0002000000000000000020 /* SetupObservableViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000200000000000000001F /* SetupObservableViewModel.swift */; };
+		BB0002000000000000000022 /* TestConnectionSetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000021 /* TestConnectionSetupStep.swift */; };
+		BB0002000000000000000024 /* ViewPublicKeySetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000023 /* ViewPublicKeySetupStep.swift */; };
+		BB0002000000000000000026 /* WelcomeSetupStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002000000000000000025 /* WelcomeSetupStep.swift */; };
+		BB0003000000000000000001 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = BB0003000000000000000002 /* libsqlite3.tbd */; };
+		BB0003000000000000000003 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = BB0003000000000000000004 /* libz.tbd */; };
+		CC0001000000000000000003 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = CC0001000000000000000002 /* Citadel */; };
+		CC0001000000000000000006 /* SshProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0001000000000000000005 /* SshProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +48,28 @@
 		BB0001AABBCC000001000005 /* TinsuSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuSpacing.swift; sourceTree = "<group>"; };
 		BB0001AABBCC000001000007 /* TinsuStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuStyles.swift; sourceTree = "<group>"; };
 		BB0001AABBCC000001000009 /* TinsuLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinsuLoadingView.swift; sourceTree = "<group>"; };
+		BB0002000000000000000001 /* Ed25519KeyHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ed25519KeyHelper.swift; sourceTree = "<group>"; };
+		BB0002000000000000000003 /* Ed25519KeyProviderBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ed25519KeyProviderBridge.swift; sourceTree = "<group>"; };
+		BB0002000000000000000005 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
+		BB0002000000000000000007 /* ConnectionEditScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionEditScreen.swift; sourceTree = "<group>"; };
+		BB0002000000000000000009 /* ConnectionListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListScreen.swift; sourceTree = "<group>"; };
+		BB000200000000000000000B /* AuthorizedKeysSetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorizedKeysSetupStep.swift; sourceTree = "<group>"; };
+		BB000200000000000000000D /* ConnectionDetailsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionDetailsSheet.swift; sourceTree = "<group>"; };
+		BB000200000000000000000F /* ConnectionStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusBar.swift; sourceTree = "<group>"; };
+		BB0002000000000000000011 /* GenerateKeySetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateKeySetupStep.swift; sourceTree = "<group>"; };
+		BB0002000000000000000013 /* HostDetailsSetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDetailsSetupStep.swift; sourceTree = "<group>"; };
+		BB0002000000000000000015 /* ProjectDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDiscoveryView.swift; sourceTree = "<group>"; };
+		BB0002000000000000000017 /* ProjectObservableViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectObservableViewModel.swift; sourceTree = "<group>"; };
+		BB0002000000000000000019 /* ProjectRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRow.swift; sourceTree = "<group>"; };
+		BB000200000000000000001B /* SaveConnectionSetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveConnectionSetupStep.swift; sourceTree = "<group>"; };
+		BB000200000000000000001D /* SetupFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowView.swift; sourceTree = "<group>"; };
+		BB000200000000000000001F /* SetupObservableViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupObservableViewModel.swift; sourceTree = "<group>"; };
+		BB0002000000000000000021 /* TestConnectionSetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestConnectionSetupStep.swift; sourceTree = "<group>"; };
+		BB0002000000000000000023 /* ViewPublicKeySetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewPublicKeySetupStep.swift; sourceTree = "<group>"; };
+		BB0002000000000000000025 /* WelcomeSetupStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeSetupStep.swift; sourceTree = "<group>"; };
+		BB0003000000000000000002 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		BB0003000000000000000004 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		CC0001000000000000000005 /* SshProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SshProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +77,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BB0003000000000000000001 /* libsqlite3.tbd in Frameworks */,
+				BB0003000000000000000003 /* libz.tbd in Frameworks */,
+				CC0001000000000000000003 /* Citadel in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -64,6 +112,26 @@
 				BB0001AABBCC000001000005 /* TinsuSpacing.swift */,
 				BB0001AABBCC000001000007 /* TinsuStyles.swift */,
 				BB0001AABBCC000001000009 /* TinsuLoadingView.swift */,
+				BB0002000000000000000001 /* Ed25519KeyHelper.swift */,
+				BB0002000000000000000003 /* Ed25519KeyProviderBridge.swift */,
+				BB0002000000000000000005 /* ConnectionCardView.swift */,
+				BB0002000000000000000007 /* ConnectionEditScreen.swift */,
+				BB0002000000000000000009 /* ConnectionListScreen.swift */,
+				BB000200000000000000000B /* AuthorizedKeysSetupStep.swift */,
+				BB000200000000000000000D /* ConnectionDetailsSheet.swift */,
+				BB000200000000000000000F /* ConnectionStatusBar.swift */,
+				BB0002000000000000000011 /* GenerateKeySetupStep.swift */,
+				BB0002000000000000000013 /* HostDetailsSetupStep.swift */,
+				BB0002000000000000000015 /* ProjectDiscoveryView.swift */,
+				BB0002000000000000000017 /* ProjectObservableViewModel.swift */,
+				BB0002000000000000000019 /* ProjectRow.swift */,
+				BB000200000000000000001B /* SaveConnectionSetupStep.swift */,
+				BB000200000000000000001D /* SetupFlowView.swift */,
+				BB000200000000000000001F /* SetupObservableViewModel.swift */,
+				BB0002000000000000000021 /* TestConnectionSetupStep.swift */,
+				BB0002000000000000000023 /* ViewPublicKeySetupStep.swift */,
+				BB0002000000000000000025 /* WelcomeSetupStep.swift */,
+				CC0001000000000000000005 /* SshProvider.swift */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -75,6 +143,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2A7B7E342B1C3D4F00F1A2B3 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
+				BB9900AABB0011223344CCDD /* Build Shared Framework */,
 				2A7B7E222B1C3D4E00F1A2B3 /* Sources */,
 				2A7B7E232B1C3D4E00F1A2B3 /* Frameworks */,
 				2A7B7E242B1C3D4E00F1A2B3 /* Resources */,
@@ -82,6 +151,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			packageProductDependencies = (
+				CC0001000000000000000002 /* Citadel */,
 			);
 			name = iosApp;
 			productName = iosApp;
@@ -110,6 +182,9 @@
 			productRefGroup = 2A7B7E272B1C3D4E00F1A2B3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				CC0001000000000000000001 /* XCRemoteSwiftPackageReference "Citadel" */,
+			);
 			targets = (
 				2A7B7E252B1C3D4E00F1A2B3 /* iosApp */,
 			);
@@ -126,6 +201,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		BB9900AABB0011223344CCDD /* Build Shared Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../shared/build.gradle.kts",
+			);
+			name = "Build Shared Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)/Shared.framework/Shared",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		2A7B7E222B1C3D4E00F1A2B3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -138,6 +236,26 @@
 				BB0001AABBCC000001000006 /* TinsuSpacing.swift in Sources */,
 				BB0001AABBCC000001000008 /* TinsuStyles.swift in Sources */,
 				BB0001AABBCC00000100000A /* TinsuLoadingView.swift in Sources */,
+				BB0002000000000000000002 /* Ed25519KeyHelper.swift in Sources */,
+				BB0002000000000000000004 /* Ed25519KeyProviderBridge.swift in Sources */,
+				BB0002000000000000000006 /* ConnectionCardView.swift in Sources */,
+				BB0002000000000000000008 /* ConnectionEditScreen.swift in Sources */,
+				BB000200000000000000000A /* ConnectionListScreen.swift in Sources */,
+				BB000200000000000000000C /* AuthorizedKeysSetupStep.swift in Sources */,
+				BB000200000000000000000E /* ConnectionDetailsSheet.swift in Sources */,
+				BB0002000000000000000010 /* ConnectionStatusBar.swift in Sources */,
+				BB0002000000000000000012 /* GenerateKeySetupStep.swift in Sources */,
+				BB0002000000000000000014 /* HostDetailsSetupStep.swift in Sources */,
+				BB0002000000000000000016 /* ProjectDiscoveryView.swift in Sources */,
+				BB0002000000000000000018 /* ProjectObservableViewModel.swift in Sources */,
+				BB000200000000000000001A /* ProjectRow.swift in Sources */,
+				BB000200000000000000001C /* SaveConnectionSetupStep.swift in Sources */,
+				BB000200000000000000001E /* SetupFlowView.swift in Sources */,
+				BB0002000000000000000020 /* SetupObservableViewModel.swift in Sources */,
+				BB0002000000000000000022 /* TestConnectionSetupStep.swift in Sources */,
+				BB0002000000000000000024 /* ViewPublicKeySetupStep.swift in Sources */,
+				BB0002000000000000000026 /* WelcomeSetupStep.swift in Sources */,
+				CC0001000000000000000006 /* SshProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,7 +281,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -186,7 +304,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -200,14 +318,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 59TC5Z2BXN;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -227,14 +349,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 59TC5Z2BXN;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -271,6 +397,24 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		CC0001000000000000000001 /* XCRemoteSwiftPackageReference "Citadel" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orlandos-nl/Citadel";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = "0.6.0";
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC0001000000000000000002 /* Citadel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CC0001000000000000000001 /* XCRemoteSwiftPackageReference "Citadel" */;
+			productName = Citadel;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2A7B7E1E2B1C3D4E00F1A2B3 /* Project object */;
 }

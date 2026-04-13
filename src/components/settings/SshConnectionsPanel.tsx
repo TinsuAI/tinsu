@@ -37,6 +37,8 @@ import type {
   UpdateSshConnectionInput,
   TestSshConnectionInput,
   SshConnectionTestResult,
+  SshKeyEntry,
+  InstallSshKeyInput,
 } from '@renderer/lib/rspc'
 
 // ─── Test status state ───────────────────────────────────────────────────────
@@ -56,16 +58,20 @@ interface ConnectionDialogProps {
   availableKeys: string[]
   initial?: SshConnectionProfile | null
   isSaving: boolean
+  /** Called after a key is installed so the parent can refresh availableKeys */
+  onKeyInstalled?: (entry: SshKeyEntry) => void
 }
 
-function ConnectionDialog({
+export function ConnectionDialog({
   open,
   onClose,
   onSave,
   availableKeys,
   initial,
   isSaving,
+  onKeyInstalled,
 }: ConnectionDialogProps) {
+  const queryClient = useQueryClient()
   const [host, setHost] = useState('')
   const [port, setPort] = useState(22)
   const [username, setUsername] = useState('')
@@ -73,6 +79,46 @@ function ConnectionDialog({
   const [keyName, setKeyName] = useState('')
   const [password, setPassword] = useState('')
   const [testStatus, setTestStatus] = useState<TestStatus>({ state: 'idle' })
+
+  // ── Install-key wizard state ─────────────────────────────────────────────
+  const [installPassword, setInstallPassword] = useState('')
+  const [installKeyName, setInstallKeyName] = useState('')
+  const [installStatus, setInstallStatus] = useState<
+    'idle' | 'installing' | 'success' | 'error'
+  >('idle')
+  const [installError, setInstallError] = useState('')
+
+  const installMutation = useMutation({
+    mutationFn: async (input: InstallSshKeyInput) => {
+      const result = await commands.installSshKey(input)
+      if (result.status === 'error') throw new Error(JSON.stringify(result.error))
+      return result.data
+    },
+    onSuccess: (entry: SshKeyEntry) => {
+      setInstallStatus('success')
+      setKeyName(entry.name)
+      setInstallPassword('')
+      queryClient.invalidateQueries({ queryKey: ['ssh_keys'] })
+      onKeyInstalled?.(entry)
+    },
+    onError: (err: Error) => {
+      setInstallStatus('error')
+      setInstallError(err.message)
+    },
+  })
+
+  const handleInstallKey = () => {
+    const name = installKeyName.trim() || `${username.replace(/[^a-z0-9]/gi, '')}-tinsu`
+    setInstallStatus('installing')
+    setInstallError('')
+    installMutation.mutate({
+      host,
+      port,
+      username,
+      password: installPassword,
+      key_name: name,
+    })
+  }
 
   React.useEffect(() => {
     if (open) {
@@ -83,6 +129,10 @@ function ConnectionDialog({
       setKeyName(initial?.key_name ?? '')
       setPassword('')
       setTestStatus({ state: 'idle' })
+      setInstallPassword('')
+      setInstallKeyName('')
+      setInstallStatus('idle')
+      setInstallError('')
     }
   }, [open, initial])
 
@@ -325,18 +375,74 @@ function ConnectionDialog({
                 Select Key
               </Label>
               {availableKeys.length === 0 ? (
-                <div
-                  className="flex items-center gap-2 px-3 py-2 rounded text-xs"
-                  data-testid="no-keys-message"
-                  style={{
-                    background: 'rgba(251,191,36,0.06)',
-                    border: '1px solid rgba(251,191,36,0.2)',
-                    color: 'rgba(251,191,36,0.7)',
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}
-                >
-                  <Key size={11} />
-                  <span>Generate an SSH key first</span>
+                <div className="space-y-3">
+                  <p
+                    className="text-[11px]"
+                    style={{ color: 'rgba(255,255,255,0.35)', fontFamily: "'JetBrains Mono', monospace" }}
+                  >
+                    No SSH keys yet. Enter the server password once to generate and install a key automatically.
+                  </p>
+                  <Input
+                    type="password"
+                    value={installPassword}
+                    onChange={(e) => setInstallPassword(e.target.value)}
+                    placeholder="Server password (one-time use)"
+                    disabled={installStatus === 'installing' || installStatus === 'success'}
+                    className="border-0 text-sm h-9"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      color: '#e2e8f0',
+                      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  />
+                  {installStatus !== 'success' && (
+                    <button
+                      onClick={handleInstallKey}
+                      disabled={!installPassword || !host || !username || installStatus === 'installing'}
+                      className="flex w-full items-center justify-center gap-1.5 h-8 rounded text-[11px] uppercase tracking-wider transition-all disabled:opacity-40"
+                      style={{
+                        background: 'rgba(74,222,128,0.1)',
+                        color: '#4ade80',
+                        boxShadow: '0 0 0 1px rgba(74,222,128,0.3)',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      {installStatus === 'installing' ? (
+                        <><Loader2 size={11} className="animate-spin" /> Installing…</>
+                      ) : (
+                        <><Key size={11} /> Generate & Install Key</>
+                      )}
+                    </button>
+                  )}
+                  {installStatus === 'success' && (
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded text-xs"
+                      style={{
+                        background: 'rgba(74,222,128,0.06)',
+                        border: '1px solid rgba(74,222,128,0.25)',
+                        color: '#4ade80',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      <CheckCircle2 size={11} />
+                      Key installed — select it above to continue
+                    </div>
+                  )}
+                  {installStatus === 'error' && (
+                    <div
+                      className="flex items-start gap-2 px-3 py-2 rounded text-xs"
+                      style={{
+                        background: 'rgba(248,113,113,0.06)',
+                        border: '1px solid rgba(248,113,113,0.2)',
+                        color: '#f87171',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      <XCircle size={11} className="shrink-0 mt-0.5" />
+                      <span className="break-all">{installError}</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Select value={keyName} onValueChange={setKeyName}>
@@ -907,6 +1013,7 @@ export function SshConnectionsPanel() {
         availableKeys={sshKeys}
         initial={editTarget}
         isSaving={isSaving}
+        onKeyInstalled={() => queryClient.invalidateQueries({ queryKey: ['ssh_keys'] })}
       />
 
       {/* Delete confirmation dialog */}

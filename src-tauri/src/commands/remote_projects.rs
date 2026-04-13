@@ -3,10 +3,11 @@
 use crate::db::entities::{remote_project, ssh_connection};
 use crate::error::AppError;
 use crate::models::ssh_config::{
-    DiscoverProjectsInput, DiscoveredProject, RemoteProjectProfile, SaveRemoteProjectInput,
+    DiscoverProjectsInput, DiscoveredProject, ListRemoteDirInput, RemoteDirEntry,
+    RemoteProjectProfile, SaveRemoteProjectInput,
 };
 use crate::services::ssh_service;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set};
 use tauri::State;
 
 fn now_unix_secs() -> i64 {
@@ -74,6 +75,82 @@ pub async fn discover_remote_projects(
     .await
 }
 
+/// List subdirectories at a path on a remote machine via SSH.
+/// Uses `ls -1p` and filters for entries ending with `/`.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_remote_dir(
+    input: ListRemoteDirInput,
+    db: State<'_, DatabaseConnection>,
+) -> Result<Vec<RemoteDirEntry>, AppError> {
+    let conn = ssh_connection::Entity::find_by_id(&input.connection_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "SSH connection '{}' not found",
+                input.connection_id
+            ))
+        })?;
+
+    if conn.auth_method == "password" {
+        return Err(AppError::BadRequest(
+            "Directory listing requires key-based SSH authentication.".into(),
+        ));
+    }
+
+    let path = input.path.as_deref().unwrap_or("~");
+
+    // Build shell-safe cd target.
+    // IMPORTANT: ~ must NOT be single-quoted — the shell only expands ~ when unquoted.
+    // ~/sub/path: keep ~ unquoted, quote the rest.
+    // Absolute /paths: single-quote entirely.
+    let cd_target = if path == "~" || path == "~/" {
+        "~".to_string()
+    } else if let Some(rest) = path.strip_prefix("~/") {
+        format!("~/'{}'", rest.replace('\'', "'\\''"))
+    } else {
+        format!("'{}'", path.replace('\'', "'\\''"))
+    };
+
+    // ls -1ap: 1=one per line, a=include hidden, p=append / to dirs
+    // LC_ALL=C disables color escape codes that would break grep
+    // grep -v filters out . and .. entries
+    let cmd = format!(
+        "cd {cd_target} 2>/dev/null && pwd && LC_ALL=C ls -1ap 2>/dev/null | grep '/$' | grep -Ev '^\\./$$|^\\.\\./$$' | sed 's|/$||' | sort"
+    );
+
+    let output = tokio::time::timeout(
+        tokio::time::Duration::from_secs(10),
+        ssh_service::run_ssh_exec(
+            &conn.host,
+            conn.port as u16,
+            &conn.username,
+            &conn.auth_method,
+            conn.key_name.as_deref(),
+            None,
+            &cmd,
+        ),
+    )
+    .await
+    .map_err(|_| AppError::Internal("Directory listing timed out".into()))??;
+
+    // First line is the resolved absolute path (from `pwd`), rest are dir names
+    let mut lines = output.lines();
+    let resolved_path = lines.next().unwrap_or(path).trim().to_string();
+
+    let entries = lines
+        .map(|name| {
+            let name = name.trim().to_string();
+            let full_path = format!("{}/{}", resolved_path.trim_end_matches('/'), name);
+            RemoteDirEntry { name, path: full_path }
+        })
+        .filter(|e| !e.name.is_empty())
+        .collect();
+
+    Ok(entries)
+}
+
 /// Save a discovered (or manually entered) remote project profile.
 #[tauri::command]
 #[specta::specta]
@@ -111,6 +188,17 @@ pub async fn save_remote_project(
                 input.connection_id
             ))
         })?;
+
+    // Deduplicate: return existing record if (connection_id, path) already saved
+    let existing = remote_project::Entity::find()
+        .filter(remote_project::Column::ConnectionId.eq(&input.connection_id))
+        .filter(remote_project::Column::Path.eq(path))
+        .one(db.inner())
+        .await?;
+
+    if let Some(existing_model) = existing {
+        return Ok(model_to_profile(existing_model));
+    }
 
     let id = uuid::Uuid::new_v4().to_string();
     let active = remote_project::ActiveModel {

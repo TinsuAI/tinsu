@@ -24,7 +24,7 @@ val iosModule = module {
     }
     single<SecureKeyStoreContract> { get<SecureKeyStore>() }
     single<ConnectionRepository> { createConnectionRepository(get()) }
-    single<RemoteExecutorContract> { createRemoteExecutor(get(), getOrNull()) }
+    single<RemoteExecutorContract> { createRemoteExecutor(get(), getOrNull<SshSessionProvider>()) }
     single { ConnectionTester(get(), get()) }
     single { HapticFeedback.create() }
     single<ConnectionManager> { ConnectionManagerImpl(get(), get(), get()) }

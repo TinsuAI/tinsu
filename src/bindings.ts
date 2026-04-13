@@ -243,6 +243,11 @@ export const commands = {
 	approveForImplementation: (projectId: string) => typedError<number, AppError>(__TAURI_INVOKE("approve_for_implementation", { projectId })),
 	// Generate a new Ed25519 key pair, store in OS keychain, persist name in DB.
 	generateSshKey: (input: GenerateSshKeyInput) => typedError<SshKeyEntry, AppError>(__TAURI_INVOKE("generate_ssh_key", { input })),
+	/**
+	 *  Generate a new Ed25519 key and install it on the remote server via one-time password auth.
+	 *  The password is never stored. Returns the new SshKeyEntry (name + public key).
+	 */
+	installSshKey: (input: InstallSshKeyInput) => typedError<SshKeyEntry, AppError>(__TAURI_INVOKE("install_ssh_key", { input })),
 	// List all SSH keys stored in the OS keychain (names from DB, public keys from keychain).
 	listSshKeys: () => typedError<SshKeyEntry[], AppError>(__TAURI_INVOKE("list_ssh_keys")),
 	// Get the public key for a named SSH key.
@@ -269,6 +274,11 @@ export const commands = {
 	 *  Runs `find <path> -name .git -maxdepth 5 -type d 2>/dev/null` over SSH.
 	 */
 	discoverRemoteProjects: (input: DiscoverProjectsInput) => typedError<DiscoveredProject[], AppError>(__TAURI_INVOKE("discover_remote_projects", { input })),
+	/**
+	 *  List subdirectories at a path on a remote machine via SSH.
+	 *  Uses `ls -1p` and filters for entries ending with `/`.
+	 */
+	listRemoteDir: (input: ListRemoteDirInput) => typedError<RemoteDirEntry[], AppError>(__TAURI_INVOKE("list_remote_dir", { input })),
 	// Save a discovered (or manually entered) remote project profile.
 	saveRemoteProject: (input: SaveRemoteProjectInput) => typedError<RemoteProjectProfile, AppError>(__TAURI_INVOKE("save_remote_project", { input })),
 	// List all saved remote project profiles.
@@ -576,12 +586,30 @@ export type GitDiffSummary = {
 	linesRemoved: number,
 };
 
+// Input for generating a new SSH key and installing it on a remote server via password auth.
+export type InstallSshKeyInput = {
+	host: string,
+	port: number,
+	username: string,
+	// One-time password used only to install the key — never stored.
+	password: string,
+	// Name to give the generated key (e.g. "myserver-tinsu").
+	key_name: string,
+};
+
 export type ListEpicsInput = {
 	project_id: string,
 };
 
 export type ListRecentProjectsInput = {
 	limit: number,
+};
+
+// Input for listing subdirectories on a remote machine.
+export type ListRemoteDirInput = {
+	connection_id: string,
+	// Absolute path or `~` to list. Defaults to `~`.
+	path: string | null,
 };
 
 export type ListSprintsInput = {
@@ -644,6 +672,14 @@ export type RemoteCreateSessionInput = {
 	task_id: string,
 	// ID of the saved remote project profile (from `remote_projects` table).
 	remote_project_id: string,
+};
+
+// A single entry returned by list_remote_dir.
+export type RemoteDirEntry = {
+	// Directory name (not full path)
+	name: string,
+	// Full absolute path on the remote machine
+	path: string,
 };
 
 export type RemoteHookStatus = {

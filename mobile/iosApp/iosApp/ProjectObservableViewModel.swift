@@ -7,8 +7,16 @@ import Shared
 class ProjectObservableViewModel: ObservableObject {
     @Published var uiState: ProjectUiState = ProjectUiState.Idle()
 
-    private let viewModel = KoinHelperKt.getProjectViewModel()
+    private let viewModel: Shared.ProjectViewModel
     private var pollTimer: Timer?
+
+    init() {
+        do {
+            viewModel = try KoinHelperKt.getProjectViewModel()
+        } catch {
+            fatalError("Koin failed to create ProjectViewModel: \(error)")
+        }
+    }
 
     func discoverProjects() {
         viewModel.discoverProjects(executor: nil)
@@ -47,7 +55,7 @@ class ProjectObservableViewModel: ObservableObject {
     }
 
     private func refreshState() {
-        uiState = viewModel.uiState.value
+        uiState = viewModel.uiState.value as? ProjectUiState ?? ProjectUiState.Idle()
     }
 
     deinit {

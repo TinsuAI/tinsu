@@ -19,6 +19,15 @@
           }
         ],
         "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-tool-use.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
       }
     ],
     "PreToolUse": [
@@ -26,6 +35,15 @@
         "hooks": [
           {
             "command": "bash /home/tinxu-luna/tinsu/src-tauri/target/debug/hooks/chat-pre-tool-use.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-pre-tool-use.sh",
             "type": "command"
           }
         ],
@@ -56,6 +74,15 @@
         "hooks": [
           {
             "command": "bash /home/tinxu-luna/tinsu/src-tauri/target/debug/hooks/chat-stop.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-stop.sh",
             "type": "command"
           }
         ],

@@ -7,7 +7,8 @@ struct iOSApp: App {
 
     init() {
         let ed25519Provider = Ed25519KeyProviderBridge()
-        KoinHelperKt.initKoin(ed25519Provider: ed25519Provider)
+        let sshProvider = SshProvider()
+        KoinHelperKt.doInitKoin(ed25519Provider: ed25519Provider, sshProvider: sshProvider)
     }
 
     var body: some Scene {
@@ -20,7 +21,7 @@ struct iOSApp: App {
             } else {
                 ContentView()
                     .preferredColorScheme(.dark)
-            }
+            }////
         }
     }
 }
@@ -32,9 +33,13 @@ class AppRootState: ObservableObject {
     init() {
         // Check async whether setup is needed
         Task { @MainActor in
-            let detector = KoinHelperKt.getSetupDetector()
-            let shouldShow = await detector.shouldShowSetup()
-            self.showSetup = shouldShow
+            do {
+                let detector = try KoinHelperKt.getSetupDetector()
+                let shouldShow = try await detector.shouldShowSetup()
+                self.showSetup = shouldShow as? Bool ?? shouldShow.boolValue
+            } catch {
+                // Default to showing setup on error
+            }
         }
     }
 }

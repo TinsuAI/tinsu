@@ -95,14 +95,14 @@ private fun IdleState(viewModel: SetupViewModel) {
             Text(
                 text = "${viewModel.username}@${viewModel.host}:${viewModel.port}",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily(JetBrainsMono)
+                    fontFamily = JetBrainsMono
                 ),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(16.dp)
             )
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
 
         PrimaryButton(
             text = "Test Connection",
@@ -118,7 +118,6 @@ private fun TestingState() {
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(1f)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -173,14 +172,14 @@ private fun SuccessState(
                 Text(
                     text = "Authenticated as $authenticatedAs on $host",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily(JetBrainsMono)
+                        fontFamily = JetBrainsMono
                     ),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
 
         PrimaryButton(
             text = "Next",
@@ -253,7 +252,7 @@ private fun FailureState(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
 
         PrimaryButton(
             text = "Retry",

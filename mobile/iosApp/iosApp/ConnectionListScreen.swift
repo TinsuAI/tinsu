@@ -1,6 +1,8 @@
 import SwiftUI
 import Shared
 
+extension ConnectionConfig: Identifiable {}
+
 /// SwiftUI view for the connection list screen matching Android design.
 struct ConnectionListScreen: View {
     @State private var viewModel: ConnectionListViewModel
@@ -51,6 +53,7 @@ struct ConnectionListScreen: View {
             ConnectionEditScreen(
                 existingConnection: nil,
                 repository: viewModel.repository,
+                viewModel: viewModel,
                 onSave: {
                     showingAddScreen = false
                     viewModel.loadConnections()
@@ -61,6 +64,7 @@ struct ConnectionListScreen: View {
             ConnectionEditScreen(
                 existingConnection: connection,
                 repository: viewModel.repository,
+                viewModel: viewModel,
                 onSave: {
                     editingConnection = nil
                     viewModel.loadConnections()
@@ -150,14 +154,17 @@ struct ConnectionListScreen: View {
 // MARK: - Observable ViewModel Wrapper
 @MainActor
 class ConnectionListViewModel: ObservableObject {
-    private let repository: ConnectionRepository
+    let repository: ConnectionRepository
     private var viewModel: Shared.ConnectionListViewModel
 
     @Published var uiState: ConnectionListUiState = ConnectionListUiState()
 
     init(repository: ConnectionRepository) {
         self.repository = repository
-        self.viewModel = Shared.ConnectionListViewModel(repository: repository)
+        guard let manager = try? KoinHelperKt.getConnectionManager() else {
+            fatalError("Koin failed to create ConnectionManager")
+        }
+        self.viewModel = Shared.ConnectionListViewModel(repository: repository, connectionTester: nil, connectionManager: manager)
         loadConnections()
 
         // Observe Kotlin StateFlow
@@ -193,17 +200,22 @@ class ConnectionListViewModel: ObservableObject {
         }
     }
 
-    private func refreshState() {
-        // Get the latest state from the Kotlin ViewModel's StateFlow
-        // The ConnectionListViewModel exposes _uiState as a MutableStateFlow
-        // We access the current value directly via the uiState property
-        let kotlinUiState = viewModel.uiState
-        let connections = kotlinUiState.connections.toArray() as! [ConnectionConfig]
+    func testConnection(config: ConnectionConfig) {
+        viewModel.testConnection(config: config)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.refreshState()
+        }
+    }
 
+    func getTestState(connectionId: String) -> ConnectionTestState {
+        return viewModel.getTestState(connectionId: connectionId)
+    }
+
+    private func refreshState() {
+        guard let kotlinUiState = viewModel.uiState.value as? ConnectionListUiState else { return }
         uiState.isLoading = kotlinUiState.isLoading
-        uiState.connections = connections
-        uiState.error = kotlinUiState.error?.description
-        // isEmpty is computed from connections and isLoading
+        uiState.connections = kotlinUiState.connections as! [ConnectionConfig]
+        uiState.error = kotlinUiState.error
     }
 }
 
@@ -225,42 +237,27 @@ struct ConnectionListUiState {
 
 // MARK: - Fake Repository for Preview
 class FakeConnectionRepository: ConnectionRepository {
-    func getAllConnections(completion: @escaping (Result<[ConnectionConfig], Error>) -> Void) {
-        let connections = [
-            ConnectionConfig(
-                id: "1",
-                displayName: "My Server",
-                host: "example.com",
-                port: 22,
-                username: "user",
-                transportType: .ssh,
-                sshKeyAlias: nil,
-                sortOrder: 0,
-                lastConnectedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-                createdAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-                updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
-            )
-        ]
-        completion(.success(connections))
+    func getAllConnections(completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 
-    func getConnectionById(id: String, completion: @escaping (Result<ConnectionConfig, Error>) -> Void) {
-        // Not implemented for preview
+    func getConnectionById(id: String, completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 
-    func createConnection(config: ConnectionConfig, completion: @escaping (Result<ConnectionConfig, Error>) -> Void) {
-        // Not implemented for preview
+    func createConnection(config: ConnectionConfig, completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 
-    func updateConnection(config: ConnectionConfig, completion: @escaping (Result<ConnectionConfig, Error>) -> Void) {
-        // Not implemented for preview
+    func updateConnection(config: ConnectionConfig, completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 
-    func deleteConnection(id: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Not implemented for preview
+    func deleteConnection(id: String, completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 
-    func reorderConnections(ids: [String], completion: @escaping (Result<Void, Error>) -> Void) {
-        // Not implemented for preview
+    func reorderConnectionIds(ids: [String], completionHandler: @escaping @Sendable ((any Result)?, (any Error)?) -> Void) {
+        completionHandler(nil, nil)
     }
 }

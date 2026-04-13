@@ -31,15 +31,15 @@ struct ViewPublicKeySetupStep: View {
             Button("Copy to Clipboard") {
                 viewModel.copyPublicKey()
             }
-            .primaryButtonStyle()
+            .secondaryButtonStyle()
             .frame(maxWidth: .infinity)
             .frame(minHeight: TinsuSpacing.minTouchTarget)
             .disabled(viewModel.publicKeyText == nil)
 
-            Button("I've Copied My Key") {
+            Button("Next") {
                 viewModel.nextStep()
             }
-            .secondaryButtonStyle()
+            .primaryButtonStyle()
             .frame(maxWidth: .infinity)
             .frame(minHeight: TinsuSpacing.minTouchTarget)
             .disabled(viewModel.publicKeyText == nil)

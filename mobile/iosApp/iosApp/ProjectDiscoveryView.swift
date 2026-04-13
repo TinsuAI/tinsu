@@ -60,7 +60,7 @@ struct ProjectDiscoveryView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(TinsuColors.surfaceVariant)
                     .frame(height: 72)
-                    .shimmer()
+                    .opacity(0.6)
             }
             .padding(.horizontal, TinsuSpacing.contentMargin)
             Spacer()

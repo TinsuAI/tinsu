@@ -44,6 +44,13 @@ struct GenerateKeySetupStep: View {
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: TinsuSpacing.minTouchTarget)
             } else {
+                if let error = viewModel.keyGenerationError {
+                    Text(error)
+                        .font(TinsuTypography.label)
+                        .foregroundColor(TinsuColors.error)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 Button("Generate Ed25519 Key") {
                     viewModel.generateKey()
                 }

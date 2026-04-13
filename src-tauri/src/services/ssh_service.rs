@@ -2,17 +2,77 @@
 //! Uses ssh-key crate for Ed25519 key generation and keyring for secure storage.
 
 use crate::error::AppError;
-use crate::models::ssh_config::{SshConnectionTestResult, SshKeyEntry, SshKeyExport, KEYCHAIN_SERVICE};
-use keyring::Entry;
+use crate::models::ssh_config::{SshConnectionTestResult, SshKeyEntry, SshKeyExport};
 use rand::rngs::OsRng;
 use ssh_key::{Algorithm, LineEnding, PrivateKey};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-/// Generate a new Ed25519 SSH key pair and store the private key in the OS keychain.
+// ── File-based key storage ───────────────────────────────────────────────────
+// Private keys are stored as PEM files in {data_dir}/tinsu/ssh_keys/{name}.pem
+// with mode 0600 (user-read/write only). Same security model as ~/.ssh/id_ed25519.
+
+/// Returns the directory where SSH private keys are stored.
+/// Platform paths:
+///   Linux:   $XDG_DATA_HOME/tinsu/ssh_keys  (defaults to ~/.local/share/tinsu/ssh_keys)
+///   macOS:   ~/Library/Application Support/tinsu/ssh_keys
+///   Windows: %APPDATA%\tinsu\ssh_keys
+pub(crate) fn keys_dir() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    let base = std::env::var("HOME")
+        .map(|h| PathBuf::from(h).join("Library/Application Support"))
+        .unwrap_or_else(|_| PathBuf::from("."));
+
+    #[cfg(target_os = "windows")]
+    let base = std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."));
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let base = std::env::var("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::var("HOME")
+                .map(|h| PathBuf::from(h).join(".local/share"))
+                .unwrap_or_else(|_| PathBuf::from("."))
+        });
+
+    base.join("tinsu").join("ssh_keys")
+}
+
+fn key_path(name: &str) -> PathBuf {
+    keys_dir().join(format!("{name}.pem"))
+}
+
+fn write_key_file(path: &std::path::Path, pem: &str) -> Result<(), AppError> {
+    use std::fs;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| AppError::Internal(format!("Failed to create keys dir: {e}")))?;
+        // Restrict directory to owner on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(parent, fs::Permissions::from_mode(0o700)).ok();
+        }
+    }
+    fs::write(path, pem)
+        .map_err(|e| AppError::Internal(format!("Failed to write key file: {e}")))?;
+    // Restrict file to owner-read/write on Unix (chmod 600)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .map_err(|e| AppError::Internal(format!("Failed to set key file permissions: {e}")))?;
+    }
+    Ok(())
+}
+
+/// Generate a new Ed25519 SSH key pair and store the private key as a file.
 /// Returns the SshKeyEntry (name + public key) on success.
 pub fn generate_and_store_key(name: &str) -> Result<SshKeyEntry, AppError> {
-    // Validate name: no slashes, colons, or spaces (keychain constraints)
-    if name.is_empty() || name.contains(['/', ':', ' ']) {
+    // Validate name: no path separators or spaces
+    if name.is_empty() || name.contains(['/', '\\', ':', ' ']) {
         return Err(AppError::BadRequest(
             "Key name must be non-empty and contain no spaces, slashes, or colons".into(),
         ));
@@ -33,12 +93,8 @@ pub fn generate_and_store_key(name: &str) -> Result<SshKeyEntry, AppError> {
     let public_key = public_key_openssh(key.public_key())
         .map_err(|e| AppError::Internal(format!("Public key encoding failed: {e}")))?;
 
-    // Store private key in OS keychain
-    let entry = Entry::new(KEYCHAIN_SERVICE, name)
-        .map_err(|e| AppError::Internal(format!("Keychain entry creation failed: {e}")))?;
-    entry
-        .set_password(&private_pem)
-        .map_err(|e| AppError::Internal(format!("Keychain storage failed: {e}")))?;
+    // Write private key to file with restricted permissions
+    write_key_file(&key_path(name), &private_pem)?;
 
     Ok(SshKeyEntry {
         name: name.to_string(),
@@ -46,27 +102,18 @@ pub fn generate_and_store_key(name: &str) -> Result<SshKeyEntry, AppError> {
     })
 }
 
-/// List all SSH key names stored in the OS keychain.
-/// Reads from a metadata store (app data dir) since keyring has no enumerate API.
+/// List SSH keys by reading each named key file.
 pub fn list_keys(key_names: &[String]) -> Result<Vec<SshKeyEntry>, AppError> {
     let mut entries = Vec::new();
     for name in key_names {
-        match Entry::new(KEYCHAIN_SERVICE, name) {
-            Err(e) => tracing::warn!("Failed to access keychain entry '{}': {}", name, e),
-            Ok(entry) => match entry.get_password() {
-                Err(e) => tracing::warn!(
-                    "Failed to retrieve keychain password for '{}': {}",
-                    name, e
-                ),
-                Ok(pem) => match public_key_from_pem(&pem) {
-                    Err(e) => {
-                        tracing::warn!("Failed to decode public key for '{}': {}", name, e)
-                    }
-                    Ok(public_key) => entries.push(SshKeyEntry {
-                        name: name.clone(),
-                        public_key,
-                    }),
-                },
+        match get_private_pem(name) {
+            Err(e) => tracing::warn!("Failed to read key file '{}': {}", name, e),
+            Ok(pem) => match public_key_from_pem(&pem) {
+                Err(e) => tracing::warn!("Failed to decode public key for '{}': {}", name, e),
+                Ok(public_key) => entries.push(SshKeyEntry {
+                    name: name.clone(),
+                    public_key,
+                }),
             },
         }
     }
@@ -94,13 +141,13 @@ pub fn export_key(name: &str) -> Result<SshKeyExport, AppError> {
     })
 }
 
-/// Delete an SSH key from the OS keychain.
+/// Delete an SSH key file.
 pub fn delete_key(name: &str) -> Result<(), AppError> {
-    let entry = Entry::new(KEYCHAIN_SERVICE, name)
-        .map_err(|e| AppError::Internal(format!("Keychain entry creation failed: {e}")))?;
-    entry
-        .delete_credential()
-        .map_err(|e| AppError::Internal(format!("Keychain deletion failed: {e}")))?;
+    let path = key_path(name);
+    if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|e| AppError::Internal(format!("Failed to delete key file: {e}")))?;
+    }
     Ok(())
 }
 
@@ -285,10 +332,16 @@ pub async fn discover_projects(
 
     // Build find command — 2>/dev/null silences permission errors
     // Limit maxdepth to 5 to avoid scanning huge trees
-    // Quote search_path to prevent shell injection (e.g., "~; rm -rf /")
+    // ~ must NOT be single-quoted — the shell only expands ~ when unquoted.
+    let find_target = if search_path == "~" || search_path == "~/" {
+        "~".to_string()
+    } else if let Some(rest) = search_path.strip_prefix("~/") {
+        format!("~/'{}'", rest.replace('\'', "'\\''"))
+    } else {
+        format!("'{}'", search_path.replace('\'', "'\\''"))
+    };
     let cmd = format!(
-        "find '{}' -name .git -maxdepth 5 -type d 2>/dev/null",
-        search_path.replace("'", "'\\''")
+        "find {find_target} -name .git -maxdepth 5 -type d 2>/dev/null"
     );
 
     let output = timeout(
@@ -424,14 +477,43 @@ pub(crate) fn parse_discovered_projects(output: &str) -> Vec<crate::models::ssh_
         .collect()
 }
 
+// ── Key Installation ─────────────────────────────────────────────────────────
+
+/// Generate a new Ed25519 key, then install its public key into the remote server's
+/// `~/.ssh/authorized_keys` by connecting once with password auth.
+/// The password is **never stored** — it is used only for this one-time installation.
+pub async fn install_key_on_server(
+    host: &str,
+    port: u16,
+    username: &str,
+    password: &str,
+    key_name: &str,
+) -> Result<SshKeyEntry, AppError> {
+    // 1. Generate (or retrieve if name already exists) the key pair
+    let key_entry = generate_and_store_key(key_name)?;
+
+    // 2. Escape the public key for safe shell embedding
+    //    Ed25519 public keys are base64 + fixed prefix — no single-quote chars — but escape defensively
+    let pub_key_escaped = key_entry.public_key.replace('\'', "'\\''");
+
+    // 3. Install into authorized_keys via password SSH
+    let cmd = format!(
+        "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key_escaped}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+    );
+
+    run_ssh_exec(host, port, username, "password", None, Some(password), &cmd)
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Failed to install key on server: {e}")))?;
+
+    Ok(key_entry)
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 fn get_private_pem(name: &str) -> Result<String, AppError> {
-    let entry = Entry::new(KEYCHAIN_SERVICE, name)
-        .map_err(|e| AppError::Internal(format!("Keychain entry creation failed: {e}")))?;
-    entry
-        .get_password()
-        .map_err(|_| AppError::NotFound(format!("SSH key '{name}' not found in keychain")))
+    let path = key_path(name);
+    std::fs::read_to_string(&path)
+        .map_err(|_| AppError::NotFound(format!("SSH key '{name}' not found (expected at {path:?})")))
 }
 
 fn public_key_from_pem(pem: &str) -> Result<String, AppError> {

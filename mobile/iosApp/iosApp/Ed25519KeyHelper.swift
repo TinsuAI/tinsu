@@ -14,7 +14,6 @@ import Security
 
         // Store private key in Keychain
         let privateKeyData = privateKey.rawRepresentation
-        let tag = "com.tinsu.mobile.ed25519.\(alias)".data(using: .utf8)!
 
         // Delete existing key with same alias first
         let deleteQuery: [String: Any] = [
@@ -24,12 +23,11 @@ import Security
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
-        // Store the private key
+        // Store the private key (kSecAttrApplicationTag is kSecClassKey-only, not used here)
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "com.tinsu.mobile.ed25519",
             kSecAttrAccount as String: alias,
-            kSecAttrApplicationTag as String: tag,
             kSecValueData as String: privateKeyData,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
@@ -41,6 +39,21 @@ import Security
 
         // Return raw public key bytes as base64
         return publicKey.rawRepresentation.base64EncodedString()
+    }
+
+    /// Returns the raw 32-byte Ed25519 private key for the given alias, or nil if not found.
+    @objc public func getPrivateKeyData(alias: String) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.tinsu.mobile.ed25519",
+            kSecAttrAccount as String: alias,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return data
     }
 
     /// Deletes an Ed25519 key pair from Keychain.

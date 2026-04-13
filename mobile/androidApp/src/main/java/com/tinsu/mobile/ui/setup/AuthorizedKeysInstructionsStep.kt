@@ -60,7 +60,7 @@ fun AuthorizedKeysInstructionsStep(
             Text(
                 text = "ssh-copy-id -i ~/.ssh/tinsu_key.pub ${viewModel.username}@${viewModel.host}",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily(JetBrainsMono)
+                    fontFamily = JetBrainsMono,
                 ),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(16.dp)
@@ -110,7 +110,7 @@ private fun StepItem(
         Text(
             text = "Step $number",
             style = MaterialTheme.typography.labelMedium.copy(
-                fontFamily = FontFamily(JetBrainsMono)
+                fontFamily = JetBrainsMono
             ),
             color = MaterialTheme.colorScheme.primary
         )
@@ -122,7 +122,7 @@ private fun StepItem(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily(JetBrainsMono)
+                    fontFamily = JetBrainsMono,
                 ),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(12.dp)

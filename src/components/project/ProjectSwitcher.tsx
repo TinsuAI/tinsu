@@ -8,6 +8,7 @@ import {
   Plus,
   Monitor,
   Loader2,
+  Server,
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useProjectStore } from '@renderer/stores/project.store'
@@ -15,6 +16,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { toast } from 'sonner'
 import { ProjectSetupDialog } from '@renderer/components/ProjectSetupDialog'
+import { OpenRemoteProjectDialog } from './OpenRemoteProjectDialog'
 import {
   useListRecentProjects,
   useOpenProjectByPath,
@@ -26,7 +28,7 @@ import {
   useRemoteConnectionStatus,
 } from '@renderer/hooks/useRemoteProjectSwitcher'
 import { commands } from '@renderer/lib/rspc'
-import type { RemoteProjectProfile } from '@renderer/lib/rspc'
+import type { RemoteProjectProfile, SshConnectionProfile } from '@renderer/lib/rspc'
 
 // ─── Connection Status Badge ──────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ function ConnectionBadge({ connectionId, pollingEnabled }: ConnectionBadgeProps)
 
 interface RemoteProjectRowProps {
   project: RemoteProjectProfile
+  sshLabel: string | undefined
   isCurrent: boolean
   popoverOpen: boolean
   onSwitch: () => void
@@ -88,6 +91,7 @@ interface RemoteProjectRowProps {
 
 function RemoteProjectRow({
   project,
+  sshLabel,
   isCurrent,
   popoverOpen,
   onSwitch,
@@ -113,6 +117,9 @@ function RemoteProjectRow({
         <div className="flex-1 overflow-hidden">
           <div className="truncate text-sm font-medium">{project.name}</div>
           <div className="truncate text-[10px] font-mono text-muted-foreground/50">{project.path}</div>
+          {sshLabel && (
+            <div className="truncate text-[10px] font-mono text-blue-500/70">{sshLabel}</div>
+          )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
           {isCurrent && (
@@ -131,16 +138,20 @@ export function ProjectSwitcher() {
   const [open, setOpen] = useState(false)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false)
 
   const projectName = useProjectStore((state) => state.projectName)
   const projectPath = useProjectStore((state) => state.projectPath)
   const remoteProjectId = useProjectStore((state) => state.remoteProjectId)
   const setProject = useProjectStore((state) => state.setProject)
 
-  // Local projects
-  const { data: recentProjects, isLoading: isLoadingLocal } = useListRecentProjects(10, open)
+  // All recent projects (local + remote-linked)
+  const { data: allRecentProjects, isLoading: isLoadingLocal } = useListRecentProjects(10, open)
 
-  // Remote projects
+  // Filter: LOCAL section only shows projects without a remote_project_id
+  const recentProjects = allRecentProjects?.filter((p) => !p.remote_project_id)
+
+  // Remote project profiles (the saved SSH remote project records)
   const { data: remoteProjects, isLoading: isLoadingRemote } = useQuery({
     queryKey: ['remoteProjects'],
     queryFn: async () => {
@@ -150,6 +161,29 @@ export function ProjectSwitcher() {
     },
     enabled: open,
   })
+
+  // SSH connections — needed to build the "user@host" label for each remote project
+  const { data: sshConnections } = useQuery({
+    queryKey: ['sshConnections'],
+    queryFn: async () => {
+      const result = await commands.listSshConnections()
+      if (result.status === 'error') return [] as SshConnectionProfile[]
+      return result.data
+    },
+    enabled: open,
+  })
+
+  // Build lookup: connection_id → "user@host" (include port only if non-22)
+  const sshLabelByConnectionId = new Map<string, string>()
+  if (sshConnections) {
+    for (const conn of sshConnections) {
+      const label =
+        conn.port === 22
+          ? `${conn.username}@${conn.host}`
+          : `${conn.username}@${conn.host}:${conn.port}`
+      sshLabelByConnectionId.set(conn.id, label)
+    }
+  }
 
   const openProjectMutation = useOpenProjectByPath()
   const removeProjectMutation = useRemoveProject()
@@ -231,11 +265,11 @@ export function ProjectSwitcher() {
 
           {isLoadingLocal ? (
             <div className="px-2 py-4 text-sm text-muted-foreground">Loading...</div>
-          ) : recentProjects?.length === 0 ? (
+          ) : !recentProjects?.length ? (
             <div className="px-2 py-4 text-sm text-muted-foreground">No recent projects</div>
           ) : (
             <div className="flex flex-col gap-1">
-              {recentProjects?.map((project) => {
+              {recentProjects.map((project) => {
                 const isCurrent = project.path === projectPath && !remoteProjectId
 
                 return (
@@ -317,6 +351,7 @@ export function ProjectSwitcher() {
                   <RemoteProjectRow
                     key={project.id}
                     project={project}
+                    sshLabel={sshLabelByConnectionId.get(project.connection_id)}
                     isCurrent={project.id === remoteProjectId}
                     popoverOpen={open}
                     onSwitch={() => handleSwitchRemoteProject(project)}
@@ -347,6 +382,16 @@ export function ProjectSwitcher() {
               <FolderOpen className="h-4 w-4" />
               {openDialogMutation.isPending ? 'Opening...' : 'Open Another Project...'}
             </button>
+            <button
+              onClick={() => {
+                setIsRemoteDialogOpen(true)
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <Server className="h-4 w-4" />
+              Open Remote Project...
+            </button>
           </div>
         </PopoverContent>
       </Popover>
@@ -359,6 +404,11 @@ export function ProjectSwitcher() {
           toast.success(`Created ${name}`)
         }}
         mode="create"
+      />
+
+      <OpenRemoteProjectDialog
+        open={isRemoteDialogOpen}
+        onOpenChange={setIsRemoteDialogOpen}
       />
     </>
   )

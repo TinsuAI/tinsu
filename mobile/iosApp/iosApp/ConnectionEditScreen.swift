@@ -249,8 +249,8 @@ struct ConnectionEditScreen: View {
             sshKeyAlias: sshKeyAlias.trimmingCharacters(in: .whitespaces).isEmpty ? nil : sshKeyAlias.trimmingCharacters(in: .whitespaces),
             sortOrder: existingConnection?.sortOrder ?? 0,
             lastConnectedAt: existingConnection?.lastConnectedAt,
-            createdAt: existingConnection?.createdAt ?? KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-            updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
+            createdAt: existingConnection?.createdAt ?? Int64(Date().timeIntervalSince1970 * 1000),
+            updatedAt: Int64(Date().timeIntervalSince1970 * 1000)
         )
 
         viewModel.testConnection(config: config)
@@ -261,10 +261,10 @@ struct ConnectionEditScreen: View {
             try? await Task.sleep(nanoseconds: 500_000_000)
             let state = viewModel.getTestState(connectionId: stateKey)
             switch state {
-            case let s as ConnectionTestState.Success:
+            case let s as Shared.ConnectionTestState.Success:
                 testState = .success(sessionInfo: s.sessionInfo)
                 isTested = true
-            case let f as ConnectionTestState.Failure:
+            case let f as Shared.ConnectionTestState.Failure:
                 testState = .failure(errorType: f.errorType, message: f.message, hints: f.hints)
             default:
                 break
@@ -313,6 +313,7 @@ struct ConnectionEditScreen: View {
         guard let portNum = Int(port), portNum >= 1, portNum <= 65535 else {
             portError = "Port must be between 1 and 65535"
             isValid = false
+            return
         }
 
         guard isValid else { return }
@@ -332,31 +333,29 @@ struct ConnectionEditScreen: View {
             sshKeyAlias: sshKeyAlias.trimmingCharacters(in: .whitespaces).isEmpty ? nil : sshKeyAlias.trimmingCharacters(in: .whitespaces),
             sortOrder: existingConnection?.sortOrder ?? 0,
             lastConnectedAt: existingConnection?.lastConnectedAt,
-            createdAt: existingConnection?.createdAt ?? KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-            updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
+            createdAt: existingConnection?.createdAt ?? Int64(Date().timeIntervalSince1970 * 1000),
+            updatedAt: Int64(Date().timeIntervalSince1970 * 1000)
         )
 
         if isEditing {
-            repository.updateConnection(config: config) { result in
+            repository.updateConnection(config: config) { _, error in
                 DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        onSave()
-                        dismiss()
-                    case .failure(let error):
-                        generalError = error.localizedDescription
+                    if let error = error {
+                        self.generalError = error.localizedDescription
+                    } else {
+                        self.onSave()
+                        self.dismiss()
                     }
                 }
             }
         } else {
-            repository.createConnection(config: config) { result in
+            repository.createConnection(config: config) { _, error in
                 DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        onSave()
-                        dismiss()
-                    case .failure(let error):
-                        generalError = error.localizedDescription
+                    if let error = error {
+                        self.generalError = error.localizedDescription
+                    } else {
+                        self.onSave()
+                        self.dismiss()
                     }
                 }
             }
@@ -495,9 +494,9 @@ private enum ConnectionTestState {
                 transportType: .ssh,
                 sshKeyAlias: "my-key",
                 sortOrder: 0,
-                lastConnectedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-                createdAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-                updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
+                lastConnectedAt: KotlinLong(value: Int64(Date().timeIntervalSince1970 * 1000)),
+                createdAt: Int64(Date().timeIntervalSince1970 * 1000),
+                updatedAt: Int64(Date().timeIntervalSince1970 * 1000)
             ),
             repository: FakeConnectionRepository(),
             viewModel: ConnectionListViewModel(repository: FakeConnectionRepository()),

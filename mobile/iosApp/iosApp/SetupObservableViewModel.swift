@@ -16,14 +16,26 @@ class SetupObservableViewModel: ObservableObject {
     @Published var displayName = ""
     @Published var sshKeyAlias: String?
     @Published var publicKeyText: String?
+    @Published var keyGenerationError: String?
+    @Published var isDeployingKey = false
+    @Published var deployKeySuccess = false
+    @Published var deployKeyError: String?
     @Published var isTesting = false
     @Published var testSuccess = false
     @Published var testError: String?
     @Published var testHints: [String] = []
     @Published var testAuthenticatedAs: String?
 
-    private let viewModel = KoinHelperKt.getSetupViewModel()
+    private let viewModel: Shared.SetupViewModel
     private var pollTimer: Timer?
+
+    init() {
+        do {
+            viewModel = try KoinHelperKt.getSetupViewModel()
+        } catch {
+            fatalError("Koin failed to create SetupViewModel: \(error)")
+        }
+    }
 
     func nextStep() {
         syncToViewModel()
@@ -42,9 +54,24 @@ class SetupObservableViewModel: ObservableObject {
     }
 
     func generateKey() {
+        keyGenerationError = nil
         viewModel.generateKey(keyType: .ed25519)
         startPolling(interval: 0.1, until: { [weak self] in
-            self?.viewModel.sshKeyAlias != nil
+            guard let vm = self?.viewModel else { return true }
+            return vm.sshKeyAlias != nil || vm.keyGenerationError != nil
+        }, onDone: { [weak self] in
+            self?.syncFromViewModel()
+        })
+    }
+
+    func deployPublicKey(password: String) {
+        isDeployingKey = true
+        deployKeySuccess = false
+        deployKeyError = nil
+        viewModel.deployPublicKey(password: password)
+        startPolling(interval: 0.2, until: { [weak self] in
+            guard let vm = self?.viewModel else { return true }
+            return !vm.isDeployingKey
         }, onDone: { [weak self] in
             self?.syncFromViewModel()
         })
@@ -104,13 +131,12 @@ class SetupObservableViewModel: ObservableObject {
         onDone: @escaping () -> Void
     ) {
         pollTimer?.invalidate()
+        // Timer fires on the main run loop (was scheduled from @MainActor context)
         pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
-            Task { @MainActor in
-                if condition() {
-                    timer.invalidate()
-                    self?.pollTimer = nil
-                    onDone()
-                }
+            if condition() {
+                timer.invalidate()
+                self?.pollTimer = nil
+                onDone()
             }
         }
     }
@@ -121,7 +147,7 @@ class SetupObservableViewModel: ObservableObject {
         switch uiState {
         case is SetupUiState.StepActive:
             let step = (uiState as! SetupUiState.StepActive).step
-            currentStep = SetupScreenStep(rawValue: step.index) ?? .welcome
+            currentStep = SetupScreenStep(rawValue: Int(step.index)) ?? .welcome
         case is SetupUiState.Testing:
             currentStep = .testConnection
             isTesting = true
@@ -145,6 +171,10 @@ class SetupObservableViewModel: ObservableObject {
 
         sshKeyAlias = viewModel.sshKeyAlias
         publicKeyText = viewModel.getPublicKey()
+        keyGenerationError = viewModel.keyGenerationError
+        isDeployingKey = viewModel.isDeployingKey
+        deployKeySuccess = viewModel.deployKeySuccess
+        deployKeyError = viewModel.deployKeyError
         host = viewModel.host
         port = Int(viewModel.port)
         username = viewModel.username

@@ -17,16 +17,12 @@ enum ConnectionStatus {
 }
 
 /// Determines the connection status based on last connected timestamp.
-func determineConnectionStatus(lastConnectedAt: KotlinInt64?) -> ConnectionStatus {
+func determineConnectionStatus(lastConnectedAt: KotlinLong?) -> ConnectionStatus {
     guard let lastConnectedAt else { return .unknown }
-
-    let now = KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
-    let elapsed = now.value - lastConnectedAt.value
-
+    let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+    let elapsed = nowMs - lastConnectedAt.int64Value
     switch elapsed {
-    case 0..<300_000: // 5 minutes
-        return .recentlyConnected
-    case 300_000..<86_400_000: // 1 day
+    case 0..<86_400_000:
         return .recentlyConnected
     default:
         return .unknown
@@ -34,12 +30,10 @@ func determineConnectionStatus(lastConnectedAt: KotlinInt64?) -> ConnectionStatu
 }
 
 /// Formats the last connected timestamp as a relative time string.
-func formatLastConnected(lastConnectedAt: KotlinInt64?) -> String {
+func formatLastConnected(lastConnectedAt: KotlinLong?) -> String {
     guard let lastConnectedAt else { return "Never" }
-
-    let now = KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
-    let elapsed = now.value - lastConnectedAt.value
-
+    let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+    let elapsed = nowMs - lastConnectedAt.int64Value
     switch elapsed {
     case 0..<60_000: return "Just now"
     case 60_000..<3_600_000: return "\(elapsed / 60_000)m ago"
@@ -158,6 +152,7 @@ struct ConnectionCardView: View {
         switch type {
         case .ssh: return "SSH"
         case .mosh: return "mosh"
+        default: return "SSH"
         }
     }
 }
@@ -175,9 +170,9 @@ struct ConnectionCardView: View {
                 transportType: .ssh,
                 sshKeyAlias: "my-key",
                 sortOrder: 0,
-                lastConnectedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000) - 3600000),
-                createdAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000) - 86400000),
-                updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000) - 3600000)
+                lastConnectedAt: KotlinLong(value: Int64(Date().timeIntervalSince1970 * 1000) - 3600000),
+                createdAt: Int64(Date().timeIntervalSince1970 * 1000) - 86400000,
+                updatedAt: Int64(Date().timeIntervalSince1970 * 1000) - 3600000
             ),
             onEdit: {},
             onDelete: {}
@@ -191,10 +186,11 @@ struct ConnectionCardView: View {
                 port: 2222,
                 username: "admin",
                 transportType: .mosh,
+                sshKeyAlias: nil,
                 sortOrder: 1,
                 lastConnectedAt: nil,
-                createdAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000)),
-                updatedAt: KotlinInt64(value: Int64(Date().timeIntervalSince1970 * 1000))
+                createdAt: Int64(Date().timeIntervalSince1970 * 1000),
+                updatedAt: Int64(Date().timeIntervalSince1970 * 1000)
             ),
             status: .unknown,
             onEdit: {},
