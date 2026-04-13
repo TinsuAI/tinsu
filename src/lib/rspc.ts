@@ -54,4 +54,9 @@ export type {
   ChatSessionModel,
   ChatSessionPreview,
   ChatMessageModel,
+  SshConnectionProfile,
+  CreateSshConnectionInput,
+  UpdateSshConnectionInput,
+  TestSshConnectionInput,
+  SshConnectionTestResult,
 } from '../bindings'

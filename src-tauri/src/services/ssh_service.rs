@@ -1,11 +1,12 @@
-//! SSH key generation and OS keychain management.
+//! SSH key generation, OS keychain management, and connection testing.
 //! Uses ssh-key crate for Ed25519 key generation and keyring for secure storage.
 
 use crate::error::AppError;
-use crate::models::ssh_config::{SshKeyEntry, SshKeyExport, KEYCHAIN_SERVICE};
+use crate::models::ssh_config::{SshConnectionTestResult, SshKeyEntry, SshKeyExport, KEYCHAIN_SERVICE};
 use keyring::Entry;
 use rand::rngs::OsRng;
 use ssh_key::{Algorithm, LineEnding, PrivateKey};
+use std::sync::{Arc, Mutex};
 
 /// Generate a new Ed25519 SSH key pair and store the private key in the OS keychain.
 /// Returns the SshKeyEntry (name + public key) on success.
@@ -103,6 +104,169 @@ pub fn delete_key(name: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+// ── SSH Connection Test ──────────────────────────────────────────────────────
+
+/// Handler that captures the server fingerprint on key exchange.
+/// Uses russh's internal forked ssh-key types (not the public ssh-key crate).
+struct TestHandler {
+    fingerprint: Arc<Mutex<Option<String>>>,
+}
+
+impl russh::client::Handler for TestHandler {
+    type Error = russh::Error;
+
+    async fn check_server_key(
+        &mut self,
+        server_public_key: &russh::keys::PublicKey,
+    ) -> Result<bool, Self::Error> {
+        let fp = server_public_key
+            .fingerprint(russh::keys::HashAlg::Sha256)
+            .to_string();
+        if let Ok(mut guard) = self.fingerprint.lock() {
+            *guard = Some(fp);
+        }
+        // Always accept for test connection — caller evaluates auth result
+        Ok(true)
+    }
+}
+
+/// Test SSH connection — connect, handshake, authenticate, return fingerprint.
+/// Timeout: 5 seconds total.
+pub async fn test_connection(
+    host: &str,
+    port: u16,
+    username: &str,
+    auth_method: &str, // "key" | "password"
+    key_name: Option<&str>,
+    password: Option<&str>,
+) -> Result<SshConnectionTestResult, AppError> {
+    let fingerprint_store: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let handler = TestHandler {
+        fingerprint: Arc::clone(&fingerprint_store),
+    };
+
+    let config = Arc::new(russh::client::Config::default());
+    let addr = format!("{host}:{port}");
+
+    let connect_result = tokio::time::timeout(
+        tokio::time::Duration::from_secs(5),
+        async move {
+            let mut session = match russh::client::connect(config, addr, handler).await {
+                Ok(s) => s,
+                Err(e) => {
+                    return Ok::<SshConnectionTestResult, AppError>(SshConnectionTestResult {
+                        success: false,
+                        fingerprint: None,
+                        error: Some(e.to_string()),
+                    });
+                }
+            };
+
+            let auth_result = match auth_method {
+                "key" => {
+                    let name = match key_name {
+                        Some(n) => n,
+                        None => {
+                            return Ok(SshConnectionTestResult {
+                                success: false,
+                                fingerprint: None,
+                                error: Some("key_name is required for key auth".into()),
+                            });
+                        }
+                    };
+                    let export = match export_key(name) {
+                        Ok(e) => e,
+                        Err(err) => {
+                            return Ok(SshConnectionTestResult {
+                                success: false,
+                                fingerprint: None,
+                                error: Some(err.to_string()),
+                            });
+                        }
+                    };
+                    // Parse using russh's bundled (forked) ssh-key types
+                    let private_key = match russh::keys::PrivateKey::from_openssh(
+                        export.private_key_pem.as_bytes(),
+                    ) {
+                        Ok(k) => k,
+                        Err(e) => {
+                            return Ok(SshConnectionTestResult {
+                                success: false,
+                                fingerprint: None,
+                                error: Some(format!("Failed to parse private key: {e}")),
+                            });
+                        }
+                    };
+                    let key_with_alg =
+                        russh::keys::PrivateKeyWithHashAlg::new(Arc::new(private_key), None);
+                    match session.authenticate_publickey(username, key_with_alg).await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return Ok(SshConnectionTestResult {
+                                success: false,
+                                fingerprint: None,
+                                error: Some(e.to_string()),
+                            });
+                        }
+                    }
+                }
+                "password" => {
+                    let pw = password.unwrap_or("");
+                    match session.authenticate_password(username, pw).await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return Ok(SshConnectionTestResult {
+                                success: false,
+                                fingerprint: None,
+                                error: Some(e.to_string()),
+                            });
+                        }
+                    }
+                }
+                other => {
+                    return Ok(SshConnectionTestResult {
+                        success: false,
+                        fingerprint: None,
+                        error: Some(format!("Unknown auth_method: {other}")),
+                    });
+                }
+            };
+
+            let fingerprint = fingerprint_store.lock().ok().and_then(|g| g.clone());
+
+            let _ = session
+                .disconnect(russh::Disconnect::ByApplication, "", "")
+                .await;
+
+            if auth_result.success() {
+                Ok(SshConnectionTestResult {
+                    success: true,
+                    fingerprint,
+                    error: None,
+                })
+            } else {
+                // auth_result is AuthResult enum; format it with debug representation
+                let auth_err = format!("Authentication failed: {:?}", auth_result);
+                Ok(SshConnectionTestResult {
+                    success: false,
+                    fingerprint: None,
+                    error: Some(auth_err),
+                })
+            }
+        },
+    )
+    .await;
+
+    match connect_result {
+        Ok(result) => result,
+        Err(_elapsed) => Ok(SshConnectionTestResult {
+            success: false,
+            fingerprint: None,
+            error: Some("Connection timed out after 5 seconds".into()),
+        }),
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 fn get_private_pem(name: &str) -> Result<String, AppError> {
@@ -127,6 +291,16 @@ fn public_key_openssh(public_key: &ssh_key::PublicKey) -> Result<String, ssh_key
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_connection_to_unreachable_port_returns_failure() {
+        // Port 1 on localhost is not an SSH server — should fail quickly
+        let result = test_connection("127.0.0.1", 1, "testuser", "password", None, Some("pw"))
+            .await
+            .expect("test_connection should return Ok even on failure");
+        assert!(!result.success, "Expected failure connecting to 127.0.0.1:1");
+        assert!(result.error.is_some(), "Expected error message on failure");
+    }
 
     #[test]
     fn test_generate_key_produces_valid_ed25519() {

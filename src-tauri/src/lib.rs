@@ -97,6 +97,11 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::ssh::get_ssh_public_key,
         commands::ssh::export_ssh_key,
         commands::ssh::delete_ssh_key,
+        commands::ssh_connections::list_ssh_connections,
+        commands::ssh_connections::create_ssh_connection,
+        commands::ssh_connections::update_ssh_connection,
+        commands::ssh_connections::delete_ssh_connection,
+        commands::ssh_connections::test_ssh_connection,
     ])
 }
 

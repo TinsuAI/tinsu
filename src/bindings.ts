@@ -239,6 +239,16 @@ export const commands = {
 	exportSshKey: (name: string) => typedError<SshKeyExport, AppError>(__TAURI_INVOKE("export_ssh_key", { name })),
 	// Delete a named SSH key from the OS keychain and remove from DB name list.
 	deleteSshKey: (name: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_ssh_key", { name })),
+	// List all saved SSH connection profiles.
+	listSshConnections: () => typedError<SshConnectionProfile[], AppError>(__TAURI_INVOKE("list_ssh_connections")),
+	// Create a new SSH connection profile.
+	createSshConnection: (input: CreateSshConnectionInput) => typedError<SshConnectionProfile, AppError>(__TAURI_INVOKE("create_ssh_connection", { input })),
+	// Update an existing SSH connection profile.
+	updateSshConnection: (input: UpdateSshConnectionInput) => typedError<SshConnectionProfile, AppError>(__TAURI_INVOKE("update_ssh_connection", { input })),
+	// Delete an SSH connection profile by id.
+	deleteSshConnection: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_ssh_connection", { id })),
+	// Test an SSH connection — connect, authenticate, return fingerprint on success.
+	testSshConnection: (input: TestSshConnectionInput) => typedError<SshConnectionTestResult, AppError>(__TAURI_INVOKE("test_ssh_connection", { input })),
 };
 
 /* Types */
@@ -360,6 +370,14 @@ export type CreateSprintInput = {
 	start_date: string | null,
 	end_date: string | null,
 	project_id: string,
+};
+
+export type CreateSshConnectionInput = {
+	host: string,
+	port: number,
+	username: string,
+	auth_method: string,
+	key_name: string | null,
 };
 
 export type CreateTaskInput = {
@@ -558,6 +576,25 @@ export type SprintModel = {
 	created_at: number,
 };
 
+// A saved SSH connection profile (password never stored).
+export type SshConnectionProfile = {
+	id: string,
+	host: string,
+	port: number,
+	username: string,
+	auth_method: string,
+	key_name: string | null,
+	created_at: number,
+};
+
+export type SshConnectionTestResult = {
+	success: boolean,
+	// SHA256 host fingerprint — present on success
+	fingerprint: string | null,
+	// Error description — present on failure
+	error: string | null,
+};
+
 export type SshKeyEntry = {
 	// User-provided name, also used as keychain account identifier
 	name: string,
@@ -579,6 +616,16 @@ export type TaskSessionModel = {
 	tmux_session: string | null,
 	current_phase: string | null,
 	created_at: number,
+};
+
+export type TestSshConnectionInput = {
+	host: string,
+	port: number,
+	username: string,
+	auth_method: string,
+	key_name: string | null,
+	// Only present for password auth (never stored in DB)
+	password: string | null,
 };
 
 export type ToolCheckResult = {
@@ -611,6 +658,15 @@ export type UpdateSprintInput = {
 export type UpdateSprintStatusInput = {
 	id: string,
 	status: string,
+};
+
+export type UpdateSshConnectionInput = {
+	id: string,
+	host: string,
+	port: number,
+	username: string,
+	auth_method: string,
+	key_name: string | null,
 };
 
 export type UpdateTaskStatusInput = {
