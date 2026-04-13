@@ -12,7 +12,7 @@ so that managing remote projects feels as natural as local ones.
 
 ## Acceptance Criteria
 
-1. **Given** local projects from Epic 1 and remote projects saved from T2.3 **When** I open the project switcher in the header **Then** both local and remote projects appear in a unified list grouped as "Local Projects" and "Remote Projects" (FR60) — the existing popover component is extended, NOT replaced
+1. **Given** local projects from Epic 1 and remote projects saved from T2.3 **When** I open the project switcher in the header **Then** both local and remote projects appear in a unified list grouped as "Local Projects" and "Remote Projects" — the existing popover component is extended, NOT replaced
 
 2. **Given** a remote project is listed in the switcher **When** the switcher is open **Then** each remote project shows a connection status badge: `connected` (green dot, hook forwarder active), `disconnected` (gray dot, no active tunnel), or `connecting` (spinner, transition state) — determined by polling `get_remote_hook_status(connection_id)` every 5 seconds while the popover is open
 
@@ -66,11 +66,17 @@ so that managing remote projects feels as natural as local ones.
 - [ ] 1.2 Register migration in `src-tauri/src/migration/mod.rs`:
   ```rust
   mod m20260412_000005_project_remote_link;
-  // add to migrations() vec:
+  // add to migrations() vec (MUST be LAST entry to ensure correct execution order):
   Box::new(m20260412_000005_project_remote_link::Migration),
   ```
+  - Verify the migration order in the `migrations()` function — it should be:
+    - m000001_create_projects
+    - m000002_create_tasks
+    - ...
+    - m000004_*  (previous T2.6 migration)
+    - m000005_project_remote_link  (this new migration)
 
-- [ ] 1.3 Update `src-tauri/src/db/mod.rs` — add `"projects"` table check to `test_migrations_create_all_tables` to verify the migration runs; also add `"ssh_connections"` and `"remote_projects"` to the expected_tables list if missing
+- [ ] 1.3 Update `src-tauri/src/db/mod.rs` — add `"projects"` table check to `test_migrations_create_all_tables` to verify the migration runs; verify that `"ssh_connections"` and `"remote_projects"` exist in the expected_tables list (add if missing)
 
 ### Task 2: Update `project` entity + `ProjectModel` DTO (AC: 7)
 
@@ -241,7 +247,7 @@ so that managing remote projects feels as natural as local ones.
 
 ### Task 4: Regenerate TypeScript bindings (AC: 7)
 
-- [ ] 4.1 Run `cargo test generate_bindings -- --ignored` inside `src-tauri/`
+- [ ] 4.1 Run `cargo test --package tauri-app -- generate_bindings --ignored` inside `src-tauri/` (or verify the correct test command for your Tauri version)
 - [ ] 4.2 Verify `src/bindings.ts` exports `openRemoteProject` and `ProjectModel` has `remote_project_id: string | null`
 
 ### Task 5: Extend project store (AC: 5)
@@ -264,7 +270,25 @@ so that managing remote projects feels as natural as local ones.
   - `setProject` signature extended with optional remote params (default `null` to stay backward-compatible)
   - All existing callers of `setProject(id, path, name)` continue to work unchanged (remote params default to `null`)
 
-### Task 6: Create `useRemoteProjectSwitcher` hook (AC: 2, 3, 4)
+- [ ] 5.2 Verify column collapse state and filters preservation (AC5):
+  - Verify that `ui.store.ts` uses `activeProjectId` as part of the key for storing column collapse state
+  - Verify that `useKanbanFilters` hook uses `activeProjectId` as part of the key for storing filters
+  - These should already be implemented from previous epics; document findings in dev notes
+
+### Task 6: Create `useRemoteProjectSwitcher` and `useListRemoteProjects` hooks (AC: 2, 3, 4)
+
+- [ ] 6.0 Create `src/hooks/useListRemoteProjects.ts` (thin wrapper):
+  ```typescript
+  import { useQuery } from '@tanstack/react-query'
+  import { commands } from '@/bindings'
+  
+  export function useListRemoteProjects() {
+    return useQuery({
+      queryKey: ['remoteProjects'],
+      queryFn: () => commands.listRemoteProjects(),
+    })
+  }
+  ```
 
 - [ ] 6.1 Create `src/hooks/useRemoteProjectSwitcher.ts`:
 
@@ -351,16 +375,16 @@ so that managing remote projects feels as natural as local ones.
 ### Task 7: Extend `ProjectSwitcher.tsx` with remote projects section (AC: 1, 2, 3, 4)
 
 - [ ] 7.1 Extend the existing `ProjectSwitcher.tsx` (DO NOT replace, extend):
-  - Import `useListRemoteProjects` (existing from `useProjectCommands` or create a thin wrapper around `commands.listRemoteProjects`)
+  - Create `useListRemoteProjects` hook (thin wrapper around `commands.listRemoteProjects`) and import it (this hook does not exist yet)
   - Import `useOpenRemoteProject`, `useRemoteConnectionStatus` from `useRemoteProjectSwitcher`
   - Import `useListSshConnections` to get `connection_id → name` mapping for display
   - Add a "Remote Projects" section below "Local Projects" section in the popover
   - Each remote project row shows: globe/server icon, project name, remote path, connection status badge
-  - Clicking a remote project calls `openRemoteProjectMutation.mutate({ remoteProjectId, connectionId })`
+  - Clicking a remote project calls `openRemoteProjectMutation.mutate({ remoteProjectId, connectionId })` ONLY if `!openRemoteProjectMutation.isPending` (prevents double-clicking while connecting)
   - Badge component: green dot + "Connected" | gray dot + "Disconnected" | spinner + "Connecting"
 
 - [ ] 7.2 Add status polling per remote project (only when popover is open):
-  - Use `useRemoteConnectionStatus(connectionId, open)` per connection — deduplicate by `connectionId` so projects sharing one SSH connection poll once
+  - Use `useRemoteConnectionStatus(connectionId, open)` per connection — React Query automatically deduplicates queries with matching `queryKey: ['remoteHookStatus', connectionId]`, so projects sharing one SSH connection automatically poll once
 
 - [ ] 7.3 Show isCurrent indicator for remote projects:
   - `const remoteProjectId = useProjectStore(s => s.remoteProjectId)`
@@ -407,9 +431,24 @@ so that managing remote projects feels as natural as local ones.
 ### Task 10: Run all tests to verify no regressions (AC: 6)
 
 - [ ] 10.1 Run `cargo test` in `src-tauri/` — verify 142 existing pass + 4 new Rust tests = 146 total
-- [ ] 10.2 Run `npm test` in project root — verify all frontend tests pass
+- [ ] 10.2 Run `npm test` in project root — verify all frontend tests pass (including existing ProjectSwitcher tests to ensure backward compatibility)
 
 ## Dev Notes
+
+### Code Review Auto-Fixes Applied
+
+This story was reviewed and the following issues were identified and fixed:
+
+1. ✅ Removed undefined "FR60" reference from AC1 (clarity fix)
+2. ✅ Clarified Task 1.3 table check instruction ("if missing" → explicit add)
+3. ✅ Added explicit `useListRemoteProjects` hook creation task (6.0)
+4. ✅ Added guard for project-switch race condition in Task 7.1 (`isPending` check)
+5. ✅ Clarified React Query deduplication behavior in Task 7.2
+6. ✅ Added backward compatibility check to Task 10.2 (ProjectSwitcher test regression)
+7. ✅ Added explicit verification task 5.2 for AC5 preservation feature
+8. ✅ Updated cargo test command with flexibility note in Task 4.1
+9. ✅ Added migration ordering verification steps to Task 1.2
+10. ✅ Added example test assertions to testing standards section
 
 ### Architecture: How Remote Projects Link to Local Project Records
 
@@ -534,6 +573,24 @@ vi.mock('@/bindings', () => ({
     startRemoteHookForwarder: vi.fn().mockResolvedValue({ is_active: true, remote_port: 3847 }),
   }
 }))
+
+// Example test assertions:
+test('renders remote projects section when popover is open', async () => {
+  // ... setup mock and render
+  expect(screen.getByTestId('project-switcher-remote-section')).toBeInTheDocument()
+})
+
+test('shows connected badge when hook status is active', () => {
+  // ... setup
+  expect(screen.getByTestId('connection-badge-conn1')).toHaveTextContent('Connected')
+})
+
+test('disables project selection while mutation is pending', async () => {
+  // ... setup
+  const remoteButton = screen.getByTestId('remote-project-rp1')
+  await userEvent.click(remoteButton)
+  expect(remoteButton).toBeDisabled() // isPending guard prevents clicks
+})
 ```
 
 ### Previous Story Intelligence (T2.6)
