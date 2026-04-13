@@ -43,6 +43,21 @@ pub struct ChatHookPayload {
     pub last_assistant_message: Option<String>,
 }
 
+/// Payload for the StatusLine hook — Claude Code fires this in real-time
+/// with context window and rate-limit data. The hook script merges in
+/// `tmux_session` (or it arrives via X-Tmux-Session header) for routing.
+#[derive(Debug, serde::Deserialize, Default)]
+pub struct ChatStatusPayload {
+    #[serde(default)]
+    pub tmux_session: Option<String>,
+    #[serde(default)]
+    pub context_window: Option<serde_json::Value>,
+    #[serde(default)]
+    pub rate_limits: Option<serde_json::Value>,
+    #[serde(default)]
+    pub model: Option<serde_json::Value>,
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct ClaudeHookPayload {
     pub session_id: Option<String>,
@@ -111,6 +126,7 @@ impl HookListenerService {
             .route("/api/hooks/chat-stop", post(handle_chat_stop_hook))
             .route("/api/hooks/chat-tool-use", post(handle_chat_tool_use_hook))
             .route("/api/hooks/chat-pre-tool-use", post(handle_chat_pre_tool_use_hook))
+            .route("/api/hooks/chat-status", post(handle_chat_status_hook))
             // Health check
             .route("/api/hooks/health", get(handle_health))
             .with_state(Arc::clone(&state));
@@ -437,6 +453,129 @@ async fn handle_chat_stop_hook(
         tracing::warn!("chat-stop: failed to emit event: {}", e);
     }
 
+    // Emit context usage from transcript as a fallback for the usage bar.
+    // (StatusLine hook provides more accurate real-time data; this fires at turn end.)
+    if let Some(ref tp) = payload.transcript_path {
+        if let Some((input_tokens, context_window)) = extract_usage_from_transcript(tp) {
+            let context_used_percent =
+                (input_tokens as f64 / context_window as f64 * 100.0).min(100.0);
+            tracing::debug!(
+                "chat-stop: context usage {:.1}% ({} / {} tokens) for session {}",
+                context_used_percent, input_tokens, context_window, session_id
+            );
+            if let Err(e) = state.app_handle.emit(
+                "chat:usage-update",
+                serde_json::json!({
+                    "session_id": session_id,
+                    "context_used_percent": context_used_percent,
+                    "five_hour_used_percent": null,
+                    "seven_day_used_percent": null,
+                    "five_hour_reset_seconds": null,
+                    "seven_day_reset_seconds": null,
+                }),
+            ) {
+                tracing::warn!("chat-stop: failed to emit usage-update: {}", e);
+            }
+        }
+    }
+
+    axum::http::StatusCode::OK
+}
+
+/// Handle Claude Code StatusLine hook — real-time context window + rate-limit data.
+///
+/// Claude Code fires StatusLine every few seconds while running. The `chat-status.sh`
+/// hook script merges in `tmux_session` and POSTs the full status object here.
+/// We extract the three usage metrics and emit a single `chat:usage-update` event
+/// that the frontend `ChatSessionUsage` component listens for.
+async fn handle_chat_status_hook(
+    State(state): State<Arc<HookListenerState>>,
+    headers: HeaderMap,
+    body: String,
+) -> axum::http::StatusCode {
+    let mut payload: ChatStatusPayload = match serde_json::from_str(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!("chat-status hook: invalid JSON: {} body={:.200}", e, body);
+            return axum::http::StatusCode::OK;
+        }
+    };
+
+    // Resolve tmux_session from body or header fallback
+    if payload.tmux_session.as_deref().unwrap_or("").is_empty() {
+        if let Some(hv) = headers.get("x-tmux-session").and_then(|h| h.to_str().ok()) {
+            if !hv.is_empty() {
+                payload.tmux_session = Some(hv.to_string());
+            }
+        }
+    }
+
+    let tmux_session = match &payload.tmux_session {
+        Some(s) if !s.is_empty() => s.clone(),
+        _ => {
+            tracing::warn!("chat-status hook: missing tmux_session, dropping");
+            return axum::http::StatusCode::OK;
+        }
+    };
+
+    let session_id = match lookup_chat_session_by_tmux_session(&state.db, &tmux_session).await {
+        Some(id) => id,
+        None => {
+            tracing::warn!("chat-status hook: orphan tmux_session={}", tmux_session);
+            return axum::http::StatusCode::OK;
+        }
+    };
+
+    // Extract context window usage
+    let context_used_percent: Option<f64> = payload
+        .context_window
+        .as_ref()
+        .and_then(|cw| cw.get("used_percentage"))
+        .and_then(|v| v.as_f64());
+
+    // Extract five-hour rate limit
+    let five_hour = payload
+        .rate_limits
+        .as_ref()
+        .and_then(|rl| rl.get("five_hour"));
+    let five_hour_used_percent: Option<f64> = five_hour
+        .and_then(|fh| fh.get("used_percentage"))
+        .and_then(|v| v.as_f64());
+    let five_hour_reset_seconds: Option<i64> = five_hour
+        .and_then(|fh| fh.get("reset_seconds"))
+        .and_then(|v| v.as_i64());
+
+    // Extract seven-day rate limit
+    let seven_day = payload
+        .rate_limits
+        .as_ref()
+        .and_then(|rl| rl.get("seven_day"));
+    let seven_day_used_percent: Option<f64> = seven_day
+        .and_then(|sd| sd.get("used_percentage"))
+        .and_then(|v| v.as_f64());
+    let seven_day_reset_seconds: Option<i64> = seven_day
+        .and_then(|sd| sd.get("reset_seconds"))
+        .and_then(|v| v.as_i64());
+
+    tracing::debug!(
+        "chat-status: session={} context={:?}% 5h={:?}% 7d={:?}%",
+        session_id, context_used_percent, five_hour_used_percent, seven_day_used_percent
+    );
+
+    if let Err(e) = state.app_handle.emit(
+        "chat:usage-update",
+        serde_json::json!({
+            "session_id": session_id,
+            "context_used_percent": context_used_percent,
+            "five_hour_used_percent": five_hour_used_percent,
+            "seven_day_used_percent": seven_day_used_percent,
+            "five_hour_reset_seconds": five_hour_reset_seconds,
+            "seven_day_reset_seconds": seven_day_reset_seconds,
+        }),
+    ) {
+        tracing::warn!("chat-status: failed to emit usage-update: {}", e);
+    }
+
     axum::http::StatusCode::OK
 }
 
@@ -623,6 +762,45 @@ async fn handle_chat_pre_tool_use_hook(
     }
 
     axum::http::StatusCode::OK
+}
+
+/// Extract token usage from the last assistant message in the transcript.
+/// Returns (input_tokens, context_window_size).
+///
+/// Claude Code writes the Anthropic API response verbatim into the JSONL
+/// transcript; the `message.usage` object holds per-turn token counts where
+/// `input_tokens` reflects the *cumulative* context already consumed —
+/// exactly the number we want to display as "context used".
+///
+/// All current Claude models (Opus/Sonnet/Haiku 4.x) share a 200 k-token
+/// context window, so we hard-code that as the denominator.
+fn extract_usage_from_transcript(transcript_path: &str) -> Option<(u64, u64)> {
+    let content = std::fs::read_to_string(transcript_path).ok()?;
+    for line in content.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let entry: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if entry.get("type").and_then(|v| v.as_str()) != Some("assistant") {
+            continue;
+        }
+        let message = match entry.get("message") {
+            Some(m) => m,
+            None => continue,
+        };
+        let usage = match message.get("usage") {
+            Some(u) => u,
+            None => continue,
+        };
+        let input_tokens = usage.get("input_tokens").and_then(|v| v.as_u64())?;
+        // All modern Claude models have a 200 k context window.
+        return Some((input_tokens, 200_000));
+    }
+    None
 }
 
 /// Walk a Claude Code transcript JSONL file backwards and return the last

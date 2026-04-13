@@ -206,6 +206,10 @@ impl ChatCliService {
             .join("chat-pre-tool-use.sh")
             .to_string_lossy()
             .to_string();
+        let chat_status_path = hooks_dir
+            .join("chat-status.sh")
+            .to_string_lossy()
+            .to_string();
 
         // Ensure top-level "hooks" key exists as an object
         if settings.get("hooks").is_none() {
@@ -282,6 +286,14 @@ impl ChatCliService {
                     arr.push(pre_tool_entry);
                 }
             });
+
+        // Set top-level statusLine command (NOT a hook event — a separate Claude Code
+        // feature that pipes context/rate-limit status JSON to the command's stdin).
+        // Always overwrite so we get the current path even after app updates.
+        settings["statusLine"] = serde_json::json!({
+            "type": "command",
+            "command": format!("bash {}", chat_status_path)
+        });
 
         // Write back atomically
         let json_str = serde_json::to_string_pretty(&settings).map_err(|e| {

@@ -1,16 +1,42 @@
 /**
  * ChatSessionUsage - Real-time context & rate limit display for chat sessions.
  *
- * Instrument-panel style gauges showing Claude Code session context window
- * usage and rate limits (5-hour and weekly) with remaining time.
- * Updated in real-time via 3-second polling.
+ * Instrument-panel style gauges showing three metrics:
+ *   • Context window usage (from StatusLine hook or Stop hook transcript)
+ *   • 5-hour rate limit usage + time to reset
+ *   • 7-day rate limit usage + time to reset
+ *
+ * Updated via Tauri `chat:usage-update` events emitted by:
+ *   - `handle_chat_status_hook` (StatusLine — fires in real-time while Claude runs)
+ *   - `handle_chat_stop_hook` (fallback — context only, from transcript at turn end)
+ *
+ * State is merged on each event so a Stop-only update doesn't wipe rate-limit
+ * data accumulated from prior StatusLine events.
  */
 
-import { trpc } from '@renderer/lib/trpc'
+import { useState, useEffect } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { cn } from '@renderer/lib/utils'
 
 interface ChatSessionUsageProps {
   sessionId: string
+}
+
+interface UsageState {
+  contextUsedPercent: number | null
+  fiveHourUsedPercent: number | null
+  sevenDayUsedPercent: number | null
+  fiveHourResetSeconds: number | null
+  sevenDayResetSeconds: number | null
+}
+
+interface UsageUpdatePayload {
+  session_id: string
+  context_used_percent: number | null
+  five_hour_used_percent: number | null
+  seven_day_used_percent: number | null
+  five_hour_reset_seconds: number | null
+  seven_day_reset_seconds: number | null
 }
 
 function estimateRemaining(usedPercent: number | null, windowSeconds: number): number | null {
@@ -99,18 +125,60 @@ function Gauge({ percent, label, remaining }: {
 }
 
 export function ChatSessionUsage({ sessionId }: ChatSessionUsageProps) {
-  const { data: status } = trpc.chatSession.getSessionStatus.useQuery(
-    { sessionId },
-    { refetchInterval: 3000 }
-  )
+  const [usage, setUsage] = useState<UsageState | null>(null)
 
-  if (!status) return null
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let mounted = true
+
+    listen<UsageUpdatePayload>('chat:usage-update', (event) => {
+      if (!mounted || event.payload.session_id !== sessionId) return
+
+      // Merge incoming values: only overwrite a field if the new event carries non-null data,
+      // so a Stop-hook event (context only) doesn't wipe the rate-limit data from StatusLine.
+      setUsage(prev => ({
+        contextUsedPercent:
+          event.payload.context_used_percent != null
+            ? event.payload.context_used_percent
+            : (prev?.contextUsedPercent ?? null),
+        fiveHourUsedPercent:
+          event.payload.five_hour_used_percent != null
+            ? event.payload.five_hour_used_percent
+            : (prev?.fiveHourUsedPercent ?? null),
+        sevenDayUsedPercent:
+          event.payload.seven_day_used_percent != null
+            ? event.payload.seven_day_used_percent
+            : (prev?.sevenDayUsedPercent ?? null),
+        fiveHourResetSeconds:
+          event.payload.five_hour_reset_seconds != null
+            ? event.payload.five_hour_reset_seconds
+            : (prev?.fiveHourResetSeconds ?? null),
+        sevenDayResetSeconds:
+          event.payload.seven_day_reset_seconds != null
+            ? event.payload.seven_day_reset_seconds
+            : (prev?.sevenDayResetSeconds ?? null),
+      }))
+    }).then((fn) => {
+      if (mounted) {
+        unlisten = fn
+      } else {
+        fn()
+      }
+    })
+
+    return () => {
+      mounted = false
+      unlisten?.()
+    }
+  }, [sessionId])
+
+  if (!usage) return null
 
   const fiveHourRemaining = formatRemaining(
-    status.fiveHourResetSeconds ?? estimateRemaining(status.fiveHourUsedPercent, 5 * 3600)
+    usage.fiveHourResetSeconds ?? estimateRemaining(usage.fiveHourUsedPercent, 5 * 3600)
   )
   const sevenDayRemaining = formatRemaining(
-    status.sevenDayResetSeconds ?? estimateRemaining(status.sevenDayUsedPercent, 7 * 24 * 3600)
+    usage.sevenDayResetSeconds ?? estimateRemaining(usage.sevenDayUsedPercent, 7 * 24 * 3600)
   )
 
   return (
@@ -118,11 +186,11 @@ export function ChatSessionUsage({ sessionId }: ChatSessionUsageProps) {
       className="flex items-stretch gap-3 border-t border-border/15 bg-background/40 px-3 py-1.5"
       data-testid="chat-session-usage"
     >
-      <Gauge percent={status.contextUsedPercent} label="Context" />
+      <Gauge percent={usage.contextUsedPercent} label="Context" />
       <div className="w-px self-stretch bg-border/10" />
-      <Gauge percent={status.fiveHourUsedPercent} label="5-Hour" remaining={fiveHourRemaining} />
+      <Gauge percent={usage.fiveHourUsedPercent} label="5-Hour" remaining={fiveHourRemaining} />
       <div className="w-px self-stretch bg-border/10" />
-      <Gauge percent={status.sevenDayUsedPercent} label="Weekly" remaining={sevenDayRemaining} />
+      <Gauge percent={usage.sevenDayUsedPercent} label="Weekly" remaining={sevenDayRemaining} />
     </div>
   )
 }

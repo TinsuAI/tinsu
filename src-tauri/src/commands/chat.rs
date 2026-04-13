@@ -40,6 +40,8 @@ fn build_remote_chat_settings_json(port: u16) -> String {
     let stop_cmd = make_cmd("chat-stop", 5);
     let post_cmd = make_cmd("chat-tool-use", 5);
     let pre_cmd = make_cmd("chat-pre-tool-use", 300);
+    // statusLine fires frequently; keep timeout short so it doesn't block Claude Code.
+    let status_cmd = make_cmd("chat-status", 2);
 
     let v = serde_json::json!({
         "hooks": {
@@ -52,6 +54,10 @@ fn build_remote_chat_settings_json(port: u16) -> String {
             "PreToolUse": [
                 { "matcher": "", "hooks": [{ "type": "command", "command": pre_cmd }] }
             ]
+        },
+        "statusLine": {
+            "type": "command",
+            "command": status_cmd
         }
     });
     serde_json::to_string_pretty(&v).unwrap_or_else(|_| "{}".to_string())
