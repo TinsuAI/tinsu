@@ -125,6 +125,19 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize tracing subscriber so tracing::info!/warn!/error! actually emit to stderr.
+    // RUST_LOG can override (e.g. RUST_LOG=tinsu=debug); default to info for our crate.
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("tinsu=info,warn")),
+        )
+        .with_target(true)
+        .with_writer(std::io::stderr)
+        .try_init();
+
+    tracing::info!("tinsu starting up — tracing subscriber initialized");
+
     let builder = build_specta_builder();
 
     #[cfg(debug_assertions)]
@@ -181,6 +194,9 @@ pub fn run() {
                     app_handle: hook_app,
                     db: hook_db,
                     port: hook_listener.port,
+                    turn_text_extracted: Arc::new(std::sync::Mutex::new(
+                        std::collections::HashMap::new(),
+                    )),
                 });
                 if let Err(e) = hook_listener.start(hook_state).await {
                     tracing::warn!("Hook listener failed to start: {}", e);

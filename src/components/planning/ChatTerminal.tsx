@@ -26,6 +26,7 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   const [processId, setProcessId] = useState<string | null>(null)
   const [isAttached, setIsAttached] = useState(false)
   const processIdRef = useRef<string | null>(null)
+  const isRemote = (pid: string | null) => !!pid && pid.startsWith('remote-')
 
   // Keep cleanup ref in sync with state
   useEffect(() => {
@@ -81,8 +82,13 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
 
     return () => {
       cancelled = true
-      if (processIdRef.current) {
-        commands.detachChatTerminal(processIdRef.current).catch(() => {})
+      const pid = processIdRef.current
+      if (pid) {
+        if (isRemote(pid)) {
+          commands.detachRemoteTaskTerminal(pid).catch(() => {})
+        } else {
+          commands.detachChatTerminal(pid).catch(() => {})
+        }
         processIdRef.current = null
       }
     }
@@ -115,8 +121,15 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
 
   const handleData = useCallback(
     (data: string) => {
-      if (processIdRef.current) {
-        commands.writePty(processIdRef.current, data).catch((e) =>
+      const pid = processIdRef.current
+      if (!pid) return
+      if (isRemote(pid)) {
+        const bytes = Array.from(new TextEncoder().encode(data))
+        commands.writeRemotePty(pid, bytes).catch((e) =>
+          console.warn('[ChatTerminal] remote write error:', e)
+        )
+      } else {
+        commands.writePty(pid, data).catch((e) =>
           console.warn('[ChatTerminal] write error:', e)
         )
       }
@@ -126,8 +139,14 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
 
   const handleResize = useCallback(
     (cols: number, rows: number) => {
-      if (processIdRef.current) {
-        commands.resizePty(processIdRef.current, cols, rows).catch((e) =>
+      const pid = processIdRef.current
+      if (!pid) return
+      if (isRemote(pid)) {
+        commands.resizeRemotePty(pid, cols, rows).catch((e) =>
+          console.warn('[ChatTerminal] remote resize error:', e)
+        )
+      } else {
+        commands.resizePty(pid, cols, rows).catch((e) =>
           console.warn('[ChatTerminal] resize error:', e)
         )
       }

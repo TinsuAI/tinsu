@@ -2,6 +2,7 @@ use crate::db::entities::{chat_message, chat_session, project, remote_project, s
 use crate::error::AppError;
 use crate::services::chat_cli::ChatCliService;
 use crate::services::pty_service::PtyService;
+use crate::services::remote_pty_service::RemotePtyService;
 use crate::services::ssh_service;
 use crate::services::tmux_service::TmuxService;
 use sea_orm::{
@@ -15,6 +16,46 @@ use uuid::Uuid;
 
 // Re-use AttachResult from agent module
 pub use super::agent::AttachResult;
+
+/// Build a `.claude/settings.json` for a remote chat session.
+///
+/// Each hook is an inline bash one-liner that:
+///   1. Reads the Claude Code hook payload from stdin (`INPUT=$(cat)`)
+///   2. POSTs it back to `http://127.0.0.1:<port>` (reaches local Tinsu via SSH reverse tunnel)
+///   3. Sets `X-Tmux-Session` header from `$TINSU_TMUX_SESSION` so the Rust handler
+///      can route to the correct chat session — no jq dependency required.
+///
+/// The bash command is written into JSON, so internal double quotes are escaped as `\"`.
+fn build_remote_chat_settings_json(port: u16) -> String {
+    let make_cmd = |endpoint: &str, max_time: u32| -> String {
+        format!(
+            "INPUT=$(cat); curl -s -X POST 'http://127.0.0.1:{port}/api/hooks/{endpoint}' \
+             -H 'Content-Type: application/json' \
+             -H \"X-Tmux-Session: $TINSU_TMUX_SESSION\" \
+             --connect-timeout 2 --max-time {max_time} \
+             -d \"$INPUT\" >/dev/null 2>&1 || true"
+        )
+    };
+
+    let stop_cmd = make_cmd("chat-stop", 5);
+    let post_cmd = make_cmd("chat-tool-use", 5);
+    let pre_cmd = make_cmd("chat-pre-tool-use", 300);
+
+    let v = serde_json::json!({
+        "hooks": {
+            "Stop": [
+                { "matcher": "", "hooks": [{ "type": "command", "command": stop_cmd }] }
+            ],
+            "PostToolUse": [
+                { "matcher": "", "hooks": [{ "type": "command", "command": post_cmd }] }
+            ],
+            "PreToolUse": [
+                { "matcher": "", "hooks": [{ "type": "command", "command": pre_cmd }] }
+            ]
+        }
+    });
+    serde_json::to_string_pretty(&v).unwrap_or_else(|_| "{}".to_string())
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -116,6 +157,8 @@ pub async fn create_chat_session(
     workflow_key: Option<String>,
     db: State<'_, DatabaseConnection>,
     tmux: State<'_, Arc<TmuxService>>,
+    hook_forwarder: State<'_, crate::services::remote_hook_forwarder::RemoteHookForwarderManager>,
+    hook_listener: State<'_, std::sync::Mutex<crate::services::hook_listener::HookListenerService>>,
     app: AppHandle,
 ) -> Result<ChatSessionModel, AppError> {
     // Look up project path from DB
@@ -155,25 +198,270 @@ pub async fn create_chat_session(
             String::from("/tmp/tinsu-hooks")
         });
 
-    // Spawn the tmux session (non-fatal on failure)
-    let chat_cli = ChatCliService;
-    let tmux_ref = tmux.inner().clone();
-    let spawn_result = chat_cli
-        .spawn_session(
-            &session_uuid,
-            &project.path,
-            agent_persona.as_deref(),
-            session.skip_permissions != 0,
-            &hooks_resource_dir,
-            &tmux_ref,
-        )
-        .await;
+    // Determine if this is a remote project and spawn tmux accordingly
+    let remote_project_id = project.remote_project_id.clone();
 
-    let tmux_session_name = match spawn_result {
-        Ok(name) => Some(name),
-        Err(e) => {
-            tracing::warn!("create_chat_session: spawn_session failed (non-fatal): {}", e);
+    let tmux_session_name: Option<String> = if let Some(rp_id) = remote_project_id {
+        // ── Remote project: create tmux + launch claude via SSH ─────────────
+        tracing::info!(
+            "create_chat_session [{}]: remote project detected (remote_project_id={}), creating remote tmux session",
+            session_uuid, rp_id
+        );
+
+        let rp_opt = remote_project::Entity::find_by_id(&rp_id)
+            .one(db.inner())
+            .await?;
+
+        if let Some(rp) = rp_opt {
+            let conn_opt = ssh_connection::Entity::find_by_id(&rp.connection_id)
+                .one(db.inner())
+                .await?;
+
+            if let Some(conn) = conn_opt {
+                let remote_session_name = format!("tinsu-chat-{}", session_uuid);
+                let safe_path = rp.path.replace('\'', "'\\''");
+                let create_cmd = format!(
+                    "tmux new-session -d -s '{}' -c '{}' 2>/dev/null; true",
+                    remote_session_name, safe_path
+                );
+
+                tracing::info!(
+                    "create_chat_session [{}]: SSH exec on {}:{} — {}",
+                    session_uuid, conn.host, conn.port, create_cmd
+                );
+
+                let create_result = tokio::time::timeout(
+                    tokio::time::Duration::from_secs(15),
+                    ssh_service::run_ssh_exec(
+                        &conn.host,
+                        conn.port as u16,
+                        &conn.username,
+                        &conn.auth_method,
+                        conn.key_name.as_deref(),
+                        None,
+                        &create_cmd,
+                    ),
+                )
+                .await;
+
+                match create_result {
+                    Ok(Ok(_)) => {
+                        tracing::info!(
+                            "create_chat_session [{}]: remote tmux session '{}' created, launching claude",
+                            session_uuid, remote_session_name
+                        );
+
+                        // Write .claude/settings.json on the remote with inline curl
+                        // hooks so the remote Claude Code POSTs back through the SSH
+                        // reverse tunnel. Using inline curl avoids needing to copy hook
+                        // scripts to the remote and dodges the jq dependency by passing
+                        // tmux_session via X-Tmux-Session header.
+                        let local_port = hook_listener
+                            .lock()
+                            .map(|g| g.port)
+                            .unwrap_or(3847);
+                        let safe_path_for_settings = rp.path.replace('\'', "'\\''");
+                        let settings_json = build_remote_chat_settings_json(local_port);
+                        // base64-encode settings JSON to avoid quoting nightmares over SSH
+                        use base64::{Engine as _, engine::general_purpose};
+                        let settings_b64 = general_purpose::STANDARD.encode(settings_json.as_bytes());
+                        let write_settings_cmd = format!(
+                            "mkdir -p '{path}/.claude' && echo '{b64}' | base64 -d > '{path}/.claude/settings.json'",
+                            path = safe_path_for_settings,
+                            b64 = settings_b64
+                        );
+                        if let Err(e) = ssh_service::run_ssh_exec(
+                            &conn.host,
+                            conn.port as u16,
+                            &conn.username,
+                            &conn.auth_method,
+                            conn.key_name.as_deref(),
+                            None,
+                            &write_settings_cmd,
+                        )
+                        .await
+                        {
+                            tracing::warn!(
+                                "create_chat_session [{}]: failed to write remote .claude/settings.json: {}",
+                                session_uuid, e
+                            );
+                        } else {
+                            tracing::info!(
+                                "create_chat_session [{}]: wrote remote .claude/settings.json with chat hooks",
+                                session_uuid
+                            );
+                        }
+
+                        // Start the SSH reverse tunnel so remote curl POSTs to
+                        // 127.0.0.1:3847 reach the local hook listener (idempotent).
+                        if conn.auth_method == "key" {
+                            if let Some(ref kname) = conn.key_name {
+                                if let Err(e) = hook_forwarder.start(
+                                    rp.connection_id.clone(),
+                                    conn.host.clone(),
+                                    conn.port as u16,
+                                    conn.username.clone(),
+                                    kname.clone(),
+                                    local_port,
+                                ) {
+                                    tracing::warn!(
+                                        "create_chat_session [{}]: hook forwarder start failed: {}",
+                                        session_uuid, e
+                                    );
+                                } else {
+                                    tracing::info!(
+                                        "create_chat_session [{}]: hook forwarder started for connection {}",
+                                        session_uuid, rp.connection_id
+                                    );
+                                }
+                            }
+                        } else {
+                            tracing::warn!(
+                                "create_chat_session [{}]: connection is password-auth; hook forwarder requires key auth, chat panel responses will not work",
+                                session_uuid
+                            );
+                        }
+
+                        // Set TINSU_TMUX_SESSION env var on the remote tmux session so
+                        // hook scripts running on the remote can read $TINSU_TMUX_SESSION.
+                        let set_env_cmd = format!(
+                            "tmux set-environment -t '{}' TINSU_TMUX_SESSION '{}'",
+                            remote_session_name, remote_session_name
+                        );
+                        if let Err(e) = ssh_service::run_ssh_exec(
+                            &conn.host,
+                            conn.port as u16,
+                            &conn.username,
+                            &conn.auth_method,
+                            conn.key_name.as_deref(),
+                            None,
+                            &set_env_cmd,
+                        )
+                        .await
+                        {
+                            tracing::warn!(
+                                "create_chat_session [{}]: remote set-environment failed: {}",
+                                session_uuid, e
+                            );
+                        }
+
+                        // Launch claude on the remote tmux session, prefixed with the
+                        // env var inline (set-environment only affects new windows).
+                        let claude_flag = if session.skip_permissions != 0 {
+                            " --dangerously-skip-permissions"
+                        } else {
+                            ""
+                        };
+                        let launch_cmd = format!(
+                            "tmux send-keys -t '{}' \"TINSU_TMUX_SESSION='{}' claude{}\" Enter",
+                            remote_session_name, remote_session_name, claude_flag
+                        );
+                        if let Err(e) = ssh_service::run_ssh_exec(
+                            &conn.host,
+                            conn.port as u16,
+                            &conn.username,
+                            &conn.auth_method,
+                            conn.key_name.as_deref(),
+                            None,
+                            &launch_cmd,
+                        )
+                        .await
+                        {
+                            tracing::warn!(
+                                "create_chat_session [{}]: remote claude launch failed (non-fatal): {}",
+                                session_uuid, e
+                            );
+                        }
+
+                        // Inject persona context if applicable (wait 2s for claude to start)
+                        if let Some(ref persona) = agent_persona {
+                            if !persona.is_empty() {
+                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                                let escaped_ctx = persona.replace('\'', "'\\''");
+                                let ctx_cmd = format!(
+                                    "tmux send-keys -t '{}' '{}' Enter",
+                                    remote_session_name, escaped_ctx
+                                );
+                                if let Err(e) = ssh_service::run_ssh_exec(
+                                    &conn.host,
+                                    conn.port as u16,
+                                    &conn.username,
+                                    &conn.auth_method,
+                                    conn.key_name.as_deref(),
+                                    None,
+                                    &ctx_cmd,
+                                )
+                                .await
+                                {
+                                    tracing::warn!(
+                                        "create_chat_session [{}]: remote persona inject failed (non-fatal): {}",
+                                        session_uuid, e
+                                    );
+                                }
+                            }
+                        }
+
+                        Some(remote_session_name)
+                    }
+                    Ok(Err(e)) => {
+                        tracing::warn!(
+                            "create_chat_session [{}]: remote tmux session creation failed (non-fatal): {}",
+                            session_uuid, e
+                        );
+                        None
+                    }
+                    Err(_) => {
+                        tracing::warn!(
+                            "create_chat_session [{}]: remote tmux session creation timed out after 15s",
+                            session_uuid
+                        );
+                        None
+                    }
+                }
+            } else {
+                tracing::warn!(
+                    "create_chat_session [{}]: SSH connection not found for remote project '{}' (connection_id={})",
+                    session_uuid, rp_id, rp.connection_id
+                );
+                None
+            }
+        } else {
+            tracing::warn!(
+                "create_chat_session [{}]: remote project record not found: {}",
+                session_uuid, rp_id
+            );
             None
+        }
+    } else {
+        // ── Local project: existing behavior ────────────────────────────────
+        let chat_cli = ChatCliService;
+        let tmux_ref = tmux.inner().clone();
+        let spawn_result = chat_cli
+            .spawn_session(
+                &session_uuid,
+                &project.path,
+                agent_persona.as_deref(),
+                session.skip_permissions != 0,
+                &hooks_resource_dir,
+                &tmux_ref,
+            )
+            .await;
+
+        match spawn_result {
+            Ok(name) => {
+                tracing::info!(
+                    "create_chat_session [{}]: local tmux session '{}' created",
+                    session_uuid, name
+                );
+                Some(name)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "create_chat_session [{}]: spawn_session failed (non-fatal): {}",
+                    session_uuid, e
+                );
+                None
+            }
         }
     };
 
@@ -286,7 +574,12 @@ pub async fn send_chat_message(
     let tmux_session = session.tmux_session.as_deref().unwrap_or("").to_string();
 
     // Send to tmux (if tmux_session is available)
-    if !tmux_session.is_empty() {
+    if tmux_session.is_empty() {
+        tracing::warn!(
+            "send_chat_message: session {} has no tmux_session — message stored but NOT executed in any terminal",
+            session_id
+        );
+    } else {
         // Determine whether this is a remote project to route via SSH
         let proj = project::Entity::find_by_id(&session.project_id)
             .one(db.inner())
@@ -310,6 +603,11 @@ pub async fn send_chat_message(
                     let escaped = content.replace('\'', "'\\''");
                     let cmd = format!("tmux send-keys -t '{}' '{}' Enter", tmux_session, escaped);
 
+                    tracing::info!(
+                        "send_chat_message: SSH exec on {}:{} — tmux send-keys to session '{}'",
+                        ssh_conn.host, ssh_conn.port, tmux_session
+                    );
+
                     if let Err(e) = ssh_service::run_ssh_exec(
                         &ssh_conn.host,
                         ssh_conn.port as u16,
@@ -322,6 +620,8 @@ pub async fn send_chat_message(
                     .await
                     {
                         tracing::warn!("send_chat_message: remote tmux send failed: {}", e);
+                    } else {
+                        tracing::info!("send_chat_message: remote tmux send succeeded");
                     }
                 } else {
                     tracing::warn!("send_chat_message: SSH connection not found for remote project");
@@ -527,23 +827,106 @@ pub async fn attach_chat_terminal(
     db: State<'_, DatabaseConnection>,
     tmux: State<'_, Arc<TmuxService>>,
     pty: State<'_, Arc<PtyService>>,
+    remote_pty: State<'_, Arc<RemotePtyService>>,
     app: AppHandle,
 ) -> Result<AttachResult, AppError> {
-    // Load chat session to get tmux_session name
+    // Load chat session to get tmux_session name and project_id
     let session = chat_session::Entity::find_by_id(&session_id)
         .one(db.inner())
         .await?;
 
-    let tmux_session_name = match session.and_then(|s| s.tmux_session) {
-        Some(name) => name,
+    let session = match session {
+        Some(s) => s,
         None => {
-            return Ok(AttachResult {
-                process_id: String::new(),
-                attached: false,
-            })
+            tracing::warn!("attach_chat_terminal: session {} not found", session_id);
+            return Ok(AttachResult { process_id: String::new(), attached: false });
         }
     };
 
+    let tmux_session_name = match session.tmux_session.clone() {
+        Some(name) => name,
+        None => {
+            tracing::warn!(
+                "attach_chat_terminal: session {} has no tmux_session — terminal cannot attach",
+                session_id
+            );
+            return Ok(AttachResult { process_id: String::new(), attached: false });
+        }
+    };
+
+    // Determine if this is a remote project
+    let proj = project::Entity::find_by_id(&session.project_id)
+        .one(db.inner())
+        .await?;
+    let remote_project_id = proj.as_ref().and_then(|p| p.remote_project_id.clone());
+
+    if let Some(rp_id) = remote_project_id {
+        // ── Remote project: attach via SSH PTY ──────────────────────────────
+        tracing::info!(
+            "attach_chat_terminal: remote project detected, attaching via SSH PTY to session '{}'",
+            tmux_session_name
+        );
+
+        let rp_opt = remote_project::Entity::find_by_id(&rp_id)
+            .one(db.inner())
+            .await?;
+
+        let rp = match rp_opt {
+            Some(r) => r,
+            None => {
+                tracing::warn!(
+                    "attach_chat_terminal: remote project record not found: {}",
+                    rp_id
+                );
+                return Ok(AttachResult { process_id: String::new(), attached: false });
+            }
+        };
+
+        let conn_opt = ssh_connection::Entity::find_by_id(&rp.connection_id)
+            .one(db.inner())
+            .await?;
+
+        let conn = match conn_opt {
+            Some(c) => c,
+            None => {
+                tracing::warn!(
+                    "attach_chat_terminal: SSH connection not found for remote project '{}'",
+                    rp_id
+                );
+                return Ok(AttachResult { process_id: String::new(), attached: false });
+            }
+        };
+
+        let process_id = format!("remote-{}", Uuid::new_v4());
+        let cols = cols.unwrap_or(80);
+        let rows = rows.unwrap_or(24);
+
+        tracing::info!(
+            "attach_chat_terminal: SSH PTY attach on {}:{} for session '{}'",
+            conn.host, conn.port, tmux_session_name
+        );
+
+        remote_pty
+            .attach(
+                &process_id,
+                &conn.host,
+                conn.port as u16,
+                &conn.username,
+                &conn.auth_method,
+                conn.key_name.as_deref(),
+                &tmux_session_name,
+                cols,
+                rows,
+                session_id.clone(),
+                on_data,
+                app,
+            )
+            .await?;
+
+        return Ok(AttachResult { process_id, attached: true });
+    }
+
+    // ── Local project: existing behavior ────────────────────────────────────
     // Verify tmux session still exists
     let tmux_ref = tmux.inner().clone();
     let tsn = tmux_session_name.clone();
@@ -552,6 +935,10 @@ pub async fn attach_chat_terminal(
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     if !session_exists {
+        tracing::warn!(
+            "attach_chat_terminal: local tmux session '{}' not found",
+            tmux_session_name
+        );
         return Ok(AttachResult {
             process_id: String::new(),
             attached: false,

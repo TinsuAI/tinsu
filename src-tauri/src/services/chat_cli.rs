@@ -61,11 +61,33 @@ impl ChatCliService {
             .await
             .map_err(|e| AppError::Internal(e.to_string()))??;
 
-        // Build claude command
+        // Set TINSU_TMUX_SESSION env var on the tmux session so child Claude Code
+        // hook scripts can read it via $TINSU_TMUX_SESSION (mirrors Electron CTM-1.1).
+        // tmux set-environment only affects new windows, so we ALSO inline the env var
+        // in the claude launch command below.
+        let set_env_cmd = format!(
+            "tmux set-environment -t '{}' TINSU_TMUX_SESSION '{}'",
+            tmux_session_name, tmux_session_name
+        );
+        if let Err(e) = tokio::process::Command::new("bash")
+            .arg("-c")
+            .arg(&set_env_cmd)
+            .output()
+            .await
+        {
+            tracing::warn!(
+                "spawn_session: failed to set TINSU_TMUX_SESSION on {}: {}",
+                tmux_session_name, e
+            );
+        }
+
+        // Build claude command — prefix with TINSU_TMUX_SESSION inline so the
+        // already-running shell inherits it (set-environment only hits new windows).
+        let env_prefix = format!("TINSU_TMUX_SESSION='{}' ", tmux_session_name);
         let claude_cmd = if skip_permissions {
-            "claude --dangerously-skip-permissions".to_string()
+            format!("{}claude --dangerously-skip-permissions", env_prefix)
         } else {
-            "claude".to_string()
+            format!("{}claude", env_prefix)
         };
 
         // Send the claude launch command to tmux

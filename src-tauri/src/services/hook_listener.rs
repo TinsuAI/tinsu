@@ -2,24 +2,45 @@ use crate::error::AppError;
 use axum::{
     Router,
     extract::State,
+    http::HeaderMap,
     routing::{get, post},
 };
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex as StdMutex};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::oneshot;
 
 // ─── DTOs ──────────────────────────────────────────────────────────────────
 
 /// Payload for chat session hooks (chat-stop, chat-tool-use, chat-pre-tool-use).
-/// The `tmux_session` field is the custom routing key for chat hooks (not Claude's session_id).
-#[derive(Debug, serde::Deserialize)]
+///
+/// Mirrors the Electron `ChatStopHookPayloadSchema`: hook scripts forward Claude
+/// Code's full stdin JSON, which includes `transcript_path` so the listener can
+/// read the JSONL transcript and extract the assistant message text.
+///
+/// `tmux_session` is the routing key — injected by the hook script via jq from
+/// `$TINSU_TMUX_SESSION`, or via the `X-Tmux-Session` HTTP header (fallback).
+#[derive(Debug, serde::Deserialize, Default)]
 pub struct ChatHookPayload {
+    #[serde(default)]
     pub tmux_session: Option<String>,
+    #[serde(default)]
     pub session_id: Option<String>,
+    #[serde(default)]
+    pub transcript_path: Option<String>,
+    #[serde(default)]
     pub tool_name: Option<String>,
+    #[serde(default)]
     pub tool_input: Option<serde_json::Value>,
+    #[serde(default)]
+    pub tool_response: Option<serde_json::Value>,
+    /// Optional inline content (Electron format); fallback when transcript reading fails.
+    #[serde(default)]
     pub content: Option<String>,
+    /// Some Claude Code versions ship the final assistant text inline.
+    #[serde(default)]
+    pub last_assistant_message: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -37,6 +58,10 @@ pub struct HookListenerState {
     pub app_handle: AppHandle,
     pub db: DatabaseConnection,
     pub port: u16,
+    /// Per-session map of intermediate assistant text captured during PreToolUse,
+    /// so the Stop handler can dedupe (don't re-insert the same text as a final message).
+    /// Mirrors the Electron `turnTextExtracted` map.
+    pub turn_text_extracted: Arc<StdMutex<HashMap<String, String>>>,
 }
 
 #[derive(serde::Serialize)]
@@ -254,20 +279,52 @@ async fn handle_error_hook(
 
 async fn handle_chat_stop_hook(
     State(state): State<Arc<HookListenerState>>,
-    axum::Json(payload): axum::Json<ChatHookPayload>,
+    headers: HeaderMap,
+    body: String,
 ) -> axum::http::StatusCode {
     use crate::db::entities::{chat_message, chat_session};
     use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
-    let tmux_session = match &payload.tmux_session {
-        Some(s) if !s.is_empty() => s.clone(),
-        _ => {
-            tracing::warn!("chat-stop hook: missing tmux_session, dropping");
+    // Parse JSON body (tolerant — Claude Code's full hook payload has many fields)
+    let mut payload: ChatHookPayload = match serde_json::from_str(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!("chat-stop hook: invalid JSON: {} body={}", e, body);
             return axum::http::StatusCode::OK;
         }
     };
 
-    // Look up chat session by tmux_session name
+    // Resolve tmux_session: body field first, then X-Tmux-Session header
+    if payload.tmux_session.as_deref().unwrap_or("").is_empty() {
+        if let Some(hv) = headers.get("x-tmux-session").and_then(|h| h.to_str().ok()) {
+            if !hv.is_empty() {
+                payload.tmux_session = Some(hv.to_string());
+            }
+        }
+    }
+
+    let tmux_session = match &payload.tmux_session {
+        Some(s) if !s.is_empty() => s.clone(),
+        _ => {
+            // Show body snippet + headers so we can diagnose hook routing failures.
+            let body_snippet: String = body.chars().take(300).collect();
+            let header_snippet: String = headers
+                .iter()
+                .filter(|(k, _)| {
+                    let n = k.as_str().to_ascii_lowercase();
+                    n == "x-tmux-session" || n == "user-agent" || n == "content-type"
+                })
+                .map(|(k, v)| format!("{}={:?}", k, v.to_str().unwrap_or("?")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            tracing::warn!(
+                "chat-stop hook: missing tmux_session, dropping. headers=[{}] body[..300]={}",
+                header_snippet, body_snippet
+            );
+            return axum::http::StatusCode::OK;
+        }
+    };
+
     let session_id = match lookup_chat_session_by_tmux_session(&state.db, &tmux_session).await {
         Some(id) => id,
         None => {
@@ -276,28 +333,81 @@ async fn handle_chat_stop_hook(
         }
     };
 
-    let now = now_unix_secs();
-    let content = payload.content.unwrap_or_default();
+    tracing::info!(
+        "chat-stop hook: matched session {} (tmux={}, transcript={:?})",
+        session_id, tmux_session, payload.transcript_path
+    );
 
-    // Only insert an assistant message when content is non-empty.
-    // An empty chat-stop payload means the Stop hook fired with no transcript content;
-    // inserting a blank message would create noise in the DB and confuse the UI.
-    if !content.is_empty() {
+    // Pull and clear any intermediate text captured during PreToolUse for this turn.
+    let intermediate_text = {
+        let mut map = state.turn_text_extracted.lock().unwrap();
+        map.remove(&session_id)
+    };
+
+    // Resolve final assistant message: inline field first, then transcript fallback.
+    let mut assistant_message: Option<String> = payload
+        .last_assistant_message
+        .clone()
+        .filter(|s| !s.is_empty())
+        .or_else(|| payload.content.clone().filter(|s| !s.is_empty()));
+
+    if assistant_message.is_none() {
+        if let Some(ref tp) = payload.transcript_path {
+            match extract_last_assistant_message(tp) {
+                Some(text) => {
+                    tracing::info!(
+                        "chat-stop hook: extracted {} chars from transcript {}",
+                        text.len(),
+                        tp
+                    );
+                    assistant_message = Some(text);
+                }
+                None => {
+                    tracing::warn!(
+                        "chat-stop hook: no assistant text found in transcript {}",
+                        tp
+                    );
+                }
+            }
+        }
+    }
+
+    let now = now_unix_secs();
+
+    // Insert the final message only if it's different from the intermediate one
+    // (avoids duplicating "Let me investigate..." that PreToolUse already stored).
+    let should_insert = match (&assistant_message, &intermediate_text) {
+        (Some(final_text), Some(inter)) => final_text != inter,
+        (Some(_), None) => true,
+        (None, _) => false,
+    };
+
+    if should_insert {
+        let final_text = assistant_message.clone().unwrap();
         let msg_id = uuid::Uuid::new_v4().to_string();
         let new_msg = chat_message::ActiveModel {
             id: Set(msg_id),
             session_id: Set(session_id.clone()),
             role: Set("assistant".to_string()),
-            content: Set(content.clone()),
+            content: Set(final_text.clone()),
             tool_name: Set(None),
             tool_input: Set(None),
             created_at: Set(now),
         };
         if let Err(e) = new_msg.insert(&state.db).await {
             tracing::warn!("chat-stop: failed to insert assistant message: {}", e);
+        } else {
+            tracing::info!(
+                "chat-stop: stored assistant message ({} chars) for session {}",
+                final_text.len(),
+                session_id
+            );
         }
-    } else {
-        tracing::warn!("chat-stop hook: empty content received, skipping message insertion");
+    } else if assistant_message.is_some() {
+        tracing::info!(
+            "chat-stop: skipping final message — same as intermediate already stored for session {}",
+            session_id
+        );
     }
 
     // Update session: status=idle, last_message_at=now
@@ -317,11 +427,13 @@ async fn handle_chat_stop_hook(
         }
     }
 
-    // Emit Tauri event
-    if let Err(e) = state
-        .app_handle
-        .emit("chat:message-received", serde_json::json!({ "session_id": session_id, "content": content }))
-    {
+    if let Err(e) = state.app_handle.emit(
+        "chat:message-received",
+        serde_json::json!({
+            "session_id": session_id,
+            "content": assistant_message.unwrap_or_default(),
+        }),
+    ) {
         tracing::warn!("chat-stop: failed to emit event: {}", e);
     }
 
@@ -330,10 +442,27 @@ async fn handle_chat_stop_hook(
 
 async fn handle_chat_tool_use_hook(
     State(state): State<Arc<HookListenerState>>,
-    axum::Json(payload): axum::Json<ChatHookPayload>,
+    headers: HeaderMap,
+    body: String,
 ) -> axum::http::StatusCode {
     use crate::db::entities::{chat_message, chat_session};
     use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+
+    let mut payload: ChatHookPayload = match serde_json::from_str(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!("chat-tool-use hook: invalid JSON: {}", e);
+            return axum::http::StatusCode::OK;
+        }
+    };
+
+    if payload.tmux_session.as_deref().unwrap_or("").is_empty() {
+        if let Some(hv) = headers.get("x-tmux-session").and_then(|h| h.to_str().ok()) {
+            if !hv.is_empty() {
+                payload.tmux_session = Some(hv.to_string());
+            }
+        }
+    }
 
     let tmux_session = match &payload.tmux_session {
         Some(s) if !s.is_empty() => s.clone(),
@@ -401,8 +530,28 @@ async fn handle_chat_tool_use_hook(
 
 async fn handle_chat_pre_tool_use_hook(
     State(state): State<Arc<HookListenerState>>,
-    axum::Json(payload): axum::Json<ChatHookPayload>,
+    headers: HeaderMap,
+    body: String,
 ) -> axum::http::StatusCode {
+    use crate::db::entities::chat_message;
+    use sea_orm::{ActiveModelTrait, Set};
+
+    let mut payload: ChatHookPayload = match serde_json::from_str(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!("chat-pre-tool-use hook: invalid JSON: {}", e);
+            return axum::http::StatusCode::OK;
+        }
+    };
+
+    if payload.tmux_session.as_deref().unwrap_or("").is_empty() {
+        if let Some(hv) = headers.get("x-tmux-session").and_then(|h| h.to_str().ok()) {
+            if !hv.is_empty() {
+                payload.tmux_session = Some(hv.to_string());
+            }
+        }
+    }
+
     let tmux_session = match &payload.tmux_session {
         Some(s) if !s.is_empty() => s.clone(),
         _ => {
@@ -419,6 +568,48 @@ async fn handle_chat_pre_tool_use_hook(
         }
     };
 
+    // Capture intermediate assistant text (the "Let me investigate..." prefix) on the
+    // first PreToolUse of a turn. Claude Code writes assistant text blocks to the
+    // transcript BEFORE firing PreToolUse, so by now it's available on disk.
+    // Mirrors Electron `extractLatestAssistantTextBlocks` + `turnTextExtracted` map.
+    let already_extracted = {
+        let map = state.turn_text_extracted.lock().unwrap();
+        map.contains_key(&session_id)
+    };
+
+    if !already_extracted {
+        if let Some(ref tp) = payload.transcript_path {
+            if let Some(text) = extract_latest_assistant_text_blocks(tp) {
+                {
+                    let mut map = state.turn_text_extracted.lock().unwrap();
+                    map.insert(session_id.clone(), text.clone());
+                }
+
+                let now = now_unix_secs();
+                let msg_id = uuid::Uuid::new_v4().to_string();
+                let new_msg = chat_message::ActiveModel {
+                    id: Set(msg_id),
+                    session_id: Set(session_id.clone()),
+                    role: Set("assistant".to_string()),
+                    content: Set(text.clone()),
+                    tool_name: Set(None),
+                    tool_input: Set(None),
+                    // 1 second before tool event so ordering shows assistant text first
+                    created_at: Set(now.saturating_sub(1)),
+                };
+                if let Err(e) = new_msg.insert(&state.db).await {
+                    tracing::warn!("chat-pre-tool-use: failed to insert intermediate text: {}", e);
+                } else {
+                    tracing::info!(
+                        "chat-pre-tool-use: stored intermediate assistant text ({} chars) for session {}",
+                        text.len(),
+                        session_id
+                    );
+                }
+            }
+        }
+    }
+
     // Emit permission-request event (no DB row — transient)
     if let Err(e) = state.app_handle.emit(
         "chat:permission-request",
@@ -432,6 +623,109 @@ async fn handle_chat_pre_tool_use_hook(
     }
 
     axum::http::StatusCode::OK
+}
+
+/// Walk a Claude Code transcript JSONL file backwards and return the last
+/// assistant entry's text content (all `text` blocks joined by blank lines).
+///
+/// Mirrors Electron `extractLastAssistantMessage`. Used by the Stop hook to
+/// recover the final assistant response when Claude Code doesn't include it
+/// inline in the hook payload.
+fn extract_last_assistant_message(transcript_path: &str) -> Option<String> {
+    let content = std::fs::read_to_string(transcript_path).ok()?;
+    for line in content.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let entry: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if entry.get("type").and_then(|v| v.as_str()) != Some("assistant") {
+            continue;
+        }
+        let message = match entry.get("message") {
+            Some(m) => m,
+            None => continue,
+        };
+        if message.get("role").and_then(|v| v.as_str()) != Some("assistant") {
+            continue;
+        }
+        let blocks = match message.get("content").and_then(|v| v.as_array()) {
+            Some(a) => a,
+            None => continue,
+        };
+        let mut parts: Vec<String> = Vec::new();
+        for block in blocks {
+            if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+                if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                    parts.push(text.to_string());
+                }
+            }
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n\n"));
+        }
+    }
+    None
+}
+
+/// Walk a Claude Code transcript JSONL file backwards and return the most
+/// recent assistant entry's text **only if** that entry also contains tool_use
+/// blocks (i.e. a mixed turn where the assistant said something before calling
+/// a tool). Pure-text entries are skipped because the Stop hook will capture them.
+///
+/// Mirrors Electron `extractLatestAssistantTextBlocks`. Used by PreToolUse to
+/// stream the assistant's "Let me investigate..." prefix into the chat panel
+/// before tools run.
+fn extract_latest_assistant_text_blocks(transcript_path: &str) -> Option<String> {
+    let content = std::fs::read_to_string(transcript_path).ok()?;
+    for line in content.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let entry: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if entry.get("type").and_then(|v| v.as_str()) != Some("assistant") {
+            continue;
+        }
+        let message = match entry.get("message") {
+            Some(m) => m,
+            None => continue,
+        };
+        if message.get("role").and_then(|v| v.as_str()) != Some("assistant") {
+            continue;
+        }
+        let blocks = match message.get("content").and_then(|v| v.as_array()) {
+            Some(a) => a,
+            None => continue,
+        };
+
+        let mut text_parts: Vec<String> = Vec::new();
+        let mut has_tool_use = false;
+        for block in blocks {
+            match block.get("type").and_then(|v| v.as_str()) {
+                Some("text") => {
+                    if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                        text_parts.push(text.to_string());
+                    }
+                }
+                Some("tool_use") => has_tool_use = true,
+                _ => {}
+            }
+        }
+
+        if !text_parts.is_empty() && has_tool_use {
+            return Some(text_parts.join("\n\n"));
+        }
+        // Found an assistant entry but it's pure-text or pure-tool — stop searching.
+        return None;
+    }
+    None
 }
 
 /// Look up a chat session ID by its tmux session name.
@@ -709,10 +1003,93 @@ async fn update_session_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
     use std::sync::Mutex;
 
     // Serialize env var tests to avoid race conditions in parallel test runs
     static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn write_jsonl(lines: &[&str]) -> tempfile::NamedTempFile {
+        let mut f = tempfile::NamedTempFile::new().expect("tempfile");
+        for line in lines {
+            writeln!(f, "{}", line).unwrap();
+        }
+        f.flush().unwrap();
+        f
+    }
+
+    #[test]
+    fn test_extract_last_assistant_message_joins_text_blocks() {
+        let entry = serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Hello there."},
+                    {"type": "tool_use", "name": "Bash"},
+                    {"type": "text", "text": "Done."}
+                ]
+            }
+        });
+        let f = write_jsonl(&[&entry.to_string()]);
+        let got = extract_last_assistant_message(f.path().to_str().unwrap());
+        assert_eq!(got, Some("Hello there.\n\nDone.".to_string()));
+    }
+
+    #[test]
+    fn test_extract_last_assistant_message_walks_backwards() {
+        let user = serde_json::json!({"type": "user", "message": {}}).to_string();
+        let asst = serde_json::json!({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "first"}]}
+        }).to_string();
+        let asst2 = serde_json::json!({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "latest"}]}
+        }).to_string();
+        let f = write_jsonl(&[&asst, &user, &asst2]);
+        assert_eq!(
+            extract_last_assistant_message(f.path().to_str().unwrap()),
+            Some("latest".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_latest_assistant_text_blocks_requires_mixed_turn() {
+        // Pure-text entry should return None — Stop hook will get it instead.
+        let pure_text = serde_json::json!({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "just text"}]}
+        }).to_string();
+        let f = write_jsonl(&[&pure_text]);
+        assert_eq!(
+            extract_latest_assistant_text_blocks(f.path().to_str().unwrap()),
+            None
+        );
+
+        // Mixed turn: text + tool_use → should return text.
+        let mixed = serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Let me investigate..."},
+                    {"type": "tool_use", "name": "Read"}
+                ]
+            }
+        }).to_string();
+        let f2 = write_jsonl(&[&mixed]);
+        assert_eq!(
+            extract_latest_assistant_text_blocks(f2.path().to_str().unwrap()),
+            Some("Let me investigate...".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_handles_missing_file() {
+        assert_eq!(extract_last_assistant_message("/nonexistent/path.jsonl"), None);
+        assert_eq!(extract_latest_assistant_text_blocks("/nonexistent/path.jsonl"), None);
+    }
 
     #[test]
     fn test_new_reads_env_var() {
