@@ -38,11 +38,14 @@ fn now_unix_secs() -> i64 {
 /// 1. Load remote_project → ssh_connection from DB
 /// 2. SSH exec `tmux new-session -d -s 'tinsu-task-{id}' -c '{path}' 2>/dev/null; true`
 /// 3. Upsert task_sessions with remote_connection_id + remote_project_id
+/// 4. Auto-start hook forwarder for the connection (idempotent, non-fatal)
 #[tauri::command]
 #[specta::specta]
 pub async fn create_remote_task_session(
     input: RemoteCreateSessionInput,
     db: State<'_, DatabaseConnection>,
+    hook_forwarder: State<'_, crate::services::remote_hook_forwarder::RemoteHookForwarderManager>,
+    hook_listener: State<'_, std::sync::Mutex<crate::services::hook_listener::HookListenerService>>,
 ) -> Result<super::agent::TaskSessionModel, AppError> {
     // Validate task_id is a valid UUID (session name is safe when derived from UUID)
     if uuid::Uuid::parse_str(&input.task_id).is_err() {
@@ -135,6 +138,27 @@ pub async fn create_remote_task_session(
             new.insert(db.inner()).await?
         }
     };
+
+    // Auto-start hook forwarder for this connection (idempotent)
+    if conn.auth_method == "key" {
+        if let Some(ref kname) = conn.key_name {
+            let local_port = hook_listener.lock().map(|g| g.port).unwrap_or(3847);
+            if let Err(e) = hook_forwarder.start(
+                rp.connection_id.clone(),
+                conn.host.clone(),
+                conn.port as u16,
+                conn.username.clone(),
+                kname.clone(),
+                local_port,
+            ) {
+                // Non-fatal: log warning, task session still returned
+                tracing::warn!(
+                    "Hook forwarder auto-start failed for connection {}: {}",
+                    rp.connection_id, e
+                );
+            }
+        }
+    }
 
     Ok(super::agent::TaskSessionModel::from(model))
 }

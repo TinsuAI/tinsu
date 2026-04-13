@@ -73,11 +73,20 @@ impl HookListenerService {
             .map_err(|e| AppError::Internal(format!("Failed to bind hook listener: {}", e)))?;
 
         let router = Router::new()
+            // Claude Code hooks (agent events)
             .route("/api/hooks/stop", post(handle_stop_hook))
             .route("/api/hooks/tool-use", post(handle_tool_use_hook))
+            // Additional agent event types for AC4 compliance (extensible for future use)
+            .route("/api/hooks/agent-start", post(handle_agent_start_hook))
+            .route("/api/hooks/status-change", post(handle_status_change_hook))
+            .route("/api/hooks/user-command", post(handle_user_command_hook))
+            .route("/api/hooks/automation-trigger", post(handle_automation_trigger_hook))
+            .route("/api/hooks/error", post(handle_error_hook))
+            // Chat session hooks
             .route("/api/hooks/chat-stop", post(handle_chat_stop_hook))
             .route("/api/hooks/chat-tool-use", post(handle_chat_tool_use_hook))
             .route("/api/hooks/chat-pre-tool-use", post(handle_chat_pre_tool_use_hook))
+            // Health check
             .route("/api/hooks/health", get(handle_health))
             .with_state(Arc::clone(&state));
 
@@ -148,6 +157,86 @@ async fn handle_tool_use_hook(
         }
         Err(e) => {
             tracing::warn!("hook/tool-use: invalid JSON: {}", e);
+            axum::http::StatusCode::BAD_REQUEST
+        }
+    }
+}
+
+async fn handle_agent_start_hook(
+    State(state): State<Arc<HookListenerState>>,
+    body: String,
+) -> impl axum::response::IntoResponse {
+    match serde_json::from_str::<ClaudeHookPayload>(&body) {
+        Ok(payload) => {
+            route_hook_event(&state, "agent_start", &payload).await;
+            axum::http::StatusCode::OK
+        }
+        Err(e) => {
+            tracing::warn!("hook/agent-start: invalid JSON: {}", e);
+            axum::http::StatusCode::BAD_REQUEST
+        }
+    }
+}
+
+async fn handle_status_change_hook(
+    State(state): State<Arc<HookListenerState>>,
+    body: String,
+) -> impl axum::response::IntoResponse {
+    match serde_json::from_str::<ClaudeHookPayload>(&body) {
+        Ok(payload) => {
+            route_hook_event(&state, "status_change", &payload).await;
+            axum::http::StatusCode::OK
+        }
+        Err(e) => {
+            tracing::warn!("hook/status-change: invalid JSON: {}", e);
+            axum::http::StatusCode::BAD_REQUEST
+        }
+    }
+}
+
+async fn handle_user_command_hook(
+    State(state): State<Arc<HookListenerState>>,
+    body: String,
+) -> impl axum::response::IntoResponse {
+    match serde_json::from_str::<ClaudeHookPayload>(&body) {
+        Ok(payload) => {
+            route_hook_event(&state, "user_command", &payload).await;
+            axum::http::StatusCode::OK
+        }
+        Err(e) => {
+            tracing::warn!("hook/user-command: invalid JSON: {}", e);
+            axum::http::StatusCode::BAD_REQUEST
+        }
+    }
+}
+
+async fn handle_automation_trigger_hook(
+    State(state): State<Arc<HookListenerState>>,
+    body: String,
+) -> impl axum::response::IntoResponse {
+    match serde_json::from_str::<ClaudeHookPayload>(&body) {
+        Ok(payload) => {
+            route_hook_event(&state, "automation_trigger", &payload).await;
+            axum::http::StatusCode::OK
+        }
+        Err(e) => {
+            tracing::warn!("hook/automation-trigger: invalid JSON: {}", e);
+            axum::http::StatusCode::BAD_REQUEST
+        }
+    }
+}
+
+async fn handle_error_hook(
+    State(state): State<Arc<HookListenerState>>,
+    body: String,
+) -> impl axum::response::IntoResponse {
+    match serde_json::from_str::<ClaudeHookPayload>(&body) {
+        Ok(payload) => {
+            route_hook_event(&state, "error", &payload).await;
+            axum::http::StatusCode::OK
+        }
+        Err(e) => {
+            tracing::warn!("hook/error: invalid JSON: {}", e);
             axum::http::StatusCode::BAD_REQUEST
         }
     }
@@ -474,7 +563,28 @@ async fn fallback_cwd_lookup(
     let _ = task_sess;
 
     // Use a proper query joining through tasks
-    let task_id = find_task_session_by_project_cwd(db, cwd).await?;
+    let task_id = match find_task_session_by_project_cwd(db, cwd).await {
+        Some(id) => id,
+        None => {
+            // Try remote project path matching when no local project matches
+            if let Some(task_id) = find_task_session_by_remote_project_cwd(db, cwd).await {
+                if let Err(e) = update_session_id(db, &task_id, session_id).await {
+                    tracing::warn!(
+                        "remote fallback cwd mapping: failed to update session_id for task {}: {}",
+                        task_id,
+                        e
+                    );
+                } else {
+                    tracing::info!(
+                        "remote fallback cwd mapping: session_id={} → task_id={} (remote cwd={})",
+                        session_id, task_id, cwd
+                    );
+                }
+                return Some(task_id);
+            }
+            return None;
+        }
+    };
 
     // Auto-register the session_id to this task
     if let Err(e) = update_session_id(db, &task_id, session_id).await {
@@ -510,6 +620,39 @@ async fn find_task_session_by_project_cwd(
         JOIN tasks t ON t.id = ts.task_id
         JOIN projects p ON p.id = t.project_id
         WHERE p.path = ?
+          AND ts.session_id IS NULL
+        ORDER BY ts.created_at DESC
+        LIMIT 1
+    "#;
+
+    let result = db
+        .query_one(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Sqlite,
+            sql,
+            [cwd.into()],
+        ))
+        .await
+        .ok()
+        .flatten()?;
+
+    result.try_get_by_index::<String>(0).ok()
+}
+
+/// Find a task_session for a remote task by the remote project path (cwd matching).
+/// Joins task_sessions → remote_projects on remote_project_id = remote_projects.id
+/// where remote_project.path = cwd.
+async fn find_task_session_by_remote_project_cwd(
+    db: &DatabaseConnection,
+    cwd: &str,
+) -> Option<String> {
+    use sea_orm::ConnectionTrait;
+    use sea_orm::Statement;
+
+    let sql = r#"
+        SELECT ts.task_id
+        FROM task_sessions ts
+        JOIN remote_projects rp ON rp.id = ts.remote_project_id
+        WHERE rp.path = ?
           AND ts.session_id IS NULL
         ORDER BY ts.created_at DESC
         LIMIT 1

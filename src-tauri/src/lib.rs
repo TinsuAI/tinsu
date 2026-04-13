@@ -114,6 +114,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_agent::detach_remote_task_terminal,
         commands::remote_files::get_remote_task_diff,
         commands::remote_files::read_remote_file,
+        commands::remote_hook::start_remote_hook_forwarder,
+        commands::remote_hook::stop_remote_hook_forwarder,
+        commands::remote_hook::get_remote_hook_status,
     ])
 }
 
@@ -184,6 +187,9 @@ pub fn run() {
                 app_handle.manage(tmux_service);
                 app_handle.manage(pty_service);
                 app_handle.manage(remote_pty_service);
+                app_handle.manage(
+                    crate::services::remote_hook_forwarder::RemoteHookForwarderManager::new(),
+                );
                 app_handle.manage(scrollback_backup);
                 app_handle.manage(Mutex::new(hook_listener));
                 app_handle.manage(db);

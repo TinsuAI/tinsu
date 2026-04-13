@@ -269,6 +269,7 @@ export const commands = {
 	 *  1. Load remote_project → ssh_connection from DB
 	 *  2. SSH exec `tmux new-session -d -s 'tinsu-task-{id}' -c '{path}' 2>/dev/null; true`
 	 *  3. Upsert task_sessions with remote_connection_id + remote_project_id
+	 *  4. Auto-start hook forwarder for the connection (idempotent, non-fatal)
 	 */
 	createRemoteTaskSession: (input: RemoteCreateSessionInput) => typedError<TaskSessionModel, AppError>(__TAURI_INVOKE("create_remote_task_session", { input })),
 	/**
@@ -303,6 +304,17 @@ export const commands = {
 	 *  - File size ≤ 1MB (checked via wc -c before reading)
 	 */
 	readRemoteFile: (remoteProjectId: string, relativePath: string) => typedError<string, AppError>(__TAURI_INVOKE("read_remote_file", { remoteProjectId, relativePath })),
+	/**
+	 *  Start SSH reverse tunnel for hook forwarding (idempotent — no-op if already running).
+	 * 
+	 *  Loads SSH connection from DB by `connection_id` and starts the forwarder.
+	 *  Returns the remote port (3847) once the tunnel is established.
+	 */
+	startRemoteHookForwarder: (connectionId: string) => typedError<RemoteHookStatus, AppError>(__TAURI_INVOKE("start_remote_hook_forwarder", { connectionId })),
+	// Stop SSH reverse tunnel for hook forwarding (no-op if not running).
+	stopRemoteHookForwarder: (connectionId: string) => typedError<null, AppError>(__TAURI_INVOKE("stop_remote_hook_forwarder", { connectionId })),
+	// Get hook forwarder status for a connection.
+	getRemoteHookStatus: (connectionId: string) => typedError<RemoteHookStatus, AppError>(__TAURI_INVOKE("get_remote_hook_status", { connectionId })),
 };
 
 /* Types */
@@ -618,6 +630,11 @@ export type RemoteCreateSessionInput = {
 	task_id: string,
 	// ID of the saved remote project profile (from `remote_projects` table).
 	remote_project_id: string,
+};
+
+export type RemoteHookStatus = {
+	is_active: boolean,
+	remote_port: number | null,
 };
 
 // A saved remote project profile.
