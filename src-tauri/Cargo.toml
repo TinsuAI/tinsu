@@ -31,7 +31,7 @@ tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
 portable-pty = "0.9"
 axum = "0.8.8"
 tower-http = { version = "0.6", features = ["cors"] }
-russh = "0.60.0"
+russh = { version = "0.60.0", default-features = false, features = ["ring", "rsa", "flate2"] }
 ssh-key = { version = "0.6", features = ["ed25519", "encryption", "std"] }
 rand = "0.8"
 # keyring removed — replaced with file-based key storage (works cross-platform incl. WSL2)

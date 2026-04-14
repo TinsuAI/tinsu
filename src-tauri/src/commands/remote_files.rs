@@ -1,11 +1,14 @@
 //! Remote file operations — git diffs and artifact reads via SSH exec.
 //! Reuses ssh_service::run_ssh_exec (same pattern as remote_projects.rs and remote_agent.rs).
 
+use crate::commands::project::FileEntry;
 use crate::db::entities::{remote_project, ssh_connection, task, task_session};
 use crate::error::AppError;
 use crate::services::git_service::{parse_unified_diff, GitDiffResult, GitDiffSummary};
 use crate::services::ssh_service;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::State;
 
 // ── get_remote_task_diff ──────────────────────────────────────────────────────
@@ -308,6 +311,179 @@ pub async fn read_remote_file(
         }
         Ok(other) => other,
     }
+}
+
+// ── list_remote_project_files ─────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct ListRemoteProjectFilesInput {
+    pub connection_id: String,
+    pub project_path: String,
+    /// Relative prefix — empty for root, "src/" to list that dir, "src/comp" to list src/ dir.
+    pub prefix: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct SearchRemoteProjectFilesInput {
+    pub connection_id: String,
+    pub project_path: String,
+    pub query: String,
+}
+
+/// Lists immediate children (files + dirs) of the directory determined by the prefix via SSH.
+/// Uses `ls -1ap` on the remote; entries ending with `/` are directories.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_remote_project_files(
+    input: ListRemoteProjectFilesInput,
+    db: State<'_, DatabaseConnection>,
+) -> Result<Vec<FileEntry>, AppError> {
+    let conn = ssh_connection::Entity::find_by_id(&input.connection_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "SSH connection '{}' not found",
+                input.connection_id
+            ))
+        })?;
+
+    // Determine target directory from prefix (everything up to and including the last '/')
+    let dir_suffix = if let Some(last_slash) = input.prefix.rfind('/') {
+        input.prefix[..=last_slash].to_string()
+    } else {
+        String::new()
+    };
+
+    let target_dir = if dir_suffix.is_empty() {
+        input.project_path.trim_end_matches('/').to_string()
+    } else {
+        format!(
+            "{}/{}",
+            input.project_path.trim_end_matches('/'),
+            dir_suffix.trim_start_matches('/')
+        )
+    };
+
+    let safe_dir = target_dir.replace('\'', "'\\''");
+    // ls -1ap: one per line, all entries (including hidden), append '/' to dirs
+    // Filter out '.' and '..' entries
+    let cmd = format!(
+        "cd '{safe_dir}' 2>/dev/null && ls -1ap 2>/dev/null | grep -v '^\\.$\\|^\\.\\./$'"
+    );
+
+    let output = tokio::time::timeout(
+        tokio::time::Duration::from_secs(10),
+        ssh_service::run_ssh_exec(
+            &conn.host,
+            conn.port as u16,
+            &conn.username,
+            &conn.auth_method,
+            conn.key_name.as_deref(),
+            None,
+            &cmd,
+        ),
+    )
+    .await
+    .map_err(|_| AppError::Internal("Remote file listing timed out".into()))
+    .unwrap_or_else(|e| Err(e))?;
+
+    let mut entries: Vec<FileEntry> = output
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            let is_directory = line.ends_with('/');
+            let name = line.trim_end_matches('/').to_string();
+            let relative_path = if dir_suffix.is_empty() {
+                name.clone()
+            } else {
+                format!("{}{}", dir_suffix, name)
+            };
+            FileEntry {
+                name,
+                relative_path,
+                is_directory,
+            }
+        })
+        .collect();
+
+    entries.sort_by(|a, b| b.is_directory.cmp(&a.is_directory).then(a.name.cmp(&b.name)));
+    Ok(entries)
+}
+
+/// Searches files and directories by name on the remote project via SSH find.
+/// Uses GNU find's `-printf` to get type info; max 50 results, depth 8.
+#[tauri::command]
+#[specta::specta]
+pub async fn search_remote_project_files(
+    input: SearchRemoteProjectFilesInput,
+    db: State<'_, DatabaseConnection>,
+) -> Result<Vec<FileEntry>, AppError> {
+    let conn = ssh_connection::Entity::find_by_id(&input.connection_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "SSH connection '{}' not found",
+                input.connection_id
+            ))
+        })?;
+
+    let safe_project = input.project_path.replace('\'', "'\\''");
+    let safe_query = input.query.replace('\'', "'\\''");
+
+    // find: type (f/d) + tab + relative path (without leading ./)
+    // Prune noise directories before descending into them
+    let cmd = format!(
+        "cd '{safe_project}' 2>/dev/null && \
+         find . -maxdepth 8 \
+           \\( -name '.git' -o -name 'node_modules' -o -name 'target' -o -name '.next' -o -name 'dist' \\) -prune \
+           -o \\( -type f -o -type d \\) -name '*{safe_query}*' -printf '%y\\t%P\\n' \
+           2>/dev/null | head -50"
+    );
+
+    let output = tokio::time::timeout(
+        tokio::time::Duration::from_secs(10),
+        ssh_service::run_ssh_exec(
+            &conn.host,
+            conn.port as u16,
+            &conn.username,
+            &conn.auth_method,
+            conn.key_name.as_deref(),
+            None,
+            &cmd,
+        ),
+    )
+    .await
+    .map_err(|_| AppError::Internal("Remote file search timed out".into()))
+    .unwrap_or_else(|e| Err(e))?;
+
+    let mut entries: Vec<FileEntry> = output
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, '\t');
+            let type_char = parts.next()?;
+            let rel_path = parts.next()?.trim().to_string();
+            if rel_path.is_empty() {
+                return None;
+            }
+            let is_directory = type_char == "d";
+            let name = rel_path
+                .rsplit('/')
+                .next()
+                .unwrap_or(&rel_path)
+                .to_string();
+            Some(FileEntry {
+                name,
+                relative_path: rel_path,
+                is_directory,
+            })
+        })
+        .collect();
+
+    entries.sort_by(|a, b| b.is_directory.cmp(&a.is_directory).then(a.name.cmp(&b.name)));
+    Ok(entries)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

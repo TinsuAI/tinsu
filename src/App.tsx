@@ -96,13 +96,15 @@ function App(): React.JSX.Element {
       projectId: string
       projectName: string
       needsOnboarding?: boolean
+      remoteProjectId?: string | null
+      remoteConnectionId?: string | null
     }): void => {
       if (info.needsOnboarding) {
         setOnboardingProjectPath(info.path)
         setShowOnboarding(true)
         return
       }
-      setProject(info.projectId, info.path, info.projectName)
+      setProject(info.projectId, info.path, info.projectName, info.remoteProjectId, info.remoteConnectionId)
       // Story 8.10 AC4: Check for crashed operations after project opens
       crashRecoveryQuery.refetch().then((response) => {
         if (response.data && response.data.crashedOperations.length > 0) {

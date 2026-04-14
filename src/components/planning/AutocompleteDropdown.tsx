@@ -104,7 +104,7 @@ export function AutocompleteDropdown({ state, onSelect }: AutocompleteDropdownPr
       )}
 
       {!state.isLoading && state.items.length === 0 && state.isOpen && (
-        <div className="px-3 py-2 text-xs text-muted-foreground/30">No matches</div>
+        <div className="px-3 py-2 text-xs text-muted-foreground/50">No matches</div>
       )}
     </div>
   )
