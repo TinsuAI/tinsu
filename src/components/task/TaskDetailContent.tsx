@@ -106,27 +106,41 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
   // Ref for mobile tabs content container to enable swipe and sync
   const tabsContentRef = useRef<HTMLDivElement>(null)
+  // Ref to prevent jitter during manual tab click scroll
+  const isManualScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Handle manual tab navigation with smooth scroll
   const handleTabClick = useCallback((tab: typeof activeTab) => {
+    if (activeTab === tab) return
     setActiveTab(tab)
+
     const container = tabsContentRef.current
     if (container) {
       const tabs: Array<typeof activeTab> = ['content', 'activities', 'terminal', 'diff']
       const index = tabs.indexOf(tab)
       if (index !== -1) {
+        // Set manual scroll flag to prevent handleTabsScroll from fighting
+        isManualScrollingRef.current = true
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+
         container.scrollTo({
           left: index * container.clientWidth,
           behavior: 'smooth'
         })
+
+        // Reset manual scroll flag after animation completes
+        scrollTimeoutRef.current = setTimeout(() => {
+          isManualScrollingRef.current = false
+        }, 600) // Slightly longer than typical smooth scroll
       }
     }
-  }, [])
+  }, [activeTab])
 
   // Sync activeTab state with scroll position for swiping
   const handleTabsScroll = useCallback(() => {
     const container = tabsContentRef.current
-    if (!container || isDesktop) return
+    if (!container || isDesktop || isManualScrollingRef.current) return
 
     const scrollLeft = container.scrollLeft
     const width = container.clientWidth

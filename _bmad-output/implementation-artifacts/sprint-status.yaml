@@ -400,7 +400,7 @@ development_status:
   # Tauri Epic 3: Mobile Targets — Android + iOS (Phase 3)
   tauri-epic-3: in-progress
   t3-1-add-android-and-ios-build-targets: done  # Code review complete - 4 auto-fixes applied (Removed hardcoded ANTHROPIC_AUTH_TOKEN, relaxed window constraints, fixed tauri.conf.json bundle errors, updated compileSdk to 34), all 159 tests passing
-  t3-2-responsive-layout-and-mobile-navigation: review
+  t3-2-responsive-layout-and-mobile-navigation: done  # Code review complete - 3 auto-fixes applied (Hidden TerminalDock on mobile to prevent overlap, implemented isManualScrollingRef to fix scroll jitter in TaskDetailContent, increased tab button padding for 44px touch targets), all 72 focused tests passing
   t3-3-touch-optimized-kanban-interactions: backlog
   t3-4-mobile-ssh-connection-flow: backlog
   t3-5-mobile-terminal-view: backlog

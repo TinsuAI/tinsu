@@ -90,7 +90,9 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar className="hidden lg:flex" />
         <MainContent>{children}</MainContent>
       </div>
-      {isVisible && <TerminalDock />}
+      <div className="hidden lg:block">
+        {isVisible && <TerminalDock />}
+      </div>
       <MobileBottomNav className="flex lg:hidden" onOpenSettings={handleOpenSettings} />
 
       {/* Story 3.7: Import Stories dialog - accessible from header */}
