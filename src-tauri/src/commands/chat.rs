@@ -1,6 +1,7 @@
 use crate::db::entities::{chat_message, chat_session, project, remote_project, ssh_connection};
 use crate::error::AppError;
 use crate::services::chat_cli::ChatCliService;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::services::pty_service::PtyService;
 use crate::services::remote_pty_service::RemotePtyService;
 use crate::services::ssh_service;
@@ -823,6 +824,8 @@ pub async fn get_chat_session_by_workflow_key(
 }
 
 /// Attach a PTY to the chat session's tmux session (mirrors attach_task_terminal).
+/// Desktop-only: mobile uses remote_agent commands for terminal access.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn attach_chat_terminal(
@@ -975,6 +978,8 @@ pub async fn attach_chat_terminal(
 }
 
 /// Detach a PTY from a chat session (leaves tmux running).
+/// Desktop-only: mobile uses remote_agent commands for terminal access.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn detach_chat_terminal(

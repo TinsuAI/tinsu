@@ -1,5 +1,6 @@
 use crate::db::entities::{task, task_session};
 use crate::error::AppError;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::services::pty_service::PtyService;
 use crate::services::scrollback_backup::{ScrollbackBackup, ScrollbackResult};
 use crate::services::tmux_service::TmuxService;
@@ -140,6 +141,7 @@ pub async fn create_task_session(
 }
 
 /// Attach a PTY process to an existing tmux session for a task.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn attach_task_terminal(
@@ -206,6 +208,7 @@ pub async fn attach_task_terminal(
 }
 
 /// Detach PTY from tmux session (kills the PTY process, leaves tmux running).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn detach_task_terminal(
@@ -216,6 +219,7 @@ pub async fn detach_task_terminal(
 }
 
 /// Spawn a generic PTY process (for the terminal dock).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn spawn_pty(
@@ -250,6 +254,7 @@ pub async fn spawn_pty(
 }
 
 /// Write data to a PTY process.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn write_pty(
@@ -261,6 +266,7 @@ pub async fn write_pty(
 }
 
 /// Resize a PTY process.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn resize_pty(
@@ -273,6 +279,7 @@ pub async fn resize_pty(
 }
 
 /// Kill a generic PTY process. Exit event is emitted by the reader thread.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn kill_pty(
@@ -283,6 +290,7 @@ pub async fn kill_pty(
 }
 
 /// Kill the tmux session for a task, remove DB record, kill any active PTY.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn kill_task_session(
@@ -320,6 +328,42 @@ pub async fn kill_task_session(
     }
 
     // Delete DB record
+    if let Some(s) = session {
+        task_session::Entity::delete_by_id(s.id)
+            .exec(db.inner())
+            .await?;
+    }
+
+    Ok(())
+}
+
+/// Kill the tmux session for a task, remove DB record (mobile — no local PTY).
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+#[specta::specta]
+pub async fn kill_task_session(
+    task_id: String,
+    db: State<'_, DatabaseConnection>,
+    tmux: State<'_, Arc<TmuxService>>,
+) -> Result<(), AppError> {
+    let session = task_session::Entity::find()
+        .filter(task_session::Column::TaskId.eq(&task_id))
+        .one(db.inner())
+        .await?;
+
+    if let Some(ref s) = session {
+        if let Some(ref tmux_name) = s.tmux_session {
+            let tmux_ref = tmux.inner().clone();
+            let name = tmux_name.clone();
+            if let Err(e) = tokio::task::spawn_blocking(move || tmux_ref.kill_session(&name))
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?
+            {
+                tracing::warn!("Failed to kill tmux session for task {}: {}", task_id, e);
+            }
+        }
+    }
+
     if let Some(s) = session {
         task_session::Entity::delete_by_id(s.id)
             .exec(db.inner())

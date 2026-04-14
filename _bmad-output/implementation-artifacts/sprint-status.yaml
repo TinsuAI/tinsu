@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-12  # t1-1 done, t1-2 done, t1-3 done, t1-4 done, t1-5 done, t1-6 done, t1-7 done, t1-8 done, t1-9 done, t1-10 done, tauri-epic-1 in-progress, tauri-epic-2 in-progress, t2-1 done, t2-2 done, t2-3 done, t2-4 done, t2-5 done, t2-6 done, t2-7 done, t2-8 review
+last_updated: 2026-04-13  # t3-1 review, tauri-epic-3 in-progress
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -398,8 +398,8 @@ development_status:
   tauri-epic-2-retrospective: optional
 
   # Tauri Epic 3: Mobile Targets — Android + iOS (Phase 3)
-  tauri-epic-3: backlog
-  t3-1-add-android-and-ios-build-targets: backlog
+  tauri-epic-3: in-progress
+  t3-1-add-android-and-ios-build-targets: done  # Code review complete - 4 auto-fixes applied (Removed hardcoded ANTHROPIC_AUTH_TOKEN, relaxed window constraints, fixed tauri.conf.json bundle errors, updated compileSdk to 34), all 159 tests passing
   t3-2-responsive-layout-and-mobile-navigation: backlog
   t3-3-touch-optimized-kanban-interactions: backlog
   t3-4-mobile-ssh-connection-flow: backlog

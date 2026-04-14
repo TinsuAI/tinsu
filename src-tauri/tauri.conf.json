@@ -14,9 +14,7 @@
       {
         "title": "TinSu",
         "width": 1200,
-        "height": 800,
-        "minWidth": 900,
-        "minHeight": 600
+        "height": 800
       }
     ],
     "security": {
@@ -34,6 +32,10 @@
     ],
     "resources": {
       "resources/hooks/*": "hooks/"
-    }
+    },
+    "iOS": {
+      "minimumSystemVersion": "16.0"
+    },
+    "android": {}
   }
 }

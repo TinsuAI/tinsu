@@ -8,11 +8,12 @@ mod services;
 use sea_orm_migration::MigratorTrait;
 use services::{
     hook_listener::HookListenerService,
-    pty_service::PtyService,
     remote_pty_service::RemotePtyService,
     scrollback_backup::ScrollbackBackup,
     tmux_service::TmuxService,
 };
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use services::pty_service::PtyService;
 use specta_typescript::Typescript;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -21,6 +22,7 @@ use tauri_specta::collect_commands;
 
 use migration::Migrator;
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
         commands::task::get_task,
@@ -123,6 +125,104 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     ])
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::task::get_task,
+        commands::task::create_task,
+        commands::task::list_tasks,
+        commands::task::update_task_status,
+        commands::task::reorder_tasks,
+        commands::task::delete_task,
+        commands::task::get_weekly_velocity,
+        commands::epic::list_epics,
+        commands::epic::create_epic,
+        commands::epic::update_epic,
+        commands::epic::delete_epic,
+        commands::sprint::list_sprints,
+        commands::sprint::create_sprint,
+        commands::sprint::update_sprint,
+        commands::sprint::update_sprint_status,
+        commands::sprint::delete_sprint,
+        commands::sprint::get_active_sprint,
+        commands::project::list_recent_projects,
+        commands::project::validate_project_path,
+        commands::project::open_project_by_path,
+        commands::project::remove_project,
+        commands::project::open_project_dialog,
+        commands::project::select_parent_directory,
+        commands::project::create_project,
+        commands::project::verify_tools,
+        commands::project::open_remote_project,
+        commands::bmad::bmad_check_status,
+        commands::bmad::bmad_install_to_path,
+        commands::bmad::install_nodejs,
+        commands::agent::create_task_session,
+        // Desktop-only commands excluded: attach_task_terminal, detach_task_terminal,
+        // spawn_pty, write_pty, resize_pty, kill_pty (use remote_agent equivalents)
+        commands::agent::kill_task_session,
+        commands::agent::get_task_session,
+        commands::agent::get_scrollback_backup,
+        commands::agent::save_scrollback_backup,
+        commands::agent::start_session_monitor,
+        commands::agent::register_session_id,
+        commands::activity::log_activity,
+        commands::activity::list_activities_for_task,
+        commands::git::get_task_diff,
+        commands::git::get_branch_status,
+        commands::review::approve_task,
+        commands::review::reject_task,
+        commands::chat::create_chat_session,
+        commands::chat::list_chat_sessions_with_preview,
+        commands::chat::get_chat_messages,
+        commands::chat::send_chat_message,
+        commands::chat::update_session_status,
+        commands::chat::delete_chat_session,
+        commands::chat::delete_chat_message,
+        commands::chat::clear_session_messages,
+        commands::chat::update_skip_permissions,
+        commands::chat::get_chat_session_by_workflow_key,
+        // Desktop-only commands excluded: attach_chat_terminal, detach_chat_terminal
+        commands::planning::scan_artifacts,
+        commands::planning::get_artifact_content,
+        commands::planning::update_artifact_status,
+        commands::planning::create_workflow_run,
+        commands::planning::update_workflow_run,
+        commands::planning::list_workflow_runs,
+        commands::planning::get_active_workflow_run,
+        commands::planning::parse_and_save_gate_result,
+        commands::planning::get_latest_gate_decision,
+        commands::planning::list_gate_decisions,
+        commands::planning::approve_for_implementation,
+        commands::ssh::generate_ssh_key,
+        commands::ssh::install_ssh_key,
+        commands::ssh::list_ssh_keys,
+        commands::ssh::get_ssh_public_key,
+        commands::ssh::export_ssh_key,
+        commands::ssh::delete_ssh_key,
+        commands::ssh_connections::list_ssh_connections,
+        commands::ssh_connections::create_ssh_connection,
+        commands::ssh_connections::update_ssh_connection,
+        commands::ssh_connections::delete_ssh_connection,
+        commands::ssh_connections::test_ssh_connection,
+        commands::remote_projects::discover_remote_projects,
+        commands::remote_projects::list_remote_dir,
+        commands::remote_projects::save_remote_project,
+        commands::remote_projects::list_remote_projects,
+        commands::remote_projects::delete_remote_project,
+        commands::remote_agent::create_remote_task_session,
+        commands::remote_agent::attach_remote_task_terminal,
+        commands::remote_agent::write_remote_pty,
+        commands::remote_agent::resize_remote_pty,
+        commands::remote_agent::detach_remote_task_terminal,
+        commands::remote_files::get_remote_task_diff,
+        commands::remote_files::read_remote_file,
+        commands::remote_hook::start_remote_hook_forwarder,
+        commands::remote_hook::stop_remote_hook_forwarder,
+        commands::remote_hook::get_remote_hook_status,
+    ])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize tracing subscriber so tracing::info!/warn!/error! actually emit to stderr.
@@ -159,6 +259,7 @@ pub fn run() {
 
                 // Initialize services
                 let tmux_service = Arc::new(TmuxService::new());
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 let pty_service = Arc::new(PtyService::new());
                 let app_data_dir = app_handle
                     .path()
@@ -204,6 +305,7 @@ pub fn run() {
 
                 let remote_pty_service = Arc::new(RemotePtyService::new());
                 app_handle.manage(tmux_service);
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 app_handle.manage(pty_service);
                 app_handle.manage(remote_pty_service);
                 app_handle.manage(

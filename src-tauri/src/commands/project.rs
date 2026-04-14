@@ -236,6 +236,8 @@ pub async fn remove_project(
 }
 
 /// Opens a native folder picker dialog; returns the selected ProjectModel or None if cancelled.
+/// Desktop-only: mobile uses remote projects instead of local file dialogs.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn open_project_dialog(
@@ -255,12 +257,33 @@ pub async fn open_project_dialog(
     }
 }
 
+/// Mobile stub: open_project_dialog is desktop-only (uses native file dialog).
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+#[specta::specta]
+pub async fn open_project_dialog(
+    _app: AppHandle,
+    _db: State<'_, DatabaseConnection>,
+) -> Result<Option<ProjectModel>, AppError> {
+    Err(AppError::Internal("Local file dialogs not supported on mobile".to_string()))
+}
+
 /// Opens a native folder picker and returns the selected path or None if cancelled.
+/// Desktop-only: mobile uses remote projects instead of local file dialogs.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn select_parent_directory(app: AppHandle) -> Result<Option<String>, AppError> {
     let folder = app.dialog().file().blocking_pick_folder();
     Ok(folder.map(|p| p.to_string()))
+}
+
+/// Mobile stub: select_parent_directory is desktop-only (uses native file dialog).
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+#[specta::specta]
+pub async fn select_parent_directory(_app: AppHandle) -> Result<Option<String>, AppError> {
+    Err(AppError::Internal("Local file dialogs not supported on mobile".to_string()))
 }
 
 /// Creates a new project directory, initializes git, writes config, and inserts in DB.

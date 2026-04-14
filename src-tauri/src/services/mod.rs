@@ -2,6 +2,7 @@ pub mod activity_log;
 pub mod chat_cli;
 pub mod git_service;
 pub mod hook_listener;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod pty_service;
 pub mod remote_hook_forwarder;
 pub mod remote_pty_service;
