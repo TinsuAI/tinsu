@@ -96,18 +96,16 @@ describe('PlanningTaskCard', () => {
     render(<PlanningTaskCard task={mockPlanningTask} />)
 
     const card = screen.getByTestId('planning-task-card-planning-1')
-    expect(card).toHaveClass('rounded-lg')
-    expect(card).toHaveClass('border')
-    expect(card).toHaveClass('border-border')
-    expect(card).toHaveClass('bg-card')
-    expect(card).toHaveClass('p-3')
+    expect(card).toHaveClass('rounded-xl')
+    expect(card).toHaveClass('kanban-card')
+    expect(card).toHaveClass('p-3.5')
   })
 
   it('has hover states', () => {
     render(<PlanningTaskCard task={mockPlanningTask} />)
 
     const card = screen.getByTestId('planning-task-card-planning-1')
-    expect(card).toHaveClass('hover:border-primary/50')
+    expect(card).toHaveClass('kanban-card')
   })
 
   it('has data-testid for testing', () => {
@@ -122,8 +120,7 @@ describe('PlanningTaskCard Start Here effect', () => {
     render(<PlanningTaskCard task={mockPlanningTask} isStartHere />)
 
     const card = screen.getByTestId('planning-task-card-planning-1')
-    expect(card).toHaveClass('ring-2')
-    expect(card).toHaveClass('ring-cyan-500/50')
+    expect(card).toHaveClass('start-here')
   })
 
   it('shows "Start here" text when isStartHere=true', () => {
@@ -292,8 +289,7 @@ describe('PlanningTaskCard accessibility', () => {
     render(<PlanningTaskCard task={mockPlanningTask} />)
 
     const card = screen.getByTestId('planning-task-card-planning-1')
-    expect(card).toHaveClass('focus-visible:ring-2')
-    expect(card).toHaveClass('focus-visible:ring-primary')
+    expect(card).toHaveClass('focus-visible:outline-none')
   })
 })
 

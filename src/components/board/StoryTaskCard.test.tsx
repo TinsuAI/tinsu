@@ -80,11 +80,16 @@ describe('StoryTaskCard', () => {
   })
 
   it('displays truncated description', () => {
-    render(<StoryTaskCard task={mockStoryTask} />)
+    const taskWithLongDesc = {
+      ...mockStoryTask,
+      description: 'First paragraph.\n\nSecond paragraph.'
+    }
+    render(<StoryTaskCard task={taskWithLongDesc} />)
 
     const description = screen.getByTestId('task-description')
     expect(description).toBeInTheDocument()
-    expect(description).toHaveClass('line-clamp-2')
+    expect(description).toHaveTextContent('First paragraph.')
+    expect(description).not.toHaveTextContent('Second paragraph.')
   })
 
   it('has proper base styling', () => {

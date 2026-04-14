@@ -1,6 +1,6 @@
 # Story 3.3: Touch-Optimized Kanban Interactions
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

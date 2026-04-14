@@ -57,12 +57,17 @@ describe('TaskCard', () => {
     expect(title).toHaveClass('font-medium')
   })
 
-  it('should render truncated description (max 2 lines)', () => {
-    render(<TaskCard task={mockTask} />)
+  it('should render truncated description (first paragraph only)', () => {
+    const taskWithLongDesc = {
+      ...mockTask,
+      description: 'First paragraph.\n\nSecond paragraph.'
+    }
+    render(<TaskCard task={taskWithLongDesc} />)
 
-    const description = screen.getByText(/A detailed description/)
+    const description = screen.getByTestId('task-description')
     expect(description).toBeInTheDocument()
-    expect(description).toHaveClass('line-clamp-2')
+    expect(description).toHaveTextContent('First paragraph.')
+    expect(description).not.toHaveTextContent('Second paragraph.')
   })
 
   it('should handle null description gracefully', () => {

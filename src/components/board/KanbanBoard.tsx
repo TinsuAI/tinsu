@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, useEffect } from 'react'
 import {
   DndContext,
   pointerWithin,
-  PointerSensor,
+  MouseSensor,
   KeyboardSensor,
   TouchSensor,
   useSensor,
@@ -138,7 +138,7 @@ export function KanbanBoard({
 
   // Configure sensors for drag detection
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8 // Prevent accidental drags
       }
@@ -146,7 +146,7 @@ export function KanbanBoard({
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 250,
-        tolerance: 5
+        tolerance: 10 // Story 3.3 - Fix: Increased tolerance for touch UX
       }
     }),
     useSensor(KeyboardSensor, {
@@ -396,6 +396,11 @@ export function KanbanBoard({
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
     setOverId(null)
+
+    // Story 3.3 - Fix: Haptic feedback on drag cancel
+    if (window.navigator?.vibrate) {
+      window.navigator.vibrate(10)
+    }
   }, [])
 
   // ARIA announcements for screen readers
