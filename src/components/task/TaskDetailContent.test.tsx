@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TaskDetailContent, type TaskDetailContentProps } from './TaskDetailContent'
 import { trpc } from '@renderer/lib/trpc'
@@ -113,6 +114,51 @@ vi.mock('@renderer/hooks/useRequestChangesMutation', () => ({
     isError: false,
     error: null
   }))
+}))
+
+vi.mock('@renderer/components/review', () => ({
+  ApproveButton: ({ onClick, isPending, disabled, hasConflict }: any) => (
+    <button onClick={onClick} disabled={disabled || isPending} data-has-conflict={hasConflict}>
+      Approve {hasConflict ? '(Conflict)' : ''}
+      <span className="keyboard-shortcut">A</span>
+    </button>
+  ),
+  RejectButton: React.forwardRef(({ onReject, isPending, disabled }: any, ref: any) => {
+    React.useImperativeHandle(ref, () => ({
+      openDialog: () => onReject(null)
+    }))
+    return (
+      <button onClick={() => onReject(null)} disabled={disabled || isPending}>
+        Reject
+        <span className="keyboard-shortcut">R</span>
+      </button>
+    )
+  }),
+  RequestChangesButton: ({ onClick, isPending, commentCount, disabled }: any) => (
+    <button onClick={onClick} disabled={disabled || isPending}>
+      Request Changes ({commentCount})
+      <span className="keyboard-shortcut">C</span>
+    </button>
+  ),
+  VersionSelector: () => <div data-testid="mock-version-selector">Version Selector</div>,
+  ReviewTimeline: () => <div data-testid="mock-review-timeline">Review Timeline</div>,
+  FeedbackHistory: () => <div data-testid="mock-feedback-history">Feedback History</div>,
+  MobileReviewActionBar: ({ onApprove, onReject, isApproving, isRejecting, hasConflict }: any) => (
+    <div data-testid="mock-mobile-action-bar">
+      <button onClick={onApprove} disabled={isApproving || hasConflict} data-testid="mobile-approve-btn">
+        Mobile Approve
+      </button>
+      <button onClick={() => onReject('Mobile feedback')} disabled={isRejecting} data-testid="mobile-reject-btn">
+        Mobile Reject
+      </button>
+      {hasConflict && <span data-testid="mobile-conflict-msg">Conflict detected</span>}
+    </div>
+  ),
+  MobileDiffViewer: ({ taskId }: any) => (
+    <div data-testid="mock-mobile-diff-viewer" data-task-id={taskId}>
+      Mobile Diff Viewer
+    </div>
+  )
 }))
 
 vi.mock('@renderer/hooks/useQuadPaneLayout', () => ({
@@ -428,6 +474,9 @@ describe('TaskDetailContent', () => {
       mockApprovalOnSuccess = undefined
       mockApprovalOnError = undefined
 
+      // Force desktop mode for approval action tests
+      vi.mocked(QuadPaneLayoutHook.useQuadPaneLayout).mockReturnValue('quad')
+
       vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
         data: reviewTask,
         isLoading: false
@@ -621,6 +670,61 @@ describe('TaskDetailContent', () => {
       // Should NOT call onClose (navigates to next task instead)
       // Note: In real implementation, this would call switchTask() from store
       // but the test focuses on the onClose behavior difference
+    })
+  })
+
+  describe('Story t3-6: Mobile Review & Approval Flow', () => {
+    const reviewTask = {
+      ...mockTask,
+      status: 'review'
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+      // Default to tabbed (mobile) mode for these tests
+      vi.mocked(QuadPaneLayoutHook.useQuadPaneLayout).mockReturnValue('tabbed')
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: reviewTask,
+        isLoading: false
+      } as any)
+    })
+
+    it('should render MobileReviewActionBar and MobileDiffViewer when in review status (AC: 1, 3)', () => {
+      render(<TaskDetailContent {...defaultProps} />)
+
+      // Mobile Action Bar should be visible
+      expect(screen.getByTestId('mock-mobile-action-bar')).toBeInTheDocument()
+
+      // Should show Mobile Diff Viewer in the fourth tab (tab 4 is for diff)
+      expect(screen.getByTestId('mock-mobile-diff-viewer')).toBeInTheDocument()
+    })
+
+    it('should trigger approval from MobileReviewActionBar (AC: 4)', () => {
+      render(<TaskDetailContent {...defaultProps} />)
+
+      const approveBtn = screen.getByTestId('mobile-approve-btn')
+      fireEvent.click(approveBtn)
+
+      expect(mockApprovalMutate).toHaveBeenCalled()
+    })
+
+    it('should disable mobile approval button when there is a conflict (AC: 3)', () => {
+      const taskWithConflict = {
+        ...reviewTask,
+        has_merge_conflict: 1
+      }
+
+      vi.mocked(trpc.tasks.getById.useQuery).mockReturnValue({
+        data: taskWithConflict,
+        isLoading: false
+      } as any)
+
+      render(<TaskDetailContent {...defaultProps} />)
+
+      const approveBtn = screen.getByTestId('mobile-approve-btn')
+      expect(approveBtn).toBeDisabled()
+      expect(screen.getByTestId('mobile-conflict-msg')).toBeInTheDocument()
     })
   })
 })

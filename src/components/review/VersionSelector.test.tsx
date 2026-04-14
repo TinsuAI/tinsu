@@ -91,7 +91,7 @@ describe('VersionSelector', () => {
         isLoading: false
       } as ReturnType<typeof trpc.tasks.getTaskVersions.useQuery>)
 
-      render(<VersionSelector {...defaultProps} />)
+      render(<VersionSelector {...defaultProps} taskStatus="review" />)
 
       expect(screen.getByText('First review')).toBeTruthy()
     })

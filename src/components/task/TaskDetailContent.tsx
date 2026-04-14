@@ -40,6 +40,8 @@ import {
   VersionSelector,
   ReviewTimeline,
   FeedbackHistory,
+  MobileReviewActionBar,
+  MobileDiffViewer,
   type RejectButtonHandle
 } from '@renderer/components/review'
 import type { VersionComparisonParams } from '@renderer/hooks/useDiff'
@@ -655,7 +657,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-2">
           {/* Story 7.7: Version selector and comparison (only visible when status is 'review') */}
-          {task.status === 'review' && (
+          {task.status === 'review' && isDesktop && (
             <>
               <VersionSelector
                 taskId={taskId}
@@ -687,8 +689,8 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               <div className="mx-2 h-6 w-px bg-border/40" />
             </>
           )}
-          {/* Story 7.3, 7.4, 7.5: Approve/Reject/RequestChanges buttons (only visible when status is 'review') */}
-          {task.status === 'review' && (
+          {/* Story 7.3, 7.4, 7.5: Approve/Reject/RequestChanges buttons (only visible when status is 'review' on desktop) */}
+          {task.status === 'review' && isDesktop && (
             <>
               <RejectButton
                 ref={rejectButtonRef}
@@ -1005,12 +1007,26 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
                 showHeader={false}
                 className="h-full"
               >
-                {/* Story 8.11 Task 5.2: Pass task for mobile layout diff mode determination */}
-                {/* Story 7.7: Pass versionComparison for version comparison mode */}
-                <DiffPlaceholder task={task ?? undefined} versionComparison={versionComparison} />
+                {/* Story t3-6: Use MobileDiffViewer for mobile review workspace */}
+                <MobileDiffViewer
+                  taskId={taskId}
+                  task={task ?? undefined}
+                  versionComparison={versionComparison}
+                />
               </QuadPaneSection>
             </div>
           </div>
+
+          {/* Story t3-6: Mobile Sticky Action Bar for Review tasks */}
+          {task.status === 'review' && (
+            <MobileReviewActionBar
+              onApprove={approve}
+              onReject={reject}
+              isApproving={isApproving}
+              isRejecting={isRejecting}
+              hasConflict={task.has_merge_conflict === 1}
+            />
+          )}
         </>
       )}
     </div>

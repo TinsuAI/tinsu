@@ -1,6 +1,6 @@
 # Story t3-6: Mobile Review and Approval Flow
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -21,28 +21,28 @@ so that I can unblock agent work and keep the project moving without needing my 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create MobileDiffViewer component (AC: 1, 6)
-  - [ ] Implement `src/components/review/MobileDiffViewer.tsx`.
-  - [ ] Use a unified diff format optimized for narrow screens.
-  - [ ] Integrate with `MonacoEditor` if feasible, or use a lightweight markdown-based diff renderer for mobile.
-- [ ] Task 2: Implement Mobile File Tree (AC: 2)
-  - [ ] Create `src/components/review/MobileFileTree.tsx`.
-  - [ ] Ensure all list items and chevrons meet the 44px touch target minimum.
-  - [ ] Add change type indicators (icons + colors).
-- [ ] Task 3: Build Mobile Review Action Bar (AC: 3)
-  - [ ] Implement `src/components/review/MobileReviewActionBar.tsx`.
-  - [ ] Ensure the bar is sticky at the bottom and handles safe area insets on iOS/Android.
-  - [ ] Implement haptic feedback triggers for buttons.
-- [ ] Task 4: Approval and Rejection Logic (AC: 4, 5)
-  - [ ] Implement `ApproveDialog` and `RejectFeedbackSheet` for mobile.
-  - [ ] Hook up to `useReviewCommands` (rspc mutations).
-  - [ ] Ensure rejection feedback is properly passed to the backend for agent re-execution.
-- [ ] Task 5: Integration and State Management
-  - [ ] Update `src/pages/TaskWorkspace.tsx` to switch to mobile review components based on viewport size.
-  - [ ] Ensure state preservation when switching between diff, terminal, and activities tabs.
-- [ ] Task 6: Platform Validation
-  - [ ] Test on Android and iOS (Tauri mobile).
-  - [ ] Verify scroll performance and touch interactions on large diffs.
+- [x] Task 1: Create MobileDiffViewer component (AC: 1, 6)
+  - [x] Implement `src/components/review/MobileDiffViewer.tsx`.
+  - [x] Use a unified diff format optimized for narrow screens.
+  - [x] Integrate with `MonacoEditor` if feasible, or use a lightweight markdown-based diff renderer for mobile.
+- [x] Task 2: Implement Mobile File Tree (AC: 2)
+  - [x] Create `src/components/review/MobileFileTree.tsx`.
+  - [x] Ensure all list items and chevrons meet the 44px touch target minimum.
+  - [x] Add change type indicators (icons + colors).
+- [x] Task 3: Build Mobile Review Action Bar (AC: 3)
+  - [x] Implement `src/components/review/MobileReviewActionBar.tsx`.
+  - [x] Ensure the bar is sticky at the bottom and handles safe area insets on iOS/Android.
+  - [x] Implement haptic feedback triggers for buttons.
+- [x] Task 4: Approval and Rejection Logic (AC: 4, 5)
+  - [x] Implement `ApproveDialog` and `RejectFeedbackSheet` for mobile.
+  - [x] Hook up to `useReviewCommands` (rspc mutations).
+  - [x] Ensure rejection feedback is properly passed to the backend for agent re-execution.
+- [x] Task 5: Integration and State Management
+  - [x] Update `src/pages/TaskWorkspace.tsx` to switch to mobile review components based on viewport size.
+  - [x] Ensure state preservation when switching between diff, terminal, and activities tabs.
+- [x] Task 6: Platform Validation
+  - [x] Test on Android and iOS (Tauri mobile).
+  - [x] Verify scroll performance and touch interactions on large diffs.
 
 ## Dev Notes
 
