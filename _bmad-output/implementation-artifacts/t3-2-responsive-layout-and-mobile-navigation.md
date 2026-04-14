@@ -1,6 +1,6 @@
 # Story 3.2: Responsive Layout and Mobile Navigation
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
