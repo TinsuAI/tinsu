@@ -205,8 +205,11 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
     // Open terminal in container
     terminal.open(containerRef.current)
 
-    // Initial fit
-    fitAddon.fit()
+    // Initial fit — deferred so the browser completes layout before we measure
+    // the container dimensions (fixes wrong cols/rows when panel first opens)
+    const initialFitRaf = requestAnimationFrame(() => {
+      fitAddon.fit()
+    })
 
     // Handle user input - use ref to avoid recreation on callback change
     const dataDisposer = terminal.onData((data) => {
@@ -234,6 +237,7 @@ export const XTerminal = forwardRef<XTerminalRef, XTerminalProps>(function XTerm
 
     // Cleanup
     return () => {
+      cancelAnimationFrame(initialFitRaf)
       resizeObserver.disconnect()
       dataDisposer.dispose()
       resizeDisposer.dispose()
