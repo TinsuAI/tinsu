@@ -26,7 +26,8 @@ export function SortableTaskCard({ task, isDragging, className, ...props }: Sort
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition
+    transition,
+    touchAction: 'none'
   }
 
   return (

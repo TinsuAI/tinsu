@@ -1,0 +1,1 @@
+Activate the 'bmad-dev-story' skill. Implement story t3-3 from './_bmad-output/implementation-artifacts/t3-3-touch-optimized-kanban-interactions.md'. If UI components are needed, use 'wds-7-design-system' first for specifications. Ensure tests pass and update './_bmad-output/implementation-artifacts/sprint-status.yaml' to state 'review' for t3-3.

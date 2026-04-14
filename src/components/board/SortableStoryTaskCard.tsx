@@ -48,7 +48,8 @@ export function SortableStoryTaskCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition
+    transition,
+    touchAction: 'none'
   }
 
   return (

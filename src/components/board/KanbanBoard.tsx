@@ -4,6 +4,7 @@ import {
   pointerWithin,
   PointerSensor,
   KeyboardSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -142,6 +143,12 @@ export function KanbanBoard({
         distance: 8 // Prevent accidental drags
       }
     }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5
+      }
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates
     })
@@ -246,6 +253,11 @@ export function KanbanBoard({
   // Drag event handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string)
+
+    // Story 3.3 - AC: 7: Haptic feedback on drag start
+    if (window.navigator?.vibrate) {
+      window.navigator.vibrate(10)
+    }
   }, [])
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
@@ -258,6 +270,11 @@ export function KanbanBoard({
 
       setActiveId(null)
       setOverId(null)
+
+      // Story 3.3 - AC: 7: Haptic feedback on drop
+      if (window.navigator?.vibrate) {
+        window.navigator.vibrate(10)
+      }
 
       if (!over) return
 
@@ -452,7 +469,9 @@ export function KanbanBoard({
       {/* Story 3.2: Responsive layout (AC: 1, 6) - flex-row with swipe on mobile/tablet, grid on desktop */}
       <div
         className={cn(
-          'kanban-board-bg flex h-full min-h-0 flex-1 flex-row gap-5 overflow-x-auto p-5 snap-x snap-mandatory lg:grid lg:grid-cols-5 lg:overflow-hidden',
+          'kanban-board-bg flex h-full min-h-0 flex-1 flex-row gap-5 overflow-x-auto p-5 lg:grid lg:grid-cols-5 lg:overflow-hidden',
+          // Story 3.3 - AC: 3: Disable snap during drag to allow auto-scroll
+          !activeId && 'snap-x snap-mandatory',
           className
         )}
         data-testid="kanban-board"
