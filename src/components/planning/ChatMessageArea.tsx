@@ -13,8 +13,8 @@
  * Shows empty state when no messages exist.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { MessageSquare, AlertTriangle, ShieldAlert, Terminal } from 'lucide-react'
+import { useState, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { MessageSquare, AlertTriangle, ShieldAlert, Terminal, ChevronDown } from 'lucide-react'
 import { ChatMessageBubble } from './ChatMessageBubble'
 import { ChatToolActivityGroup } from './ChatToolActivityGroup'
 import { ChatWorkingIndicator } from './ChatWorkingIndicator'
@@ -243,37 +243,36 @@ export function ChatMessageArea({
   onResolvePermission
 }: ChatMessageAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const isUserScrolledUp = useRef(false)
+  // True until the user intentionally scrolls up; reset to true when they scroll back to bottom.
+  const isUserAtBottom = useRef(true)
+  const [showScrollButton, setShowScrollButton] = useState(false)
 
-  // Snapshot distance-from-bottom before each render so we can decide
-  // whether to auto-scroll after React commits the new DOM.
-  const prevDistanceRef = useRef(0)
-  // Capture pre-render scroll position whenever messages change
-  if (containerRef.current) {
-    const c = containerRef.current
-    prevDistanceRef.current = c.scrollHeight - c.scrollTop - c.clientHeight
-  }
-
-  /** Detect user scroll position relative to bottom (on user scroll) */
+  /** Track whether user is at the bottom on every scroll event */
   const handleScroll = useCallback(() => {
     const container = containerRef.current
     if (!container) return
-
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight
-    isUserScrolledUp.current = distanceFromBottom > SCROLL_THRESHOLD
+    const atBottom = distanceFromBottom <= SCROLL_THRESHOLD
+    isUserAtBottom.current = atBottom
+    setShowScrollButton(!atBottom)
   }, [])
 
-  /** Auto-scroll to bottom only if user was near the bottom before new content arrived */
-  useEffect(() => {
-    if (!bottomRef.current) return
-    // Use the pre-render snapshot: if user was within threshold before the
-    // DOM grew, they intended to stay at the bottom → scroll down.
-    if (prevDistanceRef.current <= SCROLL_THRESHOLD) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+  /** Scroll to bottom imperatively */
+  const scrollToBottom = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    container.scrollTop = container.scrollHeight
+    isUserAtBottom.current = true
+    setShowScrollButton(false)
+  }, [])
+
+  /** Auto-scroll to bottom when new content arrives, unless user has scrolled up */
+  useLayoutEffect(() => {
+    if (isUserAtBottom.current) {
+      scrollToBottom()
     }
-  }, [messages.length, isAgentThinking])
+  }, [messages.length, isAgentThinking, scrollToBottom])
 
   // Group messages into segments for rendering
   const segments = useMemo(() => groupMessages(messages), [messages])
@@ -296,10 +295,11 @@ export function ChatMessageArea({
   }
 
   return (
+    <div className="relative min-h-0 flex-1 overflow-hidden">
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+      className="h-full overflow-y-auto px-3 py-3"
       data-testid="chat-message-area"
     >
       <div className="space-y-3">
@@ -424,8 +424,20 @@ export function ChatMessageArea({
           />
         )}
       </div>
-      {/* Sentinel div for auto-scroll */}
-      <div ref={bottomRef} />
+    </div>
+
+    {/* Jump-to-bottom button — visible when user has scrolled up */}
+    {showScrollButton && (
+      <button
+        type="button"
+        onClick={scrollToBottom}
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full border border-border/40 bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="Jump to latest message"
+      >
+        <ChevronDown className="h-3 w-3" />
+        Latest
+      </button>
+    )}
     </div>
   )
 }

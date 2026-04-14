@@ -177,7 +177,11 @@ export const commands = {
 	createChatSession: (projectId: string, agentPersona: string | null, workflowKey: string | null) => typedError<ChatSessionModel, AppError>(__TAURI_INVOKE("create_chat_session", { projectId, agentPersona, workflowKey })),
 	// List all chat sessions for a project with last message preview, sorted by activity.
 	listChatSessionsWithPreview: (projectId: string) => typedError<ChatSessionPreview[], AppError>(__TAURI_INVOKE("list_chat_sessions_with_preview", { projectId })),
-	// Get messages for a chat session, sorted by created_at ASC.
+	/**
+	 *  Get messages for a chat session, sorted by created_at ASC.
+	 *  When no offset is provided, returns the *latest* `limit` messages so long
+	 *  sessions always show recent messages rather than the oldest ones.
+	 */
 	getChatMessages: (sessionId: string, limit: number | null, offset: number | null) => typedError<ChatMessageModel[], AppError>(__TAURI_INVOKE("get_chat_messages", { sessionId, limit, offset })),
 	// Send a message to the active chat session's tmux session.
 	sendChatMessage: (sessionId: string, content: string) => typedError<ChatMessageModel, AppError>(__TAURI_INVOKE("send_chat_message", { sessionId, content })),

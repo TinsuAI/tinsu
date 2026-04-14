@@ -773,8 +773,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
             </div>
           </div>
 
-          {/* Message area */}
+          {/* Message area — key resets scroll state when switching sessions */}
           <ChatMessageArea
+            key={sessionId ?? 'new-session'}
             messages={messages as React.ComponentProps<typeof ChatMessageArea>['messages']}
             agentPersona={selectedPersona}
             isAgentThinking={isAgentThinking}

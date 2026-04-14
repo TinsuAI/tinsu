@@ -536,6 +536,8 @@ pub async fn list_chat_sessions_with_preview(
 }
 
 /// Get messages for a chat session, sorted by created_at ASC.
+/// When no offset is provided, returns the *latest* `limit` messages so long
+/// sessions always show recent messages rather than the oldest ones.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_chat_messages(
@@ -544,21 +546,29 @@ pub async fn get_chat_messages(
     offset: Option<u64>,
     db: State<'_, DatabaseConnection>,
 ) -> Result<Vec<ChatMessageModel>, AppError> {
-    let mut query = chat_message::Entity::find()
-        .filter(chat_message::Column::SessionId.eq(&session_id))
-        .order_by_asc(chat_message::Column::CreatedAt);
+    let effective_limit = limit.map(|l| l.min(2000)).unwrap_or(2000);
 
-    if let Some(limit_val) = limit {
-        query = query.limit(limit_val.min(500));
-    } else {
-        query = query.limit(100);
-    }
     if let Some(offset_val) = offset {
-        query = query.offset(offset_val);
+        // Explicit offset: return a specific page in ASC order
+        let messages = chat_message::Entity::find()
+            .filter(chat_message::Column::SessionId.eq(&session_id))
+            .order_by_asc(chat_message::Column::CreatedAt)
+            .limit(effective_limit)
+            .offset(offset_val)
+            .all(db.inner())
+            .await?;
+        Ok(messages.into_iter().map(ChatMessageModel::from).collect())
+    } else {
+        // No offset: fetch the latest N messages (DESC) then reverse to ASC for the UI
+        let mut messages = chat_message::Entity::find()
+            .filter(chat_message::Column::SessionId.eq(&session_id))
+            .order_by_desc(chat_message::Column::CreatedAt)
+            .limit(effective_limit)
+            .all(db.inner())
+            .await?;
+        messages.reverse();
+        Ok(messages.into_iter().map(ChatMessageModel::from).collect())
     }
-
-    let messages = query.all(db.inner()).await?;
-    Ok(messages.into_iter().map(ChatMessageModel::from).collect())
 }
 
 /// Send a message to the active chat session's tmux session.
