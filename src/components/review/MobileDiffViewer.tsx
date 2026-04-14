@@ -1,14 +1,11 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { ChevronDown, ChevronRight, FileCode, AlertCircle, RefreshCw } from 'lucide-react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { cn, hapticFeedback } from '@renderer/lib/utils'
 import { useDiff } from '@renderer/hooks/useDiff'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { MobileFileTree } from './MobileFileTree'
-import { getLanguageFromPath } from '@renderer/components/diff/utils'
-import type { GitDiffFile, GitDiffHunk, GitDiffLine } from '@shared/types/git-diff.types'
+import type { GitDiffFile, GitDiffHunk } from '@shared/types/git-diff.types'
 
 export interface MobileDiffViewerProps {
   taskId: string
@@ -54,9 +51,15 @@ export function MobileDiffViewer({
     setShowFileTree(false)
     setExpandedFiles(prev => ({ ...prev, [path]: true }))
     
-    setTimeout(() => {
-      fileRefs.current[path]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 100)
+    // Use requestAnimationFrame for smoother timing after state update
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const element = fileRefs.current[path]
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 150) // Increased timeout to ensure file tree has closed
+    })
   }, [])
 
   if (isLoading) {
@@ -102,6 +105,8 @@ export function MobileDiffViewer({
             hapticFeedback(10)
             setShowFileTree(!showFileTree)
           }}
+          aria-expanded={showFileTree}
+          aria-controls="mobile-diff-file-tree"
           className="flex w-full items-center justify-between px-6 py-4 active:bg-white/5"
         >
           <div className="flex items-center gap-3">
@@ -115,6 +120,7 @@ export function MobileDiffViewer({
         
         {showFileTree && (
           <MobileFileTree
+            id="mobile-diff-file-tree"
             files={diff.files}
             onFileSelect={handleFileSelect}
             className="max-h-[60vh] border-t border-border/20"
@@ -132,6 +138,8 @@ export function MobileDiffViewer({
           >
             <button
               onClick={() => toggleFile(file.path)}
+              aria-expanded={expandedFiles[file.path] !== false}
+              aria-controls={`diff-content-${file.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
               className="flex w-full items-center justify-between px-6 py-4 hover:bg-white/5 active:bg-white/10"
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -158,9 +166,9 @@ export function MobileDiffViewer({
             </button>
 
             {expandedFiles[file.path] !== false && (
-              <div className="px-2 pb-4">
+              <div id={`diff-content-${file.path.replace(/[^a-zA-Z0-9]/g, '-')}`} className="px-2 pb-4">
                 {file.hunks.map((hunk, idx) => (
-                  <MobileDiffHunk key={idx} hunk={hunk} filePath={file.path} />
+                  <MobileDiffHunk key={idx} hunk={hunk} />
                 ))}
               </div>
             )}
@@ -171,9 +179,7 @@ export function MobileDiffViewer({
   )
 }
 
-function MobileDiffHunk({ hunk, filePath }: { hunk: GitDiffHunk; filePath: string }) {
-  const language = getLanguageFromPath(filePath)
-  
+function MobileDiffHunk({ hunk }: { hunk: GitDiffHunk }) {
   return (
     <div className="my-2 overflow-hidden rounded-lg border border-border/20 bg-[#0d1117]">
       <div className="bg-white/5 px-3 py-1.5 font-mono text-[10px] text-muted-foreground/60 border-b border-border/10">

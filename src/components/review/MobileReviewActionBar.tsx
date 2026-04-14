@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { CheckCircle2, XCircle, Pause, AlertTriangle, Loader2, MessageSquare } from 'lucide-react'
 import { cn, hapticFeedback } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { toast } from 'sonner'
 
 export interface MobileReviewActionBarProps {
   onApprove: () => void
@@ -37,6 +38,7 @@ export function MobileReviewActionBar({
   const [showRejectSheet, setShowRejectSheet] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [showRejectWarning, setShowRejectWarning] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleApproveClick = useCallback(() => {
     hapticFeedback(20)
@@ -70,8 +72,20 @@ export function MobileReviewActionBar({
 
   const handlePauseClick = useCallback(() => {
     hapticFeedback(10)
-    // Pause logic is deferred/optional for now but button is requested by AC3
+    toast.info('Pause coming soon', {
+      description: 'Agent pause functionality is being migrated to Tauri Rust core.'
+    })
   }, [])
+
+  // Focus management for rejection sheet
+  useEffect(() => {
+    if (showRejectSheet) {
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 350) // Wait for slide-in animation
+      return () => clearTimeout(timer)
+    }
+  }, [showRejectSheet])
 
   return (
     <div
@@ -154,9 +168,14 @@ export function MobileReviewActionBar({
 
       {/* Rejection Feedback Sheet (Mobile Slide-over imitation) */}
       {showRejectSheet && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-[#0a0a0b] animate-in slide-in-from-bottom duration-300">
+        <div 
+          className="fixed inset-0 z-[60] flex flex-col bg-[#0a0a0b] animate-in slide-in-from-bottom duration-300"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rejection-title"
+        >
           <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
-            <h3 className="text-lg font-semibold">Rejection Feedback</h3>
+            <h3 id="rejection-title" className="text-lg font-semibold">Rejection Feedback</h3>
             <Button
               variant="ghost"
               size="icon"
@@ -165,6 +184,7 @@ export function MobileReviewActionBar({
                 setFeedback('')
                 setShowRejectWarning(false)
               }}
+              aria-label="Close"
             >
               <XCircle className="h-6 w-6" />
             </Button>
@@ -174,6 +194,7 @@ export function MobileReviewActionBar({
               Provide feedback to help the agent improve. This task will return to In Progress.
             </p>
             <Textarea
+              ref={textareaRef}
               placeholder="What needs to be fixed?"
               value={feedback}
               onChange={(e) => {
@@ -182,11 +203,10 @@ export function MobileReviewActionBar({
                   setShowRejectWarning(false)
                 }
               }}
-              className="min-h-[200px] bg-card/30 text-base"
-              autoFocus
+              className="min-h-[200px] bg-card/30 text-base focus-visible:ring-emerald-500/50"
             />
             {showRejectWarning && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-amber-500">
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-amber-500" role="alert">
                 <AlertTriangle className="h-5 w-5 shrink-0" />
                 <p className="text-sm font-medium">Feedback is recommended. Reject anyway?</p>
               </div>
@@ -196,7 +216,7 @@ export function MobileReviewActionBar({
             <Button
               size="lg"
               onClick={handleConfirmReject}
-              className="w-full gap-2 bg-red-600 text-white hover:bg-red-700"
+              className="w-full gap-2 bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]"
             >
               <MessageSquare className="h-5 w-5" />
               {showRejectWarning ? 'Reject Without Feedback' : 'Submit Feedback & Reject'}

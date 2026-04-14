@@ -134,7 +134,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         // Reset manual scroll flag after animation completes
         scrollTimeoutRef.current = setTimeout(() => {
           isManualScrollingRef.current = false
-        }, 600) // Slightly longer than typical smooth scroll
+        }, 800) // Match or slightly exceed smooth scroll duration
       }
     }
   }, [activeTab])
@@ -146,7 +146,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
 
     const scrollLeft = container.scrollLeft
     const width = container.clientWidth
-    if (width === 0) return
+    if (width < 50) return // Avoid division by zero or tiny widths
 
     const index = Math.round(scrollLeft / width)
     const tabs: Array<typeof activeTab> = ['content', 'activities', 'terminal', 'diff']

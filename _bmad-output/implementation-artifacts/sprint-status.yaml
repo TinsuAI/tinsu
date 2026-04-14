@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-15  # t3-6 in-progress
+last_updated: 2026-04-15  # t3-6 done
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -404,7 +404,7 @@ development_status:
   t3-3-touch-optimized-kanban-interactions: done  # Code review complete - 3 auto-fixes applied (Replaced PointerSensor with MouseSensor to prevent scroll interception, added haptic feedback on drag cancel, increased touch tolerance to 10px), all 113 focused board tests passing
   t3-4-mobile-ssh-connection-flow: done  # Code review complete - 4 auto-fixes applied (key storage AC/comment update to file-based, SettingsDialog layout fix, MobileSshConnectionForm port default and key auto-selection), all 142 tests passing
   t3-5-mobile-terminal-view: done
-  t3-6-mobile-review-and-approval-flow: review
+  t3-6-mobile-review-and-approval-flow: done
   t3-7-mobile-chat-with-planning-agents: backlog
   t3-8-mobile-platform-validation: backlog
   tauri-epic-3-retrospective: optional

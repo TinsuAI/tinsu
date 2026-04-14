@@ -1,6 +1,6 @@
 # Story t3-6: Mobile Review and Approval Flow
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -43,6 +43,14 @@ so that I can unblock agent work and keep the project moving without needing my 
 - [x] Task 6: Platform Validation
   - [x] Test on Android and iOS (Tauri mobile).
   - [x] Verify scroll performance and touch interactions on large diffs.
+
+### Review Findings
+
+- [x] [Review][Patch] Unused SyntaxHighlighter and getLanguageFromPath imports removed [MobileDiffViewer.tsx]
+- [x] [Review][Patch] Missing ARIA attributes added to collapsible file tree and file list [MobileDiffViewer.tsx]
+- [x] [Review][Patch] Haptic feedback added to Pause button and informative toast for future migration [MobileReviewActionBar.tsx]
+- [x] [Review][Patch] Rejection feedback sheet accessibility improved with ARIA dialog roles and focus management [MobileReviewActionBar.tsx]
+- [x] [Review][Patch] Mobile tab scroll synchronization logic optimized with debounced manual scroll guard [TaskDetailContent.tsx]
 
 ## Dev Notes
 
