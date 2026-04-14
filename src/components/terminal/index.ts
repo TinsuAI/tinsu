@@ -1,3 +1,5 @@
 export { TerminalDock } from './TerminalDock'
 export { XTerminal, type XTerminalRef, type XTerminalProps } from './XTerminal'
+export { MobileTerminal, type MobileTerminalRef, type MobileTerminalProps } from './MobileTerminal'
+export { TerminalAccessoryBar } from './TerminalAccessoryBar'
 export { DockPositionSelector } from './DockPositionSelector'
