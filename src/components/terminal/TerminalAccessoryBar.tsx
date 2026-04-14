@@ -43,7 +43,7 @@ export function TerminalAccessoryBar({ onKeyPress, className }: TerminalAccessor
             key={btn.label}
             type="button"
             onClick={() => onKeyPress(btn.key)}
-            className="flex items-center justify-center min-w-[44px] h-[44px] px-3 rounded bg-zinc-800 text-zinc-300 text-xs font-medium active:bg-zinc-700 transition-colors"
+            className="flex items-center justify-center min-w-[44px] h-[44px] px-3 rounded bg-zinc-800 text-zinc-300 text-xs font-medium active:bg-zinc-700 transition-colors select-none touch-manipulation"
           >
             {btn.label}
           </button>
@@ -56,7 +56,7 @@ export function TerminalAccessoryBar({ onKeyPress, className }: TerminalAccessor
             key={arrow.label}
             type="button"
             onClick={() => onKeyPress(arrow.key)}
-            className="flex items-center justify-center w-[44px] h-[44px] rounded bg-zinc-800 text-zinc-300 active:bg-zinc-700 transition-colors"
+            className="flex items-center justify-center w-[44px] h-[44px] rounded bg-zinc-800 text-zinc-300 active:bg-zinc-700 transition-colors select-none touch-manipulation"
             aria-label={arrow.label}
           >
             <arrow.icon size={18} />

@@ -57,6 +57,18 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
   // Ctrl and Alt states for modifier keys
   const [ctrlActive, setCtrlActive] = useState(false)
   const [altActive, setAltActive] = useState(false)
+  
+  // Use refs for the modifiers to avoid terminal re-creation in useEffect
+  const ctrlActiveRef = useRef(ctrlActive)
+  const altActiveRef = useRef(altActive)
+  
+  useEffect(() => {
+    ctrlActiveRef.current = ctrlActive
+  }, [ctrlActive])
+  
+  useEffect(() => {
+    altActiveRef.current = altActive
+  }, [altActive])
 
   // Double-tap detection
   const lastTapRef = useRef<number>(0)
@@ -157,7 +169,7 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
       // but primarily we handle them via state for the accessory bar
       let finalData = data
       
-      if (ctrlActive) {
+      if (ctrlActiveRef.current) {
         // Simple Ctrl combination for A-Z
         if (data.length === 1) {
           const code = data.toUpperCase().charCodeAt(0)
@@ -166,7 +178,7 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
           }
         }
         setCtrlActive(false)
-      } else if (altActive) {
+      } else if (altActiveRef.current) {
         finalData = '\x1b' + data
         setAltActive(false)
       }
@@ -195,9 +207,13 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
 
     // Keyboard and Viewport Management
     const handleViewportChange = () => {
-      if (window.visualViewport) {
-        // Adjust container height based on viewport height to handle keyboard
-        // This is handled by CSS in our layout mostly, but we trigger fit here
+      if (window.visualViewport && containerRef.current) {
+        // Explicitly set height of terminal area when keyboard is visible
+        // to ensure the command line isn't covered.
+        if (isFullScreen) {
+          containerRef.current.style.height = `${window.visualViewport.height - 48}px` // 48px for accessory bar
+        }
+        
         fitAddon.fit()
         terminal.scrollToBottom()
       }
@@ -215,7 +231,7 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
       fitAddonRef.current = null
       serializeAddonRef.current = null
     }
-  }, [ctrlActive, altActive]) // Re-bind onData to capture latest modifier state
+  }, [isFullScreen]) // Re-run if fullScreen state changes to re-bind viewport height logic
 
 
   const handleAccessoryKeyPress = useCallback((key: string) => {
@@ -229,21 +245,21 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
     }
     
     let data = key
-    if (ctrlActive) {
+    if (ctrlActiveRef.current) {
       // If we have specific mappings for Ctrl + key, we could put them here
       // For now, assume common keys like C, D, Z
       if (key === 'c' || key === 'C') data = '\x03'
       else if (key === 'd' || key === 'D') data = '\x04'
       else if (key === 'z' || key === 'Z') data = '\x1a'
       setCtrlActive(false)
-    } else if (altActive) {
+    } else if (altActiveRef.current) {
       data = '\x1b' + key
       setAltActive(false)
     }
     
     terminalRef.current?.focus()
     onDataRef.current?.(data)
-  }, [ctrlActive, altActive])
+  }, [])
 
   return (
     <div 
@@ -258,6 +274,7 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
         className="flex-1 w-full" 
         role="log"
         aria-label="Mobile terminal output"
+        tabIndex={0}
       />
       
       {/* Accessory Bar - show when focused or permanently on mobile */}

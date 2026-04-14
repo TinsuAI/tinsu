@@ -48,7 +48,7 @@ export function MobileSshConnectionForm({
   onCancel,
 }: MobileSshConnectionFormProps) {
   const [host, setHost] = useState(initial?.host ?? '')
-  const [port, setPort] = useState(initial?.port ?? 22)
+  const [port, setPort] = useState<number | string>(initial?.port ?? 22)
   const [username, setUsername] = useState(initial?.username ?? '')
   const [authMethod, setAuthMethod] = useState<'key' | 'password'>((initial?.auth_method as 'key' | 'password') ?? 'key')
   const [keyName, setKeyName] = useState(initial?.key_name ?? '')
@@ -78,7 +78,7 @@ export function MobileSshConnectionForm({
       if (type === 'success') {
         navigator.vibrate([10, 30, 10])
       } else if (type === 'error') {
-        navigator.vibrate(50)
+        navigator.vibrate(300) // AC: "one long" vibration
       } else if (type === 'pulse') {
         navigator.vibrate(10)
       }
@@ -91,7 +91,7 @@ export function MobileSshConnectionForm({
     try {
       const data = await testMutation.mutateAsync({
         host,
-        port,
+        port: Number(port),
         username,
         auth_method: authMethod,
         key_name: authMethod === 'key' ? keyName || null : null,
@@ -118,7 +118,7 @@ export function MobileSshConnectionForm({
       const name = installKeyName.trim() || `${username.replace(/[^a-z0-9]/gi, '')}-tinsu`
       const entry = await installMutation.mutateAsync({
         host,
-        port,
+        port: Number(port),
         username,
         password: installPassword,
         key_name: name,
@@ -143,7 +143,7 @@ export function MobileSshConnectionForm({
         savedConn = await updateMutation.mutateAsync({
           id: initial.id,
           host,
-          port,
+          port: Number(port),
           username,
           auth_method: authMethod,
           key_name: authMethod === 'key' ? keyName || null : null,
@@ -152,7 +152,7 @@ export function MobileSshConnectionForm({
       } else {
         savedConn = await createMutation.mutateAsync({
           host,
-          port,
+          port: Number(port),
           username,
           auth_method: authMethod,
           key_name: authMethod === 'key' ? keyName || null : null,
@@ -170,9 +170,10 @@ export function MobileSshConnectionForm({
   const isFormValid =
     host.trim() !== '' &&
     username.trim() !== '' &&
-    !isNaN(port) &&
-    port >= 1 &&
-    port <= 65535 &&
+    port !== '' &&
+    !isNaN(Number(port)) &&
+    Number(port) >= 1 &&
+    Number(port) <= 65535 &&
     (authMethod !== 'key' || keyName.trim() !== '')
 
   const isSaving = createMutation.isPending || updateMutation.isPending
@@ -207,10 +208,10 @@ export function MobileSshConnectionForm({
             </Label>
             <Input
               type="number"
-              value={port || ''}
+              value={port}
               onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                setPort(isNaN(val) ? 22 : val)
+                const val = e.target.value
+                setPort(val === '' ? '' : parseInt(val, 10))
               }}
               min={1}
               max={65535}
