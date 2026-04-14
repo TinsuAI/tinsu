@@ -204,6 +204,7 @@ describe('AppShell', () => {
       lastProjectPath: null
     })
     useTerminalStore.setState({
+      isVisible: true,
       isExpanded: true,
       height: 300,
       activeProcessId: null
@@ -243,11 +244,11 @@ describe('AppShell', () => {
     expect(screen.queryByText('Ready for development')).not.toBeInTheDocument()
   })
 
-  it('should have min-width of 1024px', () => {
+  it('should not have fixed min-width (Story 3.2 - Responsive)', () => {
     render(<AppShell />, { wrapper: createWrapper() })
     // The container is 2 levels up from the header (header > wrapper div > container)
     const container = screen.getByRole('banner').parentElement?.parentElement
-    expect(container).toHaveClass('min-w-[1024px]')
+    expect(container).not.toHaveClass('min-w-[1024px]')
   })
 
   it('should have h-screen for full viewport height', () => {

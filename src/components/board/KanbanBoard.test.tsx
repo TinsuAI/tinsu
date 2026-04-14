@@ -84,11 +84,11 @@ describe('KanbanBoard', () => {
   })
 
   // Story 5.2b: Updated from grid-cols-4 to grid-cols-5
-  it('should use 5-column grid layout (Story 5.2b)', () => {
+  it('should use 5-column grid layout on desktop (Story 5.2b)', () => {
     render(<KanbanBoard tasks={[]} />)
 
     const board = screen.getByTestId('kanban-board')
-    expect(board).toHaveClass('grid', 'grid-cols-5')
+    expect(board).toHaveClass('lg:grid', 'lg:grid-cols-5')
   })
 
   it('should display correct task counts per column', () => {

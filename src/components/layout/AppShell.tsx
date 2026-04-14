@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
+import { MobileBottomNav } from './MobileBottomNav'
 import { TerminalDock } from '@renderer/components/terminal'
 import { ImportStoriesDialog } from '@renderer/components/dialogs/ImportStoriesDialog'
 import { DeleteAllTasksDialog } from '@renderer/components/dialogs/DeleteAllTasksDialog'
@@ -77,7 +78,7 @@ export function AppShell({ children }: AppShellProps) {
   }, [isVisible, isExpanded, dockPosition, height, width])
 
   return (
-    <div className="flex h-screen min-w-[1024px] flex-col overflow-hidden bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
       <Header
         onImportStories={handleImportStories}
         onDeleteAllTasks={handleDeleteAllTasks}
@@ -86,10 +87,11 @@ export function AppShell({ children }: AppShellProps) {
         onOpenSettings={handleOpenSettings}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden" style={contentPadding}>
-        <Sidebar />
+        <Sidebar className="hidden lg:flex" />
         <MainContent>{children}</MainContent>
       </div>
       {isVisible && <TerminalDock />}
+      <MobileBottomNav className="flex lg:hidden" onOpenSettings={handleOpenSettings} />
 
       {/* Story 3.7: Import Stories dialog - accessible from header */}
       <ImportStoriesDialog

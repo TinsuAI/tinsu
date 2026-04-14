@@ -39,13 +39,13 @@ describe('PhaseBadge', () => {
     expect(badge).toHaveClass('font-medium')
   })
 
-  it('has planning-specific color classes (cyan theme)', () => {
+  it('has planning-specific color classes (violet theme)', () => {
     render(<PhaseBadge phaseNumber={1} />)
 
     const badge = screen.getByTestId('phase-badge')
-    expect(badge).toHaveClass('bg-cyan-600/20')
-    expect(badge).toHaveClass('text-cyan-400')
-    expect(badge).toHaveClass('border-cyan-600/30')
+    expect(badge.className).toContain('from-violet-500/30')
+    expect(badge).toHaveClass('text-violet-300')
+    expect(badge).toHaveClass('border-violet-500/40')
   })
 
   it('has data-testid attribute', () => {

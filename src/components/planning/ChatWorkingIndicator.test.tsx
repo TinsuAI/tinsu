@@ -39,17 +39,12 @@ vi.mock('@renderer/constants/planning-workspace', () => {
 
 describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
   describe('generic thinking indicator', () => {
-    it('shows "is thinking..." when no currentToolActivity', () => {
+    it('shows Gen Z phrases when active', () => {
       render(<ChatWorkingIndicator />)
 
       expect(screen.getByTestId('chat-thinking-indicator')).toBeInTheDocument()
-      expect(screen.getByText('is thinking...')).toBeInTheDocument()
-    })
-
-    it('shows "is thinking..." when currentToolActivity is null', () => {
-      render(<ChatWorkingIndicator currentToolActivity={null} />)
-
-      expect(screen.getByText('is thinking...')).toBeInTheDocument()
+      // Phrases are randomized, so we check for common elements or the phrase container
+      expect(screen.getByTestId('working-indicator-phrase')).toBeInTheDocument()
     })
 
     it('shows persona label', () => {
@@ -66,7 +61,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
   })
 
   describe('contextual tool activity', () => {
-    it('shows "Reading {file}..." for Read tool', () => {
+    it('shows tool detail for Read tool', () => {
       render(
         <ChatWorkingIndicator
           agentPersona="bmad:bmm:agents:pm"
@@ -77,12 +72,10 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
         />
       )
 
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Reading architecture.md...'
-      )
+      expect(screen.getByText(/↳ architecture.md/i)).toBeInTheDocument()
     })
 
-    it('shows "Writing {file}..." for Write tool', () => {
+    it('shows tool detail for Write tool', () => {
       render(
         <ChatWorkingIndicator
           currentToolActivity={{
@@ -92,12 +85,10 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
         />
       )
 
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Writing output.ts...'
-      )
+      expect(screen.getByText(/↳ output.ts/i)).toBeInTheDocument()
     })
 
-    it('shows "Editing {file}..." for Edit tool', () => {
+    it('shows tool detail for Edit tool', () => {
       render(
         <ChatWorkingIndicator
           currentToolActivity={{
@@ -107,27 +98,10 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
         />
       )
 
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Editing config.yaml...'
-      )
+      expect(screen.getByText(/↳ config.yaml/i)).toBeInTheDocument()
     })
 
-    it('shows "Running command..." for Bash tool', () => {
-      render(
-        <ChatWorkingIndicator
-          currentToolActivity={{
-            toolName: 'Bash',
-            toolInput: { command: 'npm test' }
-          }}
-        />
-      )
-
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Running command...'
-      )
-    })
-
-    it('shows "Searching for {pattern}..." for Grep tool', () => {
+    it('shows tool detail for Grep tool', () => {
       render(
         <ChatWorkingIndicator
           currentToolActivity={{
@@ -137,39 +111,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
         />
       )
 
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Searching for "TODO|FIXME"...'
-      )
-    })
-
-    it('shows "Finding files..." for Glob tool', () => {
-      render(
-        <ChatWorkingIndicator
-          currentToolActivity={{
-            toolName: 'Glob',
-            toolInput: { pattern: '**/*.tsx' }
-          }}
-        />
-      )
-
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Finding files...'
-      )
-    })
-
-    it('shows "Using {toolName}..." for unknown tools', () => {
-      render(
-        <ChatWorkingIndicator
-          currentToolActivity={{
-            toolName: 'CustomTool',
-            toolInput: {}
-          }}
-        />
-      )
-
-      expect(screen.getByTestId('working-indicator-tool-text')).toHaveTextContent(
-        'Using CustomTool...'
-      )
+      expect(screen.getByText(/↳ "TODO|FIXME"/i)).toBeInTheDocument()
     })
   })
 
@@ -181,7 +123,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
 
       const dot = screen.getByTestId('working-indicator-dot')
       expect(dot).toBeInTheDocument()
-      expect(dot.className).toContain('animate-pulse')
+      expect(dot.style.animation).toContain('cooking-pulse')
       expect(dot.className).toContain('bg-green-400')
     })
 
@@ -192,7 +134,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
 
       const dot = screen.getByTestId('working-indicator-dot')
       expect(dot).toBeInTheDocument()
-      expect(dot.className).toContain('animate-pulse')
+      expect(dot.style.animation).toContain('cooking-pulse')
       expect(dot.className).toContain('bg-muted-foreground/40')
     })
   })

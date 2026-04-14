@@ -99,7 +99,47 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>(
     'content'
   )
-  const [isEditing, setEditing] = useState(true)
+  const [isEditing, setEditing] = useState(false)
+
+  // Ref for TaskTerminal to enable focus control
+  const terminalRef = useRef<TaskTerminalRef>(null)
+
+  // Ref for mobile tabs content container to enable swipe and sync
+  const tabsContentRef = useRef<HTMLDivElement>(null)
+
+  // Handle manual tab navigation with smooth scroll
+  const handleTabClick = useCallback((tab: typeof activeTab) => {
+    setActiveTab(tab)
+    const container = tabsContentRef.current
+    if (container) {
+      const tabs: Array<typeof activeTab> = ['content', 'activities', 'terminal', 'diff']
+      const index = tabs.indexOf(tab)
+      if (index !== -1) {
+        container.scrollTo({
+          left: index * container.clientWidth,
+          behavior: 'smooth'
+        })
+      }
+    }
+  }, [])
+
+  // Sync activeTab state with scroll position for swiping
+  const handleTabsScroll = useCallback(() => {
+    const container = tabsContentRef.current
+    if (!container || isDesktop) return
+
+    const scrollLeft = container.scrollLeft
+    const width = container.clientWidth
+    if (width === 0) return
+
+    const index = Math.round(scrollLeft / width)
+    const tabs: Array<typeof activeTab> = ['content', 'activities', 'terminal', 'diff']
+    const newTab = tabs[index]
+
+    if (newTab && newTab !== activeTab) {
+      setActiveTab(newTab)
+    }
+  }, [isDesktop, activeTab])
 
   // Story 8.3: Branch name copy feedback state
   const [branchCopied, setBranchCopied] = useState(false)
@@ -114,9 +154,6 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   const [showFeedbackHistory, setShowFeedbackHistory] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
   const [compareVersion, setCompareVersion] = useState<number | null>(null)
-
-  // Ref for TaskTerminal to enable focus control
-  const terminalRef = useRef<TaskTerminalRef>(null)
 
   // Story 7.4 AC 1: Ref for RejectButton to enable keyboard shortcut
   const rejectButtonRef = useRef<RejectButtonHandle>(null)
@@ -254,7 +291,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Reset state when taskId changes
   useEffect(() => {
     setActiveTab('content')
-    setEditing(true)
+    setEditing(false)
     setHasChanges(false)
     setConflictBannerDismissed(false) // Story 8.7: Reset dismissed state when task changes
     setShowConflictResolution(false) // Story 8.8: Close resolution view on task change
@@ -834,7 +871,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         <>
           {/* Tab bar */}
           <div
-            className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2"
+            className="task-detail-panel-tabs flex gap-1 border-b border-border/30 px-6 py-2 overflow-x-auto hide-scrollbar"
             role="tablist"
             aria-label="Task Detail Tabs"
           >
@@ -842,9 +879,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               type="button"
               role="tab"
               aria-selected={activeTab === 'content'}
-              onClick={() => setActiveTab('content')}
+              onClick={() => handleTabClick('content')}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === 'content'
                   ? 'bg-cyan-500/20 text-cyan-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -858,9 +895,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               type="button"
               role="tab"
               aria-selected={activeTab === 'activities'}
-              onClick={() => setActiveTab('activities')}
+              onClick={() => handleTabClick('activities')}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === 'activities'
                   ? 'bg-cyan-500/20 text-cyan-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -874,9 +911,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               type="button"
               role="tab"
               aria-selected={activeTab === 'terminal'}
-              onClick={() => setActiveTab('terminal')}
+              onClick={() => handleTabClick('terminal')}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === 'terminal'
                   ? 'bg-cyan-500/20 text-cyan-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -890,9 +927,9 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
               type="button"
               role="tab"
               aria-selected={activeTab === 'diff'}
-              onClick={() => setActiveTab('diff')}
+              onClick={() => handleTabClick('diff')}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
                 activeTab === 'diff'
                   ? 'bg-cyan-500/20 text-cyan-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -904,49 +941,61 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
             </button>
           </div>
 
-          {/* Tab content */}
-          <div className="min-h-0 flex-1 p-4">
+          {/* Tab content - Swipeable container */}
+          <div
+            ref={tabsContentRef}
+            onScroll={handleTabsScroll}
+            className="flex min-h-0 flex-1 overflow-x-auto snap-x snap-mandatory kanban-scroll scroll-smooth"
+          >
             {/* Content Tab */}
-            <QuadPaneSection
-              title="Content"
-              icon={BookOpen}
-              showHeader={false}
-              className={cn('h-full', !isVisible('content') && 'hidden')}
-            >
-              {contentSection}
-            </QuadPaneSection>
+            <div className="h-full w-full shrink-0 snap-center p-4">
+              <QuadPaneSection
+                title="Content"
+                icon={BookOpen}
+                showHeader={false}
+                className="h-full"
+              >
+                {contentSection}
+              </QuadPaneSection>
+            </div>
 
             {/* Activities Tab */}
-            <QuadPaneSection
-              title="Activities"
-              icon={Activity}
-              showHeader={false}
-              className={cn('h-full', !isVisible('activities') && 'hidden')}
-            >
-              <ActivitiesTab taskId={taskId} />
-            </QuadPaneSection>
+            <div className="h-full w-full shrink-0 snap-center p-4">
+              <QuadPaneSection
+                title="Activities"
+                icon={Activity}
+                showHeader={false}
+                className="h-full"
+              >
+                <ActivitiesTab taskId={taskId} />
+              </QuadPaneSection>
+            </div>
 
             {/* Terminal Tab */}
-            <QuadPaneSection
-              title="Terminal"
-              icon={Terminal}
-              showHeader={false}
-              className={cn('h-full', !isVisible('terminal') && 'hidden')}
-            >
-              <TaskTerminal ref={terminalRef} taskId={taskId} />
-            </QuadPaneSection>
+            <div className="h-full w-full shrink-0 snap-center p-4">
+              <QuadPaneSection
+                title="Terminal"
+                icon={Terminal}
+                showHeader={false}
+                className="h-full"
+              >
+                <TaskTerminal ref={terminalRef} taskId={taskId} />
+              </QuadPaneSection>
+            </div>
 
             {/* Diff Tab */}
-            <QuadPaneSection
-              title="Diff"
-              icon={GitCompareArrows}
-              showHeader={false}
-              className={cn('h-full', !isVisible('diff') && 'hidden')}
-            >
-              {/* Story 8.11 Task 5.2: Pass task for mobile layout diff mode determination */}
-              {/* Story 7.7: Pass versionComparison for version comparison mode */}
-              <DiffPlaceholder task={task ?? undefined} versionComparison={versionComparison} />
-            </QuadPaneSection>
+            <div className="h-full w-full shrink-0 snap-center p-4">
+              <QuadPaneSection
+                title="Diff"
+                icon={GitCompareArrows}
+                showHeader={false}
+                className="h-full"
+              >
+                {/* Story 8.11 Task 5.2: Pass task for mobile layout diff mode determination */}
+                {/* Story 7.7: Pass versionComparison for version comparison mode */}
+                <DiffPlaceholder task={task ?? undefined} versionComparison={versionComparison} />
+              </QuadPaneSection>
+            </div>
           </div>
         </>
       )}

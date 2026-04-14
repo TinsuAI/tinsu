@@ -449,10 +449,10 @@ export function KanbanBoard({
       onDragCancel={handleDragCancel}
       accessibility={{ announcements }}
     >
-      {/* Story 5.2b: Updated from grid-cols-4 to grid-cols-5 for Create Story column */}
+      {/* Story 3.2: Responsive layout (AC: 1, 6) - flex-row with swipe on mobile/tablet, grid on desktop */}
       <div
         className={cn(
-          'kanban-board-bg grid h-full min-h-0 flex-1 grid-cols-5 gap-5 overflow-hidden p-5',
+          'kanban-board-bg flex h-full min-h-0 flex-1 flex-row gap-5 overflow-x-auto p-5 snap-x snap-mandatory lg:grid lg:grid-cols-5 lg:overflow-hidden',
           className
         )}
         data-testid="kanban-board"
@@ -468,6 +468,7 @@ export function KanbanBoard({
               taskCount={columnTasks.length}
               isOver={overId === `column-${status}`}
               onAddTask={onAddTask}
+              className="w-full shrink-0 snap-center md:w-[calc(50%-10px)] lg:w-auto lg:shrink"
             >
               <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                 {columnTasks.length === 0 ? (
