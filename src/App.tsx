@@ -13,8 +13,12 @@ import { trpc } from './lib/trpc'
 import { useFileWatcher } from './hooks/useFileWatcher'
 import { ProjectSetupDialog } from './components/ProjectSetupDialog'
 import { useOpenProjectByPath } from './hooks/useProjectCommands'
+import { useNetworkResilience } from './hooks/useNetworkResilience'
 
 function App(): React.JSX.Element {
+  // Global network resilience monitor
+  useNetworkResilience()
+
   const { projectPath, projectName, setProject, clearProject } = useProjectStore()
   const activeStoryId = useStoryViewStore((state) => state.activeStoryId)
   // TES-3.1: Full-screen task workspace navigation

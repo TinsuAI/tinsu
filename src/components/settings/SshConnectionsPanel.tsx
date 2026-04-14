@@ -375,12 +375,12 @@ export function ConnectionDialog({
                 Select Key
               </Label>
               {availableKeys.length === 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3" data-testid="no-keys-message">
                   <p
                     className="text-[11px]"
                     style={{ color: 'rgba(255,255,255,0.35)', fontFamily: "'JetBrains Mono', monospace" }}
                   >
-                    No SSH keys yet. Enter the server password once to generate and install a key automatically.
+                    Generate an SSH key first. Enter the server password once to generate and install a key automatically.
                   </p>
                   <Input
                     type="password"
@@ -399,6 +399,7 @@ export function ConnectionDialog({
                   {installStatus !== 'success' && (
                     <button
                       onClick={handleInstallKey}
+                      data-testid="install-key-btn"
                       disabled={!installPassword || !host || !username || installStatus === 'installing'}
                       className="flex w-full items-center justify-center gap-1.5 h-8 rounded text-[11px] uppercase tracking-wider transition-all disabled:opacity-40"
                       style={{
@@ -414,8 +415,7 @@ export function ConnectionDialog({
                         <><Key size={11} /> Generate & Install Key</>
                       )}
                     </button>
-                  )}
-                  {installStatus === 'success' && (
+                  )}                  {installStatus === 'success' && (
                     <div
                       className="flex items-center gap-2 px-3 py-2 rounded text-xs"
                       style={{

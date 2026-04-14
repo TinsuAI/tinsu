@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown,
   FolderOpen,
@@ -26,6 +26,7 @@ import {
 import {
   useOpenRemoteProject,
   useRemoteConnectionStatus,
+  useSshStatusSubscription,
 } from '@renderer/hooks/useRemoteProjectSwitcher'
 import { commands } from '@renderer/lib/rspc'
 import type { RemoteProjectProfile, SshConnectionProfile } from '@renderer/lib/rspc'
@@ -38,13 +39,26 @@ interface ConnectionBadgeProps {
 }
 
 function ConnectionBadge({ connectionId, pollingEnabled }: ConnectionBadgeProps) {
+  const queryClient = useQueryClient()
   const { data, isPending } = useRemoteConnectionStatus(connectionId, pollingEnabled)
+
+  // Story 3.4 AC: Subscribe to real-time status updates
+  useSshStatusSubscription(
+    useCallback(
+      (payload) => {
+        if (payload.connection_id === connectionId) {
+          queryClient.invalidateQueries({ queryKey: ['remoteHookStatus', connectionId] })
+        }
+      },
+      [connectionId, queryClient]
+    )
+  )
 
   if (isPending) {
     return (
       <span
         data-testid={`connection-badge-${connectionId}`}
-        className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60"
+        className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60 h-11 lg:h-auto"
       >
         <Loader2 className="h-2.5 w-2.5 animate-spin" />
         Connecting
@@ -56,7 +70,7 @@ function ConnectionBadge({ connectionId, pollingEnabled }: ConnectionBadgeProps)
     return (
       <span
         data-testid={`connection-badge-${connectionId}`}
-        className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-500"
+        className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-500 h-11 lg:h-auto"
       >
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
@@ -70,7 +84,7 @@ function ConnectionBadge({ connectionId, pollingEnabled }: ConnectionBadgeProps)
   return (
     <span
       data-testid={`connection-badge-${connectionId}`}
-      className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/50"
+      className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/50 h-11 lg:h-auto"
     >
       <span className="h-2 w-2 rounded-full border border-muted-foreground/30 bg-muted-foreground/10" />
       Disconnected

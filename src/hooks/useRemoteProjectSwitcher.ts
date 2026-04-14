@@ -2,8 +2,38 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { commands } from '@renderer/lib/rspc'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { toast } from 'sonner'
+import { useEffect, useRef } from 'react'
+import { listen } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting'
+
+/**
+ * Hook to subscribe to real-time SSH status changes.
+ */
+export function useSshStatusSubscription(onStatusChange: (payload: { connection_id: string; is_active: boolean }) => void) {
+  const callbackRef = useRef(onStatusChange)
+  callbackRef.current = onStatusChange
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: UnlistenFn | undefined
+
+    listen<{ connection_id: string; is_active: boolean }>('ssh:status-changed', (event) => {
+      callbackRef.current(event.payload)
+    })
+      .then((fn) => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+}
 
 /**
  * Poll hook forwarder status for a specific connection_id.

@@ -1,5 +1,5 @@
-//! SSH key generation, OS keychain management, and connection testing.
-//! Uses ssh-key crate for Ed25519 key generation and keyring for secure storage.
+//! SSH key generation and management using file-based PEM storage.
+//! Uses ssh-key crate for Ed25519 key generation.
 
 use crate::error::AppError;
 use crate::models::ssh_config::{SshConnectionTestResult, SshKeyEntry, SshKeyExport};

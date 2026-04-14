@@ -154,7 +154,7 @@ describe('SshConnectionsPanel', () => {
     fireEvent.click(screen.getByTestId('add-connection-btn'))
     await waitFor(() => {
       expect(screen.getByTestId('no-keys-message')).toBeInTheDocument()
-      expect(screen.getByText('Generate an SSH key first')).toBeInTheDocument()
+      expect(screen.getByText(/Generate an SSH key first/i)).toBeInTheDocument()
     })
   })
 
