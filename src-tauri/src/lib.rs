@@ -150,8 +150,12 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(|app| {
             let app_handle = app.handle().clone();
+            let app_data_dir = app_handle
+                .path()
+                .app_data_dir()
+                .expect("Failed to resolve app data dir");
             tauri::async_runtime::block_on(async move {
-                let db = db::connect().await.expect("Failed to connect to database");
+                let db = db::connect(&app_data_dir).await.expect("Failed to connect to database");
                 Migrator::up(&db, None)
                     .await
                     .expect("Failed to run migrations");
@@ -160,10 +164,6 @@ pub fn run() {
                 // Initialize services
                 let tmux_service = Arc::new(TmuxService::new());
                 let pty_service = Arc::new(PtyService::new());
-                let app_data_dir = app_handle
-                    .path()
-                    .app_data_dir()
-                    .expect("Failed to resolve app data dir");
                 let scrollback_backup = Arc::new(ScrollbackBackup::new(app_data_dir));
 
                 // Restore session state on startup

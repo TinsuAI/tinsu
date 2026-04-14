@@ -54,3 +54,5 @@ data/
 src-electron-deprecated/
 
 screenshot/
+
+*-lock.json
