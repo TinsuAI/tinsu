@@ -23,6 +23,7 @@ interface ChatTerminalProps {
 
 export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   const termRef = useRef<XTerminalRef>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const [processId, setProcessId] = useState<string | null>(null)
   const [isAttached, setIsAttached] = useState(false)
   const processIdRef = useRef<string | null>(null)
@@ -32,6 +33,21 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   useEffect(() => {
     processIdRef.current = processId
   }, [processId])
+
+  // Re-fit the terminal whenever the panel gets its real dimensions.
+  // react-resizable-panels applies flex-grow in a second render (after its
+  // internal mountedGroupsChange → scheduleUpdate cycle), so the terminal
+  // container can have wrong/zero size during XTerminal's initial fit.
+  // Observing the panel root here catches that size settling.
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      termRef.current?.fit()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // Attach on mount — uses Tauri Channel for PTY output streaming
   useEffect(() => {
@@ -155,7 +171,7 @@ export function ChatTerminal({ sessionId, onClose }: ChatTerminalProps) {
   )
 
   return (
-    <div className="flex h-full flex-col" data-testid="chat-terminal">
+    <div ref={panelRef} className="flex h-full flex-col" data-testid="chat-terminal">
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-border/20 px-2 py-1">
         <div className="flex items-center gap-1.5">
