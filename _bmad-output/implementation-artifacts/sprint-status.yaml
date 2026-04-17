@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-16  # t3-7 code review complete - mobile chat with planning agents
+last_updated: 2026-04-16  # t3-8 story created - mobile platform validation ready for dev
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -406,7 +406,7 @@ development_status:
   t3-5-mobile-terminal-view: done
   t3-6-mobile-review-and-approval-flow: done
   t3-7-mobile-chat-with-planning-agents: done  # Code review complete - 8 auto-fixes applied (prefers-reduced-motion accessibility, keyboard height guard, error handling, date validation, empty projectId validation, formatMobileTime safety, truncatePreview empty text, error UI display)
-  t3-8-mobile-platform-validation: backlog
+  t3-8-mobile-platform-validation: review
   tauri-epic-3-retrospective: optional
 
   # Tauri Epic 4: CI/CD and Build Pipeline (Phase 4)
