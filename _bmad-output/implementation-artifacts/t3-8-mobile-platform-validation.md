@@ -1,6 +1,6 @@
 # Story t3-8: Mobile Platform Validation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 <!-- Dev Agent: Mobile platform validation — comprehensive testing and bug fixing across Android and iOS -->
