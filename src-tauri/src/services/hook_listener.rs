@@ -132,15 +132,18 @@ impl HookListenerService {
             .with_state(Arc::clone(&state));
 
         // Write port file with restrictive permissions
-        if let Err(e) = std::fs::write("/tmp/tinsu-hook-port", self.port.to_string()) {
-            tracing::warn!("Failed to write /tmp/tinsu-hook-port: {}", e);
-        } else {
-            // Ensure file has restrictive permissions (600 = rw-------)
-            // Use std::fs::set_permissions to chmod 600 immediately after write
-            use std::fs::Permissions;
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(e) = std::fs::set_permissions("/tmp/tinsu-hook-port", Permissions::from_mode(0o600)) {
-                tracing::warn!("Failed to set permissions on /tmp/tinsu-hook-port: {}", e);
+        #[cfg(unix)]
+        {
+            if let Err(e) = std::fs::write("/tmp/tinsu-hook-port", self.port.to_string()) {
+                tracing::warn!("Failed to write /tmp/tinsu-hook-port: {}", e);
+            } else {
+                // Ensure file has restrictive permissions (600 = rw-------)
+                // Use std::fs::set_permissions to chmod 600 immediately after write
+                use std::fs::Permissions;
+                use std::os::unix::fs::PermissionsExt;
+                if let Err(e) = std::fs::set_permissions("/tmp/tinsu-hook-port", Permissions::from_mode(0o600)) {
+                    tracing::warn!("Failed to set permissions on /tmp/tinsu-hook-port: {}", e);
+                }
             }
         }
 

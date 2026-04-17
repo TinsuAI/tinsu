@@ -10,7 +10,9 @@
  */
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { trpc } from '@renderer/lib/trpc'
+import { useProjectStore } from '@renderer/stores'
 import {
   SLASH_COMMANDS,
   fuzzyFilterCommands,
@@ -18,6 +20,12 @@ import {
   type SlashCommandDefinition
 } from '@renderer/constants/slash-commands'
 import { fuzzyFilter } from '@renderer/lib/fuzzy-match'
+
+interface FileEntry {
+  name: string
+  relative_path: string
+  is_directory: boolean
+}
 
 type AutocompleteTrigger = '/' | '@'
 
@@ -135,7 +143,8 @@ export function useAutocomplete({
 }: UseAutocompleteOptions): UseAutocompleteReturn {
   const [state, setState] = useState<AutocompleteState>(INITIAL_STATE)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const utils = trpc.useUtils()
+  const projectPath = useProjectStore((s) => s.projectPath)
+  const remoteConnectionId = useProjectStore((s) => s.remoteConnectionId)
 
   // Fetch skill manifest (cached, fetched once)
   const { data: manifestSkills } = trpc.planning.getSkillManifest.useQuery(undefined, {
@@ -158,25 +167,35 @@ export function useAutocomplete({
 
   const fetchFiles = useCallback(
     async (query: string) => {
-      setState((s) => ({ ...s, isLoading: true }))
+      console.log('[useAutocomplete] fetchFiles called', { projectPath, query })
+      if (!projectPath) {
+        setState((s) => ({ ...s, isLoading: false, items: [], isOpen: false }))
+        return
+      }
       try {
         // If query contains '/', use directory-based prefix listing
         // If query is empty, show root directory listing
         // Otherwise, use fuzzy search across all project files
         const useFuzzy = query !== '' && !query.includes('/')
-        const results = useFuzzy
-          ? await utils.project.searchFiles.fetch({ query })
-          : await utils.project.listFiles.fetch({ prefix: query })
+        console.log('[useAutocomplete] invoking', { projectPath, query, useFuzzy, remoteConnectionId })
+        const results: FileEntry[] = remoteConnectionId
+          ? useFuzzy
+            ? await invoke('search_remote_project_files', { input: { connection_id: remoteConnectionId, project_path: projectPath, query } })
+            : await invoke('list_remote_project_files', { input: { connection_id: remoteConnectionId, project_path: projectPath, prefix: query } })
+          : useFuzzy
+          ? await invoke('search_project_files', { input: { project_path: projectPath, query } })
+          : await invoke('list_project_files', { input: { project_path: projectPath, prefix: query } })
+        console.log('[useAutocomplete] fetchFiles results', results)
 
         setState((s) => {
           // Only update if we're still in file mode
           if (s.trigger !== '@') return s
           let items: AutocompleteItem[] = results.map((r) => ({
-            id: r.relativePath,
+            id: r.relative_path,
             label: r.name,
-            description: r.relativePath,
-            icon: r.isDirectory ? ('folder' as const) : ('file' as const),
-            insertText: r.relativePath + (r.isDirectory ? '/' : ' '),
+            description: r.relative_path,
+            icon: r.is_directory ? ('folder' as const) : ('file' as const),
+            insertText: r.relative_path + (r.is_directory ? '/' : ' '),
             category: 'Files'
           }))
           // Re-rank file results by fuzzy score
@@ -188,14 +207,15 @@ export function useAutocomplete({
             items,
             selectedIndex: 0,
             isLoading: false,
-            isOpen: items.length > 0
+            isOpen: true
           }
         })
-      } catch {
+      } catch (err) {
+        console.error('[useAutocomplete] fetchFiles failed:', err)
         setState((s) => ({ ...s, items: [], isLoading: false, isOpen: false }))
       }
     },
-    [utils.project.listFiles, utils.project.searchFiles]
+    [projectPath, remoteConnectionId]
   )
 
   const handleInputChange = useCallback(
@@ -222,13 +242,16 @@ export function useAutocomplete({
           isLoading: false
         })
       } else if (found.trigger === '@') {
-        // File paths: debounced backend fetch
+        console.log('[useAutocomplete] @ trigger detected', { query: found.query })
+        // File paths: show loading immediately, then debounced backend fetch
         setState((s) => ({
           ...s,
           trigger: '@',
           query: found.query,
           triggerIndex: found.triggerIndex,
-          isOpen: true
+          isOpen: true,
+          isLoading: true,
+          items: []
         }))
 
         if (debounceRef.current) clearTimeout(debounceRef.current)

@@ -91,6 +91,17 @@ export const commands = {
 	 *     name = remote_project.name, remote_project_id = remote_project.id
 	 */
 	openRemoteProject: (remoteProjectId: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("open_remote_project", { remoteProjectId })),
+	/**
+	 *  Lists immediate children of the directory determined by the given prefix.
+	 *  If prefix has no `/`, lists the project root.
+	 *  If prefix ends with `/` or contains `/`, lists up to the last `/`.
+	 */
+	listProjectFiles: (input: ListProjectFilesInput) => typedError<FileEntry[], AppError>(__TAURI_INVOKE("list_project_files", { input })),
+	/**
+	 *  Recursively walks the project directory (up to depth 8, skipping common noise dirs)
+	 *  and returns files/dirs whose names contain `query` (case-insensitive). Max 50 results.
+	 */
+	searchProjectFiles: (input: SearchProjectFilesInput) => typedError<FileEntry[], AppError>(__TAURI_INVOKE("search_project_files", { input })),
 	// Returns BMAD installation status by reading _bmad/_config/manifest.yaml.
 	bmadCheckStatus: (projectPath: string) => typedError<BmadStatus, AppError>(__TAURI_INVOKE("bmad_check_status", { projectPath })),
 	// Runs `npx bmad-method install` with the given options.
@@ -166,7 +177,11 @@ export const commands = {
 	createChatSession: (projectId: string, agentPersona: string | null, workflowKey: string | null) => typedError<ChatSessionModel, AppError>(__TAURI_INVOKE("create_chat_session", { projectId, agentPersona, workflowKey })),
 	// List all chat sessions for a project with last message preview, sorted by activity.
 	listChatSessionsWithPreview: (projectId: string) => typedError<ChatSessionPreview[], AppError>(__TAURI_INVOKE("list_chat_sessions_with_preview", { projectId })),
-	// Get messages for a chat session, sorted by created_at ASC.
+	/**
+	 *  Get messages for a chat session, sorted by created_at ASC.
+	 *  When no offset is provided, returns the *latest* `limit` messages so long
+	 *  sessions always show recent messages rather than the oldest ones.
+	 */
 	getChatMessages: (sessionId: string, limit: number | null, offset: number | null) => typedError<ChatMessageModel[], AppError>(__TAURI_INVOKE("get_chat_messages", { sessionId, limit, offset })),
 	// Send a message to the active chat session's tmux session.
 	sendChatMessage: (sessionId: string, content: string) => typedError<ChatMessageModel, AppError>(__TAURI_INVOKE("send_chat_message", { sessionId, content })),
@@ -327,6 +342,16 @@ export const commands = {
 	 *  - File size ≤ 1MB (checked via wc -c before reading)
 	 */
 	readRemoteFile: (remoteProjectId: string, relativePath: string) => typedError<string, AppError>(__TAURI_INVOKE("read_remote_file", { remoteProjectId, relativePath })),
+	/**
+	 *  Lists immediate children (files + dirs) of the directory determined by the prefix via SSH.
+	 *  Uses `ls -1ap` on the remote; entries ending with `/` are directories.
+	 */
+	listRemoteProjectFiles: (input: ListRemoteProjectFilesInput) => typedError<FileEntry[], AppError>(__TAURI_INVOKE("list_remote_project_files", { input })),
+	/**
+	 *  Searches files and directories by name on the remote project via SSH find.
+	 *  Uses GNU find's `-printf` to get type info; max 50 results, depth 8.
+	 */
+	searchRemoteProjectFiles: (input: SearchRemoteProjectFilesInput) => typedError<FileEntry[], AppError>(__TAURI_INVOKE("search_remote_project_files", { input })),
 	/**
 	 *  Start SSH reverse tunnel for hook forwarding (idempotent — no-op if already running).
 	 * 
@@ -518,6 +543,12 @@ export type EpicModel = {
 	created_at: number,
 };
 
+export type FileEntry = {
+	name: string,
+	relative_path: string,
+	is_directory: boolean,
+};
+
 export type GateDecisionModel = {
 	id: string,
 	project_id: string,
@@ -601,6 +632,12 @@ export type ListEpicsInput = {
 	project_id: string,
 };
 
+export type ListProjectFilesInput = {
+	project_path: string,
+	// Relative prefix — empty for root, "src/" to list that dir, "src/comp" to list src/ dir
+	prefix: string,
+};
+
 export type ListRecentProjectsInput = {
 	limit: number,
 };
@@ -610,6 +647,13 @@ export type ListRemoteDirInput = {
 	connection_id: string,
 	// Absolute path or `~` to list. Defaults to `~`.
 	path: string | null,
+};
+
+export type ListRemoteProjectFilesInput = {
+	connection_id: string,
+	project_path: string,
+	// Relative prefix — empty for root, "src/" to list that dir, "src/comp" to list src/ dir.
+	prefix: string,
 };
 
 export type ListSprintsInput = {
@@ -716,6 +760,17 @@ export type ScrollbackMetadata = {
 export type ScrollbackResult = {
 	content: string | null,
 	metadata: ScrollbackMetadata | null,
+};
+
+export type SearchProjectFilesInput = {
+	project_path: string,
+	query: string,
+};
+
+export type SearchRemoteProjectFilesInput = {
+	connection_id: string,
+	project_path: string,
+	query: string,
 };
 
 /**

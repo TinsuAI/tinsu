@@ -4,6 +4,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::path::Path;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -500,6 +501,139 @@ pub async fn verify_tools(project_path: String) -> Result<Vec<ToolCheckResult>, 
     });
 
     Ok(results)
+}
+
+// ---------------------------------------------------------------------------
+// File listing for @ autocomplete in chat input
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct FileEntry {
+    pub name: String,
+    pub relative_path: String,
+    pub is_directory: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct ListProjectFilesInput {
+    pub project_path: String,
+    /// Relative prefix — empty for root, "src/" to list that dir, "src/comp" to list src/ dir
+    pub prefix: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct SearchProjectFilesInput {
+    pub project_path: String,
+    pub query: String,
+}
+
+/// Lists immediate children of the directory determined by the given prefix.
+/// If prefix has no `/`, lists the project root.
+/// If prefix ends with `/` or contains `/`, lists up to the last `/`.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_project_files(input: ListProjectFilesInput) -> Result<Vec<FileEntry>, AppError> {
+    let base = Path::new(&input.project_path);
+
+    // Determine which dir to list and the relative dir prefix for building relative_path
+    let (dir_path, dir_prefix) = if let Some(last_slash) = input.prefix.rfind('/') {
+        let dir_part = &input.prefix[..=last_slash]; // includes trailing slash
+        (base.join(dir_part), dir_part.to_string())
+    } else {
+        (base.to_path_buf(), String::new())
+    };
+
+    let read_dir = match std::fs::read_dir(&dir_path) {
+        Ok(rd) => rd,
+        Err(_) => return Ok(vec![]),
+    };
+
+    let mut entries: Vec<FileEntry> = read_dir
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            // Skip hidden entries
+            if name.starts_with('.') {
+                return None;
+            }
+            let is_directory = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            let relative_path = format!("{}{}", dir_prefix, name);
+            Some(FileEntry {
+                name,
+                relative_path,
+                is_directory,
+            })
+        })
+        .collect();
+
+    entries.sort_by(|a, b| b.is_directory.cmp(&a.is_directory).then(a.name.cmp(&b.name)));
+    Ok(entries)
+}
+
+/// Recursively walks the project directory (up to depth 8, skipping common noise dirs)
+/// and returns files/dirs whose names contain `query` (case-insensitive). Max 50 results.
+#[tauri::command]
+#[specta::specta]
+pub async fn search_project_files(input: SearchProjectFilesInput) -> Result<Vec<FileEntry>, AppError> {
+    let base = std::path::PathBuf::from(&input.project_path);
+    let query_lower = input.query.to_lowercase();
+    let mut results = Vec::new();
+    walk_for_search(&base, &base, &query_lower, &mut results, 0);
+    results.sort_by(|a, b| b.is_directory.cmp(&a.is_directory).then(a.name.cmp(&b.name)));
+    Ok(results)
+}
+
+const SKIP_DIRS: &[&str] = &[
+    "node_modules", "target", "dist", ".git", ".next", ".cache", "build", "__pycache__",
+];
+
+fn walk_for_search(
+    base: &std::path::Path,
+    dir: &std::path::Path,
+    query: &str,
+    results: &mut Vec<FileEntry>,
+    depth: usize,
+) {
+    if depth > 8 || results.len() >= 50 {
+        return;
+    }
+
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    for entry in read_dir.filter_map(|e| e.ok()) {
+        if results.len() >= 50 {
+            break;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let is_directory = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        if is_directory && SKIP_DIRS.contains(&name.as_str()) {
+            continue;
+        }
+
+        let relative_path = entry
+            .path()
+            .strip_prefix(base)
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+
+        if name.to_lowercase().contains(query) {
+            results.push(FileEntry {
+                name: name.clone(),
+                relative_path,
+                is_directory,
+            });
+        }
+
+        if is_directory {
+            walk_for_search(base, &entry.path(), query, results, depth + 1);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -51,6 +51,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::project::create_project,
         commands::project::verify_tools,
         commands::project::open_remote_project,
+        commands::project::list_project_files,
+        commands::project::search_project_files,
         commands::bmad::bmad_check_status,
         commands::bmad::bmad_install_to_path,
         commands::bmad::install_nodejs,
@@ -119,6 +121,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_agent::detach_remote_task_terminal,
         commands::remote_files::get_remote_task_diff,
         commands::remote_files::read_remote_file,
+        commands::remote_files::list_remote_project_files,
+        commands::remote_files::search_remote_project_files,
         commands::remote_hook::start_remote_hook_forwarder,
         commands::remote_hook::stop_remote_hook_forwarder,
         commands::remote_hook::get_remote_hook_status,
@@ -250,8 +254,12 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(|app| {
             let app_handle = app.handle().clone();
+            let app_data_dir = app_handle
+                .path()
+                .app_data_dir()
+                .expect("Failed to resolve app data dir");
             tauri::async_runtime::block_on(async move {
-                let db = db::connect().await.expect("Failed to connect to database");
+                let db = db::connect(&app_data_dir).await.expect("Failed to connect to database");
                 Migrator::up(&db, None)
                     .await
                     .expect("Failed to run migrations");
@@ -261,10 +269,6 @@ pub fn run() {
                 let tmux_service = Arc::new(TmuxService::new());
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 let pty_service = Arc::new(PtyService::new());
-                let app_data_dir = app_handle
-                    .path()
-                    .app_data_dir()
-                    .expect("Failed to resolve app data dir");
                 let scrollback_backup = Arc::new(ScrollbackBackup::new(app_data_dir));
 
                 // Restore session state on startup

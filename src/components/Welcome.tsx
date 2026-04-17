@@ -21,6 +21,8 @@ interface ProjectOpenedInfo {
   projectId: string
   projectName: string
   needsOnboarding?: boolean
+  remoteProjectId?: string | null
+  remoteConnectionId?: string | null
 }
 
 interface WelcomeProps {
@@ -139,7 +141,14 @@ export function Welcome({ onProjectOpened, className }: WelcomeProps) {
         const result = await commands.openRemoteProject(remoteProjectId)
         if (result.status === 'error') throw new Error(JSON.stringify(result.error))
         const project = result.data
-        onProjectOpened({ path: project.path, projectId: project.id, projectName: project.name })
+        const remoteProfile = remoteProfiles?.find((p) => p.id === remoteProjectId)
+        onProjectOpened({
+          path: project.path,
+          projectId: project.id,
+          projectName: project.name,
+          remoteProjectId,
+          remoteConnectionId: remoteProfile?.connection_id ?? null,
+        })
       } else {
         // Local project: validate path first
         const isValid = pathValidation.get(path) ?? true

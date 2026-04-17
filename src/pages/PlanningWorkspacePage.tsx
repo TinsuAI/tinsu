@@ -37,6 +37,7 @@ import { SessionDocumentsBar } from '@renderer/components/planning/SessionDocume
 import { WorkflowRunPanel } from '@renderer/components/planning/WorkflowRunPanel'
 import { ReadinessGatePanel } from '@renderer/components/planning/ReadinessGatePanel'
 import { AgentPersonaIndicator } from '@renderer/components/planning/AgentPersonaIndicator'
+import { RemoteConnectionBadge } from '@renderer/components/project'
 import { KeyboardShortcutsOverlay } from '@renderer/components/planning/KeyboardShortcutsOverlay'
 import { ChatPanel } from '@renderer/components/planning/ChatPanel'
 import { ChatTerminal } from '@renderer/components/planning/ChatTerminal'
@@ -515,6 +516,7 @@ export function PlanningWorkspacePage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <RemoteConnectionBadge />
             <AgentPersonaIndicator
               agentName={activeRun?.agent_name ?? null}
               workflowKey={activeRun?.workflow_key ?? null}
