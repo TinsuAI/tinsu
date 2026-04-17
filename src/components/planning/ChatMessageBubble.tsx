@@ -38,36 +38,40 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** Markdown components sized for chat context (smaller headings, tighter spacing) */
+/**
+ * Story t3-7: Markdown components optimized for mobile viewports.
+ * Responsive font sizes: smaller on mobile, larger on desktop.
+ * Code blocks support horizontal scrolling on narrow screens.
+ */
 const chatMarkdownComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <h1 className="mb-2 mt-4 text-lg font-bold tracking-tight text-foreground first:mt-0">
+    <h1 className="mb-2 mt-4 text-sm md:text-lg font-bold tracking-tight text-foreground first:mt-0">
       {children}
     </h1>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="mb-2 mt-3 text-base font-semibold tracking-tight text-foreground">{children}</h2>
+    <h2 className="mb-2 mt-3 text-xs md:text-base font-semibold tracking-tight text-foreground">{children}</h2>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="mb-1.5 mt-2.5 text-sm font-semibold text-foreground">{children}</h3>
+    <h3 className="mb-1.5 mt-2.5 text-xs md:text-sm font-semibold text-foreground">{children}</h3>
   ),
   h4: ({ children }: { children?: React.ReactNode }) => (
-    <h4 className="mb-1 mt-2 text-sm font-medium text-foreground">{children}</h4>
+    <h4 className="mb-1 mt-2 text-xs md:text-sm font-medium text-foreground">{children}</h4>
   ),
   p: ({ children }: { children?: React.ReactNode }) => (
-    <p className="mb-2 text-sm leading-relaxed text-foreground/90 last:mb-0">{children}</p>
+    <p className="mb-2 text-xs md:text-sm leading-relaxed text-foreground/90 last:mb-0">{children}</p>
   ),
   ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul className="mb-2 ml-4 list-disc space-y-1 text-sm text-foreground/90">{children}</ul>
+    <ul className="mb-2 ml-4 list-disc space-y-1 text-xs md:text-sm text-foreground/90">{children}</ul>
   ),
   ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol className="mb-2 ml-4 list-decimal space-y-1 text-sm text-foreground/90">{children}</ol>
+    <ol className="mb-2 ml-4 list-decimal space-y-1 text-xs md:text-sm text-foreground/90">{children}</ol>
   ),
   li: ({ children }: { children?: React.ReactNode }) => (
     <li className="leading-relaxed">{children}</li>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="my-2 border-l-2 border-cyan-500/40 pl-3 text-sm italic text-foreground/70">
+    <blockquote className="my-2 border-l-2 border-cyan-500/40 pl-3 text-xs md:text-sm italic text-foreground/70">
       {children}
     </blockquote>
   ),
@@ -79,7 +83,7 @@ const chatMarkdownComponents = {
 
     if (isInline) {
       return (
-        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-cyan-400">
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px] md:text-xs text-cyan-400">
           {children}
         </code>
       )
@@ -90,18 +94,18 @@ const chatMarkdownComponents = {
   pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
   hr: () => <hr className="my-3 border-border/30" />,
   table: ({ children }: { children?: React.ReactNode }) => (
-    <div className="my-2 overflow-x-auto">
-      <table className="w-full border-collapse text-xs">{children}</table>
+    <div className="my-2 overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border/30">
+      <table className="w-full border-collapse text-[11px] md:text-xs">{children}</table>
     </div>
   ),
   thead: ({ children }: { children?: React.ReactNode }) => (
     <thead className="border-b border-border bg-muted/30">{children}</thead>
   ),
   th: ({ children }: { children?: React.ReactNode }) => (
-    <th className="px-3 py-1.5 text-left text-xs font-semibold text-foreground">{children}</th>
+    <th className="px-2 md:px-3 py-1 md:py-1.5 text-left text-[10px] md:text-xs font-semibold text-foreground">{children}</th>
   ),
   td: ({ children }: { children?: React.ReactNode }) => (
-    <td className="border-b border-border/30 px-3 py-1.5 text-xs text-foreground/90">{children}</td>
+    <td className="border-b border-border/30 px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs text-foreground/90">{children}</td>
   ),
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a
@@ -176,54 +180,56 @@ export function ChatMessageBubble({
           <X className="h-3 w-3" />
         </button>
       )}
+      {/* Story t3-7: Mobile-optimized bubble with responsive width and padding */}
       <div
         className={cn(
-          'max-w-[85%] rounded-xl px-3.5 py-2.5',
+          'rounded-xl px-3 py-2 md:px-3.5 md:py-2.5',
+          'max-w-[90%] sm:max-w-[85%]',
           isUser
             ? 'bg-cyan-600/20 rounded-br-md'
             : 'bg-muted/60 rounded-bl-md'
         )}
       >
         {/* Sender label */}
-        <div className="mb-1 flex items-center gap-1.5">
+        <div className="mb-1 flex items-center gap-1 md:gap-1.5">
           {isUser ? (
-            <span className="text-[11px] font-medium text-cyan-400">You</span>
+            <span className="text-[10px] md:text-[11px] font-medium text-cyan-400">You</span>
           ) : (
             <>
               {persona && (
-                <span className={cn('h-1.5 w-1.5 rounded-full', persona.dot)} />
+                <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', persona.dot)} />
               )}
-              <span className={cn('text-[11px] font-medium', persona?.text ?? 'text-muted-foreground')}>
+              <span className={cn('text-[10px] md:text-[11px] font-medium truncate', persona?.text ?? 'text-muted-foreground')}>
                 {persona?.displayName ?? 'Agent'}
               </span>
             </>
           )}
-          <span className="text-[10px] text-muted-foreground/60">
+          <span className="text-[9px] md:text-[10px] text-muted-foreground/60 flex-shrink-0">
             {formatTimestamp(createdAt)}
           </span>
         </div>
 
-        {/* Attachments — rendered above text content */}
+        {/* Story t3-7: Attachments with mobile-optimized sizes */}
         {attachments && attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2" data-testid="message-attachments">
+          <div className="mb-2 flex flex-wrap gap-1 md:gap-2" data-testid="message-attachments">
             {attachments.map((att) =>
               att.mime_type.startsWith('image/') ? (
                 <img
                   key={att.id}
                   src={`tinsu-file://${att.file_path}`}
                   alt={att.file_name}
-                  className="max-h-64 max-w-xs rounded border border-border/20 object-contain cursor-pointer"
+                  className="max-h-40 md:max-h-64 max-w-xs rounded border border-border/20 object-contain cursor-pointer"
                   data-testid={`attachment-image-${att.id}`}
                 />
               ) : (
                 <div
                   key={att.id}
-                  className="flex items-center gap-2 rounded border border-border/30 bg-muted/30 px-2.5 py-1.5"
+                  className="flex items-center gap-1.5 md:gap-2 rounded border border-border/30 bg-muted/30 px-2 md:px-2.5 py-1 md:py-1.5"
                   data-testid={`attachment-file-${att.id}`}
                 >
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-foreground/80">{att.file_name}</span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <Paperclip className="h-3 md:h-3.5 w-3 md:w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-[10px] md:text-xs text-foreground/80 truncate">{att.file_name}</span>
+                  <span className="text-[9px] md:text-[10px] text-muted-foreground flex-shrink-0">
                     {formatFileSize(att.file_size)}
                   </span>
                 </div>
@@ -232,10 +238,12 @@ export function ChatMessageBubble({
           </div>
         )}
 
-        {/* Message content */}
+        {/* Story t3-7: Message content with responsive text size */}
         {isUser ? (
           content ? (
-            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{content}</p>
+            <p className="text-xs md:text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
+              {content}
+            </p>
           ) : null
         ) : (
           <div className="chat-markdown-content">

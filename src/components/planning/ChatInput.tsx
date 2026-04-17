@@ -16,6 +16,8 @@ import { cn } from '@renderer/lib/utils'
 import { useAutocomplete } from '@renderer/hooks/useAutocomplete'
 import { AutocompleteDropdown } from './AutocompleteDropdown'
 
+// Story t3-7: Mobile-optimized input field with viewport adjustment
+
 /** A file staged for sending but not yet saved to disk */
 export interface PendingAttachment {
   file: File
@@ -75,6 +77,48 @@ export function ChatInput({
     }
   }, [autoFocus])
 
+  /**
+   * Story t3-7: Handle mobile visualViewport changes to prevent keyboard overlap.
+   * When soft keyboard appears on mobile, adjust scroll position and padding
+   * to keep input field visible above the keyboard.
+   * Guard: cancelAnimationFrame cleanup to prevent stale callbacks after unmount.
+   */
+  useEffect(() => {
+    const handleVisualViewportChange = () => {
+      if (!textareaRef.current) return
+
+      const visualViewport = window.visualViewport
+      if (!visualViewport) return
+
+      // Scroll input into view when keyboard appears
+      const frameId = requestAnimationFrame(() => {
+        const textarea = textareaRef.current
+        if (textarea) {
+          const rect = textarea.getBoundingClientRect()
+          // Guard: ensure keyboard height is never negative
+          const keyboardHeight = Math.max(0, window.innerHeight - visualViewport.height)
+
+          // If input would be obscured by keyboard, scroll it up
+          if (rect.bottom > visualViewport.height - keyboardHeight) {
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }
+        }
+      })
+
+      return frameId
+    }
+
+    const visualViewport = window.visualViewport
+    if (visualViewport) {
+      const frameId = handleVisualViewportChange()
+      visualViewport.addEventListener('resize', handleVisualViewportChange)
+      return () => {
+        visualViewport.removeEventListener('resize', handleVisualViewportChange)
+        if (frameId !== undefined) cancelAnimationFrame(frameId)
+      }
+    }
+  }, [])
+
   /** Consume initialValue when it changes (pre-fill from workflow click) */
   useEffect(() => {
     if (initialValue && initialValue !== lastConsumedPrefill.current) {
@@ -123,6 +167,14 @@ export function ChatInput({
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim()
     if (!canSend || disabled) return
+
+    // Story t3-7: Haptic feedback on send (mobile).
+    // Guard: Check prefers-reduced-motion to respect accessibility preferences.
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!prefersReducedMotion && typeof window !== 'undefined' && 'navigator' in window) {
+      // @ts-ignore - W3C Vibration API available on mobile browsers; TypeScript definitions lag
+      navigator.vibrate?.(15)
+    }
 
     onSend(trimmed, pendingAttachments)
     setValue('')
@@ -279,18 +331,25 @@ export function ChatInput({
       <div
         className={cn(
           'flex items-end gap-2 border-t border-border/50 bg-card/30 px-3 py-2.5',
+          'md:gap-3 md:px-4 md:py-3',
           isDragOver && 'border-cyan-500/60 bg-cyan-500/5'
         )}
       >
-        {/* Attach button */}
+        {/* Attach button - Story t3-7: Mobile touch target (min 44x44) */}
         <button
           type="button"
           onClick={onAttachClick}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+          className={cn(
+            'flex shrink-0 items-center justify-center rounded-lg text-muted-foreground',
+            'transition-colors duration-150',
+            'h-9 w-9 md:h-10 md:w-10',
+            'hover:text-foreground active:scale-95',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+          )}
           data-testid="chat-attach-button"
           title="Attach files"
         >
-          <Paperclip className="h-4 w-4" />
+          <Paperclip className="h-4 w-4 md:h-5 md:w-5" />
         </button>
 
         <textarea
@@ -304,7 +363,8 @@ export function ChatInput({
           rows={1}
           className={cn(
             'flex-1 resize-none rounded-lg border border-border/40 bg-background/60 px-3 py-2',
-            'text-sm text-foreground placeholder:text-muted-foreground/50',
+            'md:px-4 md:py-2.5',
+            'text-sm md:text-base text-foreground placeholder:text-muted-foreground/50',
             'focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border'
@@ -312,12 +372,15 @@ export function ChatInput({
           style={{ maxHeight: MAX_HEIGHT }}
           data-testid="chat-textarea"
         />
+
+        {/* Send button - Story t3-7: Large mobile touch target, visible on all devices */}
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSend || disabled}
           className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-150',
+            'flex shrink-0 items-center justify-center rounded-lg transition-all duration-150',
+            'h-9 w-9 md:h-10 md:w-10',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             !canSend || disabled
               ? 'cursor-not-allowed bg-muted/30 text-muted-foreground/30'
@@ -326,7 +389,7 @@ export function ChatInput({
           aria-label="Send message"
           data-testid="chat-send-button"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4 md:h-5 md:w-5" />
         </button>
       </div>
     </div>

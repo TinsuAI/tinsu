@@ -8,7 +8,7 @@ This document defines the automated agent team workflow for implementing epics s
 |-------|-------|------|
 | **SM** (Scrum Master) | Sonnet 4.6 | Creates stories from epic backlog |
 | **DEV 1** (Developer) | Sonnet 4.6 | Implements story code |
-| **DEV 2** (Reviewer) | Sonnet 4.6 | Reviews code and auto-fixes issues |
+| **DEV 2** (Reviewer) | Haiku 4.5 | Reviews code and auto-fixes issues |
 
 ## Pipeline Steps (per story)
 
