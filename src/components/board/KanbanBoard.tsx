@@ -465,6 +465,7 @@ export function KanbanBoard({
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
+      autoScroll={{ enabled: true, interval: 5, threshold: { x: 0.2, y: 0.2 } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
