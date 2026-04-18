@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useSta
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SerializeAddon } from '@xterm/addon-serialize'
+import { CanvasAddon } from '@xterm/addon-canvas'
+import { Play, Pause } from 'lucide-react'
 import { TerminalAccessoryBar } from './TerminalAccessoryBar'
 import { cn } from '@renderer/lib/utils'
 
@@ -12,6 +14,12 @@ export interface MobileTerminalProps {
   onResize?: (cols: number, rows: number) => void
   /** Whether the terminal should be full-screen */
   isFullScreen?: boolean
+  /** t3-5: Callback when pause button is clicked */
+  onPause?: () => void
+  /** t3-5: Callback when resume button is clicked */
+  onResume?: () => void
+  /** t3-5: Current session/task status (live, paused, stalled, ended, restored, none) */
+  sessionStatus?: 'live' | 'paused' | 'stalled' | 'ended' | 'restored' | 'none'
 }
 
 export interface MobileTerminalRef {
@@ -44,7 +52,7 @@ export interface MobileTerminalRef {
  * - Viewport management for on-screen keyboard
  */
 export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>(function MobileTerminal(
-  { onData, onResize, isFullScreen: initialFullScreen = false },
+  { onData, onResize, isFullScreen: initialFullScreen = false, onPause, onResume, sessionStatus = 'live' },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -53,10 +61,13 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
   const serializeAddonRef = useRef<SerializeAddon | null>(null)
   const [isFullScreen, setIsFullScreen] = useState(initialFullScreen)
   const [isFocused, setIsFocused] = useState(false)
-  
+
   // Ctrl and Alt states for modifier keys
   const [ctrlActive, setCtrlActive] = useState(false)
   const [altActive, setAltActive] = useState(false)
+
+  // t3-5: Determine if session is pauseable (only when live)
+  const isPauseable = sessionStatus === 'live' || sessionStatus === 'paused'
   
   // Use refs for the modifiers to avoid terminal re-creation in useEffect
   const ctrlActiveRef = useRef(ctrlActive)
@@ -243,7 +254,7 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
       setAltActive(prev => !prev)
       return
     }
-    
+
     let data = key
     if (ctrlActiveRef.current) {
       // If we have specific mappings for Ctrl + key, we could put them here
@@ -256,36 +267,71 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
       data = '\x1b' + key
       setAltActive(false)
     }
-    
+
     terminalRef.current?.focus()
     onDataRef.current?.(data)
   }, [])
 
+  // t3-5: Handle pause button click
+  const handlePauseClick = useCallback(() => {
+    onPause?.()
+  }, [onPause])
+
+  // t3-5: Handle resume button click
+  const handleResumeClick = useCallback(() => {
+    onResume?.()
+  }, [onResume])
+
   return (
-    <div 
+    <div
       className={cn(
         "flex flex-col w-full bg-[#0a0a0b] overflow-hidden transition-all duration-300",
         isFullScreen ? "fixed inset-0 z-50" : "relative h-full"
       )}
       onTouchEnd={handleTouchEnd}
     >
-      <div 
-        ref={containerRef} 
-        className="flex-1 w-full" 
+      <div
+        ref={containerRef}
+        className="flex-1 w-full"
         role="log"
         aria-label="Mobile terminal output"
         tabIndex={0}
       />
-      
+
+      {/* t3-5: Mobile Pause/Resume controls - show when session is pauseable */}
+      {isPauseable && (
+        <div className="flex items-center justify-center gap-2 px-3 py-2 border-t border-border/20 bg-card">
+          {sessionStatus === 'paused' ? (
+            <button
+              onClick={handleResumeClick}
+              className="flex items-center gap-1.5 px-4 h-11 text-sm font-medium rounded-lg bg-primary text-white min-w-[44px]"
+              aria-label="Resume task"
+            >
+              <Play className="w-4 h-4" />
+              Resume
+            </button>
+          ) : (
+            <button
+              onClick={handlePauseClick}
+              className="flex items-center gap-1.5 px-4 h-11 text-sm font-medium rounded-lg bg-muted text-foreground min-w-[44px]"
+              aria-label="Pause task"
+            >
+              <Pause className="w-4 h-4" />
+              Pause
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Accessory Bar - show when focused or permanently on mobile */}
-      <TerminalAccessoryBar 
+      <TerminalAccessoryBar
         onKeyPress={handleAccessoryKeyPress}
         className={cn(
           "transition-opacity duration-200",
           isFocused ? "opacity-100" : "opacity-80"
         )}
       />
-      
+
       {/* Modifier Indicators */}
       {(ctrlActive || altActive) && (
         <div className="absolute top-2 right-2 flex gap-2 pointer-events-none">

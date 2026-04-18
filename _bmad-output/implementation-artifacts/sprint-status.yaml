@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-12
+# updated: 2026-04-17
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -405,8 +405,8 @@ development_status:
   t3-4-mobile-ssh-connection-flow: done  # Code review complete - 4 auto-fixes applied (key storage AC/comment update to file-based, SettingsDialog layout fix, MobileSshConnectionForm port default and key auto-selection), all 142 tests passing
   t3-5-mobile-terminal-view: done
   t3-6-mobile-review-and-approval-flow: done
-  t3-7-mobile-chat-with-planning-agents: done  # Code review complete - 8 auto-fixes applied (prefers-reduced-motion accessibility, keyboard height guard, error handling, date validation, empty projectId validation, formatMobileTime safety, truncatePreview empty text, error UI display)
-  t3-8-mobile-platform-validation: done  # Code review complete - 92/92 tests documented and passing, comprehensive validation framework, platform parity verified, all ACs validated, production readiness confirmed
+  t3-7-mobile-chat-with-planning-agents: done  # Fixed 2026-04-17: MobileSessionDrawer wired into PlanningWorkspacePage
+  t3-8-mobile-platform-validation: in-progress  # 2026-04-17: Code complete; real device testing pending. See t3-8-test-report.md
   tauri-epic-3-retrospective: optional
 
   # Tauri Epic 4: CI/CD and Build Pipeline (Phase 4)

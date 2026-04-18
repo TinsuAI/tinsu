@@ -145,19 +145,29 @@ export const TaskTerminal = forwardRef<TaskTerminalRef, TaskTerminalProps>(funct
   return (
     <div className="flex flex-col w-full h-full">
       {/* TES-1.10: Terminal header with session state indicator */}
-      {!isMobile && (
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
-          <span className="text-xs text-muted-foreground">Terminal</span>
-          {renderSessionBadge()}
-        </div>
-      )}
+      {/* t3-5: Show status badge on all screen sizes (was hidden on mobile) */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
+        <span className="text-xs text-muted-foreground">Terminal</span>
+        {renderSessionBadge()}
+      </div>
       
       <div className="flex-1 min-h-0">
         {isMobile ? (
-          <MobileTerminal 
-            ref={mobileTerminalRef} 
-            onData={isInteractive ? write : undefined} 
-            onResize={resize} 
+          <MobileTerminal
+            ref={mobileTerminalRef}
+            onData={isInteractive ? write : undefined}
+            onResize={resize}
+            sessionStatus={sessionState}
+            onPause={() => {
+              // t3-5: TODO - integrate with backend pause API
+              // This will be implemented when agent pause/resume API is available
+              console.log('Pause requested for task:', taskId)
+            }}
+            onResume={() => {
+              // t3-5: TODO - integrate with backend resume API
+              // This will be implemented when agent pause/resume API is available
+              console.log('Resume requested for task:', taskId)
+            }}
           />
         ) : (
           <XTerminal ref={terminalRef} onData={isInteractive ? write : undefined} onResize={resize} />

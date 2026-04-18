@@ -25,12 +25,38 @@ export function useNetworkResilience() {
       }
     }
 
+    // Detect WiFi ↔ cellular transitions (fires even without full offline/online cycle)
+    const handleConnectionChange = () => {
+      // Network type changed (WiFi ↔ cellular) — trigger reconnect if we have an active connection
+      if (remoteConnectionId) {
+        toast.info('Network type changed, reconnecting SSH...')
+        reconnectMutation.mutate()
+      }
+    }
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+
+    // Add Network Information API listener for connection type changes
+    const connection = (navigator as Navigator & {
+      connection?: {
+        addEventListener: (event: string, handler: () => void) => void
+        removeEventListener: (event: string, handler: () => void) => void
+        type?: string
+        effectiveType?: string
+      }
+    }).connection
+
+    if (connection) {
+      connection.addEventListener('change', handleConnectionChange)
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      if (connection) {
+        connection.removeEventListener('change', handleConnectionChange)
+      }
     }
   }, [remoteConnectionId, reconnectMutation])
 }
