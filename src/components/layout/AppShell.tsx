@@ -35,6 +35,25 @@ export function AppShell({ children }: AppShellProps) {
   // Story 5.1: Settings dialog state
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
 
+  // Track keyboard height via visualViewport (works on both iOS and Android adjustNothing mode).
+  // window.innerHeight stays fixed; visualViewport.height shrinks by keyboard height.
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const kbh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardHeight(kbh)
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+  const isKeyboardOpen = keyboardHeight > 100
+
   const handleImportStories = useCallback(() => {
     setImportDialogOpen(true)
   }, [])
@@ -79,7 +98,13 @@ export function AppShell({ children }: AppShellProps) {
   }, [isVisible, isExpanded, dockPosition, height, width])
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div
+      className="flex flex-col overflow-hidden bg-background"
+      style={{
+        height: `calc(100dvh - ${keyboardHeight}px)`,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+      }}
+    >
       <Header
         onImportStories={handleImportStories}
         onDeleteAllTasks={handleDeleteAllTasks}
@@ -95,7 +120,9 @@ export function AppShell({ children }: AppShellProps) {
         {isVisible && <TerminalDock />}
       </div>
       {/* Spacer reserves document-flow space so content doesn't hide behind the portal-rendered bottom nav */}
-      <div className="shrink-0 lg:hidden" style={{ height: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} />
+      {!isKeyboardOpen && (
+        <div className="shrink-0 lg:hidden" style={{ height: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} />
+      )}
 
       {/* Story 3.7: Import Stories dialog - accessible from header */}
       <ImportStoriesDialog
@@ -130,7 +157,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Portal: bottom nav rendered on document.body to bypass overflow:hidden clipping */}
       {createPortal(
-        <div className="fixed bottom-0 left-0 right-0 z-[60] lg:hidden">
+        <div className={`fixed bottom-0 left-0 right-0 z-[60] lg:hidden transition-transform duration-150 ${isKeyboardOpen ? 'translate-y-full' : 'translate-y-0'}`}>
           <MobileBottomNav onOpenSettings={handleOpenSettings} />
         </div>,
         document.body

@@ -10,7 +10,7 @@
     "android:dev": "sh -c 'set -a && . ./.env && set +a && tauri android dev --host $TAURI_DEV_HOST'",
     "android:build": "tauri android build",
     "android:build:release": "tauri android build --release",
-    "ios:dev": "tauri ios dev",
+    "ios:dev": "sh -c 'set -a && . ./.env && set +a && tauri ios dev --host $TAURI_DEV_HOST'",
     "ios:build": "tauri ios build",
     "typecheck": "tsc --noEmit -p tsconfig.web.json --composite false",
     "format": "prettier --write .",

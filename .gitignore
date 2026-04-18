@@ -56,3 +56,4 @@ src-electron-deprecated/
 screenshot/
 
 *-lock.json
+src-tauri/gen/

@@ -36,7 +36,8 @@
       "resources/hooks/*": "hooks/"
     },
     "iOS": {
-      "minimumSystemVersion": "16.0"
+      "minimumSystemVersion": "16.0",
+      "developmentTeam": "59TC5Z2BXN"
     },
     "android": {}
   }
