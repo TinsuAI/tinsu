@@ -11,6 +11,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Mobile support is target-driven in Tauri v2 (aarch64-linux-android, aarch64-apple-ios).
+# No special cargo features needed — mobile behavior via #[cfg(mobile)] compile conditions.
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

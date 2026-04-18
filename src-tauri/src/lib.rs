@@ -244,7 +244,7 @@ pub fn run() {
 
     let builder = build_specta_builder();
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(target_os = "android"), not(target_os = "ios")))]
     builder
         .export(Typescript::default(), "../src/bindings.ts")
         .expect("Failed to export TypeScript bindings");

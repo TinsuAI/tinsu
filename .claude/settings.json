@@ -90,10 +90,6 @@
       }
     ]
   },
-  "statusLine": {
-    "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-status.sh",
-    "type": "command"
-  },
   "env": {
   }
 }

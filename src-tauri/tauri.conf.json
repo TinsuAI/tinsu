@@ -14,11 +14,13 @@
       {
         "title": "TinSu",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "minWidth": 320,
+        "minHeight": 480
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* https:; worker-src 'self' blob:"
     }
   },
   "bundle": {
