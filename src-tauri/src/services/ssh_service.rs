@@ -6,18 +6,30 @@ use crate::models::ssh_config::{SshConnectionTestResult, SshKeyEntry, SshKeyExpo
 use rand::rngs::OsRng;
 use ssh_key::{Algorithm, LineEnding, PrivateKey};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 // ── File-based key storage ───────────────────────────────────────────────────
-// Private keys are stored as PEM files in {data_dir}/tinsu/ssh_keys/{name}.pem
+// Private keys are stored as PEM files in {app_data_dir}/ssh_keys/{name}.pem
 // with mode 0600 (user-read/write only). Same security model as ~/.ssh/id_ed25519.
 
+// On mobile (Android/iOS) the app data dir must be injected at startup via
+// `init_keys_dir` because env vars like $HOME / $XDG_DATA_HOME are unavailable
+// or point to read-only locations.
+static APP_KEYS_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Called once at app startup with the Tauri app_data_dir so that mobile
+/// platforms write SSH keys to the correct writable location.
+pub fn init_keys_dir(app_data_dir: PathBuf) {
+    APP_KEYS_DIR.get_or_init(|| app_data_dir.join("ssh_keys"));
+}
+
 /// Returns the directory where SSH private keys are stored.
-/// Platform paths:
-///   Linux:   $XDG_DATA_HOME/tinsu/ssh_keys  (defaults to ~/.local/share/tinsu/ssh_keys)
-///   macOS:   ~/Library/Application Support/tinsu/ssh_keys
-///   Windows: %APPDATA%\tinsu\ssh_keys
 pub(crate) fn keys_dir() -> PathBuf {
+    if let Some(dir) = APP_KEYS_DIR.get() {
+        return dir.clone();
+    }
+
+    // Fallback for desktop when init_keys_dir was not called (e.g. in tests).
     #[cfg(target_os = "macos")]
     let base = std::env::var("HOME")
         .map(|h| PathBuf::from(h).join("Library/Application Support"))

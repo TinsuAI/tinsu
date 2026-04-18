@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useSta
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SerializeAddon } from '@xterm/addon-serialize'
-import { CanvasAddon } from '@xterm/addon-canvas'
 import { Play, Pause } from 'lucide-react'
 import { TerminalAccessoryBar } from './TerminalAccessoryBar'
 import { cn } from '@renderer/lib/utils'
@@ -171,14 +170,6 @@ export const MobileTerminal = forwardRef<MobileTerminalRef, MobileTerminalProps>
 
     const serializeAddon = new SerializeAddon()
     terminal.loadAddon(serializeAddon)
-
-    // t3-5: Load canvas renderer addon for better mobile performance
-    try {
-      terminal.loadAddon(new CanvasAddon())
-    } catch {
-      // Canvas not supported in this WebView, fall back to DOM renderer gracefully
-      console.warn('Canvas renderer not supported in this environment, using DOM renderer')
-    }
 
     terminal.open(containerRef.current)
     fitAddon.fit()

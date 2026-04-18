@@ -1,29 +1,10 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
     "PostToolUse": [
       {
         "hooks": [
           {
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/log-tool-use.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      },
-      {
-        "hooks": [
-          {
-            "command": "bash /home/tinxu-luna/tinsu/src-tauri/target/debug/hooks/chat-tool-use.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      },
-      {
-        "hooks": [
-          {
-            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-tool-use.sh",
+            "command": "INPUT=$(cat); curl -s -X POST 'http://127.0.0.1:3847/api/hooks/chat-tool-use' -H 'Content-Type: application/json' -H \"X-Tmux-Session: $TINSU_TMUX_SESSION\" --connect-timeout 2 --max-time 5 -d \"$INPUT\" >/dev/null 2>&1 || true",
             "type": "command"
           }
         ],
@@ -34,55 +15,18 @@
       {
         "hooks": [
           {
-            "command": "bash /home/tinxu-luna/tinsu/src-tauri/target/debug/hooks/chat-pre-tool-use.sh",
+            "command": "INPUT=$(cat); curl -s -X POST 'http://127.0.0.1:3847/api/hooks/chat-pre-tool-use' -H 'Content-Type: application/json' -H \"X-Tmux-Session: $TINSU_TMUX_SESSION\" --connect-timeout 2 --max-time 300 -d \"$INPUT\" >/dev/null 2>&1 || true",
             "type": "command"
           }
         ],
         "matcher": ""
-      },
-      {
-        "hooks": [
-          {
-            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-pre-tool-use.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start-tts.sh",
-            "type": "command"
-          }
-        ]
       }
     ],
     "Stop": [
       {
         "hooks": [
           {
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/task-completion.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      },
-      {
-        "hooks": [
-          {
-            "command": "bash /home/tinxu-luna/tinsu/src-tauri/target/debug/hooks/chat-stop.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      },
-      {
-        "hooks": [
-          {
-            "command": "bash /home/gabenidol/tinsu/src-tauri/target/debug/hooks/chat-stop.sh",
+            "command": "INPUT=$(cat); curl -s -X POST 'http://127.0.0.1:3847/api/hooks/chat-stop' -H 'Content-Type: application/json' -H \"X-Tmux-Session: $TINSU_TMUX_SESSION\" --connect-timeout 2 --max-time 5 -d \"$INPUT\" >/dev/null 2>&1 || true",
             "type": "command"
           }
         ],
@@ -90,6 +34,8 @@
       }
     ]
   },
-  "env": {
+  "statusLine": {
+    "command": "INPUT=$(cat); curl -s -X POST 'http://127.0.0.1:3847/api/hooks/chat-status' -H 'Content-Type: application/json' -H \"X-Tmux-Session: $TINSU_TMUX_SESSION\" --connect-timeout 2 --max-time 2 -d \"$INPUT\" >/dev/null 2>&1 || true",
+    "type": "command"
   }
 }

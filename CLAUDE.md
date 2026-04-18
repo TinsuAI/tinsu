@@ -6,3 +6,4 @@ When creating any story involving React components, UI styling, or visual elemen
 - When PM agent run correct course session Update sprint-status.yaml to reflect approved epic changes
 - when doing codebase exploring, or any sub agents, use model Haiku with very detailed instructions so they can do great job
 - we ported to src-tauri Tauri app
+- Android dev build uses Tailscale: TAURI_DEV_HOST is set in .env (gitignored), loaded by android:dev script via `--host $TAURI_DEV_HOST`

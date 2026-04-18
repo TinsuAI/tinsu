@@ -403,12 +403,13 @@ export function PlanningWorkspacePage() {
       ref={workspaceRef}
       role="region"
       aria-label="Planning workspace"
-      className="fixed inset-0 z-50 flex h-screen flex-col bg-background"
+      className="fixed inset-0 z-50 flex flex-col bg-background pb-16 lg:pb-0"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       {/* Decorative gradient overlay for visual depth */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-cyan-500/[0.02] via-transparent to-transparent" />
 
-      <div className="relative flex h-full flex-col">
+      <div className="relative flex flex-1 min-h-0 flex-col">
         {/* ── Header bar ── */}
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
           {/* Left: back button */}

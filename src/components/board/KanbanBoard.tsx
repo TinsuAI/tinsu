@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
+import { Inbox } from 'lucide-react'
 import {
   DndContext,
   pointerWithin,
@@ -497,9 +498,12 @@ export function KanbanBoard({
             >
               <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                 {columnTasks.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground">
-                    {hasActiveFilters ? 'No matching tasks' : 'No tasks'}
-                  </p>
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <Inbox className="h-8 w-8 text-muted-foreground/25" strokeWidth={1.25} />
+                    <p className="text-xs text-muted-foreground/50">
+                      {hasActiveFilters ? 'No matching tasks' : 'No tasks'}
+                    </p>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-3" data-testid="task-list">
                     {columnTasks.map((task) => (

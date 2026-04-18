@@ -28,7 +28,7 @@ android {
             val storePassword = System.getenv("ANDROID_STORE_PASSWORD")
                 ?: project.findProperty("android.store.password")?.toString()
 
-            if (keystorePath != null && java.io.File(keystorePath).exists()) {
+            if (keystorePath != null && file(keystorePath).exists()) {
                 storeFile = file(keystorePath)
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
@@ -55,11 +55,6 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
-                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
-            }
         }
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")

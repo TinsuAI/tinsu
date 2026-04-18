@@ -46,25 +46,29 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
         </div>
         {/* File menu with Open Project option and filter controls */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Velocity widget - shows task completion metrics (Story 2.7) */}
-          <VelocityWidget />
+          {/* Velocity widget - desktop only */}
+          <span className="hidden lg:flex items-center">
+            <VelocityWidget />
+          </span>
 
           {/* Remote connection status — always visible when a remote project is active */}
           <RemoteConnectionBadge />
 
-          {/* Terminal toggle button */}
-          <Button
-            variant={isTerminalVisible ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={toggleTerminalVisible}
-            data-testid="header-terminal-toggle"
-            aria-label={isTerminalVisible ? 'Hide terminal' : 'Show terminal'}
-          >
-            <Terminal className="mr-1 h-3 w-3" />
-            Terminal
-          </Button>
+          {/* Terminal toggle button - desktop only */}
+          <span className="hidden lg:flex items-center">
+            <Button
+              variant={isTerminalVisible ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={toggleTerminalVisible}
+              data-testid="header-terminal-toggle"
+              aria-label={isTerminalVisible ? 'Hide terminal' : 'Show terminal'}
+            >
+              <Terminal className="mr-1 h-3 w-3" />
+              Terminal
+            </Button>
+          </span>
 
-          {/* Clear all filters button - only visible when filters active */}
+          {/* Clear all filters button - visible on all sizes when filters active */}
           {showClearAll && (
             <Button
               variant="ghost"
@@ -75,7 +79,7 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
               data-testid="header-clear-filters"
             >
               <X className="mr-1 h-3 w-3" />
-              Clear filters
+              <span className="hidden sm:inline">Clear filters</span>
             </Button>
           )}
 
@@ -86,61 +90,69 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
             trigger={<FilterButton onClick={() => setFilterPanelOpen(!filterPanelOpen)} />}
           />
 
-          {/* Story 3.9: Sync All button */}
+          {/* Story 3.9: Sync All button - desktop only */}
           {onSyncAll && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSyncAll}
-              disabled={isSyncingAll}
-              data-testid="header-sync-all"
-            >
-              <RefreshCw className={cn('mr-1 h-3 w-3', isSyncingAll && 'animate-spin')} />
-              {isSyncingAll ? 'Syncing...' : 'Sync All'}
-            </Button>
+            <span className="hidden lg:flex items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSyncAll}
+                disabled={isSyncingAll}
+                data-testid="header-sync-all"
+              >
+                <RefreshCw className={cn('mr-1 h-3 w-3', isSyncingAll && 'animate-spin')} />
+                {isSyncingAll ? 'Syncing...' : 'Sync All'}
+              </Button>
+            </span>
           )}
 
-          {/* Story 3.7: Import Stories button - always available */}
+          {/* Story 3.7: Import Stories button - desktop only */}
           {onImportStories && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onImportStories}
-              data-testid="header-import-stories"
-            >
-              <Download className="mr-1 h-3 w-3" />
-              Import Stories
-            </Button>
+            <span className="hidden lg:flex items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onImportStories}
+                data-testid="header-import-stories"
+              >
+                <Download className="mr-1 h-3 w-3" />
+                Import Stories
+              </Button>
+            </span>
           )}
 
-          {/* Delete All Tasks button */}
+          {/* Delete All Tasks button - desktop only */}
           {onDeleteAllTasks && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDeleteAllTasks}
-              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              data-testid="header-delete-all-tasks"
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-              Delete All
-            </Button>
+            <span className="hidden lg:flex items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDeleteAllTasks}
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                data-testid="header-delete-all-tasks"
+              >
+                <Trash2 className="mr-1 h-3 w-3" />
+                Delete All
+              </Button>
+            </span>
           )}
 
-          {/* Story 5.1: Settings button */}
+          {/* Story 5.1: Settings button - desktop only (mobile uses bottom nav) */}
           {onOpenSettings && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenSettings}
-              data-testid="header-settings"
-            >
-              <Settings className="mr-1 h-3 w-3" />
-              Settings
-            </Button>
+            <span className="hidden lg:flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onOpenSettings}
+                data-testid="header-settings"
+              >
+                <Settings className="mr-1 h-3 w-3" />
+                Settings
+              </Button>
+            </span>
           )}
 
-          {/* Theme toggle - light/dark mode switch */}
+          {/* Theme toggle - always visible */}
           <ThemeToggle />
 
         </div>

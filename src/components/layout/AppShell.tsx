@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
@@ -78,7 +79,7 @@ export function AppShell({ children }: AppShellProps) {
   }, [isVisible, isExpanded, dockPosition, height, width])
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <Header
         onImportStories={handleImportStories}
         onDeleteAllTasks={handleDeleteAllTasks}
@@ -93,7 +94,8 @@ export function AppShell({ children }: AppShellProps) {
       <div className="hidden lg:block">
         {isVisible && <TerminalDock />}
       </div>
-      <MobileBottomNav className="flex lg:hidden" onOpenSettings={handleOpenSettings} />
+      {/* Spacer reserves document-flow space so content doesn't hide behind the portal-rendered bottom nav */}
+      <div className="shrink-0 lg:hidden" style={{ height: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} />
 
       {/* Story 3.7: Import Stories dialog - accessible from header */}
       <ImportStoriesDialog
@@ -125,6 +127,14 @@ export function AppShell({ children }: AppShellProps) {
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
+
+      {/* Portal: bottom nav rendered on document.body to bypass overflow:hidden clipping */}
+      {createPortal(
+        <div className="fixed bottom-0 left-0 right-0 z-[60] lg:hidden">
+          <MobileBottomNav onOpenSettings={handleOpenSettings} />
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

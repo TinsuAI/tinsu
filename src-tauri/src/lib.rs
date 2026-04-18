@@ -258,6 +258,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .expect("Failed to resolve app data dir");
+            services::ssh_service::init_keys_dir(app_data_dir.clone());
             tauri::async_runtime::block_on(async move {
                 let db = db::connect(&app_data_dir).await.expect("Failed to connect to database");
                 Migrator::up(&db, None)
