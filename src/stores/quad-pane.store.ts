@@ -8,9 +8,10 @@ export type SectionId = 'terminal' | 'activities' | 'diff' | 'content'
 /**
  * Layout mode for the task detail panel.
  * - 'quad': 2x2 grid layout for large screens (1024px+)
- * - 'tabbed': Traditional tab interface for smaller screens
+ * - 'tablet': 2-column layout for tablets (768-1023px)
+ * - 'tabbed': Traditional tab interface for mobile (<768px)
  */
-export type LayoutMode = 'quad' | 'tabbed'
+export type LayoutMode = 'quad' | 'tablet' | 'tabbed'
 
 /**
  * State for the quad-pane layout.

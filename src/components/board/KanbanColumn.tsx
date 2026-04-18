@@ -95,7 +95,7 @@ export function KanbanColumn({
         <Button
           variant="ghost"
           size="icon"
-          className="kanban-add-btn h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+          className="kanban-add-btn h-11 w-11 rounded-lg text-muted-foreground hover:text-foreground"
           onClick={() => onAddTask?.(status)}
           aria-label={`Add task to ${config.title}`}
           data-testid={`add-task-${status}`}

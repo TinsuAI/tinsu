@@ -200,6 +200,10 @@ export function MobileSshConnectionForm({
               placeholder="e.g. 1.2.3.4 or example.com"
               className="h-11 px-4 text-base"
               autoFocus
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoComplete="off"
             />
           </div>
           <div className="space-y-2">
@@ -216,6 +220,10 @@ export function MobileSshConnectionForm({
               min={1}
               max={65535}
               className="h-11 px-3 text-base"
+              inputMode="numeric"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </div>
         </div>
@@ -230,6 +238,10 @@ export function MobileSshConnectionForm({
             onChange={(e) => setUsername(e.target.value)}
             placeholder="e.g. root, ubuntu"
             className="h-11 px-4 text-base"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoComplete="username"
           />
         </div>
 
@@ -280,6 +292,10 @@ export function MobileSshConnectionForm({
                   placeholder="Server password (one-time use)"
                   className="h-11 px-4 text-base bg-background"
                   disabled={isInstalling}
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  autoComplete="current-password"
                 />
                 <Button
                   variant="outline"
@@ -320,6 +336,10 @@ export function MobileSshConnectionForm({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="h-11 px-4 text-base"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoComplete="current-password"
             />
             <p className="text-xs text-muted-foreground">
               Note: Passwords are used for testing or key installation and are never stored.

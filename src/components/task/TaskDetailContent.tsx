@@ -96,6 +96,7 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
   // Layout mode detection (uses media query)
   const layoutMode = useQuadPaneLayout()
   const isDesktop = layoutMode === 'quad' // 'quad' means desktop (>= 1024px)
+  const isTablet = layoutMode === 'tablet' // 'tablet' means 768-1023px
 
   // Tab state for mobile layout
   const [activeTab, setActiveTab] = useState<'content' | 'activities' | 'terminal' | 'diff'>(
@@ -882,8 +883,33 @@ export function TaskDetailContent({ taskId, task: taskProp, onClose }: TaskDetai
         </div>
       )}
 
+      {/* Tablet: 2-Column Layout (content left, terminal+activities right) */}
+      {isTablet && (
+        <div className="min-h-0 flex-1 p-4 flex gap-4">
+          {/* Left Column: Content */}
+          <div className="min-w-0 flex-1 flex flex-col overflow-hidden rounded-lg border border-border/40 bg-card">
+            <div className="p-4 overflow-y-auto flex-1">
+              {contentSection}
+            </div>
+          </div>
+
+          {/* Right Column: Terminal + Activities (stacked vertically) */}
+          <div className="min-w-0 flex-1 flex flex-col overflow-hidden rounded-lg border border-border/40 bg-card">
+            {/* Terminal (top) */}
+            <div className="flex-1 min-h-0 border-b border-border/30 overflow-hidden">
+              <TaskTerminal ref={terminalRef} taskId={taskId} />
+            </div>
+
+            {/* Activities (bottom) */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
+              <ActivitiesTab taskId={taskId} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile: Tabbed Interface */}
-      {!isDesktop && (
+      {!isDesktop && !isTablet && (
         <>
           {/* Tab bar */}
           <div
