@@ -178,16 +178,16 @@ export function MobileTaskWorkspaceScreen({ taskId }: MobileTaskWorkspaceScreenP
 
       case 'diff':
         /**
-         * Approve / Request Changes buttons are placeholders in T3.5-4.
-         * T3.5-6 (Mobile Review) owns the actual mutation wiring.
-         * @see T3.5-6
+         * Both Approve and Request Changes push to the review screen.
+         * MobileReviewActionBar on MobileDiffViewerScreen owns the actual
+         * mutation wiring (Approve → approve confirm sheet, Request Changes →
+         * feedback sheet, Reject → rejection sheet). AC 2, T3.5-6.
          */
         return (
           <MobileBottomActionBar
             primary={{
               label: 'Approve',
               onPress: () => {
-                // Placeholder: navigate to review route. Full mutation in T3.5-6.
                 useMobileNavStore.getState().pushRoute(activeTab, `review:${task?.id ?? taskId}`)
               },
               disabled: task?.status !== 'review',
@@ -195,9 +195,11 @@ export function MobileTaskWorkspaceScreen({ taskId }: MobileTaskWorkspaceScreenP
             }}
             secondary={{
               label: 'Request changes',
-              ariaLabel: 'Request changes (Coming in T3.5-6)',
-              onPress: () => {},
-              disabled: true,
+              ariaLabel: 'Request changes',
+              onPress: () => {
+                useMobileNavStore.getState().pushRoute(activeTab, `review:${task?.id ?? taskId}`)
+              },
+              disabled: task?.status !== 'review',
             }}
           />
         )

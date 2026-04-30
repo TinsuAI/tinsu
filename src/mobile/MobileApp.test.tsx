@@ -44,6 +44,15 @@ vi.mock('./planning/MobileChatScreen', () => ({
   ),
 }))
 
+// Mock MobileDiffViewerScreen — T3.5-6
+vi.mock('./review/MobileDiffViewerScreen', () => ({
+  MobileDiffViewerScreen: ({ taskId }: { taskId: string }) => (
+    <div data-testid="mobile-review-screen" data-task-id={taskId}>
+      Review for {taskId}
+    </div>
+  ),
+}))
+
 // Mock MobilePlanningHome — T3.5-5 (now uses useQuery; mock to avoid QueryClient requirement)
 vi.mock('./planning/MobilePlanningHome', () => ({
   MobilePlanningHome: () => (
@@ -199,11 +208,20 @@ describe('MobileApp', () => {
     expect(screen.getByTestId('mobile-chat-screen')).toHaveAttribute('data-session-id', 'session-1')
   })
 
-  it('renders placeholder for unimplemented route diff', () => {
-    useMobileNavStore.getState().pushRoute('tasks', 'diff')
+  it('renders MobileDiffViewerScreen for review:* route (T3.5-6)', () => {
+    useMobileNavStore.getState().pushRoute('tasks', 'review:task-rev-1')
     useMobileNavStore.setState({ activeTab: 'tasks' })
     renderMobileApp()
-    expect(screen.getByText('Code Diff')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-review-screen')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-review-screen')).toHaveAttribute('data-task-id', 'task-rev-1')
+  })
+
+  it('review route bypasses root MobileScreen (no tab bar)', () => {
+    useMobileNavStore.getState().pushRoute('tasks', 'review:task-rev-2')
+    useMobileNavStore.setState({ activeTab: 'tasks' })
+    renderMobileApp()
+    expect(screen.queryByTestId('mobile-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('mobile-review-screen')).toBeInTheDocument()
   })
 
   it('MobileScreen wraps content in data-testid="mobile-screen"', () => {
@@ -234,6 +252,53 @@ describe('isFullScreenRoute', () => {
 
   it('returns false for diff route', () => {
     expect(isFullScreenRoute('diff')).toBe(false)
+  })
+
+  it('returns true for review: routes (T3.5-6)', () => {
+    expect(isFullScreenRoute('review:task-abc')).toBe(true)
+    expect(isFullScreenRoute('review:task-123')).toBe(true)
+    expect(isFullScreenRoute('review:foo')).toBe(true)
+  })
+})
+
+describe('MobileApp — review route integration (T3.5-6 AC 1, 16)', () => {
+  it('review:abc route renders MobileDiffViewerScreen with taskId="abc"', () => {
+    useMobileNavStore.getState().pushRoute('tasks', 'review:abc')
+    useMobileNavStore.setState({ activeTab: 'tasks' })
+    renderMobileApp()
+    const reviewScreen = screen.getByTestId('mobile-review-screen')
+    expect(reviewScreen).toBeInTheDocument()
+    expect(reviewScreen).toHaveAttribute('data-task-id', 'abc')
+  })
+
+  it('isFullScreenRoute("review:abc") === true (AC 1)', () => {
+    expect(isFullScreenRoute('review:abc')).toBe(true)
+  })
+
+  it('Android back-press from review:abc returns to workspace screen (AC 16)', () => {
+    // Simulate stack: list → workspace:abc → review:abc
+    useMobileNavStore.setState({
+      activeTab: 'tasks',
+      tabStacks: {
+        board:    ['board'],
+        planning: ['sessions'],
+        tasks:    ['list', 'workspace:abc', 'review:abc'],
+        activity: ['feed'],
+        settings: ['home'],
+      },
+      sheetState: null,
+    })
+    renderMobileApp()
+
+    // Currently on review screen
+    expect(screen.getByTestId('mobile-review-screen')).toBeInTheDocument()
+
+    // Handle back press — pops review:abc from tasks stack
+    useMobileNavStore.getState().handleBackPress()
+
+    // Now top of stack should be workspace:abc
+    const stackAfter = useMobileNavStore.getState().tabStacks.tasks
+    expect(stackAfter[stackAfter.length - 1]).toBe('workspace:abc')
   })
 })
 

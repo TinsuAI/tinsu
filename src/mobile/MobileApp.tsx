@@ -11,6 +11,7 @@ import { MobileActivityFeedScreen } from './activity/MobileActivityFeedScreen'
 import { MobileSettingsHome } from './settings/MobileSettingsHome'
 import { MobileTaskWorkspaceScreen } from './tasks/MobileTaskWorkspaceScreen'
 import { MobileChatScreen } from './planning/MobileChatScreen'
+import { MobileDiffViewerScreen } from './review/MobileDiffViewerScreen'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
 
@@ -20,9 +21,10 @@ import type { MobileTabId } from './shell/mobile-nav.store'
  *
  * Story T3.5-4: workspace routes are full-screen (AC 13).
  * Story T3.5-5: chat routes will also be full-screen.
+ * Story T3.5-6: review routes are full-screen (AC 1).
  */
 export function isFullScreenRoute(route: string): boolean {
-  return route.startsWith('workspace:') || route.startsWith('chat:')
+  return route.startsWith('workspace:') || route.startsWith('chat:') || route.startsWith('review:')
 }
 
 // DEV-ONLY: Primitives harness — never ships to production.
@@ -183,13 +185,10 @@ function MobileRouteRenderer({ route }: { route: string }) {
     const sessionId = route.slice('chat:'.length)
     return <MobileChatScreen sessionId={sessionId} />
   }
-  if (route === 'diff') {
-    return (
-      <MobileEmptyState
-        title="Code Diff"
-        subtitle="Coming in T3.5-4 — inline code diff viewer."
-      />
-    )
+  // T3.5-6: review route — full-screen diff viewer + action bar (AC 1)
+  if (route.startsWith('review:')) {
+    const reviewTaskId = route.slice('review:'.length)
+    return <MobileDiffViewerScreen taskId={reviewTaskId} />
   }
   if (route === 'connections') {
     return (
