@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, lazy, Suspense } from 'react'
 import { useMobileNavStore } from './shell/mobile-nav.store'
 import { MobileScreen } from './primitives/MobileScreen'
 import { MobileTopAppBar } from './primitives/MobileTopAppBar'
@@ -11,6 +11,18 @@ import { MobileActivityFeedScreen } from './activity/MobileActivityFeedScreen'
 import { MobileSettingsHome } from './settings/MobileSettingsHome'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
+
+// DEV-ONLY: Primitives harness — never ships to production.
+// Access at: http://localhost:1420#__mobile-primitives
+// Guard: import.meta.env.DEV ensures Vite tree-shakes this entire block in production builds.
+// The hash check means tests (hash='') never trigger the harness render path.
+const MobilePrimitivesHarness = import.meta.env.DEV
+  ? lazy(() =>
+      import('./dev/MobilePrimitivesHarness').then((m) => ({
+        default: m.MobilePrimitivesHarness,
+      })),
+    )
+  : null
 
 /**
  * Root component for the mobile UI tree.
@@ -28,6 +40,18 @@ import type { MobileTabId } from './shell/mobile-nav.store'
  * Story T3.5-1 — Mobile Shell Foundation.
  */
 export function MobileApp() {
+  // DEV-only: render primitives harness when hash matches
+  // This entire block is tree-shaken in production since import.meta.env.DEV is false.
+  if (import.meta.env.DEV && typeof window !== 'undefined' && window.location.hash === '#__mobile-primitives') {
+    if (MobilePrimitivesHarness) {
+      return (
+        <Suspense fallback={<div className="h-screen bg-background" />}>
+          <MobilePrimitivesHarness />
+        </Suspense>
+      )
+    }
+  }
+
   const { activeTab, tabStacks, switchTab, clearStack, navigateToDeepLink } = useMobileNavStore()
   const projectName = useProjectStore((state) => state.projectName)
 
