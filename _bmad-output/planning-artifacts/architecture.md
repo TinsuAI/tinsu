@@ -310,6 +310,395 @@ Frontend (React) ──rspc Client──► Tauri IPC ──► Rust (rspc Route
 | **Logging** | `tracing` crate | Tokio ecosystem standard, structured spans, async-friendly |
 | **CI/CD** | Deferred to Phase 4 | GitHub Actions + `tauri-action` for desktop, separate mobile pipelines |
 
+## Mobile UI Architecture (Tauri Epic 3.5)
+
+### Overview
+
+Tauri Epic 3.5 introduces a **parallel mobile UI tree** at `src/mobile/` to replace the responsive-design approach of Tauri Epic 3 (T3.2–T3.7). The decision, approved 2026-04-30, delivers mobile-native UX with bottom-tab navigation, full-screen workflows, bottom sheets, and gesture-first interactions—rather than retrofitting desktop layouts to phones.
+
+**Key principle:** One-shot viewport detection at `App.tsx` renders either the desktop tree OR the mobile tree, never both. `useIsMobile()` hook is replaced with a viewport router at the root level; child components do not branch on viewport.
+
+**Authoritative design reference:** `_bmad-output/planning-artifacts/mobile-ux-redesign-plan-2026-04-30.md` §6–§10 and `sprint-change-proposal-2026-04-30.md` §4.4 document the full UX spec, screen inventory, and interaction patterns.
+
+### Viewport Routing Pattern
+
+**`src/App.tsx:18` (insertion point):**
+
+```typescript
+function App(): React.JSX.Element {
+  // One-time viewport detection at root — no per-component branching
+  const isMobileViewport = useViewportRouter() // <1024px → true
+  
+  return isMobileViewport ? <MobileApp /> : <DesktopApp />
+}
+```
+
+**Rationale:**
+- Viewport detection runs once at app root, not on every component render.
+- Each tree renders exclusively for its form factor — desktop tree never mounts on mobile, and vice versa.
+- Removes all `useIsMobile()` conditional branches from child components (desktop components can no longer access this hook).
+- Trees share routing at the root; no cross-tree navigation.
+- Deep links (e.g., `tinsu://task/{taskId}`) resolve via mobile-nav Zustand store in `MobileApp`, not via desktop router.
+
+**Responsive design (width-based breakpoints) is NOT used in `src/mobile/`** — all mobile layouts are designed for 320–767 px portrait, with portrait orientation lock on both Android and iOS.
+
+### `src/mobile/` Directory Structure
+
+Mobile UI lives exclusively in `src/mobile/`. Desktop components are NOT modified after T3.5-2 (foundations). The parallel tree mirrors the feature coverage of desktop:
+
+```
+src/mobile/
+├── MobileApp.tsx                   # Root component (inserted by viewport router)
+├── shell/
+│   ├── MobileTabBar.tsx            # Bottom 5-tab navigation, persistent across screens
+│   ├── MobileTopAppBar.tsx         # Project name, connection status pill
+│   ├── MobileNavStore.ts           # Zustand store with 5 parallel navigation stacks
+│   └── deeplinks.ts                # URI scheme handlers (tinsu://task, tinsu://chat)
+├── primitives/                     # 14 mobile primitive components
+│   ├── MobileScreen.tsx            # Base screen container with safe-area insets
+│   ├── MobileTopAppBar.tsx         # Status bar + project pill + back button
+│   ├── MobileTabBar.tsx            # Bottom 5-tab bar with badges
+│   ├── MobileSheet.tsx             # Bottom-sheet modal, swipe-to-dismiss, height control
+│   ├── MobileSegmentedTabs.tsx     # Horizontal tab control (e.g., Content/Terminal/Activities/Diff)
+│   ├── MobileColumnPager.tsx       # Horizontal swipe between columns with peek
+│   ├── MobileBottomActionBar.tsx   # Sticky action bar (thumbs at bottom)
+│   ├── MobileListItem.tsx          # Row primitive for lists
+│   ├── MobileEmptyState.tsx        # Empty state with illustration + CTA
+│   ├── MobileChip.tsx              # Filter/status badge
+│   ├── MobileFab.tsx               # Floating action button (fixed bottom-right, above tab bar)
+│   ├── MobileSearchBar.tsx         # Search input in header or dedicated screen
+│   ├── MobileLoadingSkeleton.tsx   # Skeleton loader variants
+│   └── MobilePullToRefresh.tsx     # Pull-down refresh primitive
+├── board/                          # Kanban board tab
+│   ├── MobileBoardScreen.tsx       # Tab root: column pager + header + filters
+│   ├── MobileTaskCard.tsx          # Card primitive (Story/Basic/Planning variants)
+│   └── MobileNewTaskSheet.tsx      # Bottom sheet: add task workflow
+├── tasks/                          # Task workspace tab
+│   ├── MobileTaskListScreen.tsx    # Tab root: task list with filter chips
+│   ├── MobileTaskWorkspaceScreen.tsx # Full-screen task workspace (push)
+│   ├── MobileContentTab.tsx        # Task details: description, AC, context
+│   ├── MobileTerminalTab.tsx       # Terminal subtab (xterm.js integrated)
+│   ├── MobileActivitiesTab.tsx     # Activity log for this task
+│   ├── MobileDiffTab.tsx           # Diff subtab root
+│   ├── MobileFileTreeSheet.tsx     # File picker (bottom sheet)
+│   └── MobileDiffViewerScreen.tsx  # Unified diff view + action bar
+├── planning/                       # Planning workspace tab
+│   ├── MobilePlanningHome.tsx      # Tab root: BMAD pill + session list
+│   ├── MobileSessionListScreen.tsx # Session card list
+│   ├── MobileChatScreen.tsx        # Full-screen chat (push)
+│   ├── MobileChatBubble.tsx        # Chat message primitive
+│   ├── MobileChatComposer.tsx      # Message input (sticky)
+│   ├── MobileNewSessionSheet.tsx   # Create session sheet
+│   ├── MobilePersonaPicker.tsx     # Persona grid (sheet child)
+│   └── MobileBmadWorkflowSheet.tsx # Workflow steps (sheet)
+├── review/                         # Review tab (within Tasks)
+│   ├── MobileReviewActionBar.tsx   # Approve / Request Changes / Reject (sticky)
+│   ├── MobileFeedbackSheet.tsx     # Request changes form (bottom sheet)
+│   └── MobileRejectionSheet.tsx    # Rejection form (bottom sheet)
+├── activity/                       # Activity tab
+│   ├── MobileActivityFeedScreen.tsx # Cross-project activity list (tab root)
+│   ├── MobileActivityRow.tsx       # Activity item primitive
+│   ├── MobileActivityChipStrip.tsx # Filter chips
+│   └── MobileActivityDetail.tsx    # Event detail (bottom sheet)
+├── ssh/                            # SSH management (within Settings)
+│   ├── MobileConnectionsList.tsx   # Connection list (settings sub-screen)
+│   ├── MobileConnectionCard.tsx    # Connection item
+│   ├── MobileSshAddSheet.tsx       # Multi-step SSH setup (bottom sheet)
+│   ├── MobileGenerateKeySheet.tsx  # Key generation (nested sheet)
+│   ├── MobileShowPublicKey.tsx     # Public key display (nested sheet)
+│   └── MobileTestConnectionSheet.tsx # Test result (nested sheet)
+├── settings/                       # Settings tab
+│   ├── MobileSettingsHome.tsx      # Settings list (tab root)
+│   ├── MobileConnectionsSettings.tsx # SSH connections drill-in
+│   ├── MobileKeysSettings.tsx      # SSH keys management
+│   ├── MobileMoshSettings.tsx      # Mosh config
+│   ├── MobileCacheSettings.tsx     # Cache management
+│   ├── MobileDiagnosticsScreen.tsx # Diagnostics (read-only)
+│   ├── MobileThemeSettings.tsx     # Theme picker
+│   └── MobileAboutScreen.tsx       # Version, links
+└── assets/                         # Mobile-specific icons, images (if any)
+```
+
+**Design token integration:**
+All primitives in `src/mobile/primitives/` consume Calm Command CSS variables (`--background`, `--card`, `--primary`, `--destructive`, `--warning`) and type scale tokens (`--font-size-body`, `--font-family-mono` for code). **No inline Tailwind color classes** (e.g., `text-red-500`) in mobile primitives — color always comes from tokens.
+
+### Mobile-Nav Zustand Store
+
+**Location:** `src/mobile/shell/MobileNavStore.ts`
+
+**Purpose:** Manage 5 parallel navigation stacks (one per bottom tab), enabling native back-button behavior and deep-link routing.
+
+**Store contract:**
+
+```typescript
+interface MobileNavStore {
+  // 5 parallel stacks — each tab maintains its own history
+  boardStack: string[]        // Routes: 'board', 'task:ID', etc.
+  planningStack: string[]     // Routes: 'sessions', 'chat:ID', etc.
+  tasksStack: string[]        // Routes: 'list', 'workspace:ID', etc.
+  activityStack: string[]     // Routes: 'feed', 'detail:ID', etc.
+  settingsStack: string[]     // Routes: 'home', 'connections', etc.
+  
+  activeTab: 'board' | 'planning' | 'tasks' | 'activity' | 'settings'
+  
+  // Stack manipulation
+  pushRoute: (tab: TabName, route: string) => void
+  popRoute: (tab?: TabName) => void           // Pop current tab if not specified
+  switchTab: (tab: TabName) => void
+  clearStack: (tab: TabName) => void
+  
+  // Deep-link support
+  navigateToDeepLink: (uri: string) => void  // e.g., 'tinsu://task/123' or 'tinsu://chat/abc'
+  
+  // Android back-button support
+  handleBackPress: () => boolean              // Returns true if consumed, false if should exit app
+}
+```
+
+**Back-button behavior (Android):**
+- Tap system back → calls `handleBackPress()`.
+- If current tab's stack has >1 entry: pop the stack, stay on tab.
+- If stack has 1 entry (root of tab): switch to previous tab (left neighbor cyclically).
+- If at root of "Board" tab (first tab): exit app.
+
+**Tab switching:**
+- Tapping a tab button in `MobileTabBar` calls `switchTab()`.
+- Preserves scroll position and form state of all other tabs (each maintains its own DOM subtree; Zustand doesn't unmount tabs).
+- Long-press on already-active tab: scroll root of that tab's stack to top (iOS-native pattern).
+
+### Deep-Link Routing Table
+
+**Scheme:** `tinsu://[domain]/[path]`
+
+Tauri deep-link plugin wires invocations to `navigateToDeepLink()` in mobile-nav store. Desktop deep links continue via desktop router (unchanged).
+
+| URI | Mobile Target | Stack Restored | Desktop Target |
+|---|---|---|---|
+| `tinsu://project/{id}` | Board tab, project switched | `['board']` | Project sidebar selector |
+| `tinsu://board/{id}` | Board tab, root | `['board']` | Kanban board + sidebar |
+| `tinsu://task/{id}` | Tasks tab, workspace open | `['list', 'workspace:{id}']` | Task workspace full-screen |
+| `tinsu://task/{id}/diff` | Tasks tab, diff sub-tab | `['list', 'workspace:{id}', 'diff']` | Diff viewer full-screen |
+| `tinsu://chat/{sessionId}` | Planning tab, chat open | `['sessions', 'chat:{sessionId}']` | Planning workspace chat pane |
+| `tinsu://activity/{taskId}` | Activity tab, filtered | `['feed:filter=task:{taskId}']` | Activity log, desktop app shell |
+| `tinsu://settings/connections` | Settings tab, connections | `['home', 'connections']` | Settings modal, connections section |
+
+**Implementation point (Tauri):**
+- `tauri.conf.json` registers the `tinsu://` scheme.
+- Rust handler invokes a Tauri command that emits a Tauri Event with the deep link URI.
+- React listener in `MobileApp` calls `mobileNavStore.navigateToDeepLink(uri)`.
+- Store parses URI, pushes routes onto the appropriate tab stack, switches tab.
+
+### Mobile Primitive Contract
+
+**All 14 primitives follow this contract:**
+
+1. **CSS Variables Only:** All color, spacing, typography come from Calm Command tokens (`--background`, `--card`, `--primary`, `--destructive`, `--muted-foreground`, `--border`, `--font-family-mono`, `--font-size-body`, etc.). No inline Tailwind color classes like `text-red-500` or `bg-blue-200`.
+
+2. **Touch Target Minimums:**
+   - Interactive elements (button, tap area): ≥44 pt (iOS) / ≥48 dp (Android) height and width.
+   - Tap targets spaced ≥8 pt apart (to avoid accidental multi-touch).
+
+3. **Accessibility (a11y):**
+   - Semantic HTML: buttons are `<button>`, text is `<p>` or `<span>`, lists are `<ul>` / `<li>`.
+   - `aria-label` on icon-only buttons.
+   - Color is never the only indicator — status always has text or icon (e.g., diff uses `+`/`-` prefix for colors).
+   - Respect `prefers-reduced-motion` — no infinite animations; animations opt-out on reduced-motion.
+
+4. **Layout Safe Areas:**
+   - All primitives wrap content in `MobileScreen.tsx` which applies safe-area insets (`padding-top: env(safe-area-inset-top)`, etc.).
+   - `MobileTabBar` is always bottom-fixed and accounts for safe-area inset bottom.
+   - `MobileBottomActionBar` and `MobileSheet` layer above the tab bar, also accounting for safe areas.
+
+5. **Performance:**
+   - Virtualized lists use React virtualization (e.g., `react-window` or `@tanstack/react-virtual`) for 100+ items.
+   - Lazy load sheet content (don't render content until sheet is opened).
+   - Memo functional components that don't change.
+
+**Primitives never import from `src/components/` (desktop)** — they are self-contained and use only Calm Command tokens and base React.
+
+### Reused Unchanged
+
+The following systems are shared by both desktop and mobile trees. Both call the same Rust backend, use the same domain stores, and fetch the same data.
+
+| System | Desktop | Mobile | Backend |
+|--------|---------|--------|---------|
+| **Rust Backend** | Tauri commands via rspc | Same rspc hooks | `src-tauri/src/router/*`, `src-tauri/src/services/*` |
+| **Tauri Commands** | `rspc.useMutation(...)` | Same `rspc.useMutation(...)` | Unchanged |
+| **Domain Stores** | `useTaskWorkspaceStore`, `usePlanningWorkspaceStore`, `useStoryViewStore`, `project.store`, etc. | Same Zustand stores | No `useIsMobile()` version — stores are form-factor agnostic |
+| **rspc Hooks** | `useQuery`, `useMutation`, TanStack Query | Same hooks | Single data layer |
+| **Diff Computation** | Desktop Monaco diff viewer | Mobile unified diff | `git_service.rs` provides diff hunks |
+| **Terminal (xterm.js)** | `TerminalOutput.tsx` (Tauri Channels) | `MobileTerminalTab.tsx` (same Channels) | Same PTY service |
+| **Kanban Logic** | `@dnd-kit` with desktop DndContext | `@dnd-kit` core reused, wrapped in `MobileColumnPager` | Unchanged |
+| **Design Tokens** | Calm Command CSS variables | Same CSS variables | Single token system |
+| **Search/Filter** | Zustand `uiStore` + rspc queries | Same Zustand + rspc | No duplication |
+
+**What does NOT get duplicated:**
+- Rust backend services (PTY, Git, tmux, SSH, activity logging, automation).
+- TanStack Query / rspc client integration.
+- All Zustand domain stores.
+- Design tokens.
+- `@dnd-kit` drag-drop library core.
+
+**What gets reimplemented (mobile-only):**
+- Navigation and routing (mobile-nav store vs. desktop router).
+- UI component layout (mobile primitives vs. shadcn/ui).
+- Gesture handling and responsive behavior (mobile features like bottom sheets, swipe navigation, long-press menus).
+
+### Navigation Stack Examples
+
+**Example 1: Board → Task → Complete**
+
+```
+User taps card on Board tab
+  → pushRoute('tasks', 'workspace:123')
+  → switchTab('tasks')
+  → Tasks tab now shows: activeRoute = 'workspace:123'
+  → Screen renders <MobileTaskWorkspaceScreen taskId={123} />
+
+User presses Android back
+  → handleBackPress() → stack = ['list', 'workspace:123'] → pop
+  → activeRoute = 'list'
+  → Tasks tab shows task list again
+  → Scroll position preserved from earlier
+
+User taps another tab (Planning)
+  → switchTab('planning')
+  → Tasks tab unmounts (stays in Zustand)
+  → Planning tab content renders
+
+Back to Tasks tab
+  → switchTab('tasks')
+  → Tasks re-mounts at activeRoute = 'list' with same scroll position
+```
+
+**Example 2: Deep Link → Chat**
+
+```
+System opens 'tinsu://chat/session-42'
+  → Rust deep-link handler emits Tauri Event with URI
+  → MobileApp listener calls mobileNavStore.navigateToDeepLink('tinsu://chat/session-42')
+  → Store parses: tab='planning', route='chat:session-42'
+  → pushRoute('planning', 'chat:session-42')
+  → switchTab('planning')
+  → Planning tab renders <MobileChatScreen sessionId="session-42" />
+```
+
+### Migration Sequence & Rollback
+
+**Foundational stories (blocking all feature work):**
+- **T3.5-1:** Mobile shell foundation (viewport router, `MobileApp.tsx`, mobile-nav store, deep-link wiring). Must land first.
+- **T3.5-2:** Mobile primitives library (14 primitives, design token audit, storybook equivalent). Must land before any feature story to stabilize the design surface.
+
+**Feature stories (T3.5-3 through T3.5-8):**
+- T3.5-3: Board (column pager + long-press drag)
+- T3.5-4: Task workspace (segmented sub-tabs + sticky bars)
+- T3.5-5: Planning (session list + chat)
+- T3.5-6: Review (diff + action bar)
+- T3.5-7: SSH management
+- T3.5-8: Activity + Settings
+
+**Gate story (mandatory before Phase 4):**
+- **T3.5-9:** Real-device validation. All 10 ACs from `t3-8-test-report.md` verified on Android API 34 emulator + at least one physical Android device. iOS on macOS if available; otherwise deferred with documented path.
+
+**Rollback semantics:**
+
+- **Before T3.5-3 (board lands):** Rollback is trivial. Revert viewport router in `App.tsx` to pre-3.5 state. T3.5-1 and T3.5-2 are additive (new files, no desktop component changes). Delete `src/mobile/`.
+- **After T3.5-3 (during feature rollout):** Each feature story can be rolled back individually by reverting its `src/mobile/` subdirectory. Desktop components keep their original implementations (no `useIsMobile()` branches are removed from desktop until the end).
+- **End of T3.5 (all stories merged):** Delete `useIsMobile()` hook and all references in desktop components (dead code). This deletion cannot be undone without restoring from git history.
+
+**Per-story reversibility:** Each feature story T3.5-3 through T3.5-8 is independently reversible until merged. After merge, the desktop tree's corresponding feature still works via the same Rust backend and domain stores — no feature loss, only the mobile UI is absent.
+
+### Calm Command Tokens in Mobile
+
+Mobile screens inherit all Calm Command tokens from `globals.css`. Key mappings:
+
+```css
+/* Color tokens (unchanged) */
+--background          /* Dark card background */
+--foreground          /* Primary text */
+--card                /* Card/panel background, slightly lighter */
+--primary             /* Accent color, action buttons */
+--secondary           /* Secondary action */
+--destructive         /* Error, delete actions */
+--muted-foreground    /* Disabled text, metadata */
+--border              /* Dividers, input borders */
+--success             /* Green, approval states */
+--warning             /* Yellow, reconnecting states */
+
+/* Typography tokens */
+--font-family-base    /* Inter */
+--font-family-mono    /* JetBrains Mono */
+--font-size-body      /* 14 sp on desktop, 15 sp on mobile */
+--font-size-h1        /* 24 pt desktop, 22 pt mobile */
+
+/* Spacing (unchanged 4 px grid) */
+/* All margins/padding in multiples of 4 px */
+```
+
+**Mobile primitives sample:**
+
+```typescript
+// MobileTaskCard.tsx
+export function MobileTaskCard({ task }: Props) {
+  return (
+    <div className="rounded-lg bg-[var(--card)] p-4 border border-[var(--border)]">
+      <div className="flex items-start justify-between">
+        <h3 className="text-[var(--font-size-body)] font-mono text-[var(--foreground)]">
+          {task.title}
+        </h3>
+        <span className="text-[var(--font-size-body)] text-[var(--muted-foreground)]">
+          #{task.id}
+        </span>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          className="rounded px-3 py-2 bg-[var(--primary)] text-[var(--background)] text-sm"
+          onClick={() => openTask(task.id)}
+        >
+          Open
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+(Note: CSS variables used directly, no `text-red-500`-style classes.)
+
+### Architecture Boundaries (Mobile)
+
+**Mobile-specific boundary:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   MOBILE APP (src/mobile/)                       │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐    │
+│  │ MobileNavStore│   │ Mobile Prim. │   │ Screen Components│    │
+│  │ (5 stacks)   │──▶│ (14 types)   │──▶│ (Features)       │    │
+│  └──────────────┘   └──────────────┘   └──────────────────┘    │
+│        │                                          │               │
+│        └──────────────────┬───────────────────────┘               │
+│                           │                                       │
+│                      ┌────▼──────┐                               │
+│                      │ rspc Hooks │ (shared with desktop)        │
+│                      │ Zustand    │                              │
+│                      └────┬──────┘                               │
+└──────────────────────────┼──────────────────────────────────────┘
+                           │
+                ┌──────────▼──────────┐
+                │  SHARED SERVICES    │
+                │  (Unchanged)        │
+                │  - Rust backend     │
+                │  - rspc client      │
+                │  - Domain stores    │
+                │  - Design tokens    │
+                └─────────────────────┘
+```
+
+**Process boundaries:** Mobile and desktop are mounted conditionally at the root; they never interact after the viewport check.
+
+---
+
 ### Decision Impact Analysis
 
 **Implementation Sequence:**

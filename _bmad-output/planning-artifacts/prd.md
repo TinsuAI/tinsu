@@ -57,6 +57,7 @@ Beyond execution, TinSu provides a **Planning Workspace** where founders collabo
 - Core integrations: Claude Code, GitHub, Git
 - Cross-platform targets: macOS, Linux, Windows (desktop); Android, iOS (mobile via Tauri)
 - Remote project support via SSH (russh)
+- Mobile UI delivered via parallel tree at `src/mobile/` (per Tauri Epic 3.5, approved 2026-04-30); desktop tree unchanged
 
 ## Success Criteria
 
@@ -672,6 +673,10 @@ project/
 - FR59: System forwards remote hook events (completion, tool use, permission requests) to the local app via SSH port forwarding
 - FR60: Founder can switch between local and remote projects using a unified project switcher in the UI
 - FR61: System builds and runs on macOS, Linux, Windows (desktop) and Android, iOS (mobile) from a single Tauri v2 codebase
+
+**Mobile Delivery Method Note (2026-04-30):**
+
+Mobile features (FR54–FR61, with mobile-native interactions and cross-platform mobile build targets) are delivered via a **parallel UI tree at `src/mobile/`**, not via responsive single-tree design with `useIsMobile()` branches in desktop components. This course correction (Tauri Epic 3.5, per `sprint-change-proposal-2026-04-30.md`) enables mobile-native interaction patterns (bottom-tab navigation, full-screen flows, bottom sheets, edge swipe) that cannot be retrofitted onto desktop layouts without further branching. **Mobile FR acceptance is measured against the mobile UI tree** (`src/mobile/`), not responsive desktop branches shrunk to phone width. Desktop tree continues to render the existing `App.tsx` path unchanged.
 
 ## Non-Functional Requirements
 
