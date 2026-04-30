@@ -348,3 +348,59 @@ tmux kill-session -t <session-name>
 - **MobileActivityFeedScreen activity mock**: Tests use `mockUseGlobalActivitySubscription.mock.calls` to retrieve callback (vi.doMock pattern doesn't work for already-imported modules)
 - **@tauri-apps/plugin-os**: Not installed in node_modules; stubbed via vitest.config.ts alias
 - **Dynamic imports in components**: Changed to static imports for testability (MobileDiagnostics)
+
+---
+
+## T3.5-9: Real-Device Validation Gate
+
+**Story:** `t3-5-9-real-device-validation-gate`
+**Status:** review (automation complete; Android device runs pending)
+**Agent:** DEV 1 (Sonnet 4.6), 2026-04-30
+
+This story is the Epic 3.5 gate between mobile parallel-tree implementation and Epic 4 CI/CD
+pipelines. It validates all T3.5-1 through T3.5-8 screens on real Android hardware and documents
+platform parity. iOS execution is deferred pending macOS availability.
+
+### Automated Deliverables Shipped
+
+| Artifact | Status |
+|----------|--------|
+| `scripts/audit-touch-targets.ts` | SHIPPED — 15/15 tests PASS |
+| `scripts/vitest.touch-targets.config.ts` | SHIPPED — vitest config for audit script |
+| `package.json` audit:touch-targets script | SHIPPED |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/measurements.md` | SHIPPED — master table with PENDING-DEVICE-RUN stubs |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/touch-target-audit.md` | SHIPPED — automated + device rows |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/t3-5-9-platform-parity.md` | SHIPPED — iOS-deferred documented |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/t3-5-9-followup-bugs.md` | SHIPPED — BUG-001 logged |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/logs/reduced-motion-grep.txt` | SHIPPED — 96-line grep evidence |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/ci-snapshot-final.txt` | SHIPPED |
+| `_bmad-output/implementation-artifacts/t3-8-test-report.md` | UPDATED — in-place with real AC status |
+
+### AC Verification Summary
+
+- **AC 12 (touch targets):** AUTOMATED PASS — `npm run audit:touch-targets` → 15/15
+- **AC 13 (reduced-motion):** PARTIALLY-AUTOMATED — `useReducedMotion` used in 16 source files; device recordings pending
+- **AC 11 (deep-links):** Unit tests PASS (23/23); device cold/warm runs pending
+- **AC 22 (no regression):** Mobile suite 531/531 PASS; full suite pre-existing failures only; TypeScript clean
+- **ACs 1–10, 14–18:** PENDING-DEVICE-RUN with structured measurement tables
+
+### Key Findings
+
+- `useReducedMotion` hook correctly consumed in 16 mobile source files including all primitives with animations.
+- No `useIsMobile()` branches found in `src/mobile/` — parallel-tree rule upheld.
+- `MobileScreen` uses `100dvh` (not `100vh`) — iOS Safari-safe.
+- Safe-area `env()` tokens verified in MobileTabBar and MobileBottomActionBar.
+- **BUG-001:** `MobileChatScreen` overflow button (`h-10 w-10` = 40px) below 44px — non-blocker (button is disabled placeholder; fix when wiring T3.5-8's real overflow menu).
+
+### Evidence Directory
+
+`_bmad-output/implementation-artifacts/t3-5-9-evidence/`
+- `screenshots/` — device screenshots (PENDING-DEVICE-RUN)
+- `recordings/` — screen recordings (PENDING-DEVICE-RUN)
+- `traces/` — CPU/frame profiler traces (PENDING-DEVICE-RUN)
+- `logs/` — logcat + grep outputs (partial — reduced-motion grep captured)
+- `ci-snapshot-final.txt` — automated CI results
+- `measurements.md` — master evidence table
+- `touch-target-audit.md` — touch-target audit results
+- `t3-5-9-platform-parity.md` — Android vs iOS parity doc
+- `t3-5-9-followup-bugs.md` — bug triage

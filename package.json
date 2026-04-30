@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "lint": "eslint --cache .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "audit:touch-targets": "vitest run --config scripts/vitest.touch-targets.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

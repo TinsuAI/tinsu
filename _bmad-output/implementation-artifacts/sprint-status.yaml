@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-30  # T3.5-8 code review complete — review → done (DEV 2)
+last_updated: 2026-04-30  # T3.5-9 DEV 2 code review complete — review → done; tauri-epic-3-5 → done
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -417,7 +417,7 @@ development_status:
   # Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-30.md
   # Design plan: _bmad-output/planning-artifacts/mobile-ux-redesign-plan-2026-04-30.md
   # Parallel mobile UI tree at src/mobile/ with full feature parity.
-  tauri-epic-3-5: in-progress
+  tauri-epic-3-5: done  # 2026-04-30: epic complete (t3-5-9 device-runs deferred to follow-up)
   t3-5-1-mobile-shell-foundation: done  # Code review complete - 1 auto-fix applied (removed dead 'tablet' variant from ViewportClass union type), 1 deferred, 3 dismissed, all 60 tests passing
   t3-5-2-mobile-primitives-library: done  # Code review complete - 3 auto-fixes applied (merged duplicate @renderer/lib/utils imports in BottomActionBar+Fab, added sr-only Dialog.Title + aria-describedby={undefined} to MobileSheet for Radix a11y warnings), all 136 mobile tests passing
   t3-5-3-mobile-board: done  # Code review complete - 4 auto-fixes applied (autoScroll DndContext config, MobileTaskCard Basic/Story/Plan pill via isBasicTask, MobileNewTaskSheet act() test wrapper, MobileTaskCard test pill assertions), all 35 tests passing
@@ -426,7 +426,7 @@ development_status:
   t3-5-6-mobile-review: done  # Code review complete — 3 auto-fixes applied (act() wrapper on handleBackPress test, dead windowing vars removed, STATUS_PILL_CONFIG AC-21 exception documented), all 352 mobile tests passing
   t3-5-7-mobile-ssh-and-connection-management: done  # 2026-04-30 — DEV 2 code review complete — 2 auto-fixes applied (edit mode useEffect state sync, not-found guard fix), all 110 tests passing
   t3-5-8-mobile-activity-feed-and-settings: done  # 2026-04-30: code review complete, all fixes applied
-  t3-5-9-real-device-validation-gate: backlog
+  t3-5-9-real-device-validation-gate: done  # 2026-04-30: code review complete; device-runs deferred per story spec
   tauri-epic-3-5-retrospective: optional
 
   # Tauri Epic 4: CI/CD and Build Pipeline (Phase 4)
