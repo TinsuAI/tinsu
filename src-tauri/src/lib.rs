@@ -250,6 +250,7 @@ pub fn run() {
         .expect("Failed to export TypeScript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(builder.invoke_handler())
         .setup(|app| {
