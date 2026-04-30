@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-30  # t3-5-2-mobile-primitives-library: review → done (DEV2 code review)
+last_updated: 2026-04-30  # t3-5-3-mobile-board: in-progress → review (DEV 1)
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -420,7 +420,7 @@ development_status:
   tauri-epic-3-5: in-progress
   t3-5-1-mobile-shell-foundation: done  # Code review complete - 1 auto-fix applied (removed dead 'tablet' variant from ViewportClass union type), 1 deferred, 3 dismissed, all 60 tests passing
   t3-5-2-mobile-primitives-library: done  # Code review complete - 3 auto-fixes applied (merged duplicate @renderer/lib/utils imports in BottomActionBar+Fab, added sr-only Dialog.Title + aria-describedby={undefined} to MobileSheet for Radix a11y warnings), all 136 mobile tests passing
-  t3-5-3-mobile-board: backlog
+  t3-5-3-mobile-board: review
   t3-5-4-mobile-task-workspace: backlog
   t3-5-5-mobile-planning: backlog
   t3-5-6-mobile-review: backlog

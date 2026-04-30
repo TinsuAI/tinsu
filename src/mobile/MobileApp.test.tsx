@@ -6,14 +6,23 @@ import { useMobileNavStore } from './shell/mobile-nav.store'
 // ── Module mocks ─────────────────────────────────────────────────────
 
 vi.mock('@renderer/stores/project.store', () => ({
-  useProjectStore: (selector: (s: { projectName: string | null }) => unknown) =>
-    selector({ projectName: 'TestProject' }),
+  useProjectStore: (selector: (s: { projectName: string | null; activeProjectId: string | null }) => unknown) =>
+    selector({ projectName: 'TestProject', activeProjectId: 'proj-1' }),
 }))
 
 // Mock deep-link plugin — not available in test env
 vi.mock('@tauri-apps/plugin-deep-link', () => ({
   onOpenUrl: vi.fn().mockResolvedValue(vi.fn()),   // returns unlisten fn
   getCurrent: vi.fn().mockResolvedValue(null),
+}))
+
+// Mock task commands — MobileBoardScreen (the real board) uses these hooks.
+// Without this, React Query throws "No QueryClient set" when board tab renders.
+vi.mock('@renderer/hooks/useTaskCommands', () => ({
+  useListTasks: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
+  useUpdateTaskStatus: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useReorderTasks: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useCreateTask: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }))
 
 // ── Reset store before each test ─────────────────────────────────────
@@ -66,12 +75,11 @@ describe('MobileApp', () => {
     expect(screen.getByTestId('mobile-top-bar-project-name')).toHaveTextContent('TestProject')
   })
 
-  it('starts on board tab and shows Board placeholder', () => {
+  it('starts on board tab and shows Board screen', () => {
     renderMobileApp()
     expect(screen.getByTestId('mobile-tab-board').getAttribute('aria-selected')).toBe('true')
-    // MobileEmptyState for Board renders an h2 with "Board"
-    const headings = screen.getAllByText('Board')
-    expect(headings.some((el) => el.tagName === 'H2')).toBe(true)
+    // MobileBoardScreen (real board) renders — verify it mounts without error
+    expect(screen.getByTestId('mobile-board-screen')).toBeInTheDocument()
   })
 
   function tapTab(testId: string): void {
