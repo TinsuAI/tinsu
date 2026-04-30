@@ -29,7 +29,7 @@
  *   @renderer/components/remote/MobileSshConnectionForm — desktop form, parallel-tree
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -89,7 +89,9 @@ export function MobileConnectionFormScreen({ mode, connectionId }: MobileConnect
     ? connections.find((c) => c.id === connectionId)
     : undefined
 
-  // Form state — initialized from existing connection in edit mode
+  // Form state — starts at defaults; synced from existingConnection via useEffect (AC: edit mode)
+  // useState initial values are captured once on first render; since useListSshConnections is async,
+  // existingConnection may be undefined on first render. useEffect populates the form when data arrives.
   const [host, setHost] = useState(existingConnection?.host ?? '')
   const [port, setPort] = useState<number>(existingConnection?.port ?? 22)
   const [username, setUsername] = useState(existingConnection?.username ?? '')
@@ -104,6 +106,20 @@ export function MobileConnectionFormScreen({ mode, connectionId }: MobileConnect
   const [keyPickerOpen, setKeyPickerOpen] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
 
+  // Sync form fields once the connection data arrives in edit mode.
+  // This handles the async case where useListSshConnections resolves after first render.
+  useEffect(() => {
+    if (mode === 'edit' && existingConnection) {
+      setHost(existingConnection.host)
+      setPort(existingConnection.port)
+      setUsername(existingConnection.username)
+      setAuthMethod((existingConnection.auth_method as AuthMethod) ?? 'key')
+      setKeyName(existingConnection.key_name ?? '')
+    }
+    // Only run when existingConnection identity changes (by id) to avoid clobbering user edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingConnection?.id, mode])
+
   const isSaving = createMutation.isPending || updateMutation.isPending
   const isTesting = testMutation.isPending
 
@@ -117,8 +133,9 @@ export function MobileConnectionFormScreen({ mode, connectionId }: MobileConnect
 
   const title = mode === 'new' ? 'New Connection' : 'Edit Connection'
 
-  // Edit mode: connection not found (after connections have loaded)
-  if (mode === 'edit' && !isConnectionsLoading && connections.length > 0 && !existingConnection) {
+  // Edit mode: connection not found (after connections have loaded, regardless of list size).
+  // Do NOT require connections.length > 0 — an empty list after loading still means "not found".
+  if (mode === 'edit' && !isConnectionsLoading && !existingConnection) {
     return (
       <div
         data-testid="mobile-connection-form-screen"

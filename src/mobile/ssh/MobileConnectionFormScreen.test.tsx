@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MobileConnectionFormScreen } from './MobileConnectionFormScreen'
+import * as SshCommands from '@renderer/hooks/useSshCommands'
 
 /* ─── Mock: @renderer/hooks/useSshCommands ───────────────────────────── */
 
@@ -206,8 +207,31 @@ describe('MobileConnectionFormScreen (mode=new)', () => {
 })
 
 describe('MobileConnectionFormScreen (mode=edit)', () => {
-  it('renders "Edit Connection" title for edit mode', () => {
+  it('renders "Edit Connection" title when connection is found', () => {
+    // Provide the connection data so the form renders (not the "not found" screen).
+    // The empty-array default would now correctly show "not found" per the P2 fix.
+    vi.mocked(SshCommands.useListSshConnections).mockReturnValue({
+      data: [
+        {
+          id: 'conn-123',
+          host: 'edit.server.com',
+          port: 22,
+          username: 'edituser',
+          auth_method: 'key',
+          key_name: 'edit-key',
+          created_at: 1700000000,
+        },
+      ],
+      isLoading: false,
+      error: null,
+    })
     render(<MobileConnectionFormScreen mode="edit" connectionId="conn-123" />)
     expect(screen.getByText('Edit Connection')).toBeInTheDocument()
+  })
+
+  it('renders "Connection not found" when connection id does not exist in loaded data', () => {
+    // Default mock returns data:[], isLoading:false → connection not found after load
+    render(<MobileConnectionFormScreen mode="edit" connectionId="nonexistent" />)
+    expect(screen.getByText('Connection not found')).toBeInTheDocument()
   })
 })
