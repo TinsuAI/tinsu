@@ -35,6 +35,24 @@ vi.mock('./tasks/MobileTaskWorkspaceScreen', () => ({
   ),
 }))
 
+// Mock MobileChatScreen — T3.5-5 (keeps MobileApp.test.tsx free of chat deps)
+vi.mock('./planning/MobileChatScreen', () => ({
+  MobileChatScreen: ({ sessionId }: { sessionId: string }) => (
+    <div data-testid="mobile-chat-screen" data-session-id={sessionId}>
+      Chat for {sessionId}
+    </div>
+  ),
+}))
+
+// Mock MobilePlanningHome — T3.5-5 (now uses useQuery; mock to avoid QueryClient requirement)
+vi.mock('./planning/MobilePlanningHome', () => ({
+  MobilePlanningHome: () => (
+    <div>
+      <h2>Planning</h2>
+    </div>
+  ),
+}))
+
 // Mock trpc for workspace routes (used by MobileTaskWorkspaceScreen mock)
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
@@ -173,11 +191,12 @@ describe('MobileApp', () => {
     expect(screen.getByTestId('mobile-task-workspace')).toBeInTheDocument()
   })
 
-  it('renders placeholder for unimplemented route chat:*', () => {
+  it('renders MobileChatScreen for chat:* route (T3.5-5)', () => {
     useMobileNavStore.getState().pushRoute('planning', 'chat:session-1')
     useMobileNavStore.setState({ activeTab: 'planning' })
     renderMobileApp()
-    expect(screen.getByText('Planning Chat')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-chat-screen')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-chat-screen')).toHaveAttribute('data-session-id', 'session-1')
   })
 
   it('renders placeholder for unimplemented route diff', () => {
@@ -207,11 +226,50 @@ describe('isFullScreenRoute', () => {
     expect(isFullScreenRoute('home')).toBe(false)
   })
 
-  it('returns false for chat: routes (placeholder for T3.5-5)', () => {
-    expect(isFullScreenRoute('chat:session-1')).toBe(false)
+  it('returns true for chat: routes (T3.5-5 — chat is now full-screen)', () => {
+    expect(isFullScreenRoute('chat:session-1')).toBe(true)
+    expect(isFullScreenRoute('chat:abc')).toBe(true)
+    expect(isFullScreenRoute('chat:foo')).toBe(true)
   })
 
   it('returns false for diff route', () => {
     expect(isFullScreenRoute('diff')).toBe(false)
+  })
+})
+
+describe('MobileApp — chat route integration (T3.5-5 AC 14, 19f)', () => {
+  it('chat:abc route renders MobileChatScreen with sessionId="abc"', () => {
+    useMobileNavStore.getState().pushRoute('planning', 'chat:abc')
+    useMobileNavStore.setState({ activeTab: 'planning' })
+    renderMobileApp()
+    const chatScreen = screen.getByTestId('mobile-chat-screen')
+    expect(chatScreen).toBeInTheDocument()
+    expect(chatScreen).toHaveAttribute('data-session-id', 'abc')
+  })
+
+  it('chat route bypasses root MobileScreen (no tab bar)', () => {
+    useMobileNavStore.getState().pushRoute('planning', 'chat:abc')
+    useMobileNavStore.setState({ activeTab: 'planning' })
+    renderMobileApp()
+    expect(screen.queryByTestId('mobile-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('mobile-chat-screen')).toBeInTheDocument()
+  })
+
+  it('deep-link integration: tabStacks.planning = ["sessions","chat:abc"] renders chat screen', () => {
+    // Simulate navigateToDeepLink result: planning stack has sessions + chat:abc
+    useMobileNavStore.setState({
+      activeTab: 'planning',
+      tabStacks: {
+        board: ['board'],
+        planning: ['sessions', 'chat:abc'],
+        tasks: ['list'],
+        activity: ['feed'],
+        settings: ['home'],
+      },
+    })
+    renderMobileApp()
+    const chatScreen = screen.getByTestId('mobile-chat-screen')
+    expect(chatScreen).toBeInTheDocument()
+    expect(chatScreen).toHaveAttribute('data-session-id', 'abc')
   })
 })

@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-30  # t3-5-4-mobile-task-workspace: review → done (DEV 2 code review)
+last_updated: 2026-04-30  # t3-5-5-mobile-planning: review → done (DEV 2 code review complete — 1 auto-fix applied)
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -422,7 +422,7 @@ development_status:
   t3-5-2-mobile-primitives-library: done  # Code review complete - 3 auto-fixes applied (merged duplicate @renderer/lib/utils imports in BottomActionBar+Fab, added sr-only Dialog.Title + aria-describedby={undefined} to MobileSheet for Radix a11y warnings), all 136 mobile tests passing
   t3-5-3-mobile-board: done  # Code review complete - 4 auto-fixes applied (autoScroll DndContext config, MobileTaskCard Basic/Story/Plan pill via isBasicTask, MobileNewTaskSheet act() test wrapper, MobileTaskCard test pill assertions), all 35 tests passing
   t3-5-4-mobile-task-workspace: done  # Code review complete — 3 auto-fixes applied (scrollbar webkit fix, ariaLabel on MobileBottomActionBar primary+secondary, react-markdown import dismissed), all 72 tests passing
-  t3-5-5-mobile-planning: backlog
+  t3-5-5-mobile-planning: done  # Code review complete 2026-04-30 — 1 auto-fix applied (relative positioning on MobileChatComposer error message container), 3 dismissed, all 78 planning+MobileApp tests passing
   t3-5-6-mobile-review: backlog
   t3-5-7-mobile-ssh-and-connection-management: backlog
   t3-5-8-mobile-activity-feed-and-settings: backlog

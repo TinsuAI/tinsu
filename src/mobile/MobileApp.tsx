@@ -10,6 +10,7 @@ import { MobileTaskListScreen } from './tasks/MobileTaskListScreen'
 import { MobileActivityFeedScreen } from './activity/MobileActivityFeedScreen'
 import { MobileSettingsHome } from './settings/MobileSettingsHome'
 import { MobileTaskWorkspaceScreen } from './tasks/MobileTaskWorkspaceScreen'
+import { MobileChatScreen } from './planning/MobileChatScreen'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
 
@@ -21,7 +22,7 @@ import type { MobileTabId } from './shell/mobile-nav.store'
  * Story T3.5-5: chat routes will also be full-screen.
  */
 export function isFullScreenRoute(route: string): boolean {
-  return route.startsWith('workspace:')
+  return route.startsWith('workspace:') || route.startsWith('chat:')
 }
 
 // DEV-ONLY: Primitives harness — never ships to production.
@@ -179,12 +180,8 @@ function MobileRouteRenderer({ route }: { route: string }) {
     return <MobileTaskWorkspaceScreen taskId={taskId} />
   }
   if (route.startsWith('chat:')) {
-    return (
-      <MobileEmptyState
-        title="Planning Chat"
-        subtitle="Coming in T3.5-5 — BMAD agent conversation view."
-      />
-    )
+    const sessionId = route.slice('chat:'.length)
+    return <MobileChatScreen sessionId={sessionId} />
   }
   if (route === 'diff') {
     return (
