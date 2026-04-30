@@ -27,3 +27,5 @@ export { MobileFab } from './MobileFab'
 export { MobileSearchBar } from './MobileSearchBar'
 export { MobileLoadingSkeleton } from './MobileLoadingSkeleton'
 export { MobilePullToRefresh } from './MobilePullToRefresh'
+// T3.5-8: 16th primitive — settings list row
+export { MobileSettingsRow } from './MobileSettingsRow'

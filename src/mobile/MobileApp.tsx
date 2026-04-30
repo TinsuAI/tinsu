@@ -14,6 +14,11 @@ import { MobileChatScreen } from './planning/MobileChatScreen'
 import { MobileDiffViewerScreen } from './review/MobileDiffViewerScreen'
 import { MobileConnectionsListScreen } from './ssh/MobileConnectionsListScreen'
 import { MobileConnectionFormScreen } from './ssh/MobileConnectionFormScreen'
+import { MobileAgentSettings } from './settings/MobileAgentSettings'
+import { MobileThemeSettings } from './settings/MobileThemeSettings'
+import { MobileDiagnostics } from './settings/MobileDiagnostics'
+import { MobileAbout } from './settings/MobileAbout'
+import { MobileLicenses } from './settings/MobileLicenses'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
 
@@ -202,6 +207,25 @@ function MobileRouteRenderer({ route }: { route: string }) {
   if (route === 'connections') {
     return <MobileConnectionsListScreen />
   }
+
+  // T3.5-8: settings sub-screens — inside MobileScreen shell (tab bar visible, AC 14)
+  // Placed AFTER tab-root switch, BEFORE connection-form: branch (AC 15).
+  if (route === 'agent-settings') {
+    return <MobileAgentSettings />
+  }
+  if (route === 'theme-settings') {
+    return <MobileThemeSettings />
+  }
+  if (route === 'diagnostics') {
+    return <MobileDiagnostics />
+  }
+  if (route === 'about') {
+    return <MobileAbout />
+  }
+  if (route === 'licenses') {
+    return <MobileLicenses />
+  }
+
   // T3.5-7: connection form — full-screen push, bypasses MobileScreen (AC 2)
   if (route.startsWith('connection-form:')) {
     const param = route.slice('connection-form:'.length)

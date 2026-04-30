@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-30  # t3-5-7-mobile-ssh-and-connection-management: review → done (DEV 2 code review complete — 2 auto-fixes applied)
+last_updated: 2026-04-30  # T3.5-8 code review complete — review → done (DEV 2)
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -425,7 +425,7 @@ development_status:
   t3-5-5-mobile-planning: done  # Code review complete 2026-04-30 — 1 auto-fix applied (relative positioning on MobileChatComposer error message container), 3 dismissed, all 78 planning+MobileApp tests passing
   t3-5-6-mobile-review: done  # Code review complete — 3 auto-fixes applied (act() wrapper on handleBackPress test, dead windowing vars removed, STATUS_PILL_CONFIG AC-21 exception documented), all 352 mobile tests passing
   t3-5-7-mobile-ssh-and-connection-management: done  # 2026-04-30 — DEV 2 code review complete — 2 auto-fixes applied (edit mode useEffect state sync, not-found guard fix), all 110 tests passing
-  t3-5-8-mobile-activity-feed-and-settings: backlog
+  t3-5-8-mobile-activity-feed-and-settings: done  # 2026-04-30: code review complete, all fixes applied
   t3-5-9-real-device-validation-gate: backlog
   tauri-epic-3-5-retrospective: optional
 

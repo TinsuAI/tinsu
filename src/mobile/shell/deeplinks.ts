@@ -4,18 +4,32 @@ import type { MobileTabId } from './mobile-nav.store'
  * Result of parsing a tinsu:// deep-link URI.
  *
  * Story T3.5-1 — Deep-Link Routing Table.
+ * Story T3.5-8 — Extended with settings sub-paths + activity/{taskId}.
  *
  * Table (from architecture.md §"Deep-Link Routing Table"):
  *
  *   tinsu://chat/{sessionId}        → tab: 'planning', stack: ['sessions', 'chat:{sessionId}']
  *   tinsu://task/{taskId}           → tab: 'tasks',    stack: ['list', 'workspace:{taskId}']
  *   tinsu://task/{taskId}/diff      → tab: 'tasks',    stack: ['list', 'workspace:{taskId}', 'diff']
+ *   tinsu://settings/connections    → tab: 'settings', stack: ['home', 'connections']
+ *   tinsu://settings/agent          → tab: 'settings', stack: ['home', 'agent-settings']
+ *   tinsu://settings/theme          → tab: 'settings', stack: ['home', 'theme-settings']
+ *   tinsu://settings/diagnostics    → tab: 'settings', stack: ['home', 'diagnostics']
+ *   tinsu://settings/about          → tab: 'settings', stack: ['home', 'about']
+ *   tinsu://activity/{taskId}       → tab: 'activity', stack: ['feed'],
+ *                                     pendingTaskId: taskId (for detail sheet on mount)
  *
  * All other URIs (unknown host/path, empty ids, wrong schemes) → null.
  */
 export interface DeepLinkTarget {
   tab: MobileTabId
   stack: string[]
+  /**
+   * Transient: set only for tinsu://activity/{taskId} deep-links.
+   * Consumed by MobileActivityFeedScreen on mount to open the detail sheet
+   * for the most-recent activity of this task. T3.5-8, AC-13.
+   */
+  pendingTaskId?: string
 }
 
 /**
@@ -85,16 +99,38 @@ export function parseDeepLink(uri: string): DeepLinkTarget | null {
     }
 
     case 'settings': {
-      // T3.5-7: tinsu://settings/connections → settings tab with connections list
-      // All other tinsu://settings/* URIs return null — T3.5-8 may extend later.
-      if (parts[0] === 'connections') {
-        return {
-          tab: 'settings',
-          stack: ['home', 'connections'],
-        }
+      // T3.5-7: tinsu://settings/connections → settings tab with connections list (kept)
+      // T3.5-8: extended with agent, theme, diagnostics, about sub-paths
+      switch (parts[0]) {
+        case 'connections':
+          return { tab: 'settings', stack: ['home', 'connections'] }
+        case 'agent':
+          return { tab: 'settings', stack: ['home', 'agent-settings'] }
+        case 'theme':
+          return { tab: 'settings', stack: ['home', 'theme-settings'] }
+        case 'diagnostics':
+          return { tab: 'settings', stack: ['home', 'diagnostics'] }
+        case 'about':
+          return { tab: 'settings', stack: ['home', 'about'] }
+        default:
+          console.warn('[deeplinks] Unknown settings sub-path:', parts[0], 'in URI:', uri)
+          return null
       }
-      console.warn('[deeplinks] Unknown settings sub-path:', parts[0], 'in URI:', uri)
-      return null
+    }
+
+    case 'activity': {
+      // T3.5-8: tinsu://activity/{taskId} → activity tab at feed root
+      // Sets pendingTaskId so MobileActivityFeedScreen opens the detail sheet on mount.
+      const taskId = parts[0] ?? ''
+      if (!taskId) {
+        console.warn('[deeplinks] tinsu://activity missing taskId:', uri)
+        return null
+      }
+      return {
+        tab: 'activity',
+        stack: ['feed'],
+        pendingTaskId: taskId,
+      }
     }
 
     default: {

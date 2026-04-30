@@ -10,6 +10,8 @@ export default defineConfig({
       // monaco-editor has non-standard ESM exports; tests that use Monaco components
       // already mock @monaco-editor/react, so this stub is never actually called.
       'monaco-editor': path.resolve(__dirname, 'src/__mocks__/monaco-editor.ts'),
+      // Tauri plugin stubs — real plugins are not available in test env
+      '@tauri-apps/plugin-os': path.resolve(__dirname, 'src/__mocks__/tauri-plugin-os.ts'),
     },
   },
   test: {

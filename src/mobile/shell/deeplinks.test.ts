@@ -107,4 +107,59 @@ describe('parseDeepLink', () => {
     const result = parseDeepLink('tinsu://settings')
     expect(result).toBeNull()
   })
+
+  // ── settings URIs (T3.5-8) ────────────────────────────────────────
+
+  it('parses tinsu://settings/agent → settings tab with agent-settings stack', () => {
+    const result = parseDeepLink('tinsu://settings/agent')
+    expect(result).toEqual({
+      tab: 'settings',
+      stack: ['home', 'agent-settings'],
+    })
+  })
+
+  it('parses tinsu://settings/theme → settings tab with theme-settings stack', () => {
+    const result = parseDeepLink('tinsu://settings/theme')
+    expect(result).toEqual({
+      tab: 'settings',
+      stack: ['home', 'theme-settings'],
+    })
+  })
+
+  it('parses tinsu://settings/diagnostics → settings tab with diagnostics stack', () => {
+    const result = parseDeepLink('tinsu://settings/diagnostics')
+    expect(result).toEqual({
+      tab: 'settings',
+      stack: ['home', 'diagnostics'],
+    })
+  })
+
+  it('parses tinsu://settings/about → settings tab with about stack', () => {
+    const result = parseDeepLink('tinsu://settings/about')
+    expect(result).toEqual({
+      tab: 'settings',
+      stack: ['home', 'about'],
+    })
+  })
+
+  // ── activity URIs (T3.5-8) ────────────────────────────────────────
+
+  it('parses tinsu://activity/{taskId} → activity tab with feed stack and pendingTaskId', () => {
+    const result = parseDeepLink('tinsu://activity/task-abc-123')
+    expect(result).toEqual({
+      tab: 'activity',
+      stack: ['feed'],
+      pendingTaskId: 'task-abc-123',
+    })
+  })
+
+  it('returns null for tinsu://activity with no taskId', () => {
+    const result = parseDeepLink('tinsu://activity')
+    expect(result).toBeNull()
+  })
+
+  it('returns null for tinsu://settings/foo (unknown sub-path remains null)', () => {
+    const result = parseDeepLink('tinsu://settings/foo')
+    expect(result).toBeNull()
+  })
 })

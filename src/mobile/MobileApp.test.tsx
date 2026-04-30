@@ -53,6 +53,15 @@ vi.mock('./review/MobileDiffViewerScreen', () => ({
   ),
 }))
 
+// Mock MobileActivityFeedScreen — T3.5-8 (real component needs Tauri + commands)
+vi.mock('./activity/MobileActivityFeedScreen', () => ({
+  MobileActivityFeedScreen: () => (
+    <div data-testid="mobile-activity-feed">
+      <h2>Activity</h2>
+    </div>
+  ),
+}))
+
 // Mock MobileConnectionsListScreen — T3.5-7
 vi.mock('./ssh/MobileConnectionsListScreen', () => ({
   MobileConnectionsListScreen: () => (
@@ -60,6 +69,28 @@ vi.mock('./ssh/MobileConnectionsListScreen', () => ({
       Connections List
     </div>
   ),
+}))
+
+// Mock SSH commands — MobileSettingsHome uses useListSshConnections (T3.5-8)
+vi.mock('@renderer/hooks/useSshCommands', () => ({
+  useListSshConnections: vi.fn(() => ({ data: [], isLoading: false })),
+}))
+
+// Mock theme store — MobileSettingsHome and MobileThemeSettings use it (T3.5-8)
+vi.mock('@renderer/stores/theme.store', () => ({
+  useThemeStore: (selector: (s: { theme: string; setTheme: (t: string) => void }) => unknown) =>
+    selector({ theme: 'light', setTheme: () => {} }),
+}))
+
+// Mock Tauri OS plugin — used by MobileDiagnostics (T3.5-8)
+vi.mock('@tauri-apps/plugin-os', () => ({
+  platform: vi.fn().mockResolvedValue('linux'),
+}))
+
+// Mock Tauri app API — used by MobileDiagnostics (T3.5-8)
+vi.mock('@tauri-apps/api/app', () => ({
+  getVersion: vi.fn().mockResolvedValue('0.0.0-test'),
+  getTauriVersion: vi.fn().mockResolvedValue('2.0.0-test'),
 }))
 
 // Mock MobileConnectionFormScreen — T3.5-7
@@ -84,12 +115,20 @@ vi.mock('./planning/MobilePlanningHome', () => ({
   ),
 }))
 
-// Mock trpc for workspace routes (used by MobileTaskWorkspaceScreen mock)
+// Mock trpc for workspace routes and settings (T3.5-8: MobileSettingsHome uses config.get)
 vi.mock('@renderer/lib/trpc', () => ({
   trpc: {
     tasks: {
       getById: {
         useQuery: vi.fn(() => ({ data: null, isLoading: false, error: null })),
+      },
+    },
+    config: {
+      get: {
+        useQuery: vi.fn(() => ({
+          data: { devAgentModel: 'opus', reviewAgentModel: 'sonnet' },
+          isLoading: false,
+        })),
       },
     },
   },
@@ -108,6 +147,7 @@ beforeEach(() => {
       settings: ['home'],
     },
     sheetState: null,
+    pendingActivityForTask: null,
   })
 })
 
@@ -191,8 +231,8 @@ describe('MobileApp', () => {
     renderMobileApp()
     tapTab('mobile-tab-settings')
     // T3.5-7 replaces the placeholder with a real Connections list item
-    // MobileListItem renders 'Connections' as the title
-    expect(screen.getByText('Connections')).toBeInTheDocument()
+    // Use getAllByText since section header "Connections" and row title both match
+    expect(screen.getAllByText('Connections').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders MobileTaskWorkspaceScreen for workspace:* route on tasks tab', () => {

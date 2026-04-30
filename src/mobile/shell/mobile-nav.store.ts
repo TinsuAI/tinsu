@@ -46,6 +46,16 @@ interface MobileNavState {
    * field name `sheetState` to avoid a Zustand flat-object naming clash.
    */
   sheetState: { type: string; props?: unknown } | null
+  /**
+   * Transient deep-link bridge for tinsu://activity/{taskId}.
+   *
+   * Set by navigateToDeepLink when an activity URI is received; consumed
+   * and cleared by MobileActivityFeedScreen on mount. NOT persisted.
+   * If no matching activity is found within 2s of mount, no sheet opens.
+   *
+   * Story T3.5-8, AC-13.
+   */
+  pendingActivityForTask: string | null
 }
 
 interface MobileNavActions {
@@ -68,8 +78,17 @@ interface MobileNavActions {
    * Navigate via a tinsu:// deep-link URI.
    * Replaces the target tab's stack with the parsed root-to-leaf path.
    * Silently ignores malformed / unknown URIs.
+   *
+   * For tinsu://activity/{taskId}: sets pendingActivityForTask before nav
+   * (AC-13) so MobileActivityFeedScreen can open the detail sheet on mount.
    */
   navigateToDeepLink: (uri: string) => void
+  /**
+   * Set/clear the transient pendingActivityForTask field.
+   * Called by MobileActivityFeedScreen on mount to consume the pending value.
+   * Story T3.5-8, AC-13.
+   */
+  setPendingActivityForTask: (taskId: string | null) => void
   /**
    * Handle Android system back-press.
    *
@@ -100,6 +119,7 @@ export const useMobileNavStore = create<MobileNavState & MobileNavActions>()((se
   activeTab: 'board',
   tabStacks: initialTabStacks(),
   sheetState: null,
+  pendingActivityForTask: null,
 
   /* ── Actions ── */
 
@@ -149,6 +169,13 @@ export const useMobileNavStore = create<MobileNavState & MobileNavActions>()((se
   navigateToDeepLink: (uri) => {
     const target = parseDeepLink(uri)
     if (!target) return
+
+    // For activity deep-links, set pendingActivityForTask before navigating
+    // so MobileActivityFeedScreen can open the detail sheet on mount (AC-13).
+    if (target.tab === 'activity' && target.pendingTaskId) {
+      set({ pendingActivityForTask: target.pendingTaskId })
+    }
+
     set((state) => ({
       activeTab: target.tab,
       tabStacks: {
@@ -156,6 +183,10 @@ export const useMobileNavStore = create<MobileNavState & MobileNavActions>()((se
         [target.tab]: target.stack,
       },
     }))
+  },
+
+  setPendingActivityForTask: (taskId) => {
+    set({ pendingActivityForTask: taskId })
   },
 
   handleBackPress: () => {

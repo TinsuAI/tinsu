@@ -1066,3 +1066,25 @@ body,
     box-shadow 0.3s ease,
     color 0.3s ease;
 }
+
+/* =====================================================
+   MOBILE ACTIVITY FEED — T3.5-8
+   Glow animation for new activity rows.
+   AC-3: prefers-reduced-motion skips this via class
+   not being applied (handled in MobileActivityRow).
+   ===================================================== */
+
+@keyframes activity-glow {
+  0%   { background-color: oklch(from var(--primary) l c h / 0.12); }
+  100% { background-color: transparent; }
+}
+
+.animate-activity-glow {
+  animation: activity-glow 1.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-activity-glow {
+    animation: none;
+  }
+}

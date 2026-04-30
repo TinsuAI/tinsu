@@ -13,6 +13,7 @@ function resetStore(): void {
       settings: ['home'],
     },
     sheetState: null,
+    pendingActivityForTask: null,
   })
 }
 
@@ -196,5 +197,35 @@ describe('useMobileNavStore', () => {
     useMobileNavStore.getState().openSheet('some-sheet')
     useMobileNavStore.getState().closeSheet()
     expect(useMobileNavStore.getState().sheetState).toBeNull()
+  })
+
+  // ── pendingActivityForTask (T3.5-8) ───────────────────────────────
+
+  it('starts with pendingActivityForTask = null', () => {
+    expect(useMobileNavStore.getState().pendingActivityForTask).toBeNull()
+  })
+
+  it('setPendingActivityForTask sets the task ID', () => {
+    useMobileNavStore.getState().setPendingActivityForTask('task-xyz')
+    expect(useMobileNavStore.getState().pendingActivityForTask).toBe('task-xyz')
+  })
+
+  it('setPendingActivityForTask(null) clears the field', () => {
+    useMobileNavStore.getState().setPendingActivityForTask('task-xyz')
+    useMobileNavStore.getState().setPendingActivityForTask(null)
+    expect(useMobileNavStore.getState().pendingActivityForTask).toBeNull()
+  })
+
+  it('navigateToDeepLink for activity URI sets pendingActivityForTask', () => {
+    useMobileNavStore.getState().navigateToDeepLink('tinsu://activity/task-abc')
+    const state = useMobileNavStore.getState()
+    expect(state.activeTab).toBe('activity')
+    expect(state.tabStacks.activity).toEqual(['feed'])
+    expect(state.pendingActivityForTask).toBe('task-abc')
+  })
+
+  it('navigateToDeepLink for settings URI does NOT set pendingActivityForTask', () => {
+    useMobileNavStore.getState().navigateToDeepLink('tinsu://settings/agent')
+    expect(useMobileNavStore.getState().pendingActivityForTask).toBeNull()
   })
 })
