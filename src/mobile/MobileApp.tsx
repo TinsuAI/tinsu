@@ -12,6 +12,8 @@ import { MobileSettingsHome } from './settings/MobileSettingsHome'
 import { MobileTaskWorkspaceScreen } from './tasks/MobileTaskWorkspaceScreen'
 import { MobileChatScreen } from './planning/MobileChatScreen'
 import { MobileDiffViewerScreen } from './review/MobileDiffViewerScreen'
+import { MobileConnectionsListScreen } from './ssh/MobileConnectionsListScreen'
+import { MobileConnectionFormScreen } from './ssh/MobileConnectionFormScreen'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
 
@@ -22,9 +24,15 @@ import type { MobileTabId } from './shell/mobile-nav.store'
  * Story T3.5-4: workspace routes are full-screen (AC 13).
  * Story T3.5-5: chat routes will also be full-screen.
  * Story T3.5-6: review routes are full-screen (AC 1).
+ * Story T3.5-7: connection-form routes are full-screen (AC 2).
  */
 export function isFullScreenRoute(route: string): boolean {
-  return route.startsWith('workspace:') || route.startsWith('chat:') || route.startsWith('review:')
+  return (
+    route.startsWith('workspace:') ||
+    route.startsWith('chat:') ||
+    route.startsWith('review:') ||
+    route.startsWith('connection-form:')
+  )
 }
 
 // DEV-ONLY: Primitives harness — never ships to production.
@@ -190,13 +198,16 @@ function MobileRouteRenderer({ route }: { route: string }) {
     const reviewTaskId = route.slice('review:'.length)
     return <MobileDiffViewerScreen taskId={reviewTaskId} />
   }
+  // T3.5-7: connections list — inside MobileScreen shell (tab bar visible, AC 1)
   if (route === 'connections') {
-    return (
-      <MobileEmptyState
-        title="Connections"
-        subtitle="Coming in T3.5-7 — SSH connection management."
-      />
-    )
+    return <MobileConnectionsListScreen />
+  }
+  // T3.5-7: connection form — full-screen push, bypasses MobileScreen (AC 2)
+  if (route.startsWith('connection-form:')) {
+    const param = route.slice('connection-form:'.length)
+    return param === 'new'
+      ? <MobileConnectionFormScreen mode="new" />
+      : <MobileConnectionFormScreen mode="edit" connectionId={param} />
   }
 
   // Fallback for any unrecognised route

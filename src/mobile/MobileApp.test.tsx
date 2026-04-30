@@ -53,6 +53,28 @@ vi.mock('./review/MobileDiffViewerScreen', () => ({
   ),
 }))
 
+// Mock MobileConnectionsListScreen — T3.5-7
+vi.mock('./ssh/MobileConnectionsListScreen', () => ({
+  MobileConnectionsListScreen: () => (
+    <div data-testid="mobile-connections-screen">
+      Connections List
+    </div>
+  ),
+}))
+
+// Mock MobileConnectionFormScreen — T3.5-7
+vi.mock('./ssh/MobileConnectionFormScreen', () => ({
+  MobileConnectionFormScreen: ({ mode, connectionId }: { mode: string; connectionId?: string }) => (
+    <div
+      data-testid="mobile-connection-form-screen"
+      data-mode={mode}
+      data-connection-id={connectionId ?? ''}
+    >
+      Connection Form ({mode})
+    </div>
+  ),
+}))
+
 // Mock MobilePlanningHome — T3.5-5 (now uses useQuery; mock to avoid QueryClient requirement)
 vi.mock('./planning/MobilePlanningHome', () => ({
   MobilePlanningHome: () => (
@@ -165,11 +187,12 @@ describe('MobileApp', () => {
     expect(headings.some((el) => el.tagName === 'H2')).toBe(true)
   })
 
-  it('tapping settings tab shows Settings placeholder', () => {
+  it('tapping settings tab shows Settings home with Connections row (T3.5-7)', () => {
     renderMobileApp()
     tapTab('mobile-tab-settings')
-    const headings = screen.getAllByText('Settings')
-    expect(headings.some((el) => el.tagName === 'H2')).toBe(true)
+    // T3.5-7 replaces the placeholder with a real Connections list item
+    // MobileListItem renders 'Connections' as the title
+    expect(screen.getByText('Connections')).toBeInTheDocument()
   })
 
   it('renders MobileTaskWorkspaceScreen for workspace:* route on tasks tab', () => {
@@ -301,6 +324,89 @@ describe('MobileApp — review route integration (T3.5-6 AC 1, 16)', () => {
     // Now top of stack should be workspace:abc
     const stackAfter = useMobileNavStore.getState().tabStacks.tasks
     expect(stackAfter[stackAfter.length - 1]).toBe('workspace:abc')
+  })
+})
+
+describe('MobileApp — SSH connection routes (T3.5-7)', () => {
+  it('connections route renders MobileConnectionsListScreen', () => {
+    useMobileNavStore.getState().pushRoute('settings', 'connections')
+    useMobileNavStore.setState({ activeTab: 'settings' })
+    render(<MobileApp />)
+    expect(screen.getByTestId('mobile-connections-screen')).toBeInTheDocument()
+  })
+
+  it('connections route keeps MobileScreen shell (tab bar visible)', () => {
+    useMobileNavStore.getState().pushRoute('settings', 'connections')
+    useMobileNavStore.setState({ activeTab: 'settings' })
+    render(<MobileApp />)
+    // connections is NOT full-screen — MobileScreen shell renders
+    expect(screen.getByTestId('mobile-screen')).toBeInTheDocument()
+  })
+
+  it('connection-form:new route renders MobileConnectionFormScreen with mode=new', () => {
+    useMobileNavStore.getState().pushRoute('settings', 'connection-form:new')
+    useMobileNavStore.setState({ activeTab: 'settings' })
+    render(<MobileApp />)
+    const formScreen = screen.getByTestId('mobile-connection-form-screen')
+    expect(formScreen).toBeInTheDocument()
+    expect(formScreen).toHaveAttribute('data-mode', 'new')
+  })
+
+  it('connection-form:abc route renders MobileConnectionFormScreen with mode=edit + connectionId=abc', () => {
+    useMobileNavStore.getState().pushRoute('settings', 'connection-form:abc')
+    useMobileNavStore.setState({ activeTab: 'settings' })
+    render(<MobileApp />)
+    const formScreen = screen.getByTestId('mobile-connection-form-screen')
+    expect(formScreen).toBeInTheDocument()
+    expect(formScreen).toHaveAttribute('data-mode', 'edit')
+    expect(formScreen).toHaveAttribute('data-connection-id', 'abc')
+  })
+
+  it('connection-form:new route bypasses root MobileScreen (no tab bar)', () => {
+    useMobileNavStore.getState().pushRoute('settings', 'connection-form:new')
+    useMobileNavStore.setState({ activeTab: 'settings' })
+    render(<MobileApp />)
+    expect(screen.queryByTestId('mobile-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('mobile-connection-form-screen')).toBeInTheDocument()
+  })
+
+  it('Android back-press from connection-form:new returns to connections list', () => {
+    useMobileNavStore.setState({
+      activeTab: 'settings',
+      tabStacks: {
+        board:    ['board'],
+        planning: ['sessions'],
+        tasks:    ['list'],
+        activity: ['feed'],
+        settings: ['home', 'connections', 'connection-form:new'],
+      },
+      sheetState: null,
+    })
+    render(<MobileApp />)
+
+    // Currently on form screen
+    expect(screen.getByTestId('mobile-connection-form-screen')).toBeInTheDocument()
+
+    // Handle back press — pops connection-form:new from settings stack
+    act(() => {
+      useMobileNavStore.getState().handleBackPress()
+    })
+
+    // Now top of stack should be connections
+    const stackAfter = useMobileNavStore.getState().tabStacks.settings
+    expect(stackAfter[stackAfter.length - 1]).toBe('connections')
+  })
+})
+
+describe('isFullScreenRoute — T3.5-7 additions', () => {
+  it('returns true for connection-form: routes', () => {
+    expect(isFullScreenRoute('connection-form:new')).toBe(true)
+    expect(isFullScreenRoute('connection-form:abc')).toBe(true)
+    expect(isFullScreenRoute('connection-form:conn-123')).toBe(true)
+  })
+
+  it('returns false for connections route (connections list keeps tab bar)', () => {
+    expect(isFullScreenRoute('connections')).toBe(false)
   })
 })
 

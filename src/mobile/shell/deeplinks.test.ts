@@ -87,4 +87,24 @@ describe('parseDeepLink', () => {
     const result = parseDeepLink('ftp://tinsu/chat/session-1')
     expect(result).toBeNull()
   })
+
+  // ── settings URIs (T3.5-7) ────────────────────────────────────────
+
+  it('parses tinsu://settings/connections → settings tab with connections stack', () => {
+    const result = parseDeepLink('tinsu://settings/connections')
+    expect(result).toEqual({
+      tab: 'settings',
+      stack: ['home', 'connections'],
+    })
+  })
+
+  it('returns null for tinsu://settings/foo (unknown sub-path, T3.5-8 scope)', () => {
+    const result = parseDeepLink('tinsu://settings/foo')
+    expect(result).toBeNull()
+  })
+
+  it('returns null for tinsu://settings (no sub-path)', () => {
+    const result = parseDeepLink('tinsu://settings')
+    expect(result).toBeNull()
+  })
 })

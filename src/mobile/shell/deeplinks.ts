@@ -84,6 +84,19 @@ export function parseDeepLink(uri: string): DeepLinkTarget | null {
       }
     }
 
+    case 'settings': {
+      // T3.5-7: tinsu://settings/connections → settings tab with connections list
+      // All other tinsu://settings/* URIs return null — T3.5-8 may extend later.
+      if (parts[0] === 'connections') {
+        return {
+          tab: 'settings',
+          stack: ['home', 'connections'],
+        }
+      }
+      console.warn('[deeplinks] Unknown settings sub-path:', parts[0], 'in URI:', uri)
+      return null
+    }
+
     default: {
       console.warn('[deeplinks] Unknown deep-link host:', host, 'in URI:', uri)
       return null

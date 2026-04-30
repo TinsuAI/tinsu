@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-17
+# updated: 2026-04-30
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -424,7 +424,7 @@ development_status:
   t3-5-4-mobile-task-workspace: done  # Code review complete — 3 auto-fixes applied (scrollbar webkit fix, ariaLabel on MobileBottomActionBar primary+secondary, react-markdown import dismissed), all 72 tests passing
   t3-5-5-mobile-planning: done  # Code review complete 2026-04-30 — 1 auto-fix applied (relative positioning on MobileChatComposer error message container), 3 dismissed, all 78 planning+MobileApp tests passing
   t3-5-6-mobile-review: done  # Code review complete — 3 auto-fixes applied (act() wrapper on handleBackPress test, dead windowing vars removed, STATUS_PILL_CONFIG AC-21 exception documented), all 352 mobile tests passing
-  t3-5-7-mobile-ssh-and-connection-management: backlog
+  t3-5-7-mobile-ssh-and-connection-management: review  # 2026-04-30 — DEV 1 implementation complete, 69 new tests passing
   t3-5-8-mobile-activity-feed-and-settings: backlog
   t3-5-9-real-device-validation-gate: backlog
   tauri-epic-3-5-retrospective: optional
