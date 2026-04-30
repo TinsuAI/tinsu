@@ -38,6 +38,8 @@ interface ActionButton {
   onPress: () => void
   disabled?: boolean
   variant?: ButtonVariant
+  /** Optional override aria-label for the button (e.g. "Edit (Coming soon)"). Defaults to label. */
+  ariaLabel?: string
 }
 
 interface MobileBottomActionBarProps {
@@ -79,6 +81,7 @@ export function MobileBottomActionBar({
               <button
                 type="button"
                 data-testid="mobile-bottom-action-secondary"
+                aria-label={secondary.ariaLabel ?? secondary.label}
                 onClick={secondary.onPress}
                 disabled={secondary.disabled}
                 className={cn(
@@ -100,6 +103,7 @@ export function MobileBottomActionBar({
               <button
                 type="button"
                 data-testid="mobile-bottom-action-primary"
+                aria-label={primary.ariaLabel ?? primary.label}
                 onClick={handlePrimaryPress}
                 disabled={primary.disabled}
                 className={cn(

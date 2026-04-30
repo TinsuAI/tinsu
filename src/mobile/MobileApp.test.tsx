@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MobileApp } from './MobileApp'
+import { MobileApp, isFullScreenRoute } from './MobileApp'
 import { useMobileNavStore } from './shell/mobile-nav.store'
 
 // ── Module mocks ─────────────────────────────────────────────────────
@@ -23,6 +23,27 @@ vi.mock('@renderer/hooks/useTaskCommands', () => ({
   useUpdateTaskStatus: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useReorderTasks: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCreateTask: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}))
+
+// Mock MobileTaskWorkspaceScreen so MobileApp.test.tsx doesn't need full
+// workspace dependencies (TaskTerminal, ActivitiesTab, etc.)
+vi.mock('./tasks/MobileTaskWorkspaceScreen', () => ({
+  MobileTaskWorkspaceScreen: ({ taskId }: { taskId: string }) => (
+    <div data-testid="mobile-task-workspace" data-task-id={taskId}>
+      Workspace for {taskId}
+    </div>
+  ),
+}))
+
+// Mock trpc for workspace routes (used by MobileTaskWorkspaceScreen mock)
+vi.mock('@renderer/lib/trpc', () => ({
+  trpc: {
+    tasks: {
+      getById: {
+        useQuery: vi.fn(() => ({ data: null, isLoading: false, error: null })),
+      },
+    },
+  },
 }))
 
 // ── Reset store before each test ─────────────────────────────────────
@@ -124,12 +145,32 @@ describe('MobileApp', () => {
     expect(headings.some((el) => el.tagName === 'H2')).toBe(true)
   })
 
-  it('renders placeholder for unimplemented route workspace:*', () => {
+  it('renders MobileTaskWorkspaceScreen for workspace:* route on tasks tab', () => {
     // Push a workspace route onto tasks stack
     useMobileNavStore.getState().pushRoute('tasks', 'workspace:task-123')
     useMobileNavStore.setState({ activeTab: 'tasks' })
     renderMobileApp()
-    expect(screen.getByText('Task Workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-task-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-task-workspace')).toHaveAttribute('data-task-id', 'task-123')
+  })
+
+  it('renders MobileTaskWorkspaceScreen for workspace:* route on board tab', () => {
+    // Push a workspace route onto board stack (T3.5-3 tap-to-push path)
+    useMobileNavStore.getState().pushRoute('board', 'workspace:board-task-456')
+    useMobileNavStore.setState({ activeTab: 'board' })
+    renderMobileApp()
+    expect(screen.getByTestId('mobile-task-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-task-workspace')).toHaveAttribute('data-task-id', 'board-task-456')
+  })
+
+  it('workspace route bypasses root MobileScreen (no tab bar rendered)', () => {
+    useMobileNavStore.getState().pushRoute('board', 'workspace:task-abc')
+    useMobileNavStore.setState({ activeTab: 'board' })
+    renderMobileApp()
+    // Full-screen route: no mobile-screen wrapper with tab bar
+    expect(screen.queryByTestId('mobile-screen')).not.toBeInTheDocument()
+    // The workspace component IS rendered
+    expect(screen.getByTestId('mobile-task-workspace')).toBeInTheDocument()
   })
 
   it('renders placeholder for unimplemented route chat:*', () => {
@@ -149,5 +190,28 @@ describe('MobileApp', () => {
   it('MobileScreen wraps content in data-testid="mobile-screen"', () => {
     renderMobileApp()
     expect(screen.getByTestId('mobile-screen')).toBeInTheDocument()
+  })
+})
+
+describe('isFullScreenRoute', () => {
+  it('returns true for workspace: routes', () => {
+    expect(isFullScreenRoute('workspace:abc')).toBe(true)
+    expect(isFullScreenRoute('workspace:task-123')).toBe(true)
+  })
+
+  it('returns false for tab root routes', () => {
+    expect(isFullScreenRoute('board')).toBe(false)
+    expect(isFullScreenRoute('sessions')).toBe(false)
+    expect(isFullScreenRoute('list')).toBe(false)
+    expect(isFullScreenRoute('feed')).toBe(false)
+    expect(isFullScreenRoute('home')).toBe(false)
+  })
+
+  it('returns false for chat: routes (placeholder for T3.5-5)', () => {
+    expect(isFullScreenRoute('chat:session-1')).toBe(false)
+  })
+
+  it('returns false for diff route', () => {
+    expect(isFullScreenRoute('diff')).toBe(false)
   })
 })

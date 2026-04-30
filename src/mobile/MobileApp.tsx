@@ -9,8 +9,20 @@ import { MobilePlanningHome } from './planning/MobilePlanningHome'
 import { MobileTaskListScreen } from './tasks/MobileTaskListScreen'
 import { MobileActivityFeedScreen } from './activity/MobileActivityFeedScreen'
 import { MobileSettingsHome } from './settings/MobileSettingsHome'
+import { MobileTaskWorkspaceScreen } from './tasks/MobileTaskWorkspaceScreen'
 import { useProjectStore } from '@renderer/stores/project.store'
 import type { MobileTabId } from './shell/mobile-nav.store'
+
+/**
+ * Returns true for routes that should render as full-screen pushes
+ * (no tab bar, no root MobileScreen shell).
+ *
+ * Story T3.5-4: workspace routes are full-screen (AC 13).
+ * Story T3.5-5: chat routes will also be full-screen.
+ */
+export function isFullScreenRoute(route: string): boolean {
+  return route.startsWith('workspace:')
+}
 
 // DEV-ONLY: Primitives harness — never ships to production.
 // Access at: http://localhost:1420#__mobile-primitives
@@ -116,6 +128,12 @@ export function MobileApp() {
     clearStack(tab)
   }
 
+  // Full-screen routes (workspace, chat) bypass the root MobileScreen shell
+  // so they own their full chrome (no bottom tab bar). AC 13, T3.5-4.
+  if (isFullScreenRoute(topRoute)) {
+    return <MobileRouteRenderer route={topRoute} />
+  }
+
   return (
     <MobileScreen
       topBar={
@@ -155,14 +173,10 @@ function MobileRouteRenderer({ route }: { route: string }) {
     case 'home':     return <MobileSettingsHome />
   }
 
-  // Feature routes — resolve to coming-soon placeholder
+  // Feature routes — workspace renders real workspace screen (T3.5-4)
   if (route.startsWith('workspace:')) {
-    return (
-      <MobileEmptyState
-        title="Task Workspace"
-        subtitle="Coming in T3.5-4 — full task workspace with terminal, diff viewer, and activity log."
-      />
-    )
+    const taskId = route.slice('workspace:'.length)
+    return <MobileTaskWorkspaceScreen taskId={taskId} />
   }
   if (route.startsWith('chat:')) {
     return (
