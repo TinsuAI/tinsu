@@ -47,8 +47,8 @@ describe('MobileTaskCard', () => {
     expect(screen.getByTestId('mobile-task-card-title-task-1')).toHaveTextContent('My Story Task')
   })
 
-  it('renders "Story" pill for task_type story', () => {
-    render(<MobileTaskCard task={makeTask({ task_type: 'story' })} />)
+  it('renders "Story" pill for imported story task (task_type=story, story_number set)', () => {
+    render(<MobileTaskCard task={makeTask({ task_type: 'story', story_number: '1' })} />)
     expect(screen.getByTestId('mobile-task-card-pill-task-1')).toHaveTextContent('Story')
   })
 
@@ -57,18 +57,14 @@ describe('MobileTaskCard', () => {
     expect(screen.getByTestId('mobile-task-card-pill-task-1')).toHaveTextContent('Plan')
   })
 
-  it('renders "Task" pill for unknown task_type (basic / default)', () => {
-    // task_type 'story' with story_number null = basic task in practice,
-    // but the pill is driven by task_type discriminant only.
-    // Simulate any non-story/planning type by casting.
+  it('renders "Task" pill for basic task (task_type=story, story_number=null)', () => {
+    // Basic tasks: task_type='story' && story_number=null (isBasicTask returns true)
     render(
       <MobileTaskCard
-        task={makeTask({ task_type: 'story' as Task['task_type'] })}
+        task={makeTask({ task_type: 'story', story_number: null })}
       />,
     )
-    // story → "Story" pill; basic tasks have task_type='story' (no separate enum value)
-    // The default branch fires for anything not story/planning — test via valid fallback
-    expect(screen.getByTestId('mobile-task-card-pill-task-1')).toBeInTheDocument()
+    expect(screen.getByTestId('mobile-task-card-pill-task-1')).toHaveTextContent('Task')
   })
 
   it('fires onPress when card is clicked', () => {

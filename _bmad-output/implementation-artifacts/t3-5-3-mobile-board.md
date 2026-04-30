@@ -1,6 +1,6 @@
 # Story 3.5.3: Mobile Board
 
-Status: review
+Status: done
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
@@ -385,6 +385,14 @@ claude-sonnet-4-6
 - _bmad-output/implementation-artifacts/t3-5-3-mobile-board.md (this file)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (status updated)
 
+### Review Findings
+
+- [x] [Review][Patch] Missing autoScroll config in mobile DndContext [src/mobile/board/MobileBoardScreen.tsx:343] — AC 4 requires autoScroll config from commit f8ec1e6 (`{ enabled: true, interval: 5, threshold: { x: 0.2, y: 0.2 } }`). Added to DndContext. **Fixed.**
+- [x] [Review][Patch] MobileTaskCard pill logic unreachable default branch — basic task detection [src/mobile/board/MobileTaskCard.tsx:32] — AC 15 requires "Task" pill for basic tasks but switch on task_type never hits default (only 'planning'|'story' exist). Fixed to use `task.task_type === 'planning'` check + `isBasicTask(task)` guard for correct Basic/Story/Plan discrimination. **Fixed.**
+- [x] [Review][Patch] MobileNewTaskSheet test: onSuccess callback called without act() wrapper [src/mobile/board/MobileNewTaskSheet.test.tsx:105] — causes React state-update warnings. Fixed by wrapping in `act()` and replacing unused `waitFor` import. **Fixed.**
+- [x] [Review][Patch] MobileTaskCard.test.tsx: "Story pill" test used default task (story_number=null = basic task), and "Task pill" test was a no-op. Fixed tests to properly distinguish Story (story_number set) vs Task (story_number=null). **Fixed.**
+
 ### Change Log
 
 - 2026-04-30: Implemented T3.5-3 Mobile Board — MobileBoardScreen full implementation, MobileTaskCard, MobileColumnHeader, MobileNewTaskSheet, 35 new tests, zero regressions. resolveDrop exported pure helper enables testable drag-drop logic. MobileApp.test.tsx mock added. (DEV 1, claude-sonnet-4-6)
+- 2026-04-30: Code review complete — 4 auto-fixes applied (autoScroll config added to DndContext per AC4/f8ec1e6, MobileTaskCard pill logic fixed to correctly render Basic/Story/Plan via isBasicTask+task_type, MobileNewTaskSheet test act() wrapper for onSuccess, MobileTaskCard test corrected Story vs Basic pill assertions), all 35 tests passing, 25 pre-existing failures unchanged. (DEV 2, claude-sonnet-4-6)

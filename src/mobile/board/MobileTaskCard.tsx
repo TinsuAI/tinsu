@@ -17,6 +17,7 @@
 
 import { cn } from '@renderer/lib/utils'
 import type { Task } from '@shared/types/task.types'
+import { isBasicTask } from '@shared/types/task.types'
 
 interface MobileTaskCardProps {
   task: Task
@@ -29,23 +30,25 @@ type PillConfig = {
   className: string
 }
 
-function getTypePill(taskType: Task['task_type']): PillConfig {
-  switch (taskType) {
-    case 'story':
-      return {
-        label: 'Story',
-        className: 'bg-primary/15 text-primary',
-      }
-    case 'planning':
-      return {
-        label: 'Plan',
-        className: 'bg-primary/10 text-primary',
-      }
-    default:
-      return {
-        label: 'Task',
-        className: 'bg-muted/40 text-muted-foreground',
-      }
+function getTypePill(task: Task): PillConfig {
+  // Use task_type for planning (any planning-type task shows Plan pill)
+  if (task.task_type === 'planning') {
+    return {
+      label: 'Plan',
+      className: 'bg-primary/10 text-primary',
+    }
+  }
+  // Basic task: story_number === null (manually created, no BMAD story file)
+  if (isBasicTask(task)) {
+    return {
+      label: 'Task',
+      className: 'bg-muted/40 text-muted-foreground',
+    }
+  }
+  // Imported story task: task_type === 'story' && story_number !== null
+  return {
+    label: 'Story',
+    className: 'bg-primary/15 text-primary',
   }
 }
 
@@ -61,7 +64,7 @@ function formatDate(date: Date): string {
 }
 
 export function MobileTaskCard({ task, onPress, isDragging = false }: MobileTaskCardProps) {
-  const pill = getTypePill(task.task_type)
+  const pill = getTypePill(task)
 
   return (
     <button

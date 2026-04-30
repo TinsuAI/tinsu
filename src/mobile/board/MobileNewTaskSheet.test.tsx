@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MobileNewTaskSheet } from './MobileNewTaskSheet'
 
 // ── Module mocks ─────────────────────────────────────────────────────
@@ -102,7 +102,9 @@ describe('MobileNewTaskSheet', () => {
     // Extract the onSuccess callback passed to mutate and call it
     expect(mutateMock).toHaveBeenCalled()
     const [, callbacks] = mutateMock.mock.calls[0]
-    callbacks.onSuccess()
+    act(() => {
+      callbacks.onSuccess()
+    })
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
