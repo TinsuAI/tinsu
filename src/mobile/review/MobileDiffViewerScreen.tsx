@@ -84,6 +84,14 @@ const LINE_COLOR_CONFIG = {
 
 /* ─── Status pill config ────────────────────────────────────────────── */
 
+/**
+ * STATUS_PILL_CONFIG — AC-21 exception (companion to LINE_COLOR_CONFIG).
+ * Named Tailwind colors for sticky diff file-header status pills (AC 7).
+ * These mirror UX-DR10 semantic status colors (same palette as MobileFileTreeSheet.tsx
+ * STATUS_COLOR). The status pill in the diff header is the same semantic concept
+ * as the status icon in the file tree; both are UX-DR10 semantic-color exceptions.
+ * All other surfaces in this file use Calm Command tokens only.
+ */
 const STATUS_PILL_CONFIG: Record<GitDiffFile['status'], { bg: string; text: string; label: string }> = {
   added:    { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'added' },
   modified: { bg: 'bg-sky-500/15',     text: 'text-sky-400',     label: 'modified' },
@@ -375,9 +383,6 @@ export function MobileDiffViewerScreen({ taskId }: MobileDiffViewerScreenProps) 
 
   /* ── Render diff with optional windowing ─────────────────────────── */
   let lineIndex = 0
-  const topSpacerLines: number[] = []
-  const bottomSpacerLines: number[] = []
-  let lastRenderedEnd = 0
 
   // Pre-compute per-file line ranges for windowing
   const fileLineRanges: { start: number; end: number }[] = []
@@ -527,10 +532,6 @@ export function MobileDiffViewerScreen({ taskId }: MobileDiffViewerScreenProps) 
               </div>,
             )
           }
-
-          void topSpacerLines
-          void bottomSpacerLines
-          void lastRenderedEnd
 
           return fileNodes
         })()}

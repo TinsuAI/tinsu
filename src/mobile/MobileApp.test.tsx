@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MobileApp, isFullScreenRoute } from './MobileApp'
 import { useMobileNavStore } from './shell/mobile-nav.store'
 
@@ -294,7 +294,9 @@ describe('MobileApp — review route integration (T3.5-6 AC 1, 16)', () => {
     expect(screen.getByTestId('mobile-review-screen')).toBeInTheDocument()
 
     // Handle back press — pops review:abc from tasks stack
-    useMobileNavStore.getState().handleBackPress()
+    act(() => {
+      useMobileNavStore.getState().handleBackPress()
+    })
 
     // Now top of stack should be workspace:abc
     const stackAfter = useMobileNavStore.getState().tabStacks.tasks

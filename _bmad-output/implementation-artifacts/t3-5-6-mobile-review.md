@@ -1,6 +1,6 @@
 # Story 3.5.6: Mobile Review
 
-Status: review
+Status: done
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
@@ -185,6 +185,12 @@ so that I can approve or reject a task's changes one-handed on a phone — witho
   - [x] 14.3 `MobileReviewActionBar.tsx` documents why it uses `MobileBottomActionBar`'s `children` escape hatch (3 buttons, primitive supports 2).
   - [x] 14.4 `MobileRejectionSheet.tsx` documents the empty-feedback warning UX (mirrors desktop `MobileReviewActionBar.tsx` lines 60–71).
   - [x] 14.5 `MobileFeedbackSheet.tsx` documents that it shares the rejection backend (`commands.rejectTask`) — only the UX label differs.
+
+### Review Findings
+
+- [x] [Review][Patch] `handleBackPress()` in MobileApp.test.tsx not wrapped in `act()` causing React state-update warning [src/mobile/MobileApp.test.tsx:297] — **Fixed**: imported `act` from `@testing-library/react` and wrapped the `handleBackPress()` call.
+- [x] [Review][Patch] Dead variables `topSpacerLines`, `bottomSpacerLines`, `lastRenderedEnd` declared and silenced with `void` operator — unused artifacts from an earlier windowing draft [src/mobile/review/MobileDiffViewerScreen.tsx:386-388] — **Fixed**: removed all three dead variable declarations and their `void` suppressors.
+- [x] [Review][Patch] `STATUS_PILL_CONFIG` uses named Tailwind color classes (emerald/sky/red/amber) in `MobileDiffViewerScreen.tsx` without an AC-21 exception JSDoc comment [src/mobile/review/MobileDiffViewerScreen.tsx:87-92] — **Fixed**: added JSDoc documenting this as a companion AC-21 exception mirroring UX-DR10 (same palette as `MobileFileTreeSheet.tsx` `STATUS_COLOR`).
 
 ## Dev Notes
 
