@@ -1,5 +1,5 @@
 # generated: 2026-01-04
-# updated: 2026-04-17
+# updated: 2026-04-30
 # project: TinSu
 # project_key: tinsu
 # tracking_system: file-system
@@ -37,7 +37,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-01-04
-last_updated: 2026-04-16  # t3-8 story created - mobile platform validation ready for dev
+last_updated: 2026-04-30  # T3.5-9 DEV 2 code review complete — review → done; tauri-epic-3-5 → done
 project: TinSu
 project_key: tinsu
 tracking_system: file-system
@@ -397,17 +397,37 @@ development_status:
   t2-8-remote-project-feature-parity-validation: done
   tauri-epic-2-retrospective: optional
 
-  # Tauri Epic 3: Mobile Targets — Android + iOS (Phase 3)
-  tauri-epic-3: done
+  # Tauri Epic 3: Mobile Foundation (Build Targets) (Phase 3)
+  # Restructured 2026-04-30 via sprint-change-proposal-2026-04-30.md
+  # Responsive UI approach replaced by parallel mobile tree (Epic 3.5).
+  # T3.1 (build targets) kept; T3.2-T3.7 superseded as foundation; T3.8 cancelled.
+  tauri-epic-3: in-progress
   t3-1-add-android-and-ios-build-targets: done  # Code review complete - 4 auto-fixes applied (Removed hardcoded ANTHROPIC_AUTH_TOKEN, relaxed window constraints, fixed tauri.conf.json bundle errors, updated compileSdk to 34), all 159 tests passing
-  t3-2-responsive-layout-and-mobile-navigation: done  # Code review complete - 3 auto-fixes applied (Hidden TerminalDock on mobile to prevent overlap, implemented isManualScrollingRef to fix scroll jitter in TaskDetailContent, increased tab button padding for 44px touch targets), all 72 focused tests passing
-  t3-3-touch-optimized-kanban-interactions: done  # Code review complete - 3 auto-fixes applied (Replaced PointerSensor with MouseSensor to prevent scroll interception, added haptic feedback on drag cancel, increased touch tolerance to 10px), all 113 focused board tests passing
-  t3-4-mobile-ssh-connection-flow: done  # Code review complete - 4 auto-fixes applied (key storage AC/comment update to file-based, SettingsDialog layout fix, MobileSshConnectionForm port default and key auto-selection), all 142 tests passing
-  t3-5-mobile-terminal-view: done
-  t3-6-mobile-review-and-approval-flow: done
-  t3-7-mobile-chat-with-planning-agents: done  # Fixed 2026-04-17: MobileSessionDrawer wired into PlanningWorkspacePage
-  t3-8-mobile-platform-validation: in-progress  # 2026-04-17: Code complete; real device testing pending. See t3-8-test-report.md
+  t3-2-responsive-layout-and-mobile-navigation: superseded  # 2026-04-30: replaced by Epic 3.5 mobile tree
+  t3-3-touch-optimized-kanban-interactions: superseded  # 2026-04-30: replaced by t3-5-3 mobile board
+  t3-4-mobile-ssh-connection-flow: superseded  # 2026-04-30: replaced by t3-5-7 mobile SSH
+  t3-5-mobile-terminal-view: superseded  # 2026-04-30: replaced by t3-5-4 mobile task workspace terminal sub-tab
+  t3-6-mobile-review-and-approval-flow: superseded  # 2026-04-30: replaced by t3-5-6 mobile review
+  t3-7-mobile-chat-with-planning-agents: superseded  # 2026-04-30: replaced by t3-5-5 mobile planning
+  t3-8-mobile-platform-validation: cancelled  # 2026-04-30: rolls into t3-5-9 real-device validation gate
   tauri-epic-3-retrospective: optional
+
+  # Tauri Epic 3.5: Mobile UX Native Redesign (Phase 3.5)
+  # Added 2026-04-30 via sprint-change-proposal-2026-04-30.md
+  # Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-04-30.md
+  # Design plan: _bmad-output/planning-artifacts/mobile-ux-redesign-plan-2026-04-30.md
+  # Parallel mobile UI tree at src/mobile/ with full feature parity.
+  tauri-epic-3-5: done  # 2026-04-30: epic complete (t3-5-9 device-runs deferred to follow-up)
+  t3-5-1-mobile-shell-foundation: done  # Code review complete - 1 auto-fix applied (removed dead 'tablet' variant from ViewportClass union type), 1 deferred, 3 dismissed, all 60 tests passing
+  t3-5-2-mobile-primitives-library: done  # Code review complete - 3 auto-fixes applied (merged duplicate @renderer/lib/utils imports in BottomActionBar+Fab, added sr-only Dialog.Title + aria-describedby={undefined} to MobileSheet for Radix a11y warnings), all 136 mobile tests passing
+  t3-5-3-mobile-board: done  # Code review complete - 4 auto-fixes applied (autoScroll DndContext config, MobileTaskCard Basic/Story/Plan pill via isBasicTask, MobileNewTaskSheet act() test wrapper, MobileTaskCard test pill assertions), all 35 tests passing
+  t3-5-4-mobile-task-workspace: done  # Code review complete — 3 auto-fixes applied (scrollbar webkit fix, ariaLabel on MobileBottomActionBar primary+secondary, react-markdown import dismissed), all 72 tests passing
+  t3-5-5-mobile-planning: done  # Code review complete 2026-04-30 — 1 auto-fix applied (relative positioning on MobileChatComposer error message container), 3 dismissed, all 78 planning+MobileApp tests passing
+  t3-5-6-mobile-review: done  # Code review complete — 3 auto-fixes applied (act() wrapper on handleBackPress test, dead windowing vars removed, STATUS_PILL_CONFIG AC-21 exception documented), all 352 mobile tests passing
+  t3-5-7-mobile-ssh-and-connection-management: done  # 2026-04-30 — DEV 2 code review complete — 2 auto-fixes applied (edit mode useEffect state sync, not-found guard fix), all 110 tests passing
+  t3-5-8-mobile-activity-feed-and-settings: done  # 2026-04-30: code review complete, all fixes applied
+  t3-5-9-real-device-validation-gate: done  # 2026-04-30: code review complete; device-runs deferred per story spec
+  tauri-epic-3-5-retrospective: optional
 
   # Tauri Epic 4: CI/CD and Build Pipeline (Phase 4)
   tauri-epic-4: backlog

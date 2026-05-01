@@ -406,16 +406,36 @@ pub async fn open_remote_project(
             updated.update(db.inner()).await?
         }
         None => {
-            // Create new local project anchored to this remote project
-            let new = project::ActiveModel {
-                id: Set(uuid::Uuid::new_v4().to_string()),
-                path: Set(rp.path.clone()),
-                name: Set(rp.name.clone()),
-                created_at: Set(now),
-                last_opened_at: Set(Some(now)),
-                remote_project_id: Set(Some(remote_project_id)),
-            };
-            new.insert(db.inner()).await?
+            // Before inserting, check if a project already exists at this path (e.g. stale
+            // local record whose remote_project_id was cleared or points elsewhere).  Adopt it
+            // rather than inserting a duplicate that would violate the path UNIQUE constraint.
+            let by_path = project::Entity::find()
+                .filter(project::Column::Path.eq(&rp.path))
+                .one(db.inner())
+                .await?;
+
+            match by_path {
+                Some(p) => {
+                    let updated = project::ActiveModel {
+                        id: Set(p.id.clone()),
+                        remote_project_id: Set(Some(remote_project_id)),
+                        last_opened_at: Set(Some(now)),
+                        ..Default::default()
+                    };
+                    updated.update(db.inner()).await?
+                }
+                None => {
+                    let new = project::ActiveModel {
+                        id: Set(uuid::Uuid::new_v4().to_string()),
+                        path: Set(rp.path.clone()),
+                        name: Set(rp.name.clone()),
+                        created_at: Set(now),
+                        last_opened_at: Set(Some(now)),
+                        remote_project_id: Set(Some(remote_project_id)),
+                    };
+                    new.insert(db.inner()).await?
+                }
+            }
         }
     };
 

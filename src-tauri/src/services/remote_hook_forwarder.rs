@@ -11,6 +11,7 @@
 
 use crate::error::AppError;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -60,6 +61,8 @@ struct ForwarderEntry {
     /// Send `()` to request graceful shutdown.
     stop_tx: tokio::sync::oneshot::Sender<()>,
     remote_port: u16,
+    /// true = SSH tunnel is currently established; false = connecting/retrying.
+    tunnel_up: Arc<AtomicBool>,
 }
 
 // ── Manager ───────────────────────────────────────────────────────────────
@@ -105,6 +108,7 @@ impl RemoteHookForwarderManager {
 
         let remote_port: u16 = 3847; // Same port on both sides for simplicity
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let tunnel_up = Arc::new(AtomicBool::new(false));
 
         // Insert entry BEFORE spawning to prevent race condition where two threads
         // both see the entry doesn't exist and both spawn forwarder tasks
@@ -113,6 +117,7 @@ impl RemoteHookForwarderManager {
             ForwarderEntry {
                 stop_tx,
                 remote_port,
+                tunnel_up: Arc::clone(&tunnel_up),
             },
         );
 
@@ -129,6 +134,7 @@ impl RemoteHookForwarderManager {
             local_hook_port,
             remote_port,
             stop_rx,
+            tunnel_up,
             active_clone,
         ));
 
@@ -155,7 +161,7 @@ impl RemoteHookForwarderManager {
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         match active.get(connection_id) {
             Some(entry) => Ok(RemoteHookStatus {
-                is_active: true,
+                is_active: entry.tunnel_up.load(Ordering::Relaxed),
                 remote_port: Some(entry.remote_port),
             }),
             None => Ok(RemoteHookStatus {
@@ -187,6 +193,7 @@ async fn run_forwarder(
     local_hook_port: u16,
     remote_port: u16,
     mut stop_rx: tokio::sync::oneshot::Receiver<()>,
+    tunnel_up: Arc<AtomicBool>,
     active: Arc<Mutex<HashMap<String, ForwarderEntry>>>,
 ) {
     let mut backoff_secs: u64 = RECONNECT_BACKOFF_INITIAL_SECS;
@@ -208,6 +215,7 @@ async fn run_forwarder(
             local_hook_port,
             remote_port,
             &mut stop_rx,
+            &tunnel_up,
         )
         .await
         {
@@ -217,6 +225,7 @@ async fn run_forwarder(
                 break;
             }
             Err(e) => {
+                tunnel_up.store(false, Ordering::Relaxed);
                 retry_count += 1;
                 if retry_count > MAX_RETRIES {
                     tracing::error!(
@@ -257,6 +266,7 @@ async fn connect_and_forward(
     local_hook_port: u16,
     remote_port: u16,
     stop_rx: &mut tokio::sync::oneshot::Receiver<()>,
+    tunnel_up: &Arc<AtomicBool>,
 ) -> Result<(), AppError> {
     use std::sync::Arc as StdArc;
 
@@ -305,6 +315,7 @@ async fn connect_and_forward(
     // Use a separate one-shot SSH exec (same pattern as remote_files.rs)
     write_remote_port_file(host, port, username, key_name, remote_port).await?;
 
+    tunnel_up.store(true, Ordering::Relaxed);
     tracing::info!(
         "Remote hook forwarder established: remote 127.0.0.1:{} → local 127.0.0.1:{}",
         remote_port,

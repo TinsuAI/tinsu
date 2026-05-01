@@ -33,7 +33,7 @@ vi.mock('date-fns', () => ({
 // Mock planning workspace constants for persona label resolution
 vi.mock('@renderer/constants/planning-workspace', () => {
   const config: Record<string, { displayName: string; bg: string; text: string; border: string; icon: string; dot: string }> = {
-    'bmad:bmm:agents:pm': {
+    'bmad-agent-pm': {
       displayName: 'PM',
       bg: 'bg-emerald-500/20',
       text: 'text-emerald-400',
@@ -41,7 +41,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'M',
       dot: 'bg-green-400'
     },
-    'bmad:bmm:agents:architect': {
+    'bmad-agent-architect': {
       displayName: 'Architect',
       bg: 'bg-purple-500/20',
       text: 'text-purple-400',
@@ -116,7 +116,7 @@ describe('ChatMessageArea (Story 10.2, AC: 3, 7)', () => {
 
   describe('message rendering', () => {
     it('renders messages in order', () => {
-      render(<ChatMessageArea messages={sampleMessages} agentPersona="bmad:bmm:agents:pm" />)
+      render(<ChatMessageArea messages={sampleMessages} agentPersona="bmad-agent-pm" />)
 
       expect(screen.getByTestId('chat-message-area')).toBeInTheDocument()
 
@@ -129,7 +129,7 @@ describe('ChatMessageArea (Story 10.2, AC: 3, 7)', () => {
     })
 
     it('passes agentPersona to message bubbles', () => {
-      render(<ChatMessageArea messages={sampleMessages} agentPersona="bmad:bmm:agents:pm" />)
+      render(<ChatMessageArea messages={sampleMessages} agentPersona="bmad-agent-pm" />)
 
       // PM persona should show up on assistant messages
       expect(screen.getByText('PM')).toBeInTheDocument()
@@ -170,7 +170,7 @@ describe('ChatMessageArea typing indicator (Story 10.3, AC: 4)', () => {
     render(
       <ChatMessageArea
         messages={sampleMessages}
-        agentPersona="bmad:bmm:agents:pm"
+        agentPersona="bmad-agent-pm"
         isAgentThinking={true}
       />
     )
@@ -183,7 +183,7 @@ describe('ChatMessageArea typing indicator (Story 10.3, AC: 4)', () => {
     render(
       <ChatMessageArea
         messages={sampleMessages}
-        agentPersona="bmad:bmm:agents:pm"
+        agentPersona="bmad-agent-pm"
         isAgentThinking={false}
       />
     )
@@ -195,7 +195,7 @@ describe('ChatMessageArea typing indicator (Story 10.3, AC: 4)', () => {
     render(
       <ChatMessageArea
         messages={sampleMessages}
-        agentPersona="bmad:bmm:agents:pm"
+        agentPersona="bmad-agent-pm"
       />
     )
 
@@ -206,7 +206,7 @@ describe('ChatMessageArea typing indicator (Story 10.3, AC: 4)', () => {
     render(
       <ChatMessageArea
         messages={sampleMessages}
-        agentPersona="bmad:bmm:agents:pm"
+        agentPersona="bmad-agent-pm"
         isAgentThinking={true}
       />
     )
@@ -257,7 +257,7 @@ describe('ChatMessageArea tool activity display (Story 10.5, AC: 2, 3, 4)', () =
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     // Tool activity group should be visible
     expect(screen.getByTestId('chat-tool-activity-group')).toBeInTheDocument()
@@ -297,7 +297,7 @@ describe('ChatMessageArea tool activity display (Story 10.5, AC: 2, 3, 4)', () =
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     // Should have a group toggle for the 2 consecutive tool messages
     expect(screen.getByTestId('chat-tool-group-toggle')).toBeInTheDocument()
@@ -317,7 +317,7 @@ describe('ChatMessageArea tool activity display (Story 10.5, AC: 2, 3, 4)', () =
     render(
       <ChatMessageArea
         messages={messages}
-        agentPersona="bmad:bmm:agents:pm"
+        agentPersona="bmad-agent-pm"
         isAgentThinking={true}
         currentToolActivity={{
           toolName: 'Read',
@@ -353,7 +353,7 @@ describe('ChatMessageArea notification display (Story 10.5, AC: 5)', () => {
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     const notification = screen.getByTestId('chat-notification-message')
     expect(notification).toBeInTheDocument()
@@ -393,7 +393,7 @@ describe('ChatMessageArea notification display (Story 10.5, AC: 5)', () => {
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     // Tool card and notification should both be visible, separately
     expect(screen.getByTestId('chat-tool-activity-card')).toBeInTheDocument()
@@ -430,7 +430,7 @@ describe('ChatMessageArea artifact notification (Story 10.7, AC: 3)', () => {
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     // Should render as artifact notification, not as tool activity group
     expect(screen.getByTestId('chat-artifact-notification')).toBeInTheDocument()
@@ -464,7 +464,7 @@ describe('ChatMessageArea artifact notification (Story 10.7, AC: 3)', () => {
       }
     ]
 
-    render(<ChatMessageArea messages={messages} agentPersona="bmad:bmm:agents:pm" />)
+    render(<ChatMessageArea messages={messages} agentPersona="bmad-agent-pm" />)
 
     // Both should be present and separate
     expect(screen.getByTestId('chat-tool-activity-card')).toBeInTheDocument()

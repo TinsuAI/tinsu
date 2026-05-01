@@ -354,7 +354,7 @@ describe('PlanningWorkspacePage', () => {
       mockGetActiveWorkflowRun.mockReturnValue({
         data: {
           id: 'run-1',
-          agent_name: 'bmad:bmm:agents:pm',
+          agent_name: 'bmad-agent-pm',
           workflow_key: 'prd',
           status: 'running'
         }
@@ -370,7 +370,7 @@ describe('PlanningWorkspacePage', () => {
       mockGetActiveWorkflowRun.mockReturnValue({
         data: {
           id: 'run-1',
-          agent_name: 'bmad:bmm:agents:pm',
+          agent_name: 'bmad-agent-pm',
           workflow_key: 'prd',
           status: 'succeeded'
         }
@@ -385,7 +385,7 @@ describe('PlanningWorkspacePage', () => {
       mockGetActiveWorkflowRun.mockReturnValue({
         data: {
           id: 'run-1',
-          agent_name: 'bmad:bmm:agents:architect',
+          agent_name: 'bmad-agent-architect',
           workflow_key: 'architecture',
           status: 'needs-input'
         }

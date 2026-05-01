@@ -22,14 +22,14 @@ vi.mock('@renderer/lib/rspc', () => ({
 const mockSessions: ChatSessionListItem[] = [
   {
     id: 'session-1',
-    persona_key: 'bmad:bmm:agents:pm',
+    persona_key: 'bmad-agent-pm',
     last_message: 'Here are the key findings from my analysis',
     last_message_at: new Date(),
     live_status: 'idle'
   },
   {
     id: 'session-2',
-    persona_key: 'bmad:bmm:agents:architect',
+    persona_key: 'bmad-agent-architect',
     last_message: 'Let me design the system architecture for you',
     last_message_at: new Date(Date.now() - 5 * 60 * 1000),
     live_status: 'thinking'

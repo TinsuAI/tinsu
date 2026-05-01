@@ -418,6 +418,7 @@ export type BmadInstallInput = {
 	user_name: string,
 	communication_language: string,
 	document_output_language: string,
+	output_folder: string | null,
 };
 
 export type BmadStatus = {

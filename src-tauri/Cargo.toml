@@ -14,7 +14,9 @@ tauri-build = { version = "2", features = [] }
 # Mobile support is target-driven in Tauri v2 (aarch64-linux-android, aarch64-apple-ios).
 # No special cargo features needed — mobile behavior via #[cfg(mobile)] compile conditions.
 tauri = { version = "2", features = [] }
+tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-os = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

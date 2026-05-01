@@ -302,7 +302,7 @@ describe('TaskCard with task type indicator', () => {
       task_type: 'planning',
       phase_number: 1,
       phase_name: 'Product Brief',
-      bmad_agent: 'bmad:bmm:agents:pm',
+      bmad_agent: 'bmad-agent-pm',
       bmad_workflow: '_bmad/workflow.yaml',
       story_number: null
     }

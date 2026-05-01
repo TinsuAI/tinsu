@@ -94,7 +94,8 @@ export function ToolVerificationStep({
       tools: bmadTools,
       user_name: userName,
       communication_language: language,
-      document_output_language: language
+      document_output_language: language,
+      output_folder: null
     })
     setIsInstallingBmad(false)
     if (result.status === 'error') {

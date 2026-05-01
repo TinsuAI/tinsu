@@ -7,7 +7,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders "No agent active" when isRunning is false', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="prd"
           isRunning={false}
         />
@@ -46,7 +46,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders PM persona with green color when running', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="prd"
           isRunning={true}
         />
@@ -60,7 +60,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders Architect persona with orange color when running', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:architect"
+          agentName="bmad-agent-architect"
           workflowKey="architecture"
           isRunning={true}
         />
@@ -74,7 +74,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders UX Designer persona with purple color when running', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:ux-designer"
+          agentName="bmad-agent-ux-designer"
           workflowKey="ux-design"
           isRunning={true}
         />
@@ -88,7 +88,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders Analyst persona with blue color when running', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:analyst"
+          agentName="bmad-agent-analyst"
           workflowKey="domain-research"
           isRunning={true}
         />
@@ -104,7 +104,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders workflow name from BMAD_WORKFLOWS mapping', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="prd"
           isRunning={true}
         />
@@ -116,7 +116,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders Product Brief workflow name', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="product-brief"
           isRunning={true}
         />
@@ -128,7 +128,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders raw workflowKey when no BMAD_WORKFLOWS match', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="custom-workflow"
           isRunning={true}
         />
@@ -142,7 +142,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders animated pulse dot when running with known agent', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="prd"
           isRunning={true}
         />
@@ -156,7 +156,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders pulse dot with persona-specific color', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:architect"
+          agentName="bmad-agent-architect"
           workflowKey="architecture"
           isRunning={true}
         />
@@ -170,7 +170,7 @@ describe('AgentPersonaIndicator', () => {
     it('does not render pulse dot when not running', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:pm"
+          agentName="bmad-agent-pm"
           workflowKey="prd"
           isRunning={false}
         />
@@ -186,7 +186,7 @@ describe('AgentPersonaIndicator', () => {
     it('falls back to raw agent name segment for unknown agents', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:dev"
+          agentName="bmad-agent-dev"
           workflowKey="prd"
           isRunning={true}
         />
@@ -198,7 +198,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders unknown agent with zinc/muted color', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:unknown-persona"
+          agentName="bmad-agent-unknown-persona"
           workflowKey="prd"
           isRunning={true}
         />
@@ -212,7 +212,7 @@ describe('AgentPersonaIndicator', () => {
     it('renders unknown agent with pulse dot', () => {
       render(
         <AgentPersonaIndicator
-          agentName="bmad:bmm:agents:custom"
+          agentName="bmad-agent-custom"
           workflowKey="prd"
           isRunning={true}
         />
@@ -244,7 +244,7 @@ describe('AgentPersonaIndicator', () => {
       expect(screen.getByTestId('agent-persona-indicator')).toBeInTheDocument()
 
       rerender(
-        <AgentPersonaIndicator agentName="bmad:bmm:agents:pm" workflowKey="prd" isRunning={true} />
+        <AgentPersonaIndicator agentName="bmad-agent-pm" workflowKey="prd" isRunning={true} />
       )
       expect(screen.getByTestId('agent-persona-indicator')).toBeInTheDocument()
     })

@@ -14,8 +14,40 @@ import { useFileWatcher } from './hooks/useFileWatcher'
 import { ProjectSetupDialog } from './components/ProjectSetupDialog'
 import { useOpenProjectByPath } from './hooks/useProjectCommands'
 import { useNetworkResilience } from './hooks/useNetworkResilience'
+import { useViewportClass } from './hooks/useViewportClass'
+import { MobileApp } from './mobile/MobileApp'
 
+/**
+ * Root component — viewport router (T3.5-1).
+ *
+ * Renders `<MobileApp />` when the viewport is mobile (< 1024 px or
+ * Android/iOS Tauri target), `<DesktopApp />` otherwise.
+ *
+ * The split into two components is required by React's Rules of Hooks:
+ * DesktopApp has many hooks; we must not skip them with an early return
+ * in the same function body.  By delegating to a separate component,
+ * the mobile path never mounts DesktopApp at all — no hook calls leak.
+ *
+ * AC: 1 (mobile renders MobileApp), 7 (no useIsMobile in desktop tree),
+ *     11 (deleting src/mobile/ and reverting App.tsx leaves no dangling refs).
+ */
 function App(): React.JSX.Element {
+  const viewport = useViewportClass()
+
+  if (viewport === 'mobile') {
+    return <MobileApp />
+  }
+
+  return <DesktopApp />
+}
+
+/* ─── Desktop tree ──────────────────────────────────────────────────── */
+
+/**
+ * Full desktop application tree.
+ * Only mounted when viewport is NOT mobile — mirrors the pre-T3.5-1 App component.
+ */
+function DesktopApp(): React.JSX.Element {
   // Global network resilience monitor
   useNetworkResilience()
 

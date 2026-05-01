@@ -1186,15 +1186,21 @@ Arrow keys: ← → between columns, ↑ ↓ within column
 
 ## Responsive Design & Accessibility
 
-### Responsive Strategy
+### Mobile UX Redesign (April 2026)
 
-**Approach:** Desktop-first with mobile intervention capability
+**As of 2026-04-30:** Mobile UX is delivered via a parallel UI tree at `src/mobile/` (Tauri Epic 3.5) rather than responsive CSS breakpoints. The authoritative mobile UX specification is [`mobile-ux-redesign-plan-2026-04-30.md`](./mobile-ux-redesign-plan-2026-04-30.md), which documents 30 mobile screens, 14 mobile primitives, navigation patterns, and the four memorable moments of the mobile experience. This specification document (`ux-design-specification.md`) remains authoritative for desktop UX and the shared design system (tokens, typography, status colors, accessibility rules, and Calm Command design language). Mobile-specific screens, gestures, primitives, and navigation are fully documented in the plan.
+
+**Design System Continuity:** All Calm Command tokens (UX-DR1–UX-DR6, UX-DR8–UX-DR15) carry over to mobile screens unchanged. Mobile primitives consume the same color palette, typography scale (with mobile-optimized sizing per §0.2 of the plan), spacing grid, and accessibility rules. Desktop and mobile share the same Rust backend, domain state stores, and command semantics — only the UI presentation layer differs.
+
+### Responsive Strategy (Desktop)
+
+**Approach:** Desktop-first with tablet and mobile intervention capability
 
 | Viewport            | Primary Use        | Layout                                 |
 | ------------------- | ------------------ | -------------------------------------- |
 | Desktop (1024px+)   | Full workflow      | 5-column board + docked terminal       |
 | Tablet (768-1023px) | Quick intervention | 2-column board, swipe for more columns |
-| Mobile (320-767px)  | Emergency actions  | Single card view, Review + Pause focus |
+| Mobile (320-767px)  | Native app via parallel tree | Delivered by `src/mobile/` tree, not breakpoint scaling |
 
 **Desktop Layout:**
 
@@ -1208,17 +1214,20 @@ Arrow keys: ← → between columns, ↑ ↓ within column
 - Terminal collapsed by default, quick-access controls visible
 - Touch-optimized card interactions
 
-**Mobile Layout:**
+**Mobile Layout (via `src/mobile/` parallel tree):**
 
-- Single card focus with priority on Review tasks
-- Bottom action bar for Approve/Reject/Pause
-- Terminal status visible, expand on tap
+- Delivered as a purpose-built mobile-native tree with dedicated screens, not a responsive shrinking of desktop layout.
+- Bottom 5-tab navigation (Board, Planning, Tasks, Activity, Settings) with full-screen flows and bottom sheets.
+- Each screen focuses on one decision or action (full feature parity with desktop workflows via mobile-optimized information architecture).
+- Terminal status, review workflows, agent chat, and SSH management all available through mobile primitives designed for thumb-first interaction.
+- For full mobile screen descriptions and interaction patterns, see [`mobile-ux-redesign-plan-2026-04-30.md`](./mobile-ux-redesign-plan-2026-04-30.md).
 
-### Breakpoint Strategy
+### Breakpoint Strategy (Desktop & Tablet Only)
+
+**Note:** Mobile (320–767px) is now delivered via a parallel UI tree at `src/mobile/` rather than responsive breakpoints. See [`mobile-ux-redesign-plan-2026-04-30.md`](./mobile-ux-redesign-plan-2026-04-30.md) for mobile screen architecture.
 
 | Breakpoint | Name          | Key Changes                                     |
 | ---------- | ------------- | ----------------------------------------------- |
-| `375px`    | Mobile        | Single column, minimal UI, bottom actions       |
 | `768px`    | Tablet        | 2-column board, collapsible terminal            |
 | `1024px`   | Desktop       | Full 5-column + docked terminal                 |
 | `1440px`   | Large Desktop | Enhanced spacing, larger cards                  |

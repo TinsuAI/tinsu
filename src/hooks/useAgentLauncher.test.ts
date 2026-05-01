@@ -205,7 +205,7 @@ describe('useAgentLauncher', () => {
 
       act(() => {
         mockOnSuccess?.(
-          { processId: 'process-abc-123', command: 'claude', args: ['bmad:bmm:agents:pm'] },
+          { processId: 'process-abc-123', command: 'claude', args: ['bmad-agent-pm'] },
           { taskId: 'task-xyz' }
         )
       })
@@ -219,7 +219,7 @@ describe('useAgentLauncher', () => {
 
       act(() => {
         mockOnSuccess?.(
-          { processId: 'process-123', command: 'claude', args: ['bmad:bmm:agents:pm'] },
+          { processId: 'process-123', command: 'claude', args: ['bmad-agent-pm'] },
           { taskId: 'task-456' }
         )
       })
@@ -235,7 +235,7 @@ describe('useAgentLauncher', () => {
 
       act(() => {
         mockOnSuccess?.(
-          { processId: 'process-123', command: 'claude', args: ['bmad:bmm:agents:pm'] },
+          { processId: 'process-123', command: 'claude', args: ['bmad-agent-pm'] },
           { taskId: 'task-789' }
         )
       })
@@ -298,7 +298,7 @@ describe('useAgentLauncher', () => {
 
       act(() => {
         mockCreateStoryOnSuccess?.(
-          { processId: 'process-create-1', command: 'claude', args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:create-story'] },
+          { processId: 'process-create-1', command: 'claude', args: ['--dangerously-skip-permissions', '/bmad-create-story'] },
           { taskId: 'task-create-story' }
         )
       })
@@ -385,7 +385,7 @@ describe('useAgentLauncher', () => {
 
       act(() => {
         mockDevStoryOnSuccess?.(
-          { processId: 'process-dev-1', command: 'claude', args: ['--dangerously-skip-permissions', '/bmad:bmm:workflows:dev-story'] },
+          { processId: 'process-dev-1', command: 'claude', args: ['--dangerously-skip-permissions', '/bmad-dev-story'] },
           { taskId: 'task-dev-story' }
         )
       })

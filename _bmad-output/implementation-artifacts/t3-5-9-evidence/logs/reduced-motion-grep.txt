@@ -1,0 +1,96 @@
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileFab.tsx:40:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileFab.tsx:61:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSegmentedTabs.tsx:12: * (instant under prefers-reduced-motion).
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSegmentedTabs.tsx:31:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSegmentedTabs.tsx:52:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileLoadingSkeleton.tsx:28:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileLoadingSkeleton.tsx:121:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionRow.test.tsx:10:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionRow.test.tsx:12:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobilePullToRefresh.tsx:33:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobilePullToRefresh.tsx:50:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionDetailSheet.test.tsx:33:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionDetailSheet.test.tsx:35:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.tsx:51:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.tsx:183:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/hooks/index.ts:1:export { useReducedMotion } from './useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFeedbackSheet.test.tsx:21:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFeedbackSheet.test.tsx:22:  useReducedMotion: vi.fn(() => true), // reduced to skip animation timers
+/home/tinxu-luna/tinsu/src/mobile/planning/MobileChatMessageList.tsx:27:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/planning/MobileChatMessageList.tsx:52:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionRow.tsx:22:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionRow.tsx:55:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityFeedScreen.test.tsx:49:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityFeedScreen.test.tsx:50:  useReducedMotion: () => false,
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.tsx:10: * Respects prefers-reduced-motion (skip glow if reduced). AC-3, AC-17.
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.tsx:27:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.tsx:93:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityFeedScreen.tsx:16: * AC-3: prefers-reduced-motion respected for row glow.
+/home/tinxu-luna/tinsu/src/mobile/board/MobileBoardScreen.test.tsx:245:      matches: query === '(prefers-reduced-motion: reduce)',
+/home/tinxu-luna/tinsu/src/mobile/board/MobileBoardScreen.tsx:26: * Reduced-motion: haptics gated via useReducedMotion (primitives self-gate).
+/home/tinxu-luna/tinsu/src/mobile/board/MobileBoardScreen.tsx:58:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/board/MobileBoardScreen.tsx:200:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileColumnPager.tsx:39:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileColumnPager.tsx:58:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionFormScreen.test.tsx:70:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionFormScreen.test.tsx:72:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobilePullToRefresh.test.tsx:72:      matches: query === '(prefers-reduced-motion: reduce)',
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileLoadingSkeleton.test.tsx:42:      matches: query === '(prefers-reduced-motion: reduce)',
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileBottomActionBar.tsx:32:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileBottomActionBar.tsx:62:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileFab.test.tsx:63:      matches: query === '(prefers-reduced-motion: reduce)',
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSheet.tsx:25: * Motion: slide-in/out transitions disabled under prefers-reduced-motion.
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSheet.tsx:45:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileSheet.tsx:76:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileKeyPickerSheet.test.tsx:28:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileKeyPickerSheet.test.tsx:30:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/settings/MobileAgentSettings.test.tsx:40:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/settings/MobileAgentSettings.test.tsx:41:  useReducedMotion: () => false,
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileGenerateKeySheet.test.tsx:30:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileGenerateKeySheet.test.tsx:32:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/review/MobileReviewActionBar.test.tsx:17:// Mock useReducedMotion (used by MobileBottomActionBar)
+/home/tinxu-luna/tinsu/src/mobile/review/MobileReviewActionBar.test.tsx:18:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/review/MobileReviewActionBar.test.tsx:19:  useReducedMotion: vi.fn(() => false),
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileDeleteConfirmSheet.test.tsx:31:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileDeleteConfirmSheet.test.tsx:33:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionsListScreen.test.tsx:68:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/ssh/MobileConnectionsListScreen.test.tsx:70:vi.mock('../hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.ts:2: * useReducedMotion — reads the OS-level `prefers-reduced-motion` media query
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.ts:13: *   const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.ts:18:const QUERY = '(prefers-reduced-motion: reduce)'
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.ts:25:export function useReducedMotion(): boolean {
+/home/tinxu-luna/tinsu/src/mobile/review/MobileRejectionSheet.test.tsx:21:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/review/MobileRejectionSheet.test.tsx:22:  useReducedMotion: vi.fn(() => true), // reduced to skip animation timers
+/home/tinxu-luna/tinsu/src/mobile/settings/MobileDiagnostics.test.tsx:15:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/settings/MobileDiagnostics.test.tsx:16:  useReducedMotion: () => false,
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFileTreeSheet.test.tsx:23:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFileTreeSheet.test.tsx:24:  useReducedMotion: vi.fn(() => false),
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:3:import { useReducedMotion } from './useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:5:describe('useReducedMotion', () => {
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:12:    const { result } = renderHook(() => useReducedMotion())
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:16:  it('returns true when matchMedia is mocked to prefers-reduced-motion', () => {
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:18:      matches: query === '(prefers-reduced-motion: reduce)',
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:28:    const { result } = renderHook(() => useReducedMotion())
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:46:    const { result } = renderHook(() => useReducedMotion())
+/home/tinxu-luna/tinsu/src/mobile/hooks/useReducedMotion.test.ts:61:    const { result } = renderHook(() => useReducedMotion())
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFeedbackSheet.tsx:24:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/review/MobileFeedbackSheet.tsx:41:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:6:// Mock useReducedMotion
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:7:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:8:  useReducedMotion: () => false,
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:75:describe('MobileActivityRow — prefers-reduced-motion', () => {
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:79:    vi.doMock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:80:      useReducedMotion: () => true,
+/home/tinxu-luna/tinsu/src/mobile/activity/MobileActivityRow.test.tsx:88:    vi.doUnmock('../hooks/useReducedMotion')
+/home/tinxu-luna/tinsu/src/mobile/review/MobileRejectionSheet.tsx:31:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/review/MobileRejectionSheet.tsx:49:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.test.tsx:81:/* ─── Mock: useReducedMotion ─────────────────────────────────────────── */
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.test.tsx:84:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.test.tsx:85:  useReducedMotion: () => mockUseReducedMotion(),
+/home/tinxu-luna/tinsu/src/mobile/review/MobileDiffViewerScreen.test.tsx:494:    it('uses useReducedMotion to determine scroll behavior', () => {
+/home/tinxu-luna/tinsu/src/mobile/tasks/MobileTaskWorkspaceScreen.tsx:28:import { useReducedMotion } from '../hooks/useReducedMotion'
+/home/tinxu-luna/tinsu/src/mobile/tasks/MobileTaskWorkspaceScreen.tsx:92:  const reduced = useReducedMotion()
+/home/tinxu-luna/tinsu/src/mobile/tasks/MobileTaskWorkspaceScreen.test.tsx:56:// Mock useReducedMotion — default to false (smooth scroll)
+/home/tinxu-luna/tinsu/src/mobile/tasks/MobileTaskWorkspaceScreen.test.tsx:58:vi.mock('../hooks/useReducedMotion', () => ({
+/home/tinxu-luna/tinsu/src/mobile/tasks/MobileTaskWorkspaceScreen.test.tsx:59:  useReducedMotion: () => mockUseReducedMotion(),
+/home/tinxu-luna/tinsu/src/mobile/primitives/MobileBottomActionBar.test.tsx:61:      matches: query === '(prefers-reduced-motion: reduce)',
