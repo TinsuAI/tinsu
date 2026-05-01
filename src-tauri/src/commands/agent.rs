@@ -1,5 +1,7 @@
 use crate::db::entities::{task, task_session};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
+use crate::sync;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::services::pty_service::PtyService;
 use crate::services::scrollback_backup::{ScrollbackBackup, ScrollbackResult};
@@ -48,6 +50,7 @@ pub struct AttachResult {
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct CreateSessionInput {
     pub task_id: String,
+    pub project_id: String,
     pub project_path: String,
 }
 
@@ -74,19 +77,30 @@ fn now_unix_secs() -> i64 {
 /// Create a tmux session for a task and upsert a `task_sessions` record.
 /// If the task has a worktree_path, the session is created in that directory
 /// so the agent operates in the isolated branch.
+///
+/// `project_id` is required to resolve the right DB for `task_sessions` writes.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_task_session(
     input: CreateSessionInput,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
+    app: AppHandle,
 ) -> Result<TaskSessionModel, AppError> {
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
     let session_name = format!("tinsu-task-{}", input.task_id);
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     // Use worktree_path as cwd if available; fall back to project_path
     let cwd = {
         let task_row = task::Entity::find_by_id(&input.task_id)
-            .one(db.inner())
+            .one(pdb_conn)
             .await
             .ok()
             .flatten();
@@ -108,7 +122,7 @@ pub async fn create_task_session(
     // Upsert task_sessions record
     let existing = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&input.task_id))
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     let now = now_unix_secs();
@@ -120,7 +134,7 @@ pub async fn create_task_session(
                 tmux_session: Set(Some(session_name.clone())),
                 ..Default::default()
             };
-            updated.update(db.inner()).await?
+            updated.update(pdb_conn).await?
         }
         None => {
             let new = task_session::ActiveModel {
@@ -133,9 +147,13 @@ pub async fn create_task_session(
                 remote_connection_id: Set(None),
                 remote_project_id: Set(None),
             };
-            new.insert(db.inner()).await?
+            new.insert(pdb_conn).await?
         }
     };
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(TaskSessionModel::from(model))
 }
@@ -146,18 +164,25 @@ pub async fn create_task_session(
 #[specta::specta]
 pub async fn attach_task_terminal(
     task_id: String,
+    project_id: String,
     cols: Option<u16>,
     rows: Option<u16>,
     on_data: Channel<Vec<u8>>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
     pty: State<'_, Arc<PtyService>>,
     app: AppHandle,
 ) -> Result<AttachResult, AppError> {
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
     // Look up session in DB
     let session = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     let tmux_session_name = match session.and_then(|s| s.tmux_session) {
@@ -290,19 +315,30 @@ pub async fn kill_pty(
 }
 
 /// Kill the tmux session for a task, remove DB record, kill any active PTY.
+///
+/// `project_id` is required to resolve the right DB for `task_sessions` reads/deletes.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 #[specta::specta]
 pub async fn kill_task_session(
     task_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
     pty: State<'_, Arc<PtyService>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
     // Find task_session row
     let session = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     // Kill tmux session if exists
@@ -330,8 +366,12 @@ pub async fn kill_task_session(
     // Delete DB record
     if let Some(s) = session {
         task_session::Entity::delete_by_id(s.id)
-            .exec(db.inner())
+            .exec(pdb_conn)
             .await?;
+    }
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
     }
 
     Ok(())
@@ -343,12 +383,20 @@ pub async fn kill_task_session(
 #[specta::specta]
 pub async fn kill_task_session(
     task_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
 ) -> Result<(), AppError> {
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
     let session = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     if let Some(ref s) = session {
@@ -366,7 +414,7 @@ pub async fn kill_task_session(
 
     if let Some(s) = session {
         task_session::Entity::delete_by_id(s.id)
-            .exec(db.inner())
+            .exec(pdb_conn)
             .await?;
     }
 
@@ -374,15 +422,23 @@ pub async fn kill_task_session(
 }
 
 /// Get the task session record from DB.
+///
+/// `project_id` is required to resolve the right DB for `task_sessions` reads.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_task_session(
     task_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Option<TaskSessionModel>, AppError> {
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let session = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     Ok(session.map(TaskSessionModel::from))
@@ -496,16 +552,27 @@ pub async fn start_session_monitor(
 }
 
 /// Update session_id for a task when Claude Code CLI starts.
+///
+/// `project_id` is required to resolve the right DB for `task_sessions` writes.
 #[tauri::command]
 #[specta::specta]
 pub async fn register_session_id(
     task_id: String,
+    project_id: String,
     session_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
     let existing = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     if let Some(record) = existing {
@@ -514,7 +581,12 @@ pub async fn register_session_id(
             session_id: Set(Some(session_id)),
             ..Default::default()
         };
-        updated.update(db.inner()).await?;
+        updated.update(pdb_conn).await?;
+
+        if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+            sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+        }
+
         Ok(())
     } else {
         Err(AppError::NotFound(format!(
@@ -526,6 +598,8 @@ pub async fn register_session_id(
 
 /// Called from lib.rs setup — iterates all task_sessions and checks tmux has-session.
 /// Sessions where tmux is gone have their `tmux_session` cleared in DB.
+/// NOTE: This startup helper queries the local DB directly (all sessions were in local DB
+/// before Phase 3 migration). Remote project sessions may not appear here until Phase 3.
 pub async fn restore_sessions_on_startup(
     db: &DatabaseConnection,
     tmux: &Arc<TmuxService>,

@@ -1,9 +1,12 @@
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
-use tauri::State;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 
 use crate::db::entities::{project, task};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
 use crate::services::git_service::GitService;
+use crate::sync;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -17,20 +20,32 @@ fn now_unix_secs() -> i64 {
 
 /// Approve a task: detect conflicts, merge branch into main, update task to done.
 ///
+/// `project_id` is required to resolve the right DB for `tasks` reads/writes.
+/// The `projects` table lookup (for git path) stays on the local DB.
+///
 /// On conflict: sets `has_merge_conflict=1`, `conflict_files=JSON`, returns `AppError::GitConflict`.
 /// On success: merges, stores `merge_commit_sha`, removes worktree, sets status=done.
 #[tauri::command]
 #[specta::specta]
 pub async fn approve_task(
     task_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
     if task_id.is_empty() {
         return Err(AppError::BadRequest("task_id must not be empty".to_string()));
     }
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let task = task::Entity::find_by_id(&task_id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", task_id)))?;
 
@@ -44,6 +59,8 @@ pub async fn approve_task(
         .clone()
         .ok_or_else(|| AppError::BadRequest("Task has no worktree".to_string()))?;
 
+    // Cross-DB join: tasks live in project DB, projects live in local DB.
+    // Fetch project path separately from local DB.
     let project = project::Entity::find_by_id(&task.project_id)
         .one(db.inner())
         .await?
@@ -69,7 +86,11 @@ pub async fn approve_task(
             updated_at: Set(now),
             ..Default::default()
         };
-        updated.update(db.inner()).await?;
+        updated.update(pdb_conn).await?;
+
+        if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+            sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+        }
 
         return Err(AppError::GitConflict(format!(
             "Merge conflict in {} files: {}",
@@ -95,7 +116,11 @@ pub async fn approve_task(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     // Remove worktree (best-effort — failure does not fail the command)
     if let Err(e) = git.remove_worktree(&project.path, &worktree_path).await {
@@ -111,19 +136,30 @@ pub async fn approve_task(
 
 /// Reject a task: store feedback, move status back to in_progress.
 /// Does NOT modify the worktree — agent continues in the same branch.
+///
+/// `project_id` is required to resolve the right DB for `tasks` reads/writes.
 #[tauri::command]
 #[specta::specta]
 pub async fn reject_task(
     task_id: String,
+    project_id: String,
     feedback: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
     if task_id.is_empty() {
         return Err(AppError::BadRequest("task_id must not be empty".to_string()));
     }
+    if project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let task = task::Entity::find_by_id(&task_id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", task_id)))?;
 
@@ -143,7 +179,11 @@ pub async fn reject_task(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(())
 }

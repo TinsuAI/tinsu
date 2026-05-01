@@ -4,7 +4,9 @@ mod error;
 mod migration;
 mod models;
 mod services;
+mod sync;
 
+use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use sea_orm_migration::MigratorTrait;
 use services::{
     hook_listener::HookListenerService,
@@ -126,6 +128,10 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_hook::start_remote_hook_forwarder,
         commands::remote_hook::stop_remote_hook_forwarder,
         commands::remote_hook::get_remote_hook_status,
+        commands::sync::open_remote_project_sync,
+        commands::sync::close_remote_project_sync,
+        commands::sync::force_push_remote_db,
+        commands::sync::claim_remote_lease,
     ])
 }
 
@@ -224,6 +230,10 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::remote_hook::start_remote_hook_forwarder,
         commands::remote_hook::stop_remote_hook_forwarder,
         commands::remote_hook::get_remote_hook_status,
+        commands::sync::open_remote_project_sync,
+        commands::sync::close_remote_project_sync,
+        commands::sync::force_push_remote_db,
+        commands::sync::claim_remote_lease,
     ])
 }
 
@@ -272,6 +282,7 @@ pub fn run() {
                 let tmux_service = Arc::new(TmuxService::new());
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 let pty_service = Arc::new(PtyService::new());
+                let app_data_dir_for_registry = app_data_dir.clone();
                 let scrollback_backup = Arc::new(ScrollbackBackup::new(app_data_dir));
 
                 // Restore session state on startup
@@ -310,6 +321,21 @@ pub fn run() {
                     tracing::warn!("Hook listener failed to start: {}", e);
                 }
 
+                // Ensure a stable device_id exists in settings.
+                // Uses INSERT OR IGNORE so existing values are never overwritten.
+                let device_id = uuid::Uuid::new_v4().to_string();
+                let _ = db
+                    .execute(Statement::from_sql_and_values(
+                        DbBackend::Sqlite,
+                        "INSERT OR IGNORE INTO settings (id, key, value, created_at) \
+                         VALUES (?, 'device_id', ?, unixepoch())",
+                        [device_id.clone().into(), device_id.into()],
+                    ))
+                    .await;
+
+                // Build the per-project DB registry (used by remote project DBs).
+                let project_db_registry = Arc::new(db::ProjectDbRegistry::new(app_data_dir_for_registry));
+
                 let remote_pty_service = Arc::new(RemotePtyService::new());
                 app_handle.manage(tmux_service);
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -320,7 +346,25 @@ pub fn run() {
                 );
                 app_handle.manage(scrollback_backup);
                 app_handle.manage(Mutex::new(hook_listener));
+                app_handle.manage(project_db_registry);
+                // Sync engine state (Phase 2a).
+                app_handle.manage(Arc::new(
+                    sync::heartbeat::HeartbeatRegistry::new(),
+                ));
+                app_handle.manage(Arc::new(sync::push::PushDebouncer::new()));
                 app_handle.manage(db);
+
+                // Phase 3: migrate remote project data from local DB to per-project DBs.
+                // Runs in background — does not block startup.
+                {
+                    let migration_handle = app_handle.clone();
+                    tokio::spawn(async move {
+                        db::migrate_remote_data::run_remote_data_migration_if_needed(
+                            migration_handle,
+                        )
+                        .await;
+                    });
+                }
             });
             Ok(())
         })

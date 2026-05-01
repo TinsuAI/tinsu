@@ -3,10 +3,13 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::State;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 
 use crate::db::entities::epic;
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
+use crate::sync;
 
 fn now_unix_secs() -> i64 {
     std::time::SystemTime::now()
@@ -59,13 +62,18 @@ pub struct ListEpicsInput {
 #[specta::specta]
 pub async fn list_epics(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: ListEpicsInput,
 ) -> Result<Vec<EpicModel>, AppError> {
-    let mut query = epic::Entity::find();
-    if !input.project_id.is_empty() {
-        query = query.filter(epic::Column::ProjectId.eq(&input.project_id));
+    if input.project_id.is_empty() {
+        let epics = epic::Entity::find().all(db.inner()).await?;
+        return Ok(epics.into_iter().map(EpicModel::from).collect());
     }
-    let epics = query.all(db.inner()).await?;
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let epics = epic::Entity::find()
+        .filter(epic::Column::ProjectId.eq(&input.project_id))
+        .all(project_db.connection())
+        .await?;
     Ok(epics.into_iter().map(EpicModel::from).collect())
 }
 
@@ -88,11 +96,13 @@ pub struct UpdateEpicInput {
     pub color: Option<String>,
     pub goal: Option<String>,
     pub sprint_id: Option<String>,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DeleteEpicInput {
     pub id: String,
+    pub project_id: String,
 }
 
 /// Creates a new epic.
@@ -100,6 +110,8 @@ pub struct DeleteEpicInput {
 #[specta::specta]
 pub async fn create_epic(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: CreateEpicInput,
 ) -> Result<EpicModel, AppError> {
     if input.title.trim().is_empty() {
@@ -110,6 +122,8 @@ pub async fn create_epic(
             "project_id must not be empty".to_string(),
         ));
     }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
 
     let now = now_unix_secs();
     let new_epic = epic::ActiveModel {
@@ -123,7 +137,12 @@ pub async fn create_epic(
         project_id: Set(input.project_id),
         created_at: Set(now),
     };
-    let result = new_epic.insert(db.inner()).await?;
+    let result = new_epic.insert(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(EpicModel::from(result))
 }
 
@@ -132,6 +151,8 @@ pub async fn create_epic(
 #[specta::specta]
 pub async fn update_epic(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: UpdateEpicInput,
 ) -> Result<EpicModel, AppError> {
     if input.id.is_empty() {
@@ -140,9 +161,15 @@ pub async fn update_epic(
     if input.title.trim().is_empty() {
         return Err(AppError::BadRequest("title must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let existing = epic::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Epic {} not found", input.id)))?;
 
@@ -155,7 +182,12 @@ pub async fn update_epic(
         sprint_id: Set(input.sprint_id),
         ..Default::default()
     };
-    let result = updated.update(db.inner()).await?;
+    let result = updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(EpicModel::from(result))
 }
 
@@ -164,17 +196,30 @@ pub async fn update_epic(
 #[specta::specta]
 pub async fn delete_epic(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: DeleteEpicInput,
 ) -> Result<(), AppError> {
     if input.id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let existing = epic::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Epic {} not found", input.id)))?;
-    existing.delete(db.inner()).await?;
+    existing.delete(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(())
 }
 
@@ -242,6 +287,7 @@ mod tests {
             color: Some("red".to_string()),
             goal: Some("new goal".to_string()),
             sprint_id: Some("s1".to_string()),
+            project_id: "p1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("Updated Epic"));
@@ -252,6 +298,7 @@ mod tests {
     fn test_delete_epic_input_serializes() {
         let input = DeleteEpicInput {
             id: "e1".to_string(),
+            project_id: "p1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("e1"));

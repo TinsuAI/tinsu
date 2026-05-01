@@ -5,6 +5,7 @@ mod m20260412_000002_ssh_connections;
 mod m20260412_000003_remote_projects;
 mod m20260412_000004_remote_task_sessions;
 pub mod m20260412_000005_project_remote_link;
+mod m20260501_000006_remote_project_cache;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260412_000003_remote_projects::Migration),
             Box::new(m20260412_000004_remote_task_sessions::Migration),
             Box::new(m20260412_000005_project_remote_link::Migration),
+            Box::new(m20260501_000006_remote_project_cache::Migration),
         ]
     }
 }

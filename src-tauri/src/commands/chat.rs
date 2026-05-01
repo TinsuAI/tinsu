@@ -1,5 +1,7 @@
 use crate::db::entities::{chat_message, chat_session, project, remote_project, ssh_connection};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
+use crate::sync;
 use crate::services::chat_cli::ChatCliService;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::services::pty_service::PtyService;
@@ -163,22 +165,26 @@ pub async fn create_chat_session(
     agent_persona: Option<String>,
     workflow_key: Option<String>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
     hook_forwarder: State<'_, crate::services::remote_hook_forwarder::RemoteHookForwarderManager>,
     hook_listener: State<'_, std::sync::Mutex<crate::services::hook_listener::HookListenerService>>,
     app: AppHandle,
 ) -> Result<ChatSessionModel, AppError> {
-    // Look up project path from DB
+    // Look up project path from local DB (projects table is local-scoped)
     let project = project::Entity::find_by_id(&project_id)
         .one(db.inner())
         .await?
         .ok_or_else(|| AppError::NotFound(format!("project not found: {}", project_id)))?;
 
+    // Resolve project DB for chat_sessions writes
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
     let now = now_unix_secs();
     let id = Uuid::new_v4().to_string();
     let session_uuid = Uuid::new_v4().to_string();
 
-    // Insert chat_sessions row
+    // Insert chat_sessions row into the project-scoped DB
     let new_session = chat_session::ActiveModel {
         id: Set(id.clone()),
         session_uuid: Set(session_uuid.clone()),
@@ -193,7 +199,7 @@ pub async fn create_chat_session(
         skip_permissions: Set(1), // default to skip_permissions=true
         tmux_session: Set(None),
     };
-    let session = new_session.insert(db.inner()).await?;
+    let session = new_session.insert(project_db.connection()).await?;
 
     // Get hooks resource dir
     let hooks_resource_dir = app
@@ -472,14 +478,18 @@ pub async fn create_chat_session(
         }
     };
 
-    // Update chat_sessions.tmux_session
+    // Update chat_sessions.tmux_session in the project-scoped DB
     let updated = chat_session::ActiveModel {
         id: Set(session.id.clone()),
         tmux_session: Set(tmux_session_name),
         updated_at: Set(now_unix_secs()),
         ..Default::default()
     };
-    let final_session = updated.update(db.inner()).await?;
+    let final_session = updated.update(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(ChatSessionModel::from(final_session))
 }
@@ -490,8 +500,11 @@ pub async fn create_chat_session(
 pub async fn list_chat_sessions_with_preview(
     project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Vec<ChatSessionPreview>, AppError> {
     use sea_orm::{ConnectionTrait, Statement};
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
 
     let sql = r#"
         SELECT
@@ -504,8 +517,8 @@ pub async fn list_chat_sessions_with_preview(
         ORDER BY COALESCE(cs.last_message_at, 0) DESC, cs.created_at DESC
     "#;
 
-    let rows = db
-        .inner()
+    let rows = project_db
+        .connection()
         .query_all(Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Sqlite,
             sql,
@@ -543,10 +556,14 @@ pub async fn list_chat_sessions_with_preview(
 #[specta::specta]
 pub async fn get_chat_messages(
     session_id: String,
+    project_id: String,
     limit: Option<u64>,
     offset: Option<u64>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Vec<ChatMessageModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
     let effective_limit = limit.map(|l| l.min(2000)).unwrap_or(2000);
 
     if let Some(offset_val) = offset {
@@ -556,7 +573,7 @@ pub async fn get_chat_messages(
             .order_by_asc(chat_message::Column::CreatedAt)
             .limit(effective_limit)
             .offset(offset_val)
-            .all(db.inner())
+            .all(pdb_conn)
             .await?;
         Ok(messages.into_iter().map(ChatMessageModel::from).collect())
     } else {
@@ -565,7 +582,7 @@ pub async fn get_chat_messages(
             .filter(chat_message::Column::SessionId.eq(&session_id))
             .order_by_desc(chat_message::Column::CreatedAt)
             .limit(effective_limit)
-            .all(db.inner())
+            .all(pdb_conn)
             .await?;
         messages.reverse();
         Ok(messages.into_iter().map(ChatMessageModel::from).collect())
@@ -577,14 +594,19 @@ pub async fn get_chat_messages(
 #[specta::specta]
 pub async fn send_chat_message(
     session_id: String,
+    project_id: String,
     content: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
     app: AppHandle,
 ) -> Result<ChatMessageModel, AppError> {
-    // Load session
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
+    // Load session from project-scoped DB
     let session = chat_session::Entity::find_by_id(&session_id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("chat session not found: {}", session_id)))?;
 
@@ -664,7 +686,7 @@ pub async fn send_chat_message(
 
     let now = now_unix_secs();
 
-    // Insert user message
+    // Insert user message into project-scoped DB
     let msg_id = Uuid::new_v4().to_string();
     let new_msg = chat_message::ActiveModel {
         id: Set(msg_id),
@@ -675,7 +697,7 @@ pub async fn send_chat_message(
         tool_input: Set(None),
         created_at: Set(now),
     };
-    let saved_msg = new_msg.insert(db.inner()).await?;
+    let saved_msg = new_msg.insert(pdb_conn).await?;
 
     // Update session: last_message_at=now, status=thinking
     let updated = chat_session::ActiveModel {
@@ -685,7 +707,11 @@ pub async fn send_chat_message(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     // Emit event
     let msg_model = ChatMessageModel::from(saved_msg);
@@ -704,10 +730,13 @@ pub async fn send_chat_message(
 #[specta::specta]
 pub async fn update_session_status(
     session_id: String,
+    project_id: String,
     status: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     app: AppHandle,
 ) -> Result<(), AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let now = now_unix_secs();
     let updated = chat_session::ActiveModel {
         id: Set(session_id.clone()),
@@ -715,7 +744,11 @@ pub async fn update_session_status(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     if let Err(e) = app.emit(
         "chat:session-status-changed",
@@ -732,12 +765,18 @@ pub async fn update_session_status(
 #[specta::specta]
 pub async fn delete_chat_session(
     session_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     tmux: State<'_, Arc<TmuxService>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
     // Load session to get tmux_session name
     let session = chat_session::Entity::find_by_id(&session_id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     // Kill tmux session (best-effort)
@@ -753,13 +792,17 @@ pub async fn delete_chat_session(
     // Delete messages first (explicit cascade)
     chat_message::Entity::delete_many()
         .filter(chat_message::Column::SessionId.eq(&session_id))
-        .exec(db.inner())
+        .exec(pdb_conn)
         .await?;
 
     // Delete session
     chat_session::Entity::delete_by_id(&session_id)
-        .exec(db.inner())
+        .exec(pdb_conn)
         .await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(())
 }
@@ -769,11 +812,18 @@ pub async fn delete_chat_session(
 #[specta::specta]
 pub async fn delete_chat_message(
     message_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     chat_message::Entity::delete_by_id(&message_id)
-        .exec(db.inner())
+        .exec(project_db.connection())
         .await?;
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
     Ok(())
 }
 
@@ -782,11 +832,17 @@ pub async fn delete_chat_message(
 #[specta::specta]
 pub async fn clear_session_messages(
     session_id: String,
+    project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
     chat_message::Entity::delete_many()
         .filter(chat_message::Column::SessionId.eq(&session_id))
-        .exec(db.inner())
+        .exec(pdb_conn)
         .await?;
 
     let now = now_unix_secs();
@@ -796,7 +852,11 @@ pub async fn clear_session_messages(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(())
 }
@@ -806,9 +866,13 @@ pub async fn clear_session_messages(
 #[specta::specta]
 pub async fn update_skip_permissions(
     session_id: String,
+    project_id: String,
     skip_permissions: bool,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let now = now_unix_secs();
     let updated = chat_session::ActiveModel {
         id: Set(session_id),
@@ -816,7 +880,10 @@ pub async fn update_skip_permissions(
         updated_at: Set(now),
         ..Default::default()
     };
-    updated.update(db.inner()).await?;
+    updated.update(project_db.connection()).await?;
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
     Ok(())
 }
 
@@ -827,11 +894,13 @@ pub async fn get_chat_session_by_workflow_key(
     project_id: String,
     workflow_key: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Option<ChatSessionModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let session = chat_session::Entity::find()
         .filter(chat_session::Column::ProjectId.eq(&project_id))
         .filter(chat_session::Column::WorkflowKey.eq(&workflow_key))
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     Ok(session.map(ChatSessionModel::from))
