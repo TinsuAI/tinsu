@@ -52,7 +52,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Explore ideas and define product direction',
     outputFilename: 'brainstorming/brainstorming-session-*.md',
     command: '/bmad-brainstorming',
-    persona: 'bmad:bmm:agents:analyst',
+    persona: 'bmad-agent-analyst',
     stepNumber: 1
   },
   {
@@ -62,7 +62,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Analyze competition and market landscape',
     outputFilename: 'research/market-*-research-*.md',
     command: '/bmad-market-research',
-    persona: 'bmad:bmm:agents:analyst',
+    persona: 'bmad-agent-analyst',
     stepNumber: 2
   },
   {
@@ -72,7 +72,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Deep dive into domain-specific knowledge',
     outputFilename: 'research/domain-*-research-*.md',
     command: '/bmad-domain-research',
-    persona: 'bmad:bmm:agents:analyst',
+    persona: 'bmad-agent-analyst',
     stepNumber: 3
   },
   {
@@ -82,7 +82,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Define product vision and target users',
     outputFilename: 'product-brief-*.md',
     command: '/bmad-product-brief',
-    persona: 'bmad:bmm:agents:analyst',
+    persona: 'bmad-agent-analyst',
     stepNumber: 4
   },
 
@@ -94,7 +94,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Document detailed requirements and features',
     outputFilename: 'prd.md',
     command: '/bmad-create-prd',
-    persona: 'bmad:bmm:agents:pm',
+    persona: 'bmad-agent-pm',
     stepNumber: 5
   },
   {
@@ -103,8 +103,8 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     name: 'Growth Review',
     purpose: 'Evaluate PRD for organic growth potential before architecture',
     outputFilename: 'growth-hacking-review.md',
-    command: '/growth-hacking-guru',
-    persona: 'bmad:ghk:agents:growth-guru',
+    command: '/bmad-agent-growth-guru',
+    persona: 'bmad-agent-growth-guru',
     stepNumber: 6
   },
   {
@@ -114,7 +114,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Plan user experience and interface patterns',
     outputFilename: 'ux-design-specification.md',
     command: '/bmad-create-ux-design',
-    persona: 'bmad:bmm:agents:ux-designer',
+    persona: 'bmad-agent-ux-designer',
     stepNumber: 7
   },
 
@@ -126,7 +126,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Design technical architecture and stack decisions',
     outputFilename: 'architecture.md',
     command: '/bmad-create-architecture',
-    persona: 'bmad:bmm:agents:architect',
+    persona: 'bmad-agent-architect',
     stepNumber: 8
   },
   {
@@ -136,7 +136,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Break down work into implementable stories',
     outputFilename: 'epics.md',
     command: '/bmad-create-epics-and-stories',
-    persona: 'bmad:bmm:agents:pm',
+    persona: 'bmad-agent-pm',
     stepNumber: 9
   },
   {
@@ -146,7 +146,7 @@ export const BMAD_WORKFLOWS: BmadWorkflowDefinition[] = [
     purpose: 'Validate specs are complete before development',
     outputFilename: 'implementation-readiness-report-*.md',
     command: '/bmad-check-implementation-readiness',
-    persona: 'bmad:bmm:agents:pm',
+    persona: 'bmad-agent-pm',
     stepNumber: 10
   }
 ]
@@ -252,7 +252,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     border: 'border-slate-500/30',
     dot: 'bg-slate-400'
   },
-  'bmad:bmm:agents:analyst': {
+  'bmad-agent-analyst': {
     displayName: 'Analyst',
     characterName: 'Mary',
     bg: 'bg-blue-500/20',
@@ -260,7 +260,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     border: 'border-blue-500/30',
     dot: 'bg-blue-400'
   },
-  'bmad:bmm:agents:pm': {
+  'bmad-agent-pm': {
     displayName: 'PM',
     characterName: 'John',
     bg: 'bg-green-500/20',
@@ -268,7 +268,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     border: 'border-green-500/30',
     dot: 'bg-green-400'
   },
-  'bmad:bmm:agents:architect': {
+  'bmad-agent-architect': {
     displayName: 'Architect',
     characterName: 'Winston',
     bg: 'bg-orange-500/20',
@@ -276,7 +276,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     border: 'border-orange-500/30',
     dot: 'bg-orange-400'
   },
-  'bmad:bmm:agents:ux-designer': {
+  'bmad-agent-ux-designer': {
     displayName: 'UX Designer',
     characterName: 'Sally',
     bg: 'bg-purple-500/20',
@@ -284,7 +284,7 @@ export const AGENT_PERSONA_CONFIG: Readonly<Record<string, AgentPersonaConfig>> 
     border: 'border-purple-500/30',
     dot: 'bg-purple-400'
   },
-  'bmad:ghk:agents:growth-guru': {
+  'bmad-agent-growth-guru': {
     displayName: 'Growth Guru',
     characterName: 'Greg',
     bg: 'bg-emerald-500/20',

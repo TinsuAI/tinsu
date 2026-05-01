@@ -22,7 +22,7 @@ import type { ChatMessageAttachment } from '@shared/types/chat.types'
 interface ChatMessageBubbleProps {
   role: 'user' | 'assistant' | 'tool'
   content: string
-  /** Agent persona key for styling agent messages (e.g., 'bmad:bmm:agents:pm') */
+  /** Agent persona key for styling agent messages (e.g., 'bmad-agent-pm') */
   agentPersona?: string | null
   /** Message creation timestamp — may be a Date, ISO string (from tRPC JSON), or unix-second number */
   createdAt: Date | string | number

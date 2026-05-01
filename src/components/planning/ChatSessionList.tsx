@@ -241,7 +241,7 @@ export function ChatSessionList({ projectId, onSelectSession, onNewChat, selecte
   const sessionItems: ChatSessionListItem[] = (sessions as SessionWithLiveStatus[]).map((s) => ({
     id: s.id,
     session_uuid: s.session_uuid,
-    agent_persona: s.agent_persona ?? 'bmad:bmm:agents:pm',
+    agent_persona: s.agent_persona ?? 'bmad-agent-pm',
     workflow_key: s.workflow_key,
     status: s.status,
     created_at: s.created_at,

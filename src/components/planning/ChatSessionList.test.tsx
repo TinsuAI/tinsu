@@ -29,7 +29,7 @@ vi.mock('remark-gfm', () => ({
 // Mock planning workspace constants
 vi.mock('@renderer/constants/planning-workspace', () => {
   const config: Record<string, { displayName: string; bg: string; text: string; border: string; icon: string; dot: string }> = {
-    'bmad:bmm:agents:pm': {
+    'bmad-agent-pm': {
       displayName: 'PM',
       bg: 'bg-emerald-500/20',
       text: 'text-emerald-400',
@@ -37,7 +37,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'M',
       dot: 'bg-green-400'
     },
-    'bmad:bmm:agents:architect': {
+    'bmad-agent-architect': {
       displayName: 'Architect',
       bg: 'bg-purple-500/20',
       text: 'text-purple-400',
@@ -84,7 +84,7 @@ const mockSessions = [
   {
     id: 'session-1',
     session_uuid: 'uuid-1',
-    agent_persona: 'bmad:bmm:agents:pm',
+    agent_persona: 'bmad-agent-pm',
     workflow_key: null,
     status: 'active',
     created_at: 1742641200,
@@ -97,7 +97,7 @@ const mockSessions = [
   {
     id: 'session-2',
     session_uuid: 'uuid-2',
-    agent_persona: 'bmad:bmm:agents:architect',
+    agent_persona: 'bmad-agent-architect',
     workflow_key: 'architecture',
     status: 'completed',
     created_at: 1742544000,
@@ -110,7 +110,7 @@ const mockSessions = [
   {
     id: 'session-3',
     session_uuid: 'uuid-3',
-    agent_persona: 'bmad:bmm:agents:pm',
+    agent_persona: 'bmad-agent-pm',
     workflow_key: 'create-prd',
     status: 'paused',
     created_at: 1742479200,
@@ -250,7 +250,7 @@ describe('ChatSessionList (Story 10.6, AC: 1, 2, 6)', () => {
     expect(onSelectSession).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'session-1',
-        agent_persona: 'bmad:bmm:agents:pm',
+        agent_persona: 'bmad-agent-pm',
         status: 'active'
       })
     )

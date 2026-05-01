@@ -69,7 +69,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: 1,
         phase_name: 'Product Brief',
-        bmad_agent: 'bmad:bmm:agents:pm',
+        bmad_agent: 'bmad-agent-pm',
         bmad_workflow: '_bmad/bmm/workflows/1-ideation/create-product-brief/workflow.yaml'
       }
 
@@ -95,7 +95,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: 3,
         phase_name: 'Architecture',
-        bmad_agent: 'bmad:bmm:agents:architect',
+        bmad_agent: 'bmad-agent-architect',
         bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.yaml'
       }
 
@@ -108,7 +108,7 @@ describe('Task Types (Story 3.1)', () => {
 
         expect(phaseNum).toBe(3)
         expect(phaseName).toBe('Architecture')
-        expect(agent).toBe('bmad:bmm:agents:architect')
+        expect(agent).toBe('bmad-agent-architect')
         expect(workflow).toContain('create-architecture')
       } else {
         // This should not be reached
@@ -122,7 +122,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: null, // Missing required field
         phase_name: 'Architecture',
-        bmad_agent: 'bmad:bmm:agents:architect',
+        bmad_agent: 'bmad-agent-architect',
         bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.yaml'
       }
 
@@ -135,7 +135,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: 3,
         phase_name: null, // Missing required field
-        bmad_agent: 'bmad:bmm:agents:architect',
+        bmad_agent: 'bmad-agent-architect',
         bmad_workflow: '_bmad/bmm/workflows/3-solutioning/create-architecture/workflow.yaml'
       }
 
@@ -161,7 +161,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: 3,
         phase_name: 'Architecture',
-        bmad_agent: 'bmad:bmm:agents:architect',
+        bmad_agent: 'bmad-agent-architect',
         bmad_workflow: null // Missing required field
       }
 
@@ -222,7 +222,7 @@ describe('Task Types (Story 3.1)', () => {
         task_type: 'planning',
         phase_number: 1,
         phase_name: 'Product Brief',
-        bmad_agent: 'bmad:bmm:agents:pm',
+        bmad_agent: 'bmad-agent-pm',
         bmad_workflow: '_bmad/bmm/workflows/1-ideation/create-product-brief/workflow.yaml'
       }
 
@@ -322,7 +322,7 @@ describe('isImportedStoryTask helper (Story 5.2c)', () => {
       task_type: 'planning',
       phase_number: 1,
       phase_name: 'Product Brief',
-      bmad_agent: 'bmad:bmm:agents:pm',
+      bmad_agent: 'bmad-agent-pm',
       bmad_workflow: '_bmad/bmm/workflows/1-ideation/create-product-brief/workflow.yaml',
       story_number: null,
       story_file_status: null

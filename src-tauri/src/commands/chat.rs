@@ -1056,7 +1056,7 @@ mod tests {
         let preview = ChatSessionPreview {
             id: "s1".to_string(),
             session_uuid: "u1".to_string(),
-            agent_persona: Some("bmad:bmm:agents:pm".to_string()),
+            agent_persona: Some("bmad-agent-pm".to_string()),
             workflow_phase: None,
             project_id: "p1".to_string(),
             status: "idle".to_string(),

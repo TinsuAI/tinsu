@@ -23,11 +23,11 @@ import { MobileListItem } from '../primitives/MobileListItem'
 // Intentional duplicate of ChatPersonaSelector.tsx CHAT_PERSONAS for mobile decoupling (AC 17)
 const CHAT_PERSONAS = [
   'general',
-  'bmad:bmm:agents:pm',
-  'bmad:bmm:agents:architect',
-  'bmad:bmm:agents:ux-designer',
-  'bmad:bmm:agents:analyst',
-  'bmad:ghk:agents:growth-guru',
+  'bmad-agent-pm',
+  'bmad-agent-architect',
+  'bmad-agent-ux-designer',
+  'bmad-agent-analyst',
+  'bmad-agent-growth-guru',
 ] as const
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */

@@ -28,7 +28,7 @@ vi.mock('@renderer/constants/planning-workspace', () => ({
       border: '',
       dot: 'bg-slate-400',
     },
-    'bmad:bmm:agents:pm': {
+    'bmad-agent-pm': {
       displayName: 'PM',
       characterName: 'John',
       bg: '',
@@ -117,7 +117,7 @@ function makeMessages() {
 }
 
 function makeSessionList() {
-  return [{ id: 'sess-1', agent_persona: 'bmad:bmm:agents:pm', live_status: 'idle', last_message_preview: null, last_message_at: null }]
+  return [{ id: 'sess-1', agent_persona: 'bmad-agent-pm', live_status: 'idle', last_message_preview: null, last_message_at: null }]
 }
 
 function wrapper({ children }: { children: React.ReactNode }) {

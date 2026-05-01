@@ -5,7 +5,7 @@ import { MobileSessionRow, type ChatSessionListItemPreview } from './MobileSessi
 function makeSession(overrides: Partial<ChatSessionListItemPreview> = {}): ChatSessionListItemPreview {
   return {
     id: 'sess-1',
-    agent_persona: 'bmad:bmm:agents:pm',
+    agent_persona: 'bmad-agent-pm',
     last_message_preview: 'Let me help you with that.',
     last_message_at: new Date(Date.now() - 5 * 60_000).toISOString(), // 5 min ago
     live_status: 'idle',

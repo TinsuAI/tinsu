@@ -105,7 +105,7 @@ describe('MobileNewSessionSheet', () => {
     await waitFor(() => {
       expect(commands.createChatSession).toHaveBeenCalledWith(
         'proj-1',
-        'bmad:bmm:agents:pm',
+        'bmad-agent-pm',
         null,
       )
       expect(onSessionCreated).toHaveBeenCalledWith('new-sess-1')

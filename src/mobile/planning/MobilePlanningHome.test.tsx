@@ -21,7 +21,7 @@ vi.mock('@renderer/stores/project.store', () => ({
 vi.mock('@renderer/constants/planning-workspace', () => ({
   AGENT_PERSONA_CONFIG: {
     general: { displayName: 'General', characterName: '', bg: '', text: '', border: '', dot: 'bg-slate-400' },
-    'bmad:bmm:agents:pm': { displayName: 'PM', characterName: 'John', bg: '', text: '', border: '', dot: 'bg-green-400' },
+    'bmad-agent-pm': { displayName: 'PM', characterName: 'John', bg: '', text: '', border: '', dot: 'bg-green-400' },
   },
 }))
 
@@ -123,7 +123,7 @@ function makeSessions(): ChatSessionListItemPreview[] {
   return [
     {
       id: 'sess-1',
-      agent_persona: 'bmad:bmm:agents:pm',
+      agent_persona: 'bmad-agent-pm',
       last_message_preview: 'Hello from PM',
       last_message_at: new Date(Date.now() - 10 * 60_000).toISOString(),
       live_status: 'idle',

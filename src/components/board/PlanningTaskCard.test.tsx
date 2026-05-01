@@ -375,7 +375,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('shows persona badge when task has bmad_agent and agentStatus is running', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:pm'
+      bmad_agent: 'bmad-agent-pm'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
@@ -387,7 +387,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('does NOT show persona badge when agentStatus is not running', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:pm'
+      bmad_agent: 'bmad-agent-pm'
     }
     render(<PlanningTaskCard task={task} agentStatus="idle" />)
 
@@ -407,7 +407,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('does NOT show persona badge for unknown agent', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:unknown'
+      bmad_agent: 'bmad-agent-unknown'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
@@ -417,7 +417,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('persona badge color matches agent mapping for PM (green)', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:pm'
+      bmad_agent: 'bmad-agent-pm'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
@@ -430,7 +430,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('persona badge color matches agent mapping for Architect (orange)', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:architect'
+      bmad_agent: 'bmad-agent-architect'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
@@ -442,7 +442,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('persona badge color matches agent mapping for UX Designer (purple)', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:ux-designer'
+      bmad_agent: 'bmad-agent-ux-designer'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 
@@ -454,7 +454,7 @@ describe('PlanningTaskCard persona badge (Story 9.8)', () => {
   it('persona badge color matches agent mapping for Analyst (blue)', () => {
     const task: PlanningTask = {
       ...mockPlanningTask,
-      bmad_agent: 'bmad:bmm:agents:analyst'
+      bmad_agent: 'bmad-agent-analyst'
     }
     render(<PlanningTaskCard task={task} agentStatus="running" />)
 

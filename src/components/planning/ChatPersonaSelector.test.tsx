@@ -11,7 +11,7 @@ import { ChatPersonaSelector, type ChatPersonaKey } from './ChatPersonaSelector'
 
 describe('ChatPersonaSelector (Story 10.2, AC: 5)', () => {
   const defaultProps = {
-    selectedPersona: 'bmad:bmm:agents:pm' as ChatPersonaKey,
+    selectedPersona: 'bmad-agent-pm' as ChatPersonaKey,
     onPersonaChange: vi.fn()
   }
 
@@ -31,7 +31,7 @@ describe('ChatPersonaSelector (Story 10.2, AC: 5)', () => {
   })
 
   it('marks the selected persona button with aria-pressed=true', () => {
-    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad:bmm:agents:architect" />)
+    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad-agent-architect" />)
 
     const architectButton = screen.getByTestId('persona-button-architect')
     expect(architectButton).toHaveAttribute('aria-pressed', 'true')
@@ -45,20 +45,20 @@ describe('ChatPersonaSelector (Story 10.2, AC: 5)', () => {
     render(<ChatPersonaSelector {...defaultProps} onPersonaChange={onPersonaChange} />)
 
     fireEvent.click(screen.getByText('Architect'))
-    expect(onPersonaChange).toHaveBeenCalledWith('bmad:bmm:agents:architect')
+    expect(onPersonaChange).toHaveBeenCalledWith('bmad-agent-architect')
 
     fireEvent.click(screen.getByText('UX Designer'))
-    expect(onPersonaChange).toHaveBeenCalledWith('bmad:bmm:agents:ux-designer')
+    expect(onPersonaChange).toHaveBeenCalledWith('bmad-agent-ux-designer')
 
     fireEvent.click(screen.getByText('Analyst'))
-    expect(onPersonaChange).toHaveBeenCalledWith('bmad:bmm:agents:analyst')
+    expect(onPersonaChange).toHaveBeenCalledWith('bmad-agent-analyst')
 
     fireEvent.click(screen.getByText('PM'))
-    expect(onPersonaChange).toHaveBeenCalledWith('bmad:bmm:agents:pm')
+    expect(onPersonaChange).toHaveBeenCalledWith('bmad-agent-pm')
   })
 
   it('applies highlighted styles to the selected persona', () => {
-    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad:bmm:agents:pm" />)
+    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad-agent-pm" />)
 
     const pmButton = screen.getByTestId('persona-button-pm')
     // Selected button should have green bg tint and text classes
@@ -67,7 +67,7 @@ describe('ChatPersonaSelector (Story 10.2, AC: 5)', () => {
   })
 
   it('does not apply highlighted styles to unselected personas', () => {
-    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad:bmm:agents:pm" />)
+    render(<ChatPersonaSelector {...defaultProps} selectedPersona="bmad-agent-pm" />)
 
     const architectButton = screen.getByTestId('persona-button-architect')
     expect(architectButton.className).toContain('text-muted-foreground')

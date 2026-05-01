@@ -18,6 +18,7 @@ pub struct BmadInstallInput {
     pub user_name: String,
     pub communication_language: String,
     pub document_output_language: String,
+    pub output_folder: Option<String>,
 }
 
 /// Returns BMAD installation status by reading _bmad/_config/manifest.yaml.
@@ -91,8 +92,8 @@ pub async fn bmad_install_to_path(input: BmadInstallInput) -> Result<(), AppErro
         input.tools.join(",")
     };
 
-    let output = std::process::Command::new("npx")
-        .arg("--yes")
+    let mut cmd = std::process::Command::new("npx");
+    cmd.arg("--yes")
         .arg("bmad-method")
         .arg("install")
         .arg("--directory")
@@ -106,7 +107,13 @@ pub async fn bmad_install_to_path(input: BmadInstallInput) -> Result<(), AppErro
         .arg("--communication-language")
         .arg(&input.communication_language)
         .arg("--document-output-language")
-        .arg(&input.document_output_language)
+        .arg(&input.document_output_language);
+
+    if let Some(ref folder) = input.output_folder {
+        cmd.arg("--output-folder").arg(folder);
+    }
+
+    let output = cmd
         .arg("--yes")
         .output()
         .map_err(|e| AppError::Internal(format!("Failed to run bmad-method: {}", e)))?;

@@ -13,14 +13,14 @@ import { ChatWorkingIndicator } from './ChatWorkingIndicator'
 // Mock planning workspace constants for persona config
 vi.mock('@renderer/constants/planning-workspace', () => {
   const config: Record<string, { displayName: string; bg: string; text: string; border: string; dot: string }> = {
-    'bmad:bmm:agents:pm': {
+    'bmad-agent-pm': {
       displayName: 'PM',
       bg: 'bg-green-500/20',
       text: 'text-green-400',
       border: 'border-green-500/30',
       dot: 'bg-green-400'
     },
-    'bmad:bmm:agents:architect': {
+    'bmad-agent-architect': {
       displayName: 'Architect',
       bg: 'bg-orange-500/20',
       text: 'text-orange-400',
@@ -48,7 +48,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
     })
 
     it('shows persona label', () => {
-      render(<ChatWorkingIndicator agentPersona="bmad:bmm:agents:pm" />)
+      render(<ChatWorkingIndicator agentPersona="bmad-agent-pm" />)
 
       expect(screen.getByText('PM')).toBeInTheDocument()
     })
@@ -64,7 +64,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
     it('shows tool detail for Read tool', () => {
       render(
         <ChatWorkingIndicator
-          agentPersona="bmad:bmm:agents:pm"
+          agentPersona="bmad-agent-pm"
           currentToolActivity={{
             toolName: 'Read',
             toolInput: { file_path: '/home/user/project/architecture.md' }
@@ -118,7 +118,7 @@ describe('ChatWorkingIndicator (Story 10.5, AC: 1)', () => {
   describe('persona-colored pulse dot', () => {
     it('shows pulse dot with persona color', () => {
       render(
-        <ChatWorkingIndicator agentPersona="bmad:bmm:agents:pm" />
+        <ChatWorkingIndicator agentPersona="bmad-agent-pm" />
       )
 
       const dot = screen.getByTestId('working-indicator-dot')

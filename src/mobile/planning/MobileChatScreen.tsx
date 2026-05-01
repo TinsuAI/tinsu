@@ -37,11 +37,11 @@ import { MobileChatComposer } from './MobileChatComposer'
 /** Read-only persona info blurbs shown in the persona-info sheet (AC 13). */
 const PERSONA_BIO: Record<string, string> = {
   'general': 'General assistant — handles broad questions and open-ended planning.',
-  'bmad:bmm:agents:pm': 'Project Manager — focuses on requirements, PRDs, and roadmap planning.',
-  'bmad:bmm:agents:architect': 'Architect — designs system architecture, evaluates trade-offs, and documents technical decisions.',
-  'bmad:bmm:agents:ux-designer': 'UX Designer — crafts user experiences, wireframes, and UX specifications.',
-  'bmad:bmm:agents:analyst': 'Analyst — researches markets, gathers insights, and structures business requirements.',
-  'bmad:ghk:agents:growth-guru': 'Growth Guru — drives growth strategies, funnel analysis, and experiment planning.',
+  'bmad-agent-pm': 'Project Manager — focuses on requirements, PRDs, and roadmap planning.',
+  'bmad-agent-architect': 'Architect — designs system architecture, evaluates trade-offs, and documents technical decisions.',
+  'bmad-agent-ux-designer': 'UX Designer — crafts user experiences, wireframes, and UX specifications.',
+  'bmad-agent-analyst': 'Analyst — researches markets, gathers insights, and structures business requirements.',
+  'bmad-agent-growth-guru': 'Growth Guru — drives growth strategies, funnel analysis, and experiment planning.',
 }
 
 /* ─── Component ─────────────────────────────────────────────────────── */

@@ -66,7 +66,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'G',
       dot: 'bg-zinc-400'
     },
-    'bmad:bmm:agents:pm': {
+    'bmad-agent-pm': {
       displayName: 'PM',
       bg: 'bg-emerald-500/20',
       text: 'text-emerald-400',
@@ -74,7 +74,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'M',
       dot: 'bg-green-400'
     },
-    'bmad:bmm:agents:architect': {
+    'bmad-agent-architect': {
       displayName: 'Architect',
       bg: 'bg-purple-500/20',
       text: 'text-purple-400',
@@ -82,7 +82,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'A',
       dot: 'bg-orange-400'
     },
-    'bmad:bmm:agents:ux-designer': {
+    'bmad-agent-ux-designer': {
       displayName: 'UX Designer',
       bg: 'bg-pink-500/20',
       text: 'text-pink-400',
@@ -90,7 +90,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'U',
       dot: 'bg-purple-400'
     },
-    'bmad:bmm:agents:analyst': {
+    'bmad-agent-analyst': {
       displayName: 'Analyst',
       bg: 'bg-blue-500/20',
       text: 'text-blue-400',
@@ -98,7 +98,7 @@ vi.mock('@renderer/constants/planning-workspace', () => {
       icon: 'R',
       dot: 'bg-blue-400'
     },
-    'bmad:ghk:agents:growth-guru': {
+    'bmad-agent-growth-guru': {
       displayName: 'Growth',
       bg: 'bg-orange-500/20',
       text: 'text-orange-400',
@@ -200,7 +200,7 @@ vi.mock('@renderer/stores/project.store', () => ({
 const makeSession = (overrides: Record<string, unknown> = {}) => ({
   id: 'session-pm-1',
   session_uuid: 'uuid-pm-1',
-  agent_persona: 'bmad:bmm:agents:pm',
+  agent_persona: 'bmad-agent-pm',
   workflow_key: null,
   status: 'active',
   created_at: 1711101600,
@@ -216,7 +216,7 @@ const mockSessions = [
   makeSession({
     id: 'session-arch-1',
     session_uuid: 'uuid-arch-1',
-    agent_persona: 'bmad:bmm:agents:architect',
+    agent_persona: 'bmad-agent-architect',
     status: 'completed',
     last_message_preview: 'The architecture looks good'
   })
@@ -313,7 +313,7 @@ describe('ChatPanel persona switch (Story 10.4, AC: 6)', () => {
     await waitFor(() => {
       expect(mockCreateMutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          agentPersona: 'bmad:bmm:agents:architect',
+          agentPersona: 'bmad-agent-architect',
           projectId: 'project-1'
         })
       )
@@ -360,7 +360,7 @@ describe('ChatPanel sendChatMessage (Story 10.3, AC: 1, 2)', () => {
 
     await waitFor(() => {
       expect(mockCreateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ agentPersona: 'bmad:bmm:agents:pm', projectId: 'project-1' })
+        expect.objectContaining({ agentPersona: 'bmad-agent-pm', projectId: 'project-1' })
       )
     })
 
@@ -556,8 +556,8 @@ describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => 
 
   it('persona switch to persona with existing session binds to that session (AC: 1, Task 7.2)', async () => {
     const sessionsWithBoth = [
-      makeSession({ id: 'session-pm-active', session_uuid: 'uuid-pm-active', agent_persona: 'bmad:bmm:agents:pm', last_message_preview: 'PM session message' }),
-      makeSession({ id: 'session-arch-active', session_uuid: 'uuid-arch-active', agent_persona: 'bmad:bmm:agents:architect', last_message_preview: 'Architect session message' })
+      makeSession({ id: 'session-pm-active', session_uuid: 'uuid-pm-active', agent_persona: 'bmad-agent-pm', last_message_preview: 'PM session message' }),
+      makeSession({ id: 'session-arch-active', session_uuid: 'uuid-arch-active', agent_persona: 'bmad-agent-architect', last_message_preview: 'Architect session message' })
     ]
     mockListWithPreviewQuery.mockReturnValue({ data: sessionsWithBoth })
 
@@ -595,7 +595,7 @@ describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => 
 
   it('persona switch to persona WITHOUT existing session sets sessionId(null) (AC: 1, Task 7.3)', async () => {
     const sessionsOnlyArch = [
-      makeSession({ id: 'session-arch-only', session_uuid: 'uuid-arch-only', agent_persona: 'bmad:bmm:agents:architect', last_message_preview: 'Architect message' })
+      makeSession({ id: 'session-arch-only', session_uuid: 'uuid-arch-only', agent_persona: 'bmad-agent-architect', last_message_preview: 'Architect message' })
     ]
     mockListWithPreviewQuery.mockReturnValue({ data: sessionsOnlyArch })
 
@@ -623,7 +623,7 @@ describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => 
 
     await waitFor(() => {
       expect(mockCreateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ agentPersona: 'bmad:bmm:agents:ux-designer', projectId: 'project-1' })
+        expect.objectContaining({ agentPersona: 'bmad-agent-ux-designer', projectId: 'project-1' })
       )
     })
   })
@@ -674,7 +674,7 @@ describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => 
 
   it('completed sessions are not resumed on persona switch (AC: 1)', async () => {
     const sessionsWithCompleted = [
-      makeSession({ id: 'session-arch-completed', session_uuid: 'uuid-arch-completed', agent_persona: 'bmad:bmm:agents:architect', status: 'completed', last_message_preview: 'Completed session' })
+      makeSession({ id: 'session-arch-completed', session_uuid: 'uuid-arch-completed', agent_persona: 'bmad-agent-architect', status: 'completed', last_message_preview: 'Completed session' })
     ]
     mockListWithPreviewQuery.mockReturnValue({ data: sessionsWithCompleted })
 
@@ -704,7 +704,7 @@ describe('ChatPanel concurrent session background persistence (CTM-2.1)', () => 
 
     await waitFor(() => {
       expect(mockCreateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ agentPersona: 'bmad:bmm:agents:architect', projectId: 'project-1' })
+        expect.objectContaining({ agentPersona: 'bmad-agent-architect', projectId: 'project-1' })
       )
     })
   })

@@ -96,7 +96,7 @@ describe('ChatMessageBubble (Story 10.2, AC: 3, 4)', () => {
         <ChatMessageBubble
           role="assistant"
           content="Here is my analysis..."
-          agentPersona="bmad:bmm:agents:pm"
+          agentPersona="bmad-agent-pm"
           createdAt={baseTimestamp}
         />
       )
@@ -109,7 +109,7 @@ describe('ChatMessageBubble (Story 10.2, AC: 3, 4)', () => {
         <ChatMessageBubble
           role="assistant"
           content="Response"
-          agentPersona="bmad:bmm:agents:architect"
+          agentPersona="bmad-agent-architect"
           createdAt={baseTimestamp}
         />
       )
@@ -123,7 +123,7 @@ describe('ChatMessageBubble (Story 10.2, AC: 3, 4)', () => {
         <ChatMessageBubble
           role="assistant"
           content="Response"
-          agentPersona="bmad:bmm:agents:pm"
+          agentPersona="bmad-agent-pm"
           createdAt={baseTimestamp}
         />
       )
@@ -138,7 +138,7 @@ describe('ChatMessageBubble (Story 10.2, AC: 3, 4)', () => {
         <ChatMessageBubble
           role="assistant"
           content="Response"
-          agentPersona="bmad:bmm:agents:pm"
+          agentPersona="bmad-agent-pm"
           createdAt={baseTimestamp}
         />
       )
@@ -166,7 +166,7 @@ describe('ChatMessageBubble (Story 10.2, AC: 3, 4)', () => {
         <ChatMessageBubble
           role="assistant"
           content="# Heading\n\nSome **bold** text"
-          agentPersona="bmad:bmm:agents:pm"
+          agentPersona="bmad-agent-pm"
           createdAt={baseTimestamp}
         />
       )

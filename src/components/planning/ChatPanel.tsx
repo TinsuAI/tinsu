@@ -53,7 +53,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
   const [view, setView] = useState<'list' | 'chat'>('list')
 
   // Persona selection — local state, defaults to PM
-  const [selectedPersona, setSelectedPersona] = useState<ChatPersonaKey>('bmad:bmm:agents:pm')
+  const [selectedPersona, setSelectedPersona] = useState<ChatPersonaKey>('bmad-agent-pm')
 
   // Active session — transient UI state (not Zustand)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -105,7 +105,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       return r.data.map((s) => ({
         id: s.id,
         session_uuid: s.session_uuid,
-        agent_persona: s.agent_persona ?? 'bmad:bmm:agents:pm',
+        agent_persona: s.agent_persona ?? 'bmad-agent-pm',
         workflow_key: s.workflow_key,
         status: s.status,
         created_at: s.created_at,
@@ -185,8 +185,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps = {}) {
       // Resume existing workflow session — suppress persona effect
       isSessionBindingRef.current = true
       setSessionId(workflowSession.id)
-      setSelectedPersona((workflowSession.agent_persona ?? 'bmad:bmm:agents:pm') as ChatPersonaKey)
-      sessionPersonaRef.current = (workflowSession.agent_persona ?? 'bmad:bmm:agents:pm') as ChatPersonaKey
+      setSelectedPersona((workflowSession.agent_persona ?? 'bmad-agent-pm') as ChatPersonaKey)
+      sessionPersonaRef.current = (workflowSession.agent_persona ?? 'bmad-agent-pm') as ChatPersonaKey
       setIsAgentThinking(false)
       setCurrentToolActivity(null)
       prevMessageCountRef.current = 0
