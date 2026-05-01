@@ -64,7 +64,10 @@ export const commands = {
 	openProjectByPath: (path: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("open_project_by_path", { path })),
 	// Removes a project and all related records from DB (does NOT delete files).
 	removeProject: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_project", { id })),
-	// Opens a native folder picker dialog; returns the selected ProjectModel or None if cancelled.
+	/**
+	 *  Opens a native folder picker dialog; returns the selected ProjectModel or None if cancelled.
+	 *  Desktop-only: mobile uses remote projects instead of local file dialogs.
+	 */
 	openProjectDialog: () => typedError<{
 	id: string,
 	path: string,
@@ -73,7 +76,10 @@ export const commands = {
 	last_opened_at: number | null,
 	remote_project_id: string | null,
 } | null, AppError>(__TAURI_INVOKE("open_project_dialog")),
-	// Opens a native folder picker and returns the selected path or None if cancelled.
+	/**
+	 *  Opens a native folder picker and returns the selected path or None if cancelled.
+	 *  Desktop-only: mobile uses remote projects instead of local file dialogs.
+	 */
 	selectParentDirectory: () => typedError<string | null, AppError>(__TAURI_INVOKE("select_parent_directory")),
 	// Creates a new project directory, initializes git, writes config, and inserts in DB.
 	createProject: (parentDir: string, projectName: string) => typedError<ProjectModel, AppError>(__TAURI_INVOKE("create_project", { parentDir, projectName })),
@@ -210,9 +216,15 @@ export const commands = {
 	skip_permissions: number,
 	tmux_session: string | null,
 } | null, AppError>(__TAURI_INVOKE("get_chat_session_by_workflow_key", { projectId, workflowKey })),
-	// Attach a PTY to the chat session's tmux session (mirrors attach_task_terminal).
+	/**
+	 *  Attach a PTY to the chat session's tmux session (mirrors attach_task_terminal).
+	 *  Desktop-only: mobile uses remote_agent commands for terminal access.
+	 */
 	attachChatTerminal: (sessionId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_chat_terminal", { sessionId, cols, rows, onData })),
-	// Detach a PTY from a chat session (leaves tmux running).
+	/**
+	 *  Detach a PTY from a chat session (leaves tmux running).
+	 *  Desktop-only: mobile uses remote_agent commands for terminal access.
+	 */
 	detachChatTerminal: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("detach_chat_terminal", { processId })),
 	// Scan all known BMAD planning artifacts for a project.
 	scanArtifacts: (projectId: string) => typedError<ArtifactScanResult[], AppError>(__TAURI_INVOKE("scan_artifacts", { projectId })),
