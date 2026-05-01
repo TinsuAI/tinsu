@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { commands } from '@renderer/lib/rspc'
+import { invoke } from '@tauri-apps/api/core'
 import { useProjectStore } from '@renderer/stores/project.store'
+import { useSyncStore } from '@renderer/stores/sync.store'
 import { toast } from 'sonner'
 import { useEffect, useRef } from 'react'
 import { listen } from '@tauri-apps/api/event'
@@ -54,11 +56,16 @@ export function useRemoteConnectionStatus(connectionId: string | null, enabled: 
 }
 
 /**
- * Switch to a remote project: find-or-create local record, then start SSH tunnel.
+ * Switch to a remote project: pull+claim lease (sync open), find-or-create local record,
+ * then start SSH tunnel.
+ *
+ * Phase 4: `open_remote_project_sync` is called BEFORE any data fetch hooks fire,
+ * so the local cache DB is fresh before the UI reads task/sprint/epic data.
  */
 export function useOpenRemoteProject() {
   const queryClient = useQueryClient()
   const setProject = useProjectStore((s) => s.setProject)
+  const { clearProject: clearSyncProject } = useSyncStore()
 
   return useMutation({
     mutationFn: async ({
@@ -68,13 +75,37 @@ export function useOpenRemoteProject() {
       remoteProjectId: string
       connectionId: string
     }) => {
-      // 1. Find or create local project record linked to remote project
+      // 0. Close any previously active remote project sync (best-effort).
+      const prevRemoteProjectId = useProjectStore.getState().remoteProjectId
+      if (prevRemoteProjectId && prevRemoteProjectId !== remoteProjectId) {
+        try {
+          await invoke('close_remote_project_sync', { remoteProjectId: prevRemoteProjectId })
+        } catch {
+          // Non-fatal — previous project may already be closed.
+        }
+        clearSyncProject(prevRemoteProjectId)
+      }
+
+      // 1. Open sync for the new project: pull + claim lease + start heartbeat.
+      //    This MUST happen before data fetch so UI reads fresh cache.
+      const syncResult = await invoke<null | { status: string; error?: unknown }>(
+        'open_remote_project_sync',
+        { connectionId, remoteProjectId }
+      )
+      // Tauri commands return null on success in some configurations; treat non-error as ok.
+      if (syncResult && typeof syncResult === 'object' && (syncResult as { status?: string }).status === 'error') {
+        throw new Error(
+          JSON.stringify((syncResult as { error?: unknown }).error ?? 'sync open failed')
+        )
+      }
+
+      // 2. Find or create local project record linked to remote project.
       const projectResult = await commands.openRemoteProject(remoteProjectId)
       if (projectResult.status === 'error')
         throw new Error(JSON.stringify(projectResult.error))
       const project = projectResult.data
 
-      // 2. Start SSH hook forwarder (idempotent — no-op if already running)
+      // 3. Start SSH hook forwarder (idempotent — no-op if already running).
       const forwarderResult = await commands.startRemoteHookForwarder(connectionId)
       if (forwarderResult.status === 'error')
         throw new Error(JSON.stringify(forwarderResult.error))

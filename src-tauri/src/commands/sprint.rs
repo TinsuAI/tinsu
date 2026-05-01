@@ -4,10 +4,13 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::State;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 
 use crate::db::entities::sprint;
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
+use crate::sync;
 
 const VALID_SPRINT_STATUSES: &[&str] = &["planning", "active", "completed"];
 
@@ -70,17 +73,20 @@ pub struct UpdateSprintInput {
     pub goal: Option<String>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct UpdateSprintStatusInput {
     pub id: String,
     pub status: String,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DeleteSprintInput {
     pub id: String,
+    pub project_id: String,
 }
 
 fn now_unix_secs() -> i64 {
@@ -99,13 +105,22 @@ fn now_unix_secs() -> i64 {
 #[specta::specta]
 pub async fn list_sprints(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: ListSprintsInput,
 ) -> Result<Vec<SprintModel>, AppError> {
-    let mut query = sprint::Entity::find().order_by_asc(sprint::Column::CreatedAt);
-    if !input.project_id.is_empty() {
-        query = query.filter(sprint::Column::ProjectId.eq(&input.project_id));
+    if input.project_id.is_empty() {
+        let sprints = sprint::Entity::find()
+            .order_by_asc(sprint::Column::CreatedAt)
+            .all(db.inner())
+            .await?;
+        return Ok(sprints.into_iter().map(SprintModel::from).collect());
     }
-    let sprints = query.all(db.inner()).await?;
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let sprints = sprint::Entity::find()
+        .filter(sprint::Column::ProjectId.eq(&input.project_id))
+        .order_by_asc(sprint::Column::CreatedAt)
+        .all(project_db.connection())
+        .await?;
     Ok(sprints.into_iter().map(SprintModel::from).collect())
 }
 
@@ -114,6 +129,8 @@ pub async fn list_sprints(
 #[specta::specta]
 pub async fn create_sprint(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: CreateSprintInput,
 ) -> Result<SprintModel, AppError> {
     if input.name.trim().is_empty() {
@@ -131,6 +148,8 @@ pub async fn create_sprint(
         ));
     }
 
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+
     let now = now_unix_secs();
     let new_sprint = sprint::ActiveModel {
         id: Set(uuid::Uuid::new_v4().to_string()),
@@ -146,7 +165,12 @@ pub async fn create_sprint(
         epics_file_path: Set(None),
         created_at: Set(now),
     };
-    let result = new_sprint.insert(db.inner()).await?;
+    let result = new_sprint.insert(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(SprintModel::from(result))
 }
 
@@ -155,6 +179,8 @@ pub async fn create_sprint(
 #[specta::specta]
 pub async fn update_sprint(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: UpdateSprintInput,
 ) -> Result<SprintModel, AppError> {
     if input.id.is_empty() {
@@ -163,9 +189,15 @@ pub async fn update_sprint(
     if input.name.trim().is_empty() {
         return Err(AppError::BadRequest("name must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let existing = sprint::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Sprint {} not found", input.id)))?;
 
@@ -177,7 +209,12 @@ pub async fn update_sprint(
         end_date: Set(input.end_date),
         ..Default::default()
     };
-    let result = updated.update(db.inner()).await?;
+    let result = updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(SprintModel::from(result))
 }
 
@@ -186,6 +223,8 @@ pub async fn update_sprint(
 #[specta::specta]
 pub async fn update_sprint_status(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: UpdateSprintStatusInput,
 ) -> Result<SprintModel, AppError> {
     if input.id.is_empty() {
@@ -197,9 +236,15 @@ pub async fn update_sprint_status(
             input.status
         )));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let existing = sprint::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Sprint {} not found", input.id)))?;
 
@@ -208,7 +253,12 @@ pub async fn update_sprint_status(
         status: Set(input.status),
         ..Default::default()
     };
-    let result = updated.update(db.inner()).await?;
+    let result = updated.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(SprintModel::from(result))
 }
 
@@ -217,17 +267,30 @@ pub async fn update_sprint_status(
 #[specta::specta]
 pub async fn delete_sprint(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: DeleteSprintInput,
 ) -> Result<(), AppError> {
     if input.id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
 
     let existing = sprint::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Sprint {} not found", input.id)))?;
-    existing.delete(db.inner()).await?;
+    existing.delete(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(())
 }
 
@@ -236,13 +299,22 @@ pub async fn delete_sprint(
 #[specta::specta]
 pub async fn get_active_sprint(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: ListSprintsInput,
 ) -> Result<Option<SprintModel>, AppError> {
-    let mut query = sprint::Entity::find().filter(sprint::Column::Status.eq("active"));
-    if !input.project_id.is_empty() {
-        query = query.filter(sprint::Column::ProjectId.eq(&input.project_id));
+    if input.project_id.is_empty() {
+        let sprint = sprint::Entity::find()
+            .filter(sprint::Column::Status.eq("active"))
+            .one(db.inner())
+            .await?;
+        return Ok(sprint.map(SprintModel::from));
     }
-    let sprint = query.one(db.inner()).await?;
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let sprint = sprint::Entity::find()
+        .filter(sprint::Column::Status.eq("active"))
+        .filter(sprint::Column::ProjectId.eq(&input.project_id))
+        .one(project_db.connection())
+        .await?;
     Ok(sprint.map(SprintModel::from))
 }
 
@@ -327,6 +399,7 @@ mod tests {
             goal: None,
             start_date: Some("2026-04-01".to_string()),
             end_date: None,
+            project_id: "p1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("Updated"));
@@ -337,6 +410,7 @@ mod tests {
         let input = UpdateSprintStatusInput {
             id: "s1".to_string(),
             status: "active".to_string(),
+            project_id: "p1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("active"));
@@ -346,6 +420,7 @@ mod tests {
     fn test_delete_sprint_input_serializes() {
         let input = DeleteSprintInput {
             id: "s1".to_string(),
+            project_id: "p1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("s1"));

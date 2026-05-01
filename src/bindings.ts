@@ -118,10 +118,12 @@ export const commands = {
 	 *  Create a tmux session for a task and upsert a `task_sessions` record.
 	 *  If the task has a worktree_path, the session is created in that directory
 	 *  so the agent operates in the isolated branch.
+	 * 
+	 *  `project_id` is required to resolve the right DB for `task_sessions` writes.
 	 */
 	createTaskSession: (input: CreateSessionInput) => typedError<TaskSessionModel, AppError>(__TAURI_INVOKE("create_task_session", { input })),
 	// Attach a PTY process to an existing tmux session for a task.
-	attachTaskTerminal: (taskId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_task_terminal", { taskId, cols, rows, onData })),
+	attachTaskTerminal: (taskId: string, projectId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_task_terminal", { taskId, projectId, cols, rows, onData })),
 	// Detach PTY from tmux session (kills the PTY process, leaves tmux running).
 	detachTaskTerminal: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("detach_task_terminal", { processId })),
 	// Spawn a generic PTY process (for the terminal dock).
@@ -132,10 +134,18 @@ export const commands = {
 	resizePty: (processId: string, cols: number, rows: number) => typedError<null, AppError>(__TAURI_INVOKE("resize_pty", { processId, cols, rows })),
 	// Kill a generic PTY process. Exit event is emitted by the reader thread.
 	killPty: (processId: string) => typedError<null, AppError>(__TAURI_INVOKE("kill_pty", { processId })),
-	// Kill the tmux session for a task, remove DB record, kill any active PTY.
-	killTaskSession: (taskId: string) => typedError<null, AppError>(__TAURI_INVOKE("kill_task_session", { taskId })),
-	// Get the task session record from DB.
-	getTaskSession: (taskId: string) => typedError<{
+	/**
+	 *  Kill the tmux session for a task, remove DB record, kill any active PTY.
+	 * 
+	 *  `project_id` is required to resolve the right DB for `task_sessions` reads/deletes.
+	 */
+	killTaskSession: (taskId: string, projectId: string) => typedError<null, AppError>(__TAURI_INVOKE("kill_task_session", { taskId, projectId })),
+	/**
+	 *  Get the task session record from DB.
+	 * 
+	 *  `project_id` is required to resolve the right DB for `task_sessions` reads.
+	 */
+	getTaskSession: (taskId: string, projectId: string) => typedError<{
 	id: string,
 	task_id: string,
 	session_id: string | null,
@@ -144,19 +154,33 @@ export const commands = {
 	created_at: number,
 	remote_connection_id: string | null,
 	remote_project_id: string | null,
-} | null, AppError>(__TAURI_INVOKE("get_task_session", { taskId })),
+} | null, AppError>(__TAURI_INVOKE("get_task_session", { taskId, projectId })),
 	// Get scrollback backup for a task.
 	getScrollbackBackup: (taskId: string) => typedError<ScrollbackResult, AppError>(__TAURI_INVOKE("get_scrollback_backup", { taskId })),
 	// Save scrollback backup for a task.
 	saveScrollbackBackup: (taskId: string, content: string) => typedError<null, AppError>(__TAURI_INVOKE("save_scrollback_backup", { taskId, content })),
 	// Start a background session monitor for a task. Fire-and-forget.
 	startSessionMonitor: (taskId: string) => typedError<null, AppError>(__TAURI_INVOKE("start_session_monitor", { taskId })),
-	// Update session_id for a task when Claude Code CLI starts.
-	registerSessionId: (taskId: string, sessionId: string) => typedError<null, AppError>(__TAURI_INVOKE("register_session_id", { taskId, sessionId })),
-	// Log an activity event for a task. Returns the created ActivityModel.
-	logActivity: (taskId: string, eventType: string, payload: string | null) => typedError<ActivityModel, AppError>(__TAURI_INVOKE("log_activity", { taskId, eventType, payload })),
-	// List activities for a task with optional filtering and pagination.
-	listActivitiesForTask: (taskId: string, limit: number | null, offset: number | null, eventTypes: string[] | null) => typedError<ActivityModel[], AppError>(__TAURI_INVOKE("list_activities_for_task", { taskId, limit, offset, eventTypes })),
+	/**
+	 *  Update session_id for a task when Claude Code CLI starts.
+	 * 
+	 *  `project_id` is required to resolve the right DB for `task_sessions` writes.
+	 */
+	registerSessionId: (taskId: string, projectId: string, sessionId: string) => typedError<null, AppError>(__TAURI_INVOKE("register_session_id", { taskId, projectId, sessionId })),
+	/**
+	 *  Log an activity event for a task. Returns the created ActivityModel.
+	 * 
+	 *  `project_id` is required so the handler can resolve the right DB for
+	 *  project-scoped `task_activities` writes.
+	 */
+	logActivity: (taskId: string, projectId: string, eventType: string, payload: string | null) => typedError<ActivityModel, AppError>(__TAURI_INVOKE("log_activity", { taskId, projectId, eventType, payload })),
+	/**
+	 *  List activities for a task with optional filtering and pagination.
+	 * 
+	 *  `project_id` is required so the handler can resolve the right DB for
+	 *  project-scoped `task_activities` reads.
+	 */
+	listActivitiesForTask: (taskId: string, projectId: string, limit: number | null, offset: number | null, eventTypes: string[] | null) => typedError<ActivityModel[], AppError>(__TAURI_INVOKE("list_activities_for_task", { taskId, projectId, limit, offset, eventTypes })),
 	/**
 	 *  Returns the git diff for the task's worktree vs main.
 	 *  Returns an empty diff if the task has no worktree or is already merged.
@@ -170,15 +194,20 @@ export const commands = {
 	/**
 	 *  Approve a task: detect conflicts, merge branch into main, update task to done.
 	 * 
+	 *  `project_id` is required to resolve the right DB for `tasks` reads/writes.
+	 *  The `projects` table lookup (for git path) stays on the local DB.
+	 * 
 	 *  On conflict: sets `has_merge_conflict=1`, `conflict_files=JSON`, returns `AppError::GitConflict`.
 	 *  On success: merges, stores `merge_commit_sha`, removes worktree, sets status=done.
 	 */
-	approveTask: (taskId: string) => typedError<null, AppError>(__TAURI_INVOKE("approve_task", { taskId })),
+	approveTask: (taskId: string, projectId: string) => typedError<null, AppError>(__TAURI_INVOKE("approve_task", { taskId, projectId })),
 	/**
 	 *  Reject a task: store feedback, move status back to in_progress.
 	 *  Does NOT modify the worktree — agent continues in the same branch.
+	 * 
+	 *  `project_id` is required to resolve the right DB for `tasks` reads/writes.
 	 */
-	rejectTask: (taskId: string, feedback: string) => typedError<null, AppError>(__TAURI_INVOKE("reject_task", { taskId, feedback })),
+	rejectTask: (taskId: string, projectId: string, feedback: string) => typedError<null, AppError>(__TAURI_INVOKE("reject_task", { taskId, projectId, feedback })),
 	// Create a new chat session, spin up the tmux session, and return the session model.
 	createChatSession: (projectId: string, agentPersona: string | null, workflowKey: string | null) => typedError<ChatSessionModel, AppError>(__TAURI_INVOKE("create_chat_session", { projectId, agentPersona, workflowKey })),
 	// List all chat sessions for a project with last message preview, sorted by activity.
@@ -188,19 +217,19 @@ export const commands = {
 	 *  When no offset is provided, returns the *latest* `limit` messages so long
 	 *  sessions always show recent messages rather than the oldest ones.
 	 */
-	getChatMessages: (sessionId: string, limit: number | null, offset: number | null) => typedError<ChatMessageModel[], AppError>(__TAURI_INVOKE("get_chat_messages", { sessionId, limit, offset })),
+	getChatMessages: (sessionId: string, projectId: string, limit: number | null, offset: number | null) => typedError<ChatMessageModel[], AppError>(__TAURI_INVOKE("get_chat_messages", { sessionId, projectId, limit, offset })),
 	// Send a message to the active chat session's tmux session.
-	sendChatMessage: (sessionId: string, content: string) => typedError<ChatMessageModel, AppError>(__TAURI_INVOKE("send_chat_message", { sessionId, content })),
+	sendChatMessage: (sessionId: string, projectId: string, content: string) => typedError<ChatMessageModel, AppError>(__TAURI_INVOKE("send_chat_message", { sessionId, projectId, content })),
 	// Update a chat session's status.
-	updateSessionStatus: (sessionId: string, status: string) => typedError<null, AppError>(__TAURI_INVOKE("update_session_status", { sessionId, status })),
+	updateSessionStatus: (sessionId: string, projectId: string, status: string) => typedError<null, AppError>(__TAURI_INVOKE("update_session_status", { sessionId, projectId, status })),
 	// Delete a chat session (kills tmux session, cascades messages).
-	deleteChatSession: (sessionId: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_chat_session", { sessionId })),
+	deleteChatSession: (sessionId: string, projectId: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_chat_session", { sessionId, projectId })),
 	// Delete a single chat message.
-	deleteChatMessage: (messageId: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_chat_message", { messageId })),
+	deleteChatMessage: (messageId: string, projectId: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_chat_message", { messageId, projectId })),
 	// Clear all messages for a session and reset last_message_at.
-	clearSessionMessages: (sessionId: string) => typedError<null, AppError>(__TAURI_INVOKE("clear_session_messages", { sessionId })),
+	clearSessionMessages: (sessionId: string, projectId: string) => typedError<null, AppError>(__TAURI_INVOKE("clear_session_messages", { sessionId, projectId })),
 	// Update the skip_permissions flag for a session.
-	updateSkipPermissions: (sessionId: string, skipPermissions: boolean) => typedError<null, AppError>(__TAURI_INVOKE("update_skip_permissions", { sessionId, skipPermissions })),
+	updateSkipPermissions: (sessionId: string, projectId: string, skipPermissions: boolean) => typedError<null, AppError>(__TAURI_INVOKE("update_skip_permissions", { sessionId, projectId, skipPermissions })),
 	// Get a chat session by its workflow key.
 	getChatSessionByWorkflowKey: (projectId: string, workflowKey: string) => typedError<{
 	id: string,
@@ -235,7 +264,7 @@ export const commands = {
 	// Create a new workflow run record.
 	createWorkflowRun: (projectId: string, workflowKey: string, phase: string | null, agentName: string | null, taskId: string | null, inputArtifacts: string[] | null) => typedError<WorkflowRunModel, AppError>(__TAURI_INVOKE("create_workflow_run", { projectId, workflowKey, phase, agentName, taskId, inputArtifacts })),
 	// Update a workflow run's status (and optionally output artifacts).
-	updateWorkflowRun: (runId: string, status: string, outputArtifacts: string[] | null) => typedError<WorkflowRunModel, AppError>(__TAURI_INVOKE("update_workflow_run", { runId, status, outputArtifacts })),
+	updateWorkflowRun: (runId: string, projectId: string, status: string, outputArtifacts: string[] | null) => typedError<WorkflowRunModel, AppError>(__TAURI_INVOKE("update_workflow_run", { runId, projectId, status, outputArtifacts })),
 	// List workflow runs for a project (ordered by started_at DESC).
 	listWorkflowRuns: (projectId: string, limit: number | null) => typedError<WorkflowRunModel[], AppError>(__TAURI_INVOKE("list_workflow_runs", { projectId, limit })),
 	// Get the currently active workflow run for a project (status running or needs-input).
@@ -328,7 +357,7 @@ export const commands = {
 	 *  Process ID format: "remote-{uuid}" — distinguishes remote PTYs from local ones.
 	 *  The `on_data` channel receives raw terminal bytes (same as attach_task_terminal).
 	 */
-	attachRemoteTaskTerminal: (taskId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_remote_task_terminal", { taskId, cols, rows, onData })),
+	attachRemoteTaskTerminal: (taskId: string, projectId: string, cols: number | null, rows: number | null, onData: Channel<number[]>) => typedError<AttachResult, AppError>(__TAURI_INVOKE("attach_remote_task_terminal", { taskId, projectId, cols, rows, onData })),
 	// Write raw bytes to a remote PTY session.
 	writeRemotePty: (processId: string, data: number[]) => typedError<null, AppError>(__TAURI_INVOKE("write_remote_pty", { processId, data })),
 	// Resize a remote PTY session.
@@ -375,6 +404,38 @@ export const commands = {
 	stopRemoteHookForwarder: (connectionId: string) => typedError<null, AppError>(__TAURI_INVOKE("stop_remote_hook_forwarder", { connectionId })),
 	// Get hook forwarder status for a connection.
 	getRemoteHookStatus: (connectionId: string) => typedError<RemoteHookStatus, AppError>(__TAURI_INVOKE("get_remote_hook_status", { connectionId })),
+	/**
+	 *  Open a remote project for sync: pull, claim lease, start heartbeat.
+	 * 
+	 *  Must be called BEFORE any data fetch hooks fire for the project.
+	 *  Emits `sync-status` events with `{ remote_project_id, status }` payloads.
+	 */
+	openRemoteProjectSync: (connectionId: string, remoteProjectId: string) => typedError<null, AppError>(__TAURI_INVOKE("open_remote_project_sync", { connectionId, remoteProjectId })),
+	/**
+	 *  Close a remote project: flush pending push, stop heartbeat.
+	 * 
+	 *  Looks up the `connection_id` from the `remote_projects` table so the
+	 *  caller only needs to supply `remote_project_id`.
+	 */
+	closeRemoteProjectSync: (remoteProjectId: string) => typedError<null, AppError>(__TAURI_INVOKE("close_remote_project_sync", { remoteProjectId })),
+	/**
+	 *  Force-push the local cache DB to remote immediately (debug / recovery).
+	 * 
+	 *  Looks up connection_id from the local DB just like `close_remote_project_sync`.
+	 */
+	forcePushRemoteDb: (remoteProjectId: string) => typedError<null, AppError>(__TAURI_INVOKE("force_push_remote_db", { remoteProjectId })),
+	/**
+	 *  Forcibly claim the remote lease for this device (called by "Take Over" button).
+	 * 
+	 *  Flow:
+	 *  1. Look up connection from DB.
+	 *  2. Pull latest remote DB (so we overwrite the freshest state).
+	 *  3. Claim lease locally.
+	 *  4. Push (remote sees new lease holder).
+	 * 
+	 *  After this succeeds the heartbeat task (already running) will maintain the lease.
+	 */
+	claimRemoteLease: (remoteProjectId: string) => typedError<null, AppError>(__TAURI_INVOKE("claim_remote_lease", { remoteProjectId })),
 };
 
 /* Types */
@@ -487,6 +548,7 @@ export type CreateEpicInput = {
 
 export type CreateSessionInput = {
 	task_id: string,
+	project_id: string,
 	project_path: string,
 };
 
@@ -514,14 +576,17 @@ export type CreateTaskInput = {
 
 export type DeleteEpicInput = {
 	id: string,
+	project_id: string,
 };
 
 export type DeleteSprintInput = {
 	id: string,
+	project_id: string,
 };
 
 export type DeleteTaskInput = {
 	id: string,
+	project_id: string,
 };
 
 // Input for the SSH project discovery command.
@@ -586,6 +651,7 @@ export type GenerateSshKeyInput = {
 
 export type GetTaskInput = {
 	id: string,
+	project_id: string,
 };
 
 export type GetWeeklyVelocityInput = {
@@ -729,6 +795,8 @@ export type RemoteCreateSessionInput = {
 	task_id: string,
 	// ID of the saved remote project profile (from `remote_projects` table).
 	remote_project_id: string,
+	// The local project_id (from `projects` table) — used to resolve the right project DB.
+	project_id: string,
 };
 
 // A single entry returned by list_remote_dir.
@@ -756,6 +824,7 @@ export type RemoteProjectProfile = {
 export type ReorderTasksInput = {
 	task_ids: string[],
 	status: string,
+	project_id: string,
 };
 
 // Input to save a discovered (or manually entered) remote project.
@@ -876,6 +945,7 @@ export type UpdateEpicInput = {
 	color: string | null,
 	goal: string | null,
 	sprint_id: string | null,
+	project_id: string,
 };
 
 export type UpdateSprintInput = {
@@ -884,11 +954,13 @@ export type UpdateSprintInput = {
 	goal: string | null,
 	start_date: string | null,
 	end_date: string | null,
+	project_id: string,
 };
 
 export type UpdateSprintStatusInput = {
 	id: string,
 	status: string,
+	project_id: string,
 };
 
 export type UpdateSshConnectionInput = {
@@ -903,6 +975,7 @@ export type UpdateSshConnectionInput = {
 export type UpdateTaskStatusInput = {
 	id: string,
 	status: string,
+	project_id: string,
 };
 
 export type WeekBucket = {

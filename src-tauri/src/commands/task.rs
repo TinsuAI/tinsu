@@ -4,11 +4,14 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::State;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 
 use crate::db::entities::{project, task};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
 use crate::services::git_service::GitService;
+use crate::sync;
 
 const DEFAULT_TASK_STATUS: &str = "backlog";
 const DEFAULT_TASK_TYPE: &str = "basic";
@@ -24,6 +27,7 @@ const VALID_TASK_STATUSES: &[&str] = &[
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct GetTaskInput {
     pub id: String,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
@@ -41,17 +45,20 @@ pub struct ListTasksInput {
 pub struct UpdateTaskStatusInput {
     pub id: String,
     pub status: String,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ReorderTasksInput {
     pub task_ids: Vec<String>,
     pub status: String,
+    pub project_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct DeleteTaskInput {
     pub id: String,
+    pub project_id: String,
 }
 
 fn now_unix_secs() -> i64 {
@@ -68,13 +75,18 @@ fn now_unix_secs() -> i64 {
 #[specta::specta]
 pub async fn get_task(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: GetTaskInput,
 ) -> Result<task::Model, AppError> {
     if input.id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
     task::Entity::find_by_id(input.id)
-        .one(db.inner())
+        .one(project_db.connection())
         .await?
         .ok_or_else(|| AppError::NotFound("Task not found".to_string()))
 }
@@ -83,6 +95,8 @@ pub async fn get_task(
 #[specta::specta]
 pub async fn create_task(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: CreateTaskInput,
 ) -> Result<task::Model, AppError> {
     if input.title.trim().is_empty() {
@@ -95,6 +109,8 @@ pub async fn create_task(
             "project_id must not be empty".to_string(),
         ));
     }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
 
     let id = uuid::Uuid::new_v4().to_string();
     let now = now_unix_secs();
@@ -114,7 +130,13 @@ pub async fn create_task(
         updated_at: Set(now),
         ..Default::default()
     };
-    Ok(new_task.insert(db.inner()).await?)
+    let result = new_task.insert(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
+    Ok(result)
 }
 
 /// Returns all tasks for a project, ordered by sort_order ASC.
@@ -123,13 +145,23 @@ pub async fn create_task(
 #[specta::specta]
 pub async fn list_tasks(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: ListTasksInput,
 ) -> Result<Vec<task::Model>, AppError> {
-    let mut query = task::Entity::find().order_by_asc(task::Column::SortOrder);
-    if !input.project_id.is_empty() {
-        query = query.filter(task::Column::ProjectId.eq(&input.project_id));
+    if input.project_id.is_empty() {
+        // No project filter — query local DB directly (dashboard/cross-project views)
+        let tasks = task::Entity::find()
+            .order_by_asc(task::Column::SortOrder)
+            .all(db.inner())
+            .await?;
+        return Ok(tasks);
     }
-    let tasks = query.all(db.inner()).await?;
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let tasks = task::Entity::find()
+        .filter(task::Column::ProjectId.eq(&input.project_id))
+        .order_by_asc(task::Column::SortOrder)
+        .all(project_db.connection())
+        .await?;
     Ok(tasks)
 }
 
@@ -137,10 +169,15 @@ pub async fn list_tasks(
 #[specta::specta]
 pub async fn update_task_status(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: UpdateTaskStatusInput,
 ) -> Result<task::Model, AppError> {
     if input.id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
+    }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
     }
     if !VALID_TASK_STATUSES.contains(&input.status.as_str()) {
         return Err(AppError::BadRequest(format!(
@@ -149,12 +186,16 @@ pub async fn update_task_status(
         )));
     }
 
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
+
     let existing = task::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", input.id)))?;
 
-    // When transitioning to in_progress or create_story, create a git worktree (non-fatal)
+    // When transitioning to in_progress or create_story, create a git worktree (non-fatal).
+    // Project path lookup goes to local DB (projects table is local-scoped).
     let (worktree_path_update, branch_name_update) =
         if (input.status == "in_progress" || input.status == "create_story")
             && existing.worktree_path.is_none()
@@ -214,7 +255,13 @@ pub async fn update_task_status(
     if let Some(bn) = branch_name_update {
         active.branch_name = Set(Some(bn));
     }
-    Ok(active.update(db.inner()).await?)
+    let result = active.update(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
+    Ok(result)
 }
 
 /// Reorders tasks within a column by setting their sort_order to the given index positions.
@@ -223,10 +270,18 @@ pub async fn update_task_status(
 #[specta::specta]
 pub async fn reorder_tasks(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: ReorderTasksInput,
 ) -> Result<(), AppError> {
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
+
     let now = now_unix_secs();
-    let txn = db.inner().begin().await?;
+    let txn = pdb_conn.begin().await?;
     for (index, task_id) in input.task_ids.iter().enumerate() {
         let model = task::ActiveModel {
             id: Set(task_id.clone()),
@@ -237,6 +292,11 @@ pub async fn reorder_tasks(
         model.update(&txn).await?;
     }
     txn.commit().await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(())
 }
 
@@ -244,16 +304,29 @@ pub async fn reorder_tasks(
 #[specta::specta]
 pub async fn delete_task(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
     input: DeleteTaskInput,
 ) -> Result<(), AppError> {
     if input.id.is_empty() {
         return Err(AppError::BadRequest("id must not be empty".to_string()));
     }
+    if input.project_id.is_empty() {
+        return Err(AppError::BadRequest("project_id must not be empty".to_string()));
+    }
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
+
     let existing = task::Entity::find_by_id(&input.id)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Task {} not found", input.id)))?;
-    existing.delete(db.inner()).await?;
+    existing.delete(pdb_conn).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(())
 }
 
@@ -280,11 +353,25 @@ pub struct WeeklyVelocityData {
 #[specta::specta]
 pub async fn get_weekly_velocity(
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     input: GetWeeklyVelocityInput,
 ) -> Result<WeeklyVelocityData, AppError> {
     let weeks = input.weeks.max(1) as i64;
     let now = now_unix_secs();
     let weeks_ago_ts = now - (weeks * 7 * 24 * 3600);
+
+    // Resolve the right DatabaseConnection. We keep it as a concrete Arc<DatabaseConnection>
+    // so the future is Send (Box<dyn ConnectionTrait> is !Send).
+    let conn_arc: std::sync::Arc<DatabaseConnection> = if input.project_id.is_empty() {
+        // No project filter — query local DB.
+        std::sync::Arc::new(db.inner().clone())
+    } else {
+        let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+        match project_db {
+            crate::db::ProjectDb::Local(arc) => arc,
+            crate::db::ProjectDb::Remote { conn, .. } => conn,
+        }
+    };
 
     let stmt = if input.project_id.is_empty() {
         Statement::from_sql_and_values(
@@ -318,7 +405,7 @@ pub async fn get_weekly_velocity(
             [weeks_ago_ts.into(), input.project_id.clone().into()],
         )
     };
-    let rows = db.inner().query_all(stmt).await?;
+    let rows = conn_arc.query_all(stmt).await?;
 
     let mut week_buckets: Vec<WeekBucket> = Vec::new();
     let mut total: u32 = 0;
@@ -348,6 +435,7 @@ mod tests {
     fn test_get_task_input_serializes() {
         let input = GetTaskInput {
             id: "test-id".to_string(),
+            project_id: "proj-1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("test-id"));
@@ -388,6 +476,7 @@ mod tests {
         let input = UpdateTaskStatusInput {
             id: "task-1".to_string(),
             status: "in_progress".to_string(),
+            project_id: "proj-1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("task-1"));
@@ -399,6 +488,7 @@ mod tests {
         let input = ReorderTasksInput {
             task_ids: vec!["id-1".to_string(), "id-2".to_string()],
             status: "backlog".to_string(),
+            project_id: "proj-1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("id-1"));
@@ -409,6 +499,7 @@ mod tests {
     fn test_delete_task_input_serializes() {
         let input = DeleteTaskInput {
             id: "task-to-delete".to_string(),
+            project_id: "proj-1".to_string(),
         };
         let json = serde_json::to_string(&input).expect("serialize");
         assert!(json.contains("task-to-delete"));

@@ -11,6 +11,8 @@ import { useTerminalStore } from '@renderer/stores'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useUIStore } from '@renderer/stores/ui.store'
 import { useStorySync } from '@renderer/hooks/useStorySync'
+import { RemoteSyncBanner } from '@renderer/components/sync/RemoteSyncBanner'
+import { useRemoteSyncLifecycle } from '@renderer/hooks/useRemoteSyncLifecycle'
 
 const MIN_SIZE = 80
 
@@ -22,6 +24,9 @@ export function AppShell({ children }: AppShellProps) {
   const { isVisible, isExpanded, height, width, dockPosition } = useTerminalStore()
   const projectPath = useProjectStore((state) => state.projectPath)
   const { syncProjectPath, selectedSprintId } = useUIStore()
+
+  // Start Tauri sync event listeners for the lifetime of the app shell.
+  useRemoteSyncLifecycle()
 
   // Story 3.9: Story sync hook for Sync All button
   const { syncAllFromFiles, isSyncingAll } = useStorySync()
@@ -85,6 +90,8 @@ export function AppShell({ children }: AppShellProps) {
         isSyncingAll={isSyncingAll}
         onOpenSettings={handleOpenSettings}
       />
+      {/* Remote sync warning banner — only visible when remote project has lease-lost or error */}
+      <RemoteSyncBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden" style={contentPadding}>
         <Sidebar className="hidden lg:flex" />
         <MainContent>{children}</MainContent>

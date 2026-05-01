@@ -2,14 +2,16 @@
 //! These mirror the local agent commands but operate over SSH.
 
 use crate::db::entities::{remote_project, ssh_connection, task_session};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
 use crate::models::ssh_config::RemoteCreateSessionInput;
 use crate::services::remote_pty_service::RemotePtyService;
 use crate::services::ssh_service;
+use crate::sync;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::sync::Arc;
 use tauri::ipc::Channel;
-use tauri::State;
+use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 use super::agent::AttachResult;
@@ -46,8 +48,10 @@ fn now_unix_secs() -> i64 {
 pub async fn create_remote_task_session(
     input: RemoteCreateSessionInput,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     hook_forwarder: State<'_, crate::services::remote_hook_forwarder::RemoteHookForwarderManager>,
     hook_listener: State<'_, std::sync::Mutex<crate::services::hook_listener::HookListenerService>>,
+    app: AppHandle,
 ) -> Result<super::agent::TaskSessionModel, AppError> {
     // Validate task_id is a valid UUID (session name is safe when derived from UUID)
     if uuid::Uuid::parse_str(&input.task_id).is_err() {
@@ -107,10 +111,14 @@ pub async fn create_remote_task_session(
     .await
     .map_err(|_| AppError::Internal("Remote tmux session creation timed out after 15 seconds".into()))??;
 
-    // Upsert task_sessions record
+    // Resolve project-scoped DB for task_session writes
+    let project_db = resolve_project_db(db.inner(), &registry, &input.project_id).await?;
+    let pdb_conn = project_db.connection();
+
+    // Upsert task_sessions record in project-scoped DB
     let existing = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&input.task_id))
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     let now = now_unix_secs();
@@ -124,7 +132,7 @@ pub async fn create_remote_task_session(
                 remote_project_id: Set(Some(input.remote_project_id.clone())),
                 ..Default::default()
             };
-            updated.update(db.inner()).await?
+            updated.update(pdb_conn).await?
         }
         None => {
             let new = task_session::ActiveModel {
@@ -137,9 +145,13 @@ pub async fn create_remote_task_session(
                 remote_connection_id: Set(Some(conn.id.clone())),
                 remote_project_id: Set(Some(input.remote_project_id.clone())),
             };
-            new.insert(db.inner()).await?
+            new.insert(pdb_conn).await?
         }
     };
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     // Auto-start hook forwarder for this connection (idempotent)
     if conn.auth_method == "key" {
@@ -173,17 +185,21 @@ pub async fn create_remote_task_session(
 #[specta::specta]
 pub async fn attach_remote_task_terminal(
     task_id: String,
+    project_id: String,
     cols: Option<u16>,
     rows: Option<u16>,
     on_data: Channel<Vec<u8>>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
     remote_pty: State<'_, Arc<RemotePtyService>>,
     app: tauri::AppHandle,
 ) -> Result<AttachResult, AppError> {
-    // Load session from DB
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
+    // Load session from project-scoped DB
     let session = task_session::Entity::find()
         .filter(task_session::Column::TaskId.eq(&task_id))
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     let (tmux_session_name, remote_connection_id) = match session {

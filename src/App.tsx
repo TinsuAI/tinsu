@@ -16,6 +16,7 @@ import { useOpenProjectByPath } from './hooks/useProjectCommands'
 import { useNetworkResilience } from './hooks/useNetworkResilience'
 import { useViewportClass } from './hooks/useViewportClass'
 import { MobileApp } from './mobile/MobileApp'
+import { useOpenRemoteProjectSync } from './hooks/useRemoteSyncLifecycle'
 
 /**
  * Root component — viewport router (T3.5-1).
@@ -85,6 +86,7 @@ function DesktopApp(): React.JSX.Element {
 
   // Try to re-open last project on mount
   const reopenMutation = useOpenProjectByPath()
+  const openRemoteSync = useOpenRemoteProjectSync()
 
   useEffect(() => {
     // On mount, if we have a stored project path, try to re-open it.
@@ -95,9 +97,20 @@ function DesktopApp(): React.JSX.Element {
     if (projectPath && !hasAttemptedReopen.current) {
       hasAttemptedReopen.current = true
       setIsReopening(true)
+
+      // Get persisted remote context (set before the reopen mutation runs).
+      const { remoteProjectId: persistedRemoteId, remoteConnectionId: persistedConnId } =
+        useProjectStore.getState()
+
       reopenMutation.mutateAsync(projectPath)
-        .then((result) => {
+        .then(async (result) => {
           setProject(result.id, result.path, result.name)
+
+          // If this is a remote project, open sync before data loads.
+          if (persistedRemoteId && persistedConnId) {
+            await openRemoteSync(persistedConnId, persistedRemoteId)
+          }
+
           setIsReopening(false)
           // Story 8.10 AC4: Check for crashed operations after project opens
           return crashRecoveryQuery.refetch()
@@ -141,6 +154,15 @@ function DesktopApp(): React.JSX.Element {
         return
       }
       setProject(info.projectId, info.path, info.projectName, info.remoteProjectId, info.remoteConnectionId)
+
+      // Phase 4: If this is a remote project opened via Welcome screen (not via
+      // useOpenRemoteProject hook), kick off sync open now.
+      // useOpenRemoteProject already handles sync internally; this covers the
+      // Welcome.tsx handleOpenRecent path that calls openRemoteProject directly.
+      if (info.remoteProjectId && info.remoteConnectionId) {
+        void openRemoteSync(info.remoteConnectionId, info.remoteProjectId)
+      }
+
       // Story 8.10 AC4: Check for crashed operations after project opens
       crashRecoveryQuery.refetch().then((response) => {
         if (response.data && response.data.crashedOperations.length > 0) {
@@ -152,7 +174,7 @@ function DesktopApp(): React.JSX.Element {
         }
       })
     },
-    [setProject, crashRecoveryQuery]
+    [setProject, crashRecoveryQuery, openRemoteSync]
   )
 
   // Background health check: re-verify critical tools on window focus

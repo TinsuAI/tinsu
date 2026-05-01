@@ -15,4 +15,5 @@ pub mod review;
 pub mod sprint;
 pub mod ssh;
 pub mod ssh_connections;
+pub mod sync;
 pub mod task;

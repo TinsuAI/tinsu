@@ -169,4 +169,6 @@ pub struct RemoteCreateSessionInput {
     pub task_id: String,
     /// ID of the saved remote project profile (from `remote_projects` table).
     pub remote_project_id: String,
+    /// The local project_id (from `projects` table) — used to resolve the right project DB.
+    pub project_id: String,
 }

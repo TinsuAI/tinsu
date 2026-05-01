@@ -4,6 +4,9 @@ import { MobileScreen } from './primitives/MobileScreen'
 import { MobileTopAppBar } from './primitives/MobileTopAppBar'
 import { MobileTabBar } from './primitives/MobileTabBar'
 import { MobileEmptyState } from './primitives/MobileEmptyState'
+import { MobileRemoteSyncBanner } from './components/sync/RemoteSyncBanner'
+import { MobileSyncStatusIndicator } from './components/sync/SyncStatusIndicator'
+import { useRemoteSyncLifecycle } from '@renderer/hooks/useRemoteSyncLifecycle'
 import { MobileBoardScreen } from './board/MobileBoardScreen'
 import { MobilePlanningHome } from './planning/MobilePlanningHome'
 import { MobileTaskListScreen } from './tasks/MobileTaskListScreen'
@@ -83,6 +86,9 @@ export function MobileApp() {
   const { activeTab, tabStacks, switchTab, clearStack, navigateToDeepLink } = useMobileNavStore()
   const projectName = useProjectStore((state) => state.projectName)
 
+  // Start Tauri sync event listeners for the mobile app lifetime.
+  useRemoteSyncLifecycle()
+
   // Resolve top-of-stack route for active tab
   const stack = tabStacks[activeTab]
   const topRoute = stack[stack.length - 1] ?? activeTab
@@ -155,6 +161,7 @@ export function MobileApp() {
       topBar={
         <MobileTopAppBar
           projectName={projectName ?? 'TinSu'}
+          statusPill={<MobileSyncStatusIndicator />}
         />
       }
       tabBar={
@@ -165,6 +172,8 @@ export function MobileApp() {
         />
       }
     >
+      {/* Sync warning banner — sits below top bar, above content */}
+      <MobileRemoteSyncBanner />
       <MobileRouteRenderer route={topRoute} />
     </MobileScreen>
   )

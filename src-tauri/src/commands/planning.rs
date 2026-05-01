@@ -1,5 +1,7 @@
 use crate::db::entities::{gate_decision, planning_artifact_status, project, workflow_run};
+use crate::db::{resolve_project_db, ProjectDbRegistry};
 use crate::error::AppError;
+use crate::sync;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
     QuerySelect, Set,
@@ -7,7 +9,8 @@ use sea_orm::{
 use sea_orm::sea_query::OnConflict;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tauri::State;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -262,16 +265,20 @@ fn model_to_gate_decision(m: gate_decision::Model) -> GateDecisionModel {
 pub async fn scan_artifacts(
     project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Vec<ArtifactScanResult>, AppError> {
+    // project::Entity is local-scoped
     let project = project::Entity::find_by_id(&project_id)
         .one(db.inner())
         .await?
         .ok_or_else(|| AppError::NotFound(format!("project not found: {}", project_id)))?;
 
-    // Load all stored statuses for this project
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
+    // Load all stored statuses for this project from project-scoped DB
     let stored_statuses = planning_artifact_status::Entity::find()
         .filter(planning_artifact_status::Column::ProjectId.eq(&project_id))
-        .all(db.inner())
+        .all(project_db.connection())
         .await?;
     let status_map: HashMap<String, String> = stored_statuses
         .into_iter()
@@ -367,6 +374,8 @@ pub async fn update_artifact_status(
     artifact_key: String,
     status: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<(), AppError> {
     // Validate status
     match status.as_str() {
@@ -378,6 +387,8 @@ pub async fn update_artifact_status(
             )))
         }
     }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
 
     let now = now_unix_ms();
     let new_row = planning_artifact_status::ActiveModel {
@@ -400,9 +411,13 @@ pub async fn update_artifact_status(
             ])
             .to_owned(),
         )
-        .exec(db.inner())
+        .exec(project_db.connection())
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
 
     Ok(())
 }
@@ -418,10 +433,14 @@ pub async fn create_workflow_run(
     task_id: Option<String>,
     input_artifacts: Option<Vec<String>>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<WorkflowRunModel, AppError> {
     if !KNOWN_WORKFLOW_KEYS.contains(&workflow_key.as_str()) {
         return Err(AppError::BadRequest(format!("unknown workflow_key: {}", workflow_key)));
     }
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
 
     let now = now_unix_ms();
     let id = Uuid::new_v4().to_string();
@@ -443,7 +462,12 @@ pub async fn create_workflow_run(
         task_id: Set(task_id),
     };
 
-    let row = new_row.insert(db.inner()).await?;
+    let row = new_row.insert(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(model_to_workflow_run(row))
 }
 
@@ -452,10 +476,15 @@ pub async fn create_workflow_run(
 #[specta::specta]
 pub async fn update_workflow_run(
     run_id: String,
+    project_id: String,
     status: String,
     output_artifacts: Option<Vec<String>>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<WorkflowRunModel, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
     let terminal_statuses = ["succeeded", "failed", "cancelled"];
     let finished_at = if terminal_statuses.contains(&status.as_str()) {
         Some(now_unix_ms())
@@ -475,7 +504,12 @@ pub async fn update_workflow_run(
         ..Default::default()
     };
 
-    let row = updated.update(db.inner()).await?;
+    let row = updated.update(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(model_to_workflow_run(row))
 }
 
@@ -486,14 +520,16 @@ pub async fn list_workflow_runs(
     project_id: String,
     limit: Option<u64>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Vec<WorkflowRunModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let limit = limit.unwrap_or(20).min(100);
 
     let rows = workflow_run::Entity::find()
         .filter(workflow_run::Column::ProjectId.eq(&project_id))
         .order_by_desc(workflow_run::Column::StartedAt)
         .limit(limit)
-        .all(db.inner())
+        .all(project_db.connection())
         .await?;
 
     Ok(rows.into_iter().map(model_to_workflow_run).collect())
@@ -505,7 +541,10 @@ pub async fn list_workflow_runs(
 pub async fn get_active_workflow_run(
     project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Option<WorkflowRunModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
     let row = workflow_run::Entity::find()
         .filter(workflow_run::Column::ProjectId.eq(&project_id))
         .filter(
@@ -513,7 +552,7 @@ pub async fn get_active_workflow_run(
         )
         .order_by_desc(workflow_run::Column::StartedAt)
         .limit(1)
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     Ok(row.map(model_to_workflow_run))
@@ -526,11 +565,16 @@ pub async fn parse_and_save_gate_result(
     project_id: String,
     workflow_run_id: Option<String>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<GateDecisionModel, AppError> {
+    // project::Entity is local-scoped (for path resolution)
     let project = project::Entity::find_by_id(&project_id)
         .one(db.inner())
         .await?
         .ok_or_else(|| AppError::NotFound(format!("project not found: {}", project_id)))?;
+
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
 
     let base = PathBuf::from(&project.path)
         .join("_bmad-output")
@@ -567,7 +611,12 @@ pub async fn parse_and_save_gate_result(
         workflow_run_id: Set(workflow_run_id),
     };
 
-    let row = new_row.insert(db.inner()).await?;
+    let row = new_row.insert(project_db.connection()).await?;
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
+    }
+
     Ok(model_to_gate_decision(row))
 }
 
@@ -647,12 +696,15 @@ fn extract_section(content: &str, heading: &str, max_chars: usize) -> Option<Str
 pub async fn get_latest_gate_decision(
     project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Option<GateDecisionModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+
     let row = gate_decision::Entity::find()
         .filter(gate_decision::Column::ProjectId.eq(&project_id))
         .order_by_desc(gate_decision::Column::CreatedAt)
         .limit(1)
-        .one(db.inner())
+        .one(project_db.connection())
         .await?;
 
     Ok(row.map(model_to_gate_decision))
@@ -665,14 +717,16 @@ pub async fn list_gate_decisions(
     project_id: String,
     limit: Option<u64>,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
 ) -> Result<Vec<GateDecisionModel>, AppError> {
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
     let limit = limit.unwrap_or(10).min(50);
 
     let rows = gate_decision::Entity::find()
         .filter(gate_decision::Column::ProjectId.eq(&project_id))
         .order_by_desc(gate_decision::Column::CreatedAt)
         .limit(limit)
-        .all(db.inner())
+        .all(project_db.connection())
         .await?;
 
     Ok(rows.into_iter().map(model_to_gate_decision).collect())
@@ -684,13 +738,18 @@ pub async fn list_gate_decisions(
 pub async fn approve_for_implementation(
     project_id: String,
     db: State<'_, DatabaseConnection>,
+    registry: State<'_, Arc<ProjectDbRegistry>>,
+    app: AppHandle,
 ) -> Result<i64, AppError> {
-    // Check latest gate decision is pass
+    let project_db = resolve_project_db(db.inner(), &registry, &project_id).await?;
+    let pdb_conn = project_db.connection();
+
+    // Check latest gate decision is pass (from project-scoped DB)
     let latest = gate_decision::Entity::find()
         .filter(gate_decision::Column::ProjectId.eq(&project_id))
         .order_by_desc(gate_decision::Column::CreatedAt)
         .limit(1)
-        .one(db.inner())
+        .one(pdb_conn)
         .await?;
 
     match latest {
@@ -731,11 +790,15 @@ pub async fn approve_for_implementation(
                 ])
                 .to_owned(),
             )
-            .exec(db.inner())
+            .exec(pdb_conn)
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
 
         count += 1;
+    }
+
+    if let crate::db::ProjectDb::Remote { ref remote_project_id, ref connection_id, .. } = project_db {
+        sync::schedule_push_after_write(remote_project_id, connection_id, &app);
     }
 
     Ok(count)

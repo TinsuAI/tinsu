@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
-      host: devHost ?? '0.0.0.0',
+      host: '0.0.0.0',
       // Tell the Android WebView's HMR client where to connect.
       // Without an explicit host the WebSocket falls back to the wrong interface.
       hmr: devHost

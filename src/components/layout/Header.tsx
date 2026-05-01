@@ -9,6 +9,7 @@ import { VelocityWidget } from '@renderer/components/velocity'
 import { ProjectSwitcher, RemoteConnectionBadge } from '@renderer/components/project'
 import { Button } from '@renderer/components/ui/button'
 import { ThemeToggle } from '@renderer/components/ui/theme-toggle'
+import { SyncStatusIndicator } from '@renderer/components/sync/SyncStatusIndicator'
 
 interface HeaderProps {
   className?: string
@@ -50,6 +51,9 @@ export function Header({ className, onImportStories, onDeleteAllTasks, onSyncAll
           <span className="hidden lg:flex items-center">
             <VelocityWidget />
           </span>
+
+          {/* Remote sync status indicator — visible when remote project is active */}
+          <SyncStatusIndicator />
 
           {/* Remote connection status — always visible when a remote project is active */}
           <RemoteConnectionBadge />
