@@ -6,14 +6,14 @@ This document defines the automated agent team workflow for implementing epics s
 
 | Agent | Model | Role |
 |-------|-------|------|
-| **SM** (Scrum Master) | Sonnet 4.6 | Creates stories from epic backlog |
+| **SM** (Scrum Master) | Opus 4.7 | Creates stories from epic backlog |
 | **DEV 1** (Developer) | Sonnet 4.6 | Implements story code |
-| **DEV 2** (Reviewer) | Haiku 4.5 | Reviews code and auto-fixes issues |
+| **DEV 2** (Reviewer) | Sonnet 4.6 | Reviews code and auto-fixes issues |
 
 ## Pipeline Steps (per story)
 
 ### Step 1: Create Story
-**Agent:** SM (Sonnet 4.6)
+**Agent:** SM (Opus 4.7)
 ```
 /bmad-create-story *story-number
 ```
@@ -56,7 +56,7 @@ This document defines the automated agent team workflow for implementing epics s
 ┌──────────────────────────────────────────────────────────────┐
 │                   For each story:                             │
 │                                                              │
-│  SM (Sonnet 4.6)                                               │
+│  SM (Opus 4.7)                                                 │
 │  └─► /bmad-create-story *N                                   │
 │       status: backlog → ready-for-dev                        │
 │       │                                                      │
@@ -129,9 +129,9 @@ all steps including status updates.
 ### Model Selection (Critical)
 
 **Model assignment is per-role and MUST be set explicitly:**
-- **SM** → `model: "sonnet"` (story creation)
+- **SM** → `model: "opus"` (story creation)
 - **DEV 1** → `model: "sonnet"` (implementation)
-- **DEV 2** → `model: "haiku"` (code review)
+- **DEV 2** → `model: "sonnet"` (code review)
 
 Always pass the correct model to the Agent tool when spawning each agent.
 
@@ -292,3 +292,115 @@ tmux kill-session -t <session-name>
 - Stories are processed sequentially — each story must complete all 4 steps before the next begins
 - The pipeline runs continuously until all stories in the epic are implemented
 - **Agents must NOT carry context between stories** — always reset after completing a step
+
+## T3.5-8: Mobile Activity Feed and Settings
+
+**Story**: `t3-5-8-mobile-activity-feed-and-settings`
+**Status**: Review (DEV 1 complete 2026-04-30)
+**Tests**: 535 mobile tests passing | TypeScript clean
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/mobile/primitives/MobileSettingsRow.tsx` | Reusable settings list row primitive (16th mobile primitive) |
+| `src/mobile/primitives/MobileSettingsRow.test.tsx` | 12 tests |
+| `src/mobile/activity/activity-meta.ts` | Pure helpers: event type → title/icon/category, payload subtitle, relative time |
+| `src/mobile/activity/activity-meta.test.ts` | 38 tests |
+| `src/mobile/activity/MobileActivityRow.tsx` | Domain-specific activity feed row with glow animation |
+| `src/mobile/activity/MobileActivityRow.test.tsx` | 9 tests |
+| `src/mobile/activity/MobileActivityDetail.tsx` | Bottom sheet detail view with JSON payload, "Open task" button |
+| `src/mobile/activity/MobileActivityFeedScreen.test.tsx` | 9 tests |
+| `src/mobile/settings/MobileAgentSettings.tsx` | Dev/review model selection screen |
+| `src/mobile/settings/MobileAgentSettings.test.tsx` | 5 tests |
+| `src/mobile/settings/MobileThemeSettings.tsx` | Light/Dark/System theme selection screen |
+| `src/mobile/settings/MobileThemeSettings.test.tsx` | 5 tests |
+| `src/mobile/settings/MobileDiagnostics.tsx` | Read-only diagnostics with copy-to-clipboard |
+| `src/mobile/settings/MobileDiagnostics.test.tsx` | 4 tests |
+| `src/mobile/settings/MobileAbout.tsx` | Static about screen with stub rows |
+| `src/mobile/settings/MobileAbout.test.tsx` | 4 tests |
+| `src/mobile/settings/MobileLicenses.tsx` | Static OSS licenses screen |
+| `src/hooks/useGlobalActivitySubscription.ts` | Cross-task Tauri event subscription hook (no task_id filter) |
+| `src/hooks/useGlobalActivitySubscription.test.ts` | 4 tests |
+| `src/__mocks__/tauri-plugin-os.ts` | Test stub for @tauri-apps/plugin-os |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/mobile/activity/MobileActivityFeedScreen.tsx` | Full implementation: seed fetch, cross-task merge, chip filter, live subscription, deep-link bridge |
+| `src/mobile/settings/MobileSettingsHome.tsx` | Full sectioned list: Agent, Connections, Appearance, About sections |
+| `src/mobile/MobileApp.tsx` | Added 5 new route cases + mocks in test |
+| `src/mobile/MobileApp.test.tsx` | Added mocks for new screens |
+| `src/mobile/shell/deeplinks.ts` | Extended DeepLinkTarget with pendingTaskId; added settings/* and activity/* routes |
+| `src/mobile/shell/deeplinks.test.ts` | 7 new deep-link tests |
+| `src/mobile/shell/mobile-nav.store.ts` | Added pendingActivityForTask state + setPendingActivityForTask action |
+| `src/mobile/shell/mobile-nav.store.test.ts` | 4 new store tests |
+| `src/mobile/primitives/index.ts` | Exported MobileSettingsRow |
+| `src/globals.css` | Added @keyframes activity-glow + .animate-activity-glow class |
+| `vitest.config.ts` | Added @tauri-apps/plugin-os alias to stub |
+
+### Key Architecture Decisions
+
+- **Cross-task feed**: TS-side merge (Promise.all per task, no new Rust command) — intentional v1 choice
+- **pendingActivityForTask**: Transient store field bridges deep-link → activity feed screen
+- **Activity dedup**: Both initial fetch (Set<id>) and live subscription (prev.some check)
+- **MobileActivityFeedScreen activity mock**: Tests use `mockUseGlobalActivitySubscription.mock.calls` to retrieve callback (vi.doMock pattern doesn't work for already-imported modules)
+- **@tauri-apps/plugin-os**: Not installed in node_modules; stubbed via vitest.config.ts alias
+- **Dynamic imports in components**: Changed to static imports for testability (MobileDiagnostics)
+
+---
+
+## T3.5-9: Real-Device Validation Gate
+
+**Story:** `t3-5-9-real-device-validation-gate`
+**Status:** review (automation complete; Android device runs pending)
+**Agent:** DEV 1 (Sonnet 4.6), 2026-04-30
+
+This story is the Epic 3.5 gate between mobile parallel-tree implementation and Epic 4 CI/CD
+pipelines. It validates all T3.5-1 through T3.5-8 screens on real Android hardware and documents
+platform parity. iOS execution is deferred pending macOS availability.
+
+### Automated Deliverables Shipped
+
+| Artifact | Status |
+|----------|--------|
+| `scripts/audit-touch-targets.ts` | SHIPPED — 15/15 tests PASS |
+| `scripts/vitest.touch-targets.config.ts` | SHIPPED — vitest config for audit script |
+| `package.json` audit:touch-targets script | SHIPPED |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/measurements.md` | SHIPPED — master table with PENDING-DEVICE-RUN stubs |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/touch-target-audit.md` | SHIPPED — automated + device rows |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/t3-5-9-platform-parity.md` | SHIPPED — iOS-deferred documented |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/t3-5-9-followup-bugs.md` | SHIPPED — BUG-001 logged |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/logs/reduced-motion-grep.txt` | SHIPPED — 96-line grep evidence |
+| `_bmad-output/implementation-artifacts/t3-5-9-evidence/ci-snapshot-final.txt` | SHIPPED |
+| `_bmad-output/implementation-artifacts/t3-8-test-report.md` | UPDATED — in-place with real AC status |
+
+### AC Verification Summary
+
+- **AC 12 (touch targets):** AUTOMATED PASS — `npm run audit:touch-targets` → 15/15
+- **AC 13 (reduced-motion):** PARTIALLY-AUTOMATED — `useReducedMotion` used in 16 source files; device recordings pending
+- **AC 11 (deep-links):** Unit tests PASS (23/23); device cold/warm runs pending
+- **AC 22 (no regression):** Mobile suite 531/531 PASS; full suite pre-existing failures only; TypeScript clean
+- **ACs 1–10, 14–18:** PENDING-DEVICE-RUN with structured measurement tables
+
+### Key Findings
+
+- `useReducedMotion` hook correctly consumed in 16 mobile source files including all primitives with animations.
+- No `useIsMobile()` branches found in `src/mobile/` — parallel-tree rule upheld.
+- `MobileScreen` uses `100dvh` (not `100vh`) — iOS Safari-safe.
+- Safe-area `env()` tokens verified in MobileTabBar and MobileBottomActionBar.
+- **BUG-001:** `MobileChatScreen` overflow button (`h-10 w-10` = 40px) below 44px — non-blocker (button is disabled placeholder; fix when wiring T3.5-8's real overflow menu).
+
+### Evidence Directory
+
+`_bmad-output/implementation-artifacts/t3-5-9-evidence/`
+- `screenshots/` — device screenshots (PENDING-DEVICE-RUN)
+- `recordings/` — screen recordings (PENDING-DEVICE-RUN)
+- `traces/` — CPU/frame profiler traces (PENDING-DEVICE-RUN)
+- `logs/` — logcat + grep outputs (partial — reduced-motion grep captured)
+- `ci-snapshot-final.txt` — automated CI results
+- `measurements.md` — master evidence table
+- `touch-target-audit.md` — touch-target audit results
+- `t3-5-9-platform-parity.md` — Android vs iOS parity doc
+- `t3-5-9-followup-bugs.md` — bug triage

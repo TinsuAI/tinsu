@@ -260,7 +260,8 @@ This document provides the complete epic and story breakdown for TinSu's Tauri v
 **From Sprint Change Proposal — Phase Structure:**
 - Phase 1: Tauri Desktop Foundation (8-10 weeks) — 10 stories
 - Phase 2: Remote Project Support via SSH (4-6 weeks) — 8 stories
-- Phase 3: Mobile Targets (4-6 weeks) — 8 stories
+- Phase 3: Mobile Foundation — Build Targets (T3.1 only retained) — 1 story kept; T3.2–T3.8 superseded 2026-04-30
+- Phase 3.5: Mobile UX Native Redesign (5-6 weeks) — 9 stories (added 2026-04-30 via sprint-change-proposal-2026-04-30.md)
 - Phase 4: CI/CD and Build Pipeline (2-3 weeks) — 4 stories
 - Phase gates at end of each phase for validation
 
@@ -318,9 +319,13 @@ This document provides the complete epic and story breakdown for TinSu's Tauri v
 - FR60: Local/remote project switcher
 - NFR33-NFR36
 
-**Epic 3: Mobile Targets — Android & iOS**
-- Mobile adaptations of FR1-FR60 (responsive UI, touch interactions)
-- UX-DR7 mobile breakpoint (320-767px)
+**Epic 3: Mobile Foundation (Build Targets)**
+- T3.1 only: Android + iOS Tauri build target initialization
+- (T3.2–T3.8 superseded 2026-04-30; replaced by Epic 3.5)
+
+**Epic 3.5: Mobile UX Native Redesign**
+- Mobile-native delivery of FR1-FR60 via parallel UI tree at `src/mobile/`
+- UX-DR1–UX-DR15 carry over (Calm Command tokens, typography, spacing)
 - NFR38-NFR39
 
 **Epic 4: CI/CD and Build Pipeline**
@@ -343,12 +348,19 @@ Founder can connect to a remote machine via SSH and manage projects remotely —
 **NFRs:** NFR33-NFR36
 **Stories:** 8
 
-### Epic 3: Mobile Targets — Android & iOS
-Founder can use TinSu on Android and iOS to review tasks, approve/reject changes, monitor agents, and manage remote projects via SSH — with responsive mobile layout, touch-optimized Kanban interactions, mobile SSH connection flow, mobile terminal view, and mobile review/approval workflow. Enables intervention from anywhere.
-**FRs covered:** Mobile adaptations of FR1-FR60
+### Epic 3: Mobile Foundation (Build Targets)
+Restructured 2026-04-30 via sprint-change-proposal-2026-04-30.md. Original T3.2–T3.8 (responsive UI approach) superseded. Only T3.1 (Android + iOS Tauri build target initialization) is retained as foundation reused by Epic 3.5.
+**FRs covered:** Build target init only
+**NFRs:** NFR38 (mobile launch), NFR39 (frontend parity in mobile webviews) deferred to Epic 3.5
+**Stories:** 1 retained (T3.1); 7 superseded (T3.2–T3.8)
+
+### Epic 3.5: Mobile UX Native Redesign
+Founder uses TinSu on Android and iOS via a mobile-native UI tree at `src/mobile/` with full feature parity — kanban, planning workspace, task workspace, review, SSH, activity feed. Replaces the responsive single-tree approach. Reuses Rust backend, domain stores, rspc hooks, and Calm Command design tokens unchanged.
+**FRs covered:** Mobile-native delivery of FR1-FR60
 **NFRs:** NFR38-NFR39
-**UX-DRs:** UX-DR7 (mobile breakpoint)
-**Stories:** 8
+**UX-DRs:** UX-DR1–UX-DR15 (carry over via mobile primitives)
+**Design plan:** `_bmad-output/planning-artifacts/mobile-ux-redesign-plan-2026-04-30.md`
+**Stories:** 9
 
 ### Epic 4: CI/CD and Build Pipeline
 Automated builds and distribution for all 5 platforms — GitHub Actions workflows for desktop builds (macOS .dmg, Linux .AppImage/.deb, Windows .msi), Android builds (.apk/.aab), iOS builds (.ipa), and desktop auto-update mechanism. Enables professional distribution and continuous integration testing.
@@ -755,9 +767,11 @@ So that I can confidently use TinSu to manage projects on any machine.
 
 ---
 
-## Epic 3: Mobile Targets — Android & iOS
+## Epic 3: Mobile Foundation (Build Targets)
 
-Founder can use TinSu on Android and iOS to review tasks, approve/reject changes, monitor agents, and manage remote projects via SSH — with responsive mobile layout, touch-optimized interactions, and intervention from anywhere.
+> **Restructured 2026-04-30** via [sprint-change-proposal-2026-04-30.md](./sprint-change-proposal-2026-04-30.md).
+> Original responsive-UI stories T3.2–T3.7 superseded. T3.8 cancelled (rolls into Epic 3.5 device gate).
+> T3.1 (Android + iOS Tauri build targets) is retained as foundation reused by Epic 3.5.
 
 ### Story T3.1: Add Android and iOS Build Targets
 
@@ -777,7 +791,11 @@ So that I can develop and test TinSu on mobile devices.
 **And** the Rust backend compiles for ARM targets (aarch64-linux-android, aarch64-apple-ios)
 **And** mobile app launches in <3 seconds on 2022+ devices (NFR38)
 
-### Story T3.2: Responsive Layout and Mobile Navigation
+---
+
+> **Stories T3.2 through T3.8 below are SUPERSEDED (2026-04-30).** Replaced by Epic 3.5 stories T3.5-1 through T3.5-9. Story specifications retained for historical reference and as input to Epic 3.5 acceptance criteria.
+
+### Story T3.2: Responsive Layout and Mobile Navigation [SUPERSEDED — see T3.5-1, T3.5-2]
 
 As a founder,
 I want TinSu's UI to adapt to mobile screen sizes with appropriate navigation,
@@ -799,7 +817,7 @@ So that I can use the app effectively on phones and tablets.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.3: Touch-Optimized Kanban Interactions
+### Story T3.3: Touch-Optimized Kanban Interactions [SUPERSEDED — see T3.5-3]
 
 As a founder,
 I want to drag tasks, tap to open, and swipe between columns on mobile,
@@ -818,7 +836,7 @@ So that the core Kanban workflow is natural on touch devices.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.4: Mobile SSH Connection Flow
+### Story T3.4: Mobile SSH Connection Flow [SUPERSEDED — see T3.5-7]
 
 As a founder,
 I want to connect to remote machines from my phone,
@@ -836,7 +854,7 @@ So that I can manage remote projects while away from my desk.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.5: Mobile Terminal View
+### Story T3.5: Mobile Terminal View [SUPERSEDED — see T3.5-4]
 
 As a founder,
 I want to view agent terminal output on my phone,
@@ -855,7 +873,7 @@ So that I can monitor what agents are doing from anywhere.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.6: Mobile Review and Approval Flow
+### Story T3.6: Mobile Review and Approval Flow [SUPERSEDED — see T3.5-6]
 
 As a founder,
 I want to review diffs and approve/reject tasks from my phone,
@@ -875,7 +893,7 @@ So that I can unblock agent work without needing my laptop.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.7: Mobile Chat with Planning Agents
+### Story T3.7: Mobile Chat with Planning Agents [SUPERSEDED — see T3.5-5]
 
 As a founder,
 I want to chat with planning agents (PM, Architect, etc.) from my phone,
@@ -894,7 +912,7 @@ So that I can continue planning work during commutes or away from my desk.
 
 > 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
 
-### Story T3.8: Mobile Platform Validation (Phase 3 Gate)
+### Story T3.8: Mobile Platform Validation (Phase 3 Gate) [CANCELLED — rolls into T3.5-9]
 
 As a founder,
 I want to verify that TinSu works correctly on Android and iOS,
@@ -916,6 +934,197 @@ So that I can use mobile as my intervention and monitoring device.
 **And** all critical user journeys complete successfully on both platforms
 
 ---
+
+## Epic 3.5: Mobile UX Native Redesign
+
+Founder uses TinSu on Android and iOS via a mobile-native UI tree at `src/mobile/`, rendered conditionally at `App.tsx` based on viewport. Full feature parity: kanban, planning workspace, task workspace, review/approval, SSH, activity feed, settings. Replaces responsive single-tree approach (T3.2–T3.7). Reuses Rust backend, domain stores, rspc hooks, Calm Command tokens unchanged.
+
+**Source:** [`sprint-change-proposal-2026-04-30.md`](./sprint-change-proposal-2026-04-30.md)
+**Design plan:** [`mobile-ux-redesign-plan-2026-04-30.md`](./mobile-ux-redesign-plan-2026-04-30.md) (authoritative for screens, primitives, gestures)
+
+### Story T3.5-1: Mobile Shell Foundation
+
+As a founder,
+I want a viewport-detected mobile UI tree separate from the desktop tree,
+So that mobile UX can evolve independently without `useIsMobile()` branches scattered through desktop components.
+
+**Acceptance Criteria:**
+
+**Given** the existing `App.tsx` desktop tree
+**When** the viewport width is < 1024px on app mount
+**Then** `App.tsx` renders `<MobileApp />` instead of the desktop tree
+**And** the desktop tree is not mounted on mobile
+**And** `MobileApp.tsx` mounts a 5-tab `MobileTabBar` (Board / Planning / Tasks / Activity / Settings)
+**And** a `mobile-nav` Zustand store maintains 5 parallel navigation stacks (one per tab) with native back-button behavior
+**And** `tinsu://chat/{sessionId}` deep links route to the Planning tab and push the chat screen
+**And** `tinsu://task/{taskId}` deep links route to the Tasks tab and push the task workspace screen
+**And** `useIsMobile()` is no longer imported by any component under `src/components/`
+**And** existing desktop test suites pass unchanged
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-2: Mobile Primitives Library
+
+As a founder,
+I want a stable set of mobile UI primitives consuming Calm Command tokens,
+So that feature stories build on a consistent design surface and avoid mobile-component churn.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell from T3.5-1
+**When** I review `src/mobile/primitives/`
+**Then** the directory exports 14 primitives: `MobileScreen`, `MobileTopAppBar`, `MobileTabBar`, `MobileSheet`, `MobileSegmentedTabs`, `MobileColumnPager`, `MobileBottomActionBar`, `MobileListItem`, `MobileEmptyState`, `MobileChip`, `MobileFab`, `MobileSearchBar`, `MobileLoadingSkeleton`, `MobilePullToRefresh`
+**And** all primitives consume CSS variables from Calm Command tokens — no inline Tailwind color classes
+**And** all touch targets are ≥44×44 px (UX-DR7)
+**And** primitives respect `prefers-reduced-motion` (UX-DR6)
+**And** a visual harness page renders every primitive in its key states for review
+**And** primitive props are typed and documented inline
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-3: Mobile Board
+
+As a founder,
+I want a mobile-native kanban board with horizontal column pager and long-press drag,
+So that I can review and reorder tasks one-handed on a phone.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell and primitives from T3.5-1 and T3.5-2
+**When** I open the Board tab
+**Then** the kanban renders as a horizontal column pager with one column visible plus 8% peek of the next column
+**And** horizontal swipe pages between columns at 60fps with snap-to-column
+**And** long-press (250ms) on a card initiates drag using the existing @dnd-kit core
+**And** dragging near the edge auto-scrolls to the adjacent column
+**And** drop on a column updates task status via the existing Tauri command
+**And** an `MobileFab` opens a bottom-sheet add-task form
+**And** haptic feedback fires on drag start and drop (where supported)
+**And** desktop kanban behavior is unchanged
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-4: Mobile Task Workspace
+
+As a founder,
+I want a full-screen mobile task workspace with 4 sub-tabs (Content / Terminal / Activities / Diff),
+So that I can monitor agent execution end-to-end on mobile.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell and primitives from T3.5-1 and T3.5-2
+**When** I push a task workspace from the Board or Tasks tab
+**Then** the screen renders full-screen with `MobileTopAppBar` (back, task title, overflow menu)
+**And** a pinned `MobileSegmentedTabs` control switches between Content / Terminal / Activities / Diff
+**And** horizontal swipe between sub-tabs mirrors the segmented control
+**And** the Terminal sub-tab embeds xterm.js with the existing canvas renderer and a `TerminalAccessoryBar`
+**And** the Activities sub-tab streams real-time activity events with chip-style filters
+**And** the Diff sub-tab uses the unified diff renderer with the file tree as a `MobileSheet`
+**And** each sub-tab has a sticky `MobileBottomActionBar` with the relevant primary action (e.g., Approve on Diff)
+**And** scroll position is preserved per sub-tab during swipe
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-5: Mobile Planning
+
+As a founder,
+I want a mobile-native planning workspace with session list root and full-screen chat,
+So that I can continue planning conversations on phone without losing session context.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell from T3.5-1
+**When** I open the Planning tab
+**Then** the root screen shows a session list with last-message preview and live status badges
+**And** tapping a session pushes a full-screen chat screen
+**And** the chat screen displays a top BMAD persona pill that opens a `MobileSheet` listing personas (PM, Architect, Analyst, etc.)
+**And** I can start a new chat session by selecting a persona from the sheet
+**And** message bubbles render at mobile width with proper formatting and code-block scroll
+**And** the input bar pins to the bottom above the system keyboard with a send button
+**And** session resume preserves message history via the existing rspc hooks unchanged
+**And** `tinsu://chat/{sessionId}` deep links open directly to the chat screen
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-6: Mobile Review
+
+As a founder,
+I want a mobile-native review screen with sticky Approve / Request-changes action bar,
+So that I can approve or reject task changes one-handed without scrolling past the diff.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell and primitives from T3.5-1 and T3.5-2
+**When** a task is in Review and I open it on mobile
+**Then** the diff renders in unified-only view (no split toggle)
+**And** the file tree is accessible via a `MobileSheet` toggled from the top app bar
+**And** a sticky `MobileBottomActionBar` shows Approve (right, thumb-dominant) and Request changes (left)
+**And** tapping Approve triggers merge via the existing Tauri command and returns to the previous screen on success
+**And** tapping Request changes opens a feedback sheet with a multiline input and submit button
+**And** approval and rejection flows match desktop behavior end-to-end
+**And** large diffs (>500 lines) virtualize for smooth scroll
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-7: Mobile SSH and Connection Management
+
+As a founder,
+I want a mobile-native SSH connection flow with full-screen forms and a key picker sheet,
+So that I can add and test remote connections on phone without cramped modal dialogs.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell and primitives from T3.5-1 and T3.5-2 and the SSH backend from Tauri Epic 2
+**When** I open SSH connection management on mobile (from Settings tab or empty-state CTA)
+**Then** the connection list renders as a `MobileScreen` with `MobileListItem` rows showing connection name and live status
+**And** adding or editing a connection opens a full-screen form (host, port, user, key picker, label)
+**And** the key picker is a `MobileSheet` listing stored keys with select / generate-new actions
+**And** Test Connection inline-validates and surfaces success or failure with actionable error messages
+**And** connection status updates live via the existing rspc subscription unchanged
+**And** mobile network transitions (WiFi ↔ cellular) trigger automatic reconnect with toast feedback
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-8: Mobile Activity Feed and Settings
+
+As a founder,
+I want a cross-task activity feed and mobile settings screens,
+So that I can monitor agent activity at a glance and configure the app on phone.
+
+**Acceptance Criteria:**
+
+**Given** the mobile shell and primitives from T3.5-1 and T3.5-2
+**When** I open the Activity tab
+**Then** a chronologically merged feed of activities across all tasks renders with chip-style filters (status_change, agent_start, agent_complete, tool_used, user_command, automation_trigger, error)
+**And** tapping an activity row pushes the related task workspace at the matching sub-tab (Activities or Terminal)
+**When** I open the Settings tab
+**Then** mobile settings screens cover: agent model configuration, SSH connection management entry, theme & accessibility, telemetry & diagnostics, about
+**And** all settings screens render as `MobileScreen` with consistent top app bar and back navigation
+**And** empty states use `MobileEmptyState` with appropriate copy and CTA
+**And** loading states use `MobileLoadingSkeleton` matching the rendered row shape
+
+> 🎨 FRONTEND/UI STORY: Dev agent MUST use /frontend-design skill to implement this story.
+
+### Story T3.5-9: Real-Device Validation Gate (Phase 3.5 Gate)
+
+As a founder,
+I want all 10 acceptance criteria from `t3-8-test-report.md` verified on real Android and iOS hardware,
+So that mobile is provably production-ready before Phase 4 (CI/CD) builds against it.
+
+**Acceptance Criteria:**
+
+**Given** all T3.5-1 through T3.5-8 stories are complete and merged
+**When** I execute the validation procedure on Android API 34 emulator + at least one physical Android device, and on iOS 16+ simulator (and physical device if macOS available)
+**Then** AC 1: cold-start launch <3s on 2022+ devices (5-run mean), measured with Android Studio Profiler / Xcode Instruments
+**And** AC 2: responsive layout verified at 360×800 (Android) and 375×812 (iPhone SE) — no overflow, all targets ≥44px
+**And** AC 3: long-press drag and column pager profile at 60fps (no jank frames in profiler trace)
+**And** AC 4: SSH connect → remote project open → tasks load — succeeds end-to-end
+**And** AC 5: terminal sub-tab on Tauri Epic 2 SSH session — input/output latency <2s on cellular
+**And** AC 6: review sub-tab — open diff → approve → merge succeeds; reject → feedback submitted, task returns to In Progress
+**And** AC 7: Planning tab — open session list → push chat → send message → response appears
+**And** AC 8: critical user journeys complete without crashes (3 listed in test report)
+**And** AC 9: WiFi ↔ cellular transition recovers within 30s and terminal session resumes
+**And** AC 10: platform parity documented (Android vs iOS differences listed; iOS marked deferred if macOS unavailable)
+**And** the test report is updated with actual measurements (not stub data) and committed
 
 ## Epic 4: CI/CD and Build Pipeline
 

@@ -23,6 +23,12 @@
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* https:; worker-src 'self' blob:"
     }
   },
+  "plugins": {
+    "deep-link": {
+      "mobile": [{ "host": "tinsu", "schemes": ["tinsu"] }],
+      "desktop": { "schemes": ["tinsu"] }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -41,10 +41,7 @@ import { RemoteConnectionBadge } from '@renderer/components/project'
 import { KeyboardShortcutsOverlay } from '@renderer/components/planning/KeyboardShortcutsOverlay'
 import { ChatPanel } from '@renderer/components/planning/ChatPanel'
 import { ChatTerminal } from '@renderer/components/planning/ChatTerminal'
-import { MobileSessionDrawer } from '@renderer/components/planning/MobileSessionDrawer'
-import { useIsMobile } from '@renderer/hooks/useIsMobile'
 import { usePlanningKeyboardShortcuts } from '@renderer/hooks/usePlanningKeyboardShortcuts'
-import type { ChatSessionListItem } from '@renderer/components/planning/ChatSessionContextMenu'
 
 // localStorage key for planning workspace layout persistence
 const PLANNING_LAYOUT_STORAGE_KEY = 'tinsu-planning-workspace-layout'
@@ -74,7 +71,6 @@ function loadSavedPlanningLayout(): Layout {
  * - Escape key / back button navigation to board
  */
 export function PlanningWorkspacePage() {
-  const isMobile = useIsMobile()
   const {
     isOpen,
     activePhase,
@@ -93,8 +89,6 @@ export function PlanningWorkspacePage() {
   const projectId = useProjectStore((state) => state.activeProjectId) ?? ''
   const queryClient = useQueryClient()
 
-  // Mobile session drawer state
-  const [mobileSessionDrawerOpen, setMobileSessionDrawerOpen] = useState(false)
   const { data: artifacts } = useQuery({
     queryKey: ['planning-artifacts', projectId],
     queryFn: async () => {
@@ -315,22 +309,6 @@ export function PlanningWorkspacePage() {
     [selectedWorkflowKey, setSelectedWorkflow, setPendingChatPrefill]
   )
 
-  // Mobile: Handle session selection from drawer
-  const handleSelectMobileSession = useCallback(
-    (session: any) => {
-      // Store the target session ID to navigate to it in ChatPanel
-      usePlanningWorkspaceStore.setState({ targetChatSessionId: session.id })
-      setMobileSessionDrawerOpen(false)
-    },
-    []
-  )
-
-  // Mobile: Handle new chat from drawer
-  const handleNewChatFromDrawer = useCallback(() => {
-    usePlanningWorkspaceStore.setState({ targetChatSessionId: null })
-    setMobileSessionDrawerOpen(false)
-  }, [])
-
   // Handle back navigation
   const handleBack = useCallback(() => {
     closeWorkspace()
@@ -433,19 +411,6 @@ export function PlanningWorkspacePage() {
 
           {/* Right: panel toggles + shortcuts button + agent persona indicator */}
           <div className="flex items-center gap-2">
-            {/* Mobile sessions button - visible on mobile only */}
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => setMobileSessionDrawerOpen(true)}
-                data-testid="mobile-sessions-button"
-                aria-label="Open chat sessions"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-              </Button>
-            )}
             {/* Panel toggle buttons */}
             <div className="flex items-center gap-0.5 border-r border-border/30 pr-2 mr-1">
               <TooltipProvider>
@@ -773,17 +738,6 @@ export function PlanningWorkspacePage() {
         onClose={() => setShowShortcutsHelp(false)}
       />
 
-      {/* T3.7: Mobile sessions drawer — visible only on mobile */}
-      {isMobile && (
-        <MobileSessionDrawer
-          projectId={projectId}
-          selectedSessionId={activeChatSessionId}
-          onSelectSession={handleSelectMobileSession}
-          onNewChat={handleNewChatFromDrawer}
-          isOpen={mobileSessionDrawerOpen}
-          onOpenChange={setMobileSessionDrawerOpen}
-        />
-      )}
     </div>
   )
 }

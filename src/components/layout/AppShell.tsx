@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
-import { MobileBottomNav } from './MobileBottomNav'
 import { TerminalDock } from '@renderer/components/terminal'
 import { ImportStoriesDialog } from '@renderer/components/dialogs/ImportStoriesDialog'
 import { DeleteAllTasksDialog } from '@renderer/components/dialogs/DeleteAllTasksDialog'
@@ -94,9 +92,6 @@ export function AppShell({ children }: AppShellProps) {
       <div className="hidden lg:block">
         {isVisible && <TerminalDock />}
       </div>
-      {/* Spacer reserves document-flow space so content doesn't hide behind the portal-rendered bottom nav */}
-      <div className="shrink-0 lg:hidden" style={{ height: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} />
-
       {/* Story 3.7: Import Stories dialog - accessible from header */}
       <ImportStoriesDialog
         open={importDialogOpen}
@@ -128,13 +123,6 @@ export function AppShell({ children }: AppShellProps) {
         onOpenChange={setSettingsDialogOpen}
       />
 
-      {/* Portal: bottom nav rendered on document.body to bypass overflow:hidden clipping */}
-      {createPortal(
-        <div className="fixed bottom-0 left-0 right-0 z-[60] lg:hidden">
-          <MobileBottomNav onOpenSettings={handleOpenSettings} />
-        </div>,
-        document.body
-      )}
     </div>
   )
 }

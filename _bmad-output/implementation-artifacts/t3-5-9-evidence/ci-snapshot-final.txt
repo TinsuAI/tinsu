@@ -1,0 +1,38 @@
+=== CI SNAPSHOT — T3.5-9 Real-Device Validation Gate ===
+Date: 2026-04-30
+Branch: tauri-pivot
+
+=== npm test (full Vitest suite) ===
+[90m [2m❯[22m performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m17641:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[63/193]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m24 failed[39m[22m[2m | [22m[1m[32m161 passed[39m[22m[90m (185)[39m
+[2m      Tests [22m [1m[31m192 failed[39m[22m[2m | [22m[1m[32m2267 passed[39m[22m[90m (2459)[39m
+[2m   Start at [22m 12:49:20
+[2m   Duration [22m 34.56s[2m (transform 32.16s, setup 63.78s, import 141.04s, tests 120.49s, environment 142.55s)[22m
+
+
+=== npm run audit:touch-targets ===
+
+ [32m✓[39m scripts/audit-touch-targets.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 12:49:56
+[2m   Duration [22m 409ms[2m (transform 82ms, setup 0ms, import 127ms, tests 30ms, environment 0ms)[22m
+
+
+=== Mobile-only Vitest suite (npx vitest run src/mobile) ===
+
+[2m Test Files [22m [1m[32m55 passed[39m[22m[90m (55)[39m
+[2m      Tests [22m [1m[32m531 passed[39m[22m[90m (531)[39m
+[2m   Start at [22m 12:49:57
+[2m   Duration [22m 6.47s[2m (transform 14.34s, setup 19.54s, import 32.58s, tests 19.52s, environment 42.98s)[22m
+
+
+=== TypeScript typecheck (tsc --noEmit) ===
+TypeScript: CLEAN (no errors)
+
+=== NOTE: cargo test not run (Rust toolchain not available in this context) ===

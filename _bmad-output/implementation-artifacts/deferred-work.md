@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of t3-5-1-mobile-shell-foundation (2026-04-30)
+
+- **`TabButton.startPress` stale `isActive` closure in long-press timer** [src/mobile/primitives/MobileTabBar.tsx:84-90] — `isActive` captured at `pointerDown` time; if tab becomes active during the 500ms hold, the long-press handler won't fire. Minor UX edge case in placeholder primitive; T3.5-2 hardens MobileTabBar with full animation and long-press semantics.
+
 ## Deferred from: code review of t1-8-migrate-git-service-to-rust (2026-04-12)
 
 - **Weak unit tests in `review.rs`** — `test_approve_task_requires_non_empty_id` and `test_reject_task_increments_rejection_count_logic` test constants, not command logic. AC4 called for tests of `reject_task` increment and `approve_task` without worktree. Full integration tests require a DB fixture; deferred to match T1.5–T1.7 test pattern.
