@@ -433,11 +433,11 @@ pub async fn create_chat_session(
                 None
             }
         } else {
-            tracing::warn!(
-                "create_chat_session [{}]: remote project record not found: {}",
-                session_uuid, rp_id
-            );
-            None
+            return Err(AppError::NotFound(
+                "Chat is unavailable — the remote project link is stale. \
+                 Please close and re-open the project to refresh the connection."
+                    .to_string(),
+            ));
         }
     } else {
         // ── Local project: existing behavior ────────────────────────────────
@@ -625,7 +625,7 @@ pub async fn send_chat_message(
                         ssh_conn.host, ssh_conn.port, tmux_session
                     );
 
-                    if let Err(e) = ssh_service::run_ssh_exec(
+                    ssh_service::run_ssh_exec(
                         &ssh_conn.host,
                         ssh_conn.port as u16,
                         &ssh_conn.username,
@@ -635,16 +635,20 @@ pub async fn send_chat_message(
                         &cmd,
                     )
                     .await
-                    {
+                    .map_err(|e| {
                         tracing::warn!("send_chat_message: remote tmux send failed: {}", e);
-                    } else {
-                        tracing::info!("send_chat_message: remote tmux send succeeded");
-                    }
+                        e
+                    })?;
+                    tracing::info!("send_chat_message: remote tmux send succeeded");
                 } else {
                     tracing::warn!("send_chat_message: SSH connection not found for remote project");
                 }
             } else {
-                tracing::warn!("send_chat_message: remote project record not found: {}", rp_id);
+                return Err(AppError::NotFound(
+                    "Chat is unavailable — the remote project link is stale. \
+                     Please close and re-open the project to refresh the connection."
+                        .to_string(),
+                ));
             }
         } else {
             // Local project: send via local tmux
@@ -893,11 +897,11 @@ pub async fn attach_chat_terminal(
         let rp = match rp_opt {
             Some(r) => r,
             None => {
-                tracing::warn!(
-                    "attach_chat_terminal: remote project record not found: {}",
-                    rp_id
-                );
-                return Ok(AttachResult { process_id: String::new(), attached: false });
+                return Err(AppError::NotFound(
+                    "Chat is unavailable — the remote project link is stale. \
+                     Please close and re-open the project to refresh the connection."
+                        .to_string(),
+                ));
             }
         };
 
